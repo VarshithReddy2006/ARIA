@@ -13,7 +13,7 @@ This document describes the manual validation suite to verify the correctness, s
    ```bash
    npm run dev
    ```
-3. Open the browser and navigate to the dashboard (typically `http://localhost:3000` or `http://localhost:4321` depending on settings) with a test repository parameter, e.g. `?repo=Repo-Intelligence-Agent`.
+3. Open the browser and navigate to the dashboard (typically `http://localhost:4321` depending on settings) with a test repository parameter, e.g. `?repo=Repo-Intelligence-Agent`.
 
 ---
 

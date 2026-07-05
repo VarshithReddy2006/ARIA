@@ -1,4 +1,4 @@
-# Contributing to Repo Intelligence Agent v1.0
+# Contributing to Repo Intelligence Agent v1.0.0
 
 Thank you for contributing! This guide covers the repository structure, coding standards, branch naming, commit conventions, testing, and the pull request checklist.
 
@@ -75,9 +75,9 @@ Before opening a pull request, run this checklist locally:
 
 ### Step 1: Run Python Tests
 ```bash
-pytest
+pytest tests/
 ```
-- Ensure all 552 tests pass.
+- Ensure all 794 tests pass.
 - Write unit tests under the `/tests` directory for any new parsing or retrieval logic.
 
 ### Step 2: Format & Lint Python

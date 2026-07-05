@@ -44,6 +44,9 @@ Failed authentication requests return a `401 Unauthorized` response:
 - [PR & Architecture Drift Intelligence](#pr--architecture-drift-intelligence)
 - [Dead Code Intelligence](#dead-code-intelligence)
 - [Repository Intelligence Report](#repository-intelligence-report)
+- [AI Engineering Advisor](#ai-engineering-advisor)
+- [Autonomous Engineering Agent (AEA²)](#autonomous-engineering-agent-aea2)
+- [Intelligent IDE Workspace](#intelligent-ide-workspace)
 
 ---
 
@@ -1530,4 +1533,205 @@ Downloads the formatted report in the requested file type.
 
 #### Response (200 OK)
 - **Binary Stream** with appropriate MIME type (`text/html` or `text/markdown`) and `Content-Disposition` attachment header.
+
+---
+
+## AI Engineering Advisor
+
+### POST /api/v1/repositories/{owner}/{repo}/advisor
+Runs the full AI Engineering Advisor pipeline and returns a structured AdvisorReport. Consolidates information from the Repository Inspector, Engineering Memory, and Continuous Monitoring.
+
+#### Response (200 OK)
+```json
+{
+  "repository": "fastapi/fastapi",
+  "overall_priority": "medium",
+  "total_recommendations": 12,
+  "top_recommendations": [
+    {
+      "id": "rec-1",
+      "title": "Resolve cycle between main and routing",
+      "category": "architecture",
+      "priority": "high",
+      "estimated_effort": "medium"
+    }
+  ],
+  "roadmap_phases": 3,
+  "roadmap_summary": [
+    {
+      "phase": 1,
+      "title": "Mitigate Security & Dependency Issues",
+      "recommendation_count": 4
+    }
+  ]
+}
+```
+
+---
+
+### GET /api/v1/repositories/{owner}/{repo}/advisor/latest
+Returns the most recently persisted AdvisorReport.
+
+#### Response (200 OK)
+*(Same schema format as Advisor Report)*
+
+---
+
+### GET /api/v1/repositories/{owner}/{repo}/advisor/recommendations
+Returns the prioritized recommendation list from the latest AdvisorReport.
+
+#### Query Parameters
+- `priority` (string, optional): Filter by: `critical` | `high` | `medium` | `low`.
+- `category` (string, optional): Filter by category name.
+- `limit` (int, optional): Maximum number to return (default `50`).
+
+#### Response (200 OK)
+```json
+[
+  {
+    "id": "rec-1",
+    "title": "Resolve cycle between main and routing",
+    "category": "architecture",
+    "priority": "high",
+    "estimated_effort": "medium"
+  }
+]
+```
+
+---
+
+### GET /api/v1/repositories/{owner}/{repo}/advisor/roadmap
+Returns the phased engineering roadmap from the latest AdvisorReport.
+
+#### Response (200 OK)
+```json
+[
+  {
+    "phase": 1,
+    "title": "Mitigate Security & Dependency Issues",
+    "recommendation_count": 4
+  }
+]
+```
+
+---
+
+## Autonomous Engineering Agent (AEA²)
+
+### POST /api/v1/repositories/{owner}/{repo}/execution-plan
+Generates a structured implementation plan from the latest AdvisorReport. Requires a previously generated AdvisorReport to exist.
+
+#### Response (200 OK)
+```json
+{
+  "repository": "fastapi/fastapi",
+  "total_tasks": 8,
+  "total_batches": 2,
+  "critical_path_length": 5,
+  "rollback_checkpoints": 2,
+  "conflict_count": 0,
+  "overall_risk": "low",
+  "batches": [
+    {
+      "batch_id": "batch-1",
+      "order": 1,
+      "title": "Initial Refactoring Pass",
+      "task_count": 3,
+      "parallel": true,
+      "estimated_effort": "1 day"
+    }
+  ],
+  "critical_path": ["task-1", "task-3"],
+  "metadata": {}
+}
+```
+
+---
+
+### GET /api/v1/repositories/{owner}/{repo}/execution-plan/latest
+Returns the most recently persisted ExecutionPlan.
+
+#### Response (200 OK)
+*(Same schema format as ExecutionPlan)*
+
+---
+
+### GET /api/v1/repositories/{owner}/{repo}/execution-plan/batches
+Returns the ordered execution batches from the latest ExecutionPlan.
+
+#### Response (200 OK)
+*(Returns batches summary array)*
+
+---
+
+### GET /api/v1/repositories/{owner}/{repo}/execution-plan/critical-path
+Returns the critical path of execution tasks.
+
+#### Response (200 OK)
+```json
+["task-1", "task-3"]
+```
+
+---
+
+## Intelligent IDE Workspace
+
+### GET /api/v1/repositories/{owner}/{repo}/workspace
+Returns the complete consolidated IDE workspace snapshot for a repository.
+
+#### Query Parameters
+- `file` (string, optional): Currently open file path.
+- `symbol` (string, optional): Currently selected symbol.
+- `panel` (string, optional): Active workspace panel name (default `overview`).
+
+#### Response (200 OK)
+```json
+{
+  "state": {
+    "repository": "fastapi/fastapi",
+    "selected_file": "main.py",
+    "selected_symbol": "app",
+    "active_panel": "overview",
+    "filters": {},
+    "ui_preferences": {}
+  },
+  "overview": {
+    "repository": "fastapi/fastapi",
+    "description": "High performance API framework",
+    "primary_language": "Python",
+    "languages": ["Python"],
+    "total_files": 342,
+    "total_symbols": 1821,
+    "architecture_style": "FastAPI Router Structure",
+    "dependency_count": 12,
+    "health": {
+      "overall_score": 88,
+      "overall_priority": "medium",
+      "critical_count": 0,
+      "high_count": 2,
+      "medium_count": 4,
+      "low_count": 6,
+      "trend_direction": "stable"
+    },
+    "last_indexed_at": 1719543600,
+    "metadata": {}
+  },
+  "explorer": null,
+  "chat": null,
+  "findings": null,
+  "timeline": null,
+  "monitor": null,
+  "advisor": null,
+  "execution": null,
+  "available_panels": ["overview", "explorer", "chat", "findings", "timeline", "monitor", "advisor", "execution"],
+  "metadata": {}
+}
+```
+
+---
+
+### GET /api/v1/repositories/{owner}/{repo}/workspace/{panel}
+Fetches details for a specific dashboard panel in the workspace. Available panels: `overview`, `explorer`, `chat`, `findings`, `timeline`, `monitor`, `advisor`, `execution`.
+Prefixes can be root `/repositories/...`, `/api/repositories/...`, or `/api/v1/repositories/...`.
+
 

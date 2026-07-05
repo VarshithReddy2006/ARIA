@@ -58,6 +58,19 @@ from services.api_surface_service import APISurfaceService
 from services.breaking_change_analyzer import BreakingChangeAnalyzer
 from services.report.composer import ReportComposer
 from services.report.renderer import HTMLRenderer, MarkdownRenderer, PDFRenderer
+from services.twin_builder import RepositoryTwinBuilder
+from services.twin_navigator import RepositoryTwinNavigator
+from services.knowledge_graph_builder import RepositoryKnowledgeGraphBuilder
+from services.knowledge_graph_navigator import RepositoryKnowledgeGraphNavigator
+from services.retrieval_engine import StructuralRetrievalEngine
+from services.reasoning_engine import EngineeringReasoningEngine
+from services.graph_rag import GraphRAGService
+from services.memory_service import EngineeringMemoryService
+from services.repository_inspector import RepositoryInspector
+from services.continuous_monitoring import ContinuousMonitoringService, ImmediatePolicy
+from services.advisor import AdvisorService
+from services.execution_planner import ExecutionPlannerService
+from services.workspace import WorkspaceCoordinator, WorkspaceService
 
 
 logger = logging.getLogger(__name__)
@@ -293,6 +306,42 @@ report_composer = ReportComposer()
 html_renderer = HTMLRenderer()
 markdown_renderer = MarkdownRenderer()
 pdf_renderer = PDFRenderer()
+
+repository_twin_builder = RepositoryTwinBuilder()
+repository_twin_navigator = RepositoryTwinNavigator()
+
+repository_knowledge_graph_builder = RepositoryKnowledgeGraphBuilder()
+repository_knowledge_graph_navigator = RepositoryKnowledgeGraphNavigator()
+
+structural_retrieval_engine = StructuralRetrievalEngine()
+engineering_reasoning_engine = EngineeringReasoningEngine()
+
+graph_rag_service = GraphRAGService()
+
+engineering_memory_service = EngineeringMemoryService()
+
+repository_inspector = RepositoryInspector()
+
+continuous_monitoring_service = ContinuousMonitoringService(
+    repository_inspector=repository_inspector,
+    default_policy=ImmediatePolicy(),
+)
+
+advisor_service = AdvisorService()
+
+execution_planner_service = ExecutionPlannerService()
+
+workspace_service = WorkspaceService(
+    WorkspaceCoordinator(
+        twin_builder=repository_twin_builder,
+        knowledge_graph_builder=repository_knowledge_graph_builder,
+        repository_inspector=repository_inspector,
+        engineering_memory_service=engineering_memory_service,
+        continuous_monitoring_service=continuous_monitoring_service,
+        advisor_service=advisor_service,
+        execution_planner_service=execution_planner_service,
+    )
+)
 
 # ---------------------------------------------------------------------------
 # Repository Chat v2 — RetrievalPipeline singleton

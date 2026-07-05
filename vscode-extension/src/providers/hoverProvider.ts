@@ -12,16 +12,16 @@ import {
   Symbol as RepoSymbol,
   FileSymbolsResponse,
 } from '../api';
+import { DocumentLruCache } from '../utils/lruCache';
+import { StateService } from '../utils/stateService';
 
-// Cache: repoKey -> filePath -> symbols[]
-const symbolCache = new Map<string, Map<string, RepoSymbol[]>>();
+// Bounded LRU Cache (max 50 documents)
+export const hoverCache = new DocumentLruCache<RepoSymbol[]>(50);
 // Track in-flight requests to debounce
 const inFlight = new Set<string>();
 
 function getActiveRepo(): string {
-  return (
-    vscode.workspace.getConfiguration('repoIntelligence').get<string>('activeRepository') ?? ''
-  );
+  return StateService.getActiveRepository();
 }
 
 function repoToOwnerRepo(identifier: string): [string, string] | null {
@@ -50,17 +50,16 @@ function getRelativePath(document: vscode.TextDocument): string {
 async function getSymbolsForFile(
   owner: string,
   repo: string,
-  filePath: string
+  filePath: string,
+  document: vscode.TextDocument
 ): Promise<RepoSymbol[] | null> {
-  const repoKey = `${owner}/${repo}`;
-  const fileCache = symbolCache.get(repoKey) ?? new Map<string, RepoSymbol[]>();
-  symbolCache.set(repoKey, fileCache);
-
-  if (fileCache.has(filePath)) {
-    return fileCache.get(filePath)!;
+  const uriStr = document.uri.toString();
+  const cached = hoverCache.get(uriStr);
+  if (cached && cached.version === document.version) {
+    return cached.value;
   }
 
-  const cacheKey = `${repoKey}::${filePath}`;
+  const cacheKey = `${owner}/${repo}::${filePath}`;
   if (inFlight.has(cacheKey)) {
     return null; // debounce concurrent requests
   }
@@ -68,7 +67,7 @@ async function getSymbolsForFile(
   inFlight.add(cacheKey);
   try {
     const result: FileSymbolsResponse = await client.getFileSymbols(owner, repo, filePath);
-    fileCache.set(filePath, result.symbols);
+    hoverCache.set(uriStr, { value: result.symbols, version: document.version });
     return result.symbols;
   } catch {
     // Return null silently — hover should never surface errors to the user
@@ -164,7 +163,7 @@ export class RepoIntelligenceHoverProvider implements vscode.HoverProvider {
     }
 
     const filePath = getRelativePath(document);
-    const symbols = await getSymbolsForFile(owner, repo, filePath);
+    const symbols = await getSymbolsForFile(owner, repo, filePath, document);
     if (!symbols) {
       return null;
     }

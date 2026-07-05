@@ -1,0 +1,66 @@
+{
+  // -----------------------------------------------------------------------
+  // Launch configuration for the vscode-extension subfolder.
+  //
+  // ${workspaceFolder} here resolves to the vscode-extension/ directory
+  // when VS Code is opened with that folder as the workspace root.
+  //
+  // If you open the repository root instead, use the launch configs in
+  // the root .vscode/launch.json — those already include the correct
+  // /vscode-extension suffix on every path.
+  // -----------------------------------------------------------------------
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "Run Repo Intelligence Extension",
+      "type": "extensionHost",
+      "request": "launch",
+      "runtimeExecutable": "${execPath}",
+      "args": [
+        // ${workspaceFolder} = <repo>/vscode-extension when this folder is the root
+        "--extensionDevelopmentPath=${workspaceFolder}",
+        "--disable-extensions"
+      ],
+      "outFiles": [
+        "${workspaceFolder}/out/**/*.js"
+      ],
+      "preLaunchTask": "npm: compile"
+    },
+    {
+      "name": "Extension Tests",
+      "type": "extensionHost",
+      "request": "launch",
+      "runtimeExecutable": "${execPath}",
+      "args": [
+        "--extensionDevelopmentPath=${workspaceFolder}",
+        "--extensionTestsPath=${workspaceFolder}/out/test/runTests",
+        "--disable-extensions"
+      ],
+      "outFiles": [
+        "${workspaceFolder}/out/**/*.js"
+      ],
+      "preLaunchTask": "npm: compile"
+    },
+    {
+      "name": "Run Unit Tests (Mocha)",
+      "type": "node",
+      "request": "launch",
+      "cwd": "${workspaceFolder}",
+      "runtimeArgs": [
+        "-r",
+        "module-alias/register"
+      ],
+      "program": "${workspaceFolder}/node_modules/mocha/bin/mocha",
+      "args": [
+        "out/test/api.test.js",
+        "out/test/commands.test.js",
+        "out/test/graph.test.js",
+        "out/test/providers.test.js",
+        "out/test/settings.test.js",
+        "out/test/chat.test.js",
+        "out/test/workspaceViews.test.js"
+      ],
+      "preLaunchTask": "npm: compile"
+    }
+  ]
+}

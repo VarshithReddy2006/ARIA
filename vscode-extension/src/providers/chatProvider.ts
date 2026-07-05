@@ -22,11 +22,11 @@ export class ChatProvider {
     context: vscode.ExtensionContext,
     repo: string,
     client: RepoIntelligenceClient
-  ): void {
+  ): ChatProvider {
     const existing = ChatProvider._panels.get(repo);
     if (existing) {
       existing._panel.reveal(vscode.ViewColumn.Beside);
-      return;
+      return existing;
     }
 
     const panel = vscode.window.createWebviewPanel(
@@ -50,6 +50,12 @@ export class ChatProvider {
       ChatProvider._panels.delete(repo);
       provider._cancelStream?.();
     });
+
+    return provider;
+  }
+
+  public triggerQuery(userText: string): void {
+    void this._sendMessage(userText);
   }
 
   private constructor(

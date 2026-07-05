@@ -4,6 +4,16 @@
   "description": "Bring repository intelligence directly into VS Code — symbol hover, CodeLens, interactive graphs, chat, and more.",
   "version": "0.1.0",
   "publisher": "repo-intelligence",
+  "author": "Varshith Reddy",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/VarshithReddy2006/Repo-Intelligence-Agent.git"
+  },
+  "bugs": {
+    "url": "https://github.com/VarshithReddy2006/Repo-Intelligence-Agent/issues"
+  },
+  "homepage": "https://github.com/VarshithReddy2006/Repo-Intelligence-Agent",
   "engines": {
     "vscode": "^1.85.0"
   },
@@ -19,9 +29,51 @@
     "code intelligence",
     "chat"
   ],
-  "icon": "resources/icon.png",
   "activationEvents": [
-    "onStartupFinished"
+    "onView:repoIntelligenceExplorer",
+    "onView:repoIntelligenceFindings",
+    "onView:repoIntelligenceAdvisor",
+    "onView:repoIntelligenceExecution",
+    "onView:repoIntelligenceConnection",
+    "onCommand:repoIntelligence.analyzeRepository",
+    "onCommand:repoIntelligence.refreshAnalysis",
+    "onCommand:repoIntelligence.setActiveRepository",
+    "onCommand:repoIntelligence.showDependencyGraph",
+    "onCommand:repoIntelligence.showCallGraph",
+    "onCommand:repoIntelligence.showArchitectureHealth",
+    "onCommand:repoIntelligence.showModuleStability",
+    "onCommand:repoIntelligence.showAPISurface",
+    "onCommand:repoIntelligence.showRepositoryChat",
+    "onCommand:repoIntelligence.showReadingPath",
+    "onCommand:repoIntelligence.openDashboard",
+    "onCommand:repoIntelligence.openWorkspace",
+    "onCommand:repoIntelligence.openFindings",
+    "onCommand:repoIntelligence.openAdvisor",
+    "onCommand:repoIntelligence.openTimeline",
+    "onCommand:repoIntelligence.openMonitoring",
+    "onCommand:repoIntelligence.openExecutionPlan",
+    "onCommand:repoIntelligence.refreshWorkspace",
+    "onCommand:repoIntelligence.showCallers",
+    "onCommand:repoIntelligence.showCallees",
+    "onCommand:repoIntelligence.showBlastRadius",
+    "onCommand:repoIntelligence.showImpactAnalysis",
+    "onCommand:repoIntelligence.showReadingPathForFile",
+    "onCommand:repoIntelligence.connectBackend",
+    "onCommand:repoIntelligence.explorerRefresh",
+    "onCommand:repoIntelligence.updateApiToken",
+    "onCommand:repoIntelligence.search",
+    "onCommand:repoIntelligence.reviewFile",
+    "onCommand:repoIntelligence.reviewModule",
+    "onCommand:repoIntelligence.reviewChanges",
+    "onCommand:repoIntelligence.reviewStagedChanges",
+    "onCommand:repoIntelligence.reviewRepository",
+    "onCommand:repoIntelligence.showDependencyChain",
+    "onCommand:repoIntelligence.explainFile",
+    "onCommand:repoIntelligence.explainSymbol",
+    "onCommand:repoIntelligence.showCallersInGraph",
+    "onCommand:repoIntelligence.showCalleesInGraph",
+    "onCommand:repoIntelligence.showBlastRadiusInGraph",
+    "onCommand:repoIntelligence.showCallHierarchy"
   ],
   "main": "./out/extension.js",
   "contributes": {
@@ -82,6 +134,18 @@
           "type": "boolean",
           "default": true,
           "description": "Enable symbol intelligence hover cards."
+        },
+        "repoIntelligence.logLevel": {
+          "type": "string",
+          "enum": [
+            "trace",
+            "debug",
+            "info",
+            "warn",
+            "error"
+          ],
+          "default": "info",
+          "description": "Log level for the Repository Intelligence output channel."
         }
       }
     },
@@ -142,6 +206,41 @@
         "icon": "$(dashboard)"
       },
       {
+        "command": "repoIntelligence.openWorkspace",
+        "title": "Repo Intelligence: Open Workspace",
+        "icon": "$(layout)"
+      },
+      {
+        "command": "repoIntelligence.openFindings",
+        "title": "Repo Intelligence: Open Findings",
+        "icon": "$(issues)"
+      },
+      {
+        "command": "repoIntelligence.openAdvisor",
+        "title": "Repo Intelligence: Open Advisor",
+        "icon": "$(lightbulb)"
+      },
+      {
+        "command": "repoIntelligence.openTimeline",
+        "title": "Repo Intelligence: Open Timeline",
+        "icon": "$(history)"
+      },
+      {
+        "command": "repoIntelligence.openMonitoring",
+        "title": "Repo Intelligence: Open Monitoring",
+        "icon": "$(pulse)"
+      },
+      {
+        "command": "repoIntelligence.openExecutionPlan",
+        "title": "Repo Intelligence: Open Execution Plan",
+        "icon": "$(tasklist)"
+      },
+      {
+        "command": "repoIntelligence.refreshWorkspace",
+        "title": "Repo Intelligence: Refresh Workspace",
+        "icon": "$(refresh)"
+      },
+      {
         "command": "repoIntelligence.showCallers",
         "title": "Show Callers"
       },
@@ -170,6 +269,170 @@
         "command": "repoIntelligence.explorerRefresh",
         "title": "Refresh",
         "icon": "$(refresh)"
+      },
+      {
+        "command": "repoIntelligence.updateApiToken",
+        "title": "Repo Intelligence: Update API Token"
+      },
+      {
+        "command": "repoIntelligence.nextReadingStep",
+        "title": "Repo Intelligence: Next Reading Step",
+        "icon": "$(arrow-right)"
+      },
+      {
+        "command": "repoIntelligence.previousReadingStep",
+        "title": "Repo Intelligence: Previous Reading Step",
+        "icon": "$(arrow-left)"
+      },
+      {
+        "command": "repoIntelligence.refreshRepository",
+        "title": "Repo Intelligence: Refresh Repository",
+        "icon": "$(refresh)"
+      },
+      {
+        "command": "repoIntelligence.reconnectBackend",
+        "title": "Repo Intelligence: Reconnect Backend",
+        "icon": "$(plug)"
+      },
+      {
+        "command": "repoIntelligence.askRepository",
+        "title": "Repo Intelligence: Ask Repository",
+        "icon": "$(comment-discussion)"
+      },
+      {
+        "command": "repoIntelligence.runInspection",
+        "title": "Repo Intelligence: Run Inspection",
+        "icon": "$(play)"
+      },
+      {
+        "command": "repoIntelligence.runMonitoring",
+        "title": "Repo Intelligence: Run Monitoring",
+        "icon": "$(activity)"
+      },
+      {
+        "command": "repoIntelligence.generateRoadmap",
+        "title": "Repo Intelligence: Generate Roadmap",
+        "icon": "$(lightbulb)"
+      },
+      {
+        "command": "repoIntelligence.generateExecutionPlan",
+        "title": "Repo Intelligence: Generate Execution Plan",
+        "icon": "$(tasklist)"
+      },
+      {
+        "command": "repoIntelligence.askAboutFile",
+        "title": "Repo Intelligence: Ask About This File"
+      },
+      {
+        "command": "repoIntelligence.findReferencesInGraph",
+        "title": "Repo Intelligence: Find References in Repository Graph"
+      },
+      {
+        "command": "repoIntelligence.inspectModule",
+        "title": "Repo Intelligence: Inspect This Module"
+      },
+      {
+        "command": "repoIntelligence.showCodeLensQuickPick",
+        "title": "Repo Intelligence: Show CodeLens Actions"
+      },
+      {
+        "command": "repoIntelligence.search",
+        "title": "Repo Intelligence: Search",
+        "icon": "$(search)"
+      },
+      {
+        "command": "repoIntelligence.reviewFile",
+        "title": "Repo Intelligence: Review Current File",
+        "icon": "$(eye)"
+      },
+      {
+        "command": "repoIntelligence.reviewModule",
+        "title": "Repo Intelligence: Review Current Module",
+        "icon": "$(eye)"
+      },
+      {
+        "command": "repoIntelligence.reviewChanges",
+        "title": "Repo Intelligence: Review Current Changes",
+        "icon": "$(eye)"
+      },
+      {
+        "command": "repoIntelligence.reviewStagedChanges",
+        "title": "Repo Intelligence: Review Staged Changes",
+        "icon": "$(eye)"
+      },
+      {
+        "command": "repoIntelligence.reviewRepository",
+        "title": "Repo Intelligence: Review Entire Repository",
+        "icon": "$(eye)"
+      },
+      {
+        "command": "repoIntelligence.showDependencyChain",
+        "title": "Repo Intelligence: Show Dependency Chain",
+        "icon": "$(type-hierarchy)"
+      },
+      {
+        "command": "repoIntelligence.explainFile",
+        "title": "Repo Intelligence: Explain File"
+      },
+      {
+        "command": "repoIntelligence.explainSymbol",
+        "title": "Repo Intelligence: Explain Symbol"
+      },
+      {
+        "command": "repoIntelligence.showCallersInGraph",
+        "title": "Repo Intelligence: Find Callers"
+      },
+      {
+        "command": "repoIntelligence.showCalleesInGraph",
+        "title": "Repo Intelligence: Find Callees"
+      },
+      {
+        "command": "repoIntelligence.showBlastRadiusInGraph",
+        "title": "Repo Intelligence: Show Blast Radius"
+      },
+      {
+        "command": "repoIntelligence.showCallHierarchy",
+        "title": "Repo Intelligence: Show Call Hierarchy"
+      },
+      {
+        "command": "repoIntelligence.advisorOpenFile",
+        "title": "Open File"
+      },
+      {
+        "command": "repoIntelligence.advisorShowReasoning",
+        "title": "Show Reasoning"
+      },
+      {
+        "command": "repoIntelligence.advisorShowEvidence",
+        "title": "Show Evidence"
+      },
+      {
+        "command": "repoIntelligence.advisorIgnore",
+        "title": "Ignore Recommendation"
+      },
+      {
+        "command": "repoIntelligence.executionOpenTask",
+        "title": "Open Task"
+      },
+      {
+        "command": "repoIntelligence.executionNextTask",
+        "title": "Next Task"
+      },
+      {
+        "command": "repoIntelligence.executionPreviousTask",
+        "title": "Previous Task"
+      },
+      {
+        "command": "repoIntelligence.executionShowCriticalPath",
+        "title": "Show Critical Path"
+      },
+      {
+        "command": "repoIntelligence.executionShowRollback",
+        "title": "Show Rollback Checkpoint"
+      },
+      {
+        "command": "repoIntelligence.runSelfDiagnostics",
+        "title": "Repo Intelligence: Run Self Diagnostics"
       }
     ],
     "viewsContainers": {
@@ -186,6 +449,21 @@
         {
           "id": "repoIntelligenceExplorer",
           "name": "Repository Explorer",
+          "when": "true"
+        },
+        {
+          "id": "repoIntelligenceFindings",
+          "name": "Engineering Findings",
+          "when": "true"
+        },
+        {
+          "id": "repoIntelligenceAdvisor",
+          "name": "Advisor Dashboard",
+          "when": "true"
+        },
+        {
+          "id": "repoIntelligenceExecution",
+          "name": "Execution Planner",
           "when": "true"
         },
         {
@@ -228,6 +506,133 @@
         {
           "command": "repoIntelligence.showReadingPathForFile",
           "when": "false"
+        },
+        {
+          "command": "repoIntelligence.advisorOpenFile",
+          "when": "false"
+        },
+        {
+          "command": "repoIntelligence.advisorShowReasoning",
+          "when": "false"
+        },
+        {
+          "command": "repoIntelligence.advisorShowEvidence",
+          "when": "false"
+        },
+        {
+          "command": "repoIntelligence.advisorIgnore",
+          "when": "false"
+        },
+        {
+          "command": "repoIntelligence.executionOpenTask",
+          "when": "false"
+        },
+        {
+          "command": "repoIntelligence.executionNextTask",
+          "when": "false"
+        },
+        {
+          "command": "repoIntelligence.executionPreviousTask",
+          "when": "false"
+        },
+        {
+          "command": "repoIntelligence.executionShowCriticalPath",
+          "when": "false"
+        },
+        {
+          "command": "repoIntelligence.executionShowRollback",
+          "when": "false"
+        }
+      ],
+      "explorer/context": [
+        {
+          "command": "repoIntelligence.askAboutFile",
+          "group": "navigation"
+        },
+        {
+          "command": "repoIntelligence.findReferencesInGraph",
+          "group": "navigation"
+        },
+        {
+          "command": "repoIntelligence.inspectModule",
+          "group": "navigation"
+        },
+        {
+          "command": "repoIntelligence.reviewFile",
+          "group": "navigation"
+        },
+        {
+          "command": "repoIntelligence.reviewModule",
+          "group": "navigation"
+        }
+      ],
+      "editor/context": [
+        {
+          "command": "repoIntelligence.explainSymbol",
+          "group": "navigation"
+        },
+        {
+          "command": "repoIntelligence.explainFile",
+          "group": "navigation"
+        },
+        {
+          "command": "repoIntelligence.askAboutFile",
+          "group": "navigation"
+        },
+        {
+          "command": "repoIntelligence.showBlastRadius",
+          "group": "navigation"
+        },
+        {
+          "command": "repoIntelligence.showCallHierarchy",
+          "group": "navigation"
+        }
+      ],
+      "view/item/context": [
+        {
+          "command": "repoIntelligence.advisorOpenFile",
+          "when": "viewItem == recommendation",
+          "group": "inline"
+        },
+        {
+          "command": "repoIntelligence.advisorShowReasoning",
+          "when": "viewItem == recommendation",
+          "group": "inline"
+        },
+        {
+          "command": "repoIntelligence.advisorShowEvidence",
+          "when": "viewItem == recommendation",
+          "group": "inline"
+        },
+        {
+          "command": "repoIntelligence.advisorIgnore",
+          "when": "viewItem == recommendation",
+          "group": "inline"
+        },
+        {
+          "command": "repoIntelligence.executionOpenTask",
+          "when": "viewItem == task",
+          "group": "inline"
+        },
+        {
+          "command": "repoIntelligence.executionNextTask",
+          "when": "viewItem == task",
+          "group": "inline"
+        },
+        {
+          "command": "repoIntelligence.executionPreviousTask",
+          "when": "viewItem == task",
+          "group": "inline"
+        },
+        {
+          "command": "repoIntelligence.executionShowCriticalPath",
+          "when": "viewItem == task",
+          "group": "inline"
+        },
+        {
+          "command": "repoIntelligence.executionShowRollback",
+          "when": "viewItem == task",
+          "group": "inline"
         }
       ]
     }
@@ -236,7 +641,7 @@
     "compile": "tsc -p ./",
     "watch": "tsc -watch -p ./",
     "package": "vsce package",
-    "test": "npm run compile && npx mocha --require module-alias/register out/test/api.test.js out/test/commands.test.js out/test/graph.test.js out/test/providers.test.js out/test/settings.test.js out/test/chat.test.js",
+    "test": "npm run compile && npx mocha --require module-alias/register out/test/api.test.js out/test/commands.test.js out/test/graph.test.js out/test/providers.test.js out/test/settings.test.js out/test/chat.test.js out/test/workspaceViews.test.js out/test/foundation.test.js out/test/developerExperience.test.js out/test/aiAssistant.test.js out/test/hardening.test.js",
     "test:integration": "npm run compile && npx mocha --require module-alias/register out/test/chat.integration.test.js",
     "lint": "eslint src --ext .ts",
     "pretest": "npm run compile"
@@ -256,7 +661,6 @@
     "typescript": "^5.3.3"
   },
   "dependencies": {
-    "eventsource": "^2.0.2",
     "module-alias": "^2.2.3"
   },
   "_moduleAliases": {

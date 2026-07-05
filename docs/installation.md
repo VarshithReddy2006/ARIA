@@ -1,11 +1,11 @@
-# Installation Guide
+# Installation Guide — Repo Intelligence Agent v1.0.0
 
 This guide walks you through installing the Repo Intelligence Agent locally.
 
 ## Prerequisites
 
-- **Python**: Version 3.10, 3.11, or 3.12 (validated against Python 3.12).
-- **Node.js**: Version 18 or higher (LTS recommended) for building the frontend.
+- **Python**: Version `>=3.9` (fully validated against Python `3.10`, `3.11`, and `3.12` in development).
+- **Node.js**: Version `18` or higher (LTS recommended) for building the frontend.
 - **Git**: Required for cloning analyzed repositories.
 
 ---
@@ -36,7 +36,7 @@ This guide walks you through installing the Repo Intelligence Agent locally.
 
 4. **Verify CLI installation**:
    ```bash
-   repo-intel version
+   repo-intel --help
    ```
 
 ---

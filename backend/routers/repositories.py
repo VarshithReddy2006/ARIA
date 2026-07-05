@@ -14,6 +14,7 @@ import asyncio
 import json
 import logging
 import os
+import subprocess
 import time
 from typing import Dict, List
 
@@ -31,6 +32,8 @@ from backend.dependencies import (
     github_service,
     symbol_service,
     snapshot_store,
+    repository_twin_builder,
+    engineering_memory_service,
 )
 from models.schemas import RepositoryAnalysis
 from services.architecture_summary_service import generate_architecture_summary
@@ -637,6 +640,42 @@ async def analyze_repository(request: AnalyzeRequest):
             )
 
             await _persist_analysis_store()
+
+            # Resolve Git Commit SHA and Branch name
+            commit_sha = "unknown"
+            if local_path and os.path.exists(os.path.join(local_path, ".git")):
+                try:
+                    res_sha = subprocess.run(
+                        ["git", "rev-parse", "HEAD"],
+                        cwd=local_path,
+                        capture_output=True,
+                        text=True,
+                        check=True,
+                    )
+                    commit_sha = res_sha.stdout.strip()
+                except Exception as exc_git:
+                    logger.warning("Failed to resolve commit SHA: %s", exc_git)
+                    commit_sha = repo_hash
+            else:
+                commit_sha = repo_hash
+
+            branch = request.branch or "main"
+
+            # Create Engineering Memory snapshot
+            try:
+                twin = repository_twin_builder.build_twin(repo_name)
+                await asyncio.to_thread(
+                    engineering_memory_service.create_snapshot,
+                    repo_name,
+                    commit_sha,
+                    branch,
+                    twin.model_dump(),
+                    change_set,
+                )
+                logger.info("Successfully recorded Engineering Memory Snapshot for commit %s", commit_sha)
+            except Exception as exc_memory:
+                logger.error("Failed to create memory snapshot: %s", exc_memory, exc_info=True)
+
             timer.stop("Report")
 
             report_msg = timer.format_report()

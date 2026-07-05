@@ -26,7 +26,7 @@ This document answers common technical questions about the Repo Intelligence Age
 ---
 
 ### Q: How does the call graph work?
-**A**: The parser extracts function calls from method bodies. The **Call Graph Service** maps calls to defined functions in the AST database. This directed graph is posicioned on the frontend canvas using **Dagre** topological layering. You can filter out library calls or cyclic loops to isolate custom project structures.
+**A**: The parser extracts function calls from method bodies. The **Call Graph Service** maps calls to defined functions in the AST database. This directed graph is positioned on the frontend canvas using **Dagre** topological layering. You can filter out library calls or cyclic loops to isolate custom project structures.
 
 ---
 

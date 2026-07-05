@@ -1,4 +1,4 @@
-# Development Setup & Contributor Guide
+# Development Setup & Contributor Guide — Repo Intelligence Agent v1.0.0
 
 This document covers local environment setup, running backend and frontend services, and testing.
 
@@ -6,7 +6,7 @@ This document covers local environment setup, running backend and frontend servi
 
 ## Prerequisites
 
-- **Python**: 3.10, 3.11, or 3.12 (validated against 3.12)
+- **Python**: Version `>=3.9` (fully validated against `3.10`, `3.11`, and `3.12` in development)
 - **Node.js**: 18 or newer (LTS recommended)
 - **Git**: Required for cloning analyzed repositories
 - **LLM API key**: Either a Google AI Studio key (`GEMINI_API_KEY`) or an NVIDIA NIM key (`DEEPSEEK_API_KEY`). Gemini is the default provider.
@@ -78,7 +78,6 @@ python backend/main.py
 This starts uvicorn on port **8001** with hot-reload in development mode. The reload watcher is filtered to `backend/`, `services/`, `agents/`, `memory/`, and `models/` — it excludes `data/`, `__pycache__/`, and `tests/` to prevent reload loops.
 
 - Interactive API docs: `http://localhost:8001/docs`
-- OpenAPI schema: `http://localhost:8001/openapi.json`
 - Health check: `http://localhost:8001/health`
 
 ---
@@ -122,7 +121,7 @@ pytest tests/ --cov=. --cov-report=term-missing
 pytest tests/test_chat.py -v
 ```
 
-All 535 tests must pass before any PR is merged. Tests mock LLM calls and GitHub API calls — no API quota is consumed.
+All tests mock LLM calls and GitHub API calls — no API quota is consumed.
 
 ---
 

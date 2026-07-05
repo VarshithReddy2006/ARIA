@@ -17,7 +17,7 @@ This one builds a real dependency graph, call graph, and symbol index — <em>th
 [![CI](https://img.shields.io/github/actions/workflow/status/VarshithReddy2006/Repo-Intelligence-Agent/ci.yml?style=for-the-badge&label=CI&logo=githubactions&logoColor=white)](https://github.com/VarshithReddy2006/Repo-Intelligence-Agent/actions)
 ![Version](https://img.shields.io/badge/version-1.0.0-blue?style=for-the-badge)
 ![License](https://img.shields.io/badge/license-MIT-blue?style=for-the-badge)
-![Tests](https://img.shields.io/badge/tests-535%20passing-brightgreen?style=for-the-badge)
+![Tests](https://img.shields.io/badge/tests-911%20passing-brightgreen?style=for-the-badge)
 
 <!-- Stack -->
 <br/>
@@ -70,7 +70,7 @@ This one builds a real dependency graph, call graph, and symbol index — <em>th
 ## 🎥 See Repo Intelligence Agent in Action
 
 <p align="center">
-  <a href="https://youtu.be/YOUR_VIDEO">
+  <a href="https://youtu.be/evpdcO4QxzI">
     <img src="docs/assets/demo.gif" width="100%" alt="Demo">
   </a>
 </p>
@@ -173,7 +173,7 @@ Traditional RAG tools index text. This tool indexes **your codebase's structure.
 
 **Full structural pipeline** — Clone any public GitHub repository and run AST parsing, embedding, graph construction, and analysis in one command. Pipeline stages run as a DAG — tasks are parallelized where dependencies allow.
 
-**Incremental rebuilds** — Changed files are detected by content hash. On subsequent runs, only modified files are re-parsed, re-embedded, and re-indexed. Small change sets rebuild in **under 2 seconds.**
+**Incremental rebuilds** — Changed files are detected by content hash. On subsequent runs, only modified files are re-parsed, re-embedded, and re-indexed. Small change sets rebuild in **under 2 seconds** (typical development-machine measurements).
 
 **Tech stack detection** — Automatically identifies languages, frameworks, and build tooling from file extensions and configuration files before analysis begins.
 
@@ -198,7 +198,7 @@ Traditional RAG tools index text. This tool indexes **your codebase's structure.
 
 <br/>
 
-**Architecture Graph** — Interactive React Flow dependency graph with search filtering, node neighborhood inspection, and forward/backward BFS reachability traces. Visualizes the complete import topology of the repository.
+**Architecture Graph** — Interactive React Flow dependency graph with search filtering, node neighborhood inspection, and forward/backward BFS reachability traces. Visualizes the import topology of the repository.
 
 **Call Graph** — Function-level call graph built from AST analysis. Supports callers, callees, hierarchy walks, and blast-radius estimation per function — useful for understanding the reach of any proposed change.
 
@@ -233,6 +233,28 @@ Aggregates every analysis dimension into a unified health report scored across f
 | 📚 **Onboarding Clarity** | Reading-order quality · entry-point coverage |
 
 **Export formats:** Interactive HTML · Print-optimized PDF · Collapsible Markdown *(suitable for GitHub PR comments)*
+
+</details>
+
+<details open>
+<summary><strong>🔌 VS Code Extension Integration</strong></summary>
+
+<br/>
+
+Brings the full power of codebase intelligence directly into your editor:
+
+| Capability | What It Provides |
+|---|---|
+| **Engineering Findings** | Inline list of code smells, coupling issues, and quality recommendations. |
+| **Advisor Dashboard** | Phased refactoring roadmaps and priority recommendations visible inside VS Code. |
+| **Execution Planner** | Interactively trace the generated execution batches, critical paths, and safety checkpoints. |
+| **Hover Intelligence** | Hover over functions, classes, or imports to see AST symbols, definitions, and docstrings. |
+| **CodeLens Triggers** | Actions directly above functions to "Show Callers", "Show Blast Radius", or "Ask Agent". |
+| **Code Actions** | Highlight code and press `Ctrl+.` / `Cmd+.` to request refactoring suggestions. |
+| **Interactive Graph Navigation**| Open Dependency or Call Graphs on a visual canvas within the editor. |
+| **Repository Search & Switching**| Set active repository, search symbols, and switch between codebases instantly. |
+| **Diagnostics & Settings** | Built-in diagnostics view monitoring backend connection status, LLM health, and configurations. |
+| **Recommendation Persistence**| Persistently ignore specific recommendations, which will be cached across indexing cycles. |
 
 </details>
 
@@ -284,6 +306,18 @@ flowchart TD
 
 > 🗂️ Full component diagrams, sequence diagrams, and mathematical models are documented in [ARCHITECTURE.md](ARCHITECTURE.md).
 
+### 🧬 Codebase Intelligence Pipeline
+
+The platform processes repository structures through an end-to-end multi-tier pipeline:
+1. **Repository Ingestion**: Clones files and identifies program stacks.
+2. **Digital Twin**: Generates a local AST representation of all code symbols, imports, and exports.
+3. **Knowledge Graph**: Builds a directed import graph and function call graph via NetworkX.
+4. **Inspection Pipeline**: Automatically sweeps the graph to detect circular dependencies, code smells, and dead code.
+5. **AI Advisor**: Evaluates findings and generates prioritized recommendations and phased engineering roadmaps.
+6. **Execution Planner**: Formulates concrete, conflict-free execution plans with rollback safety checkpoints.
+7. **Workspace APIs**: Consolidates all metrics, findings, and plan states into a unified snapshot endpoint.
+8. **VS Code Extension**: Consumes the Workspace APIs to power hovers, tree views, and graph webviews.
+
 ---
 
 ## ⚙️ How It Works
@@ -309,7 +343,7 @@ Each repository analysis runs through **eight sequential stages.** Incremental m
 </details>
 
 > [!TIP]
-> **Why incremental is fast:** Subsequent runs skip re-embedding and re-indexing for unchanged files. Only files whose content hash has changed are re-processed through the pipeline. Graph nodes for unchanged files are read from the schema-versioned in-memory cache rather than recomputed.
+> **Why incremental is fast:** Subsequent runs skip re-embedding and re-indexing for unchanged files. Only files whose content hash has changed are re-processed through the pipeline. Graph nodes for unchanged files are read from the schema-versioned in-memory cache rather than recomputed (typical development-machine measurements).
 
 ---
 
@@ -328,7 +362,7 @@ Each repository analysis runs through **eight sequential stages.** Incremental m
 | Fallback LLM | DeepSeek V4 Flash (NVIDIA NIM) | Circuit-breaker secondary provider |
 | Persistence | SQLite + JSON snapshots | Reports, analysis state |
 | Metrics | Prometheus | HTTP and build pipeline observability |
-| Testing | pytest | 535 tests — isolated from LLM and GitHub APIs |
+| Testing | pytest + Mocha | 911 tests (794 backend + 117 extension) — isolated from LLM and GitHub APIs |
 
 <details>
 <summary><strong>View directory layout</strong></summary>
@@ -373,7 +407,7 @@ Repo-Intelligence-Agent/
 ├── models/                        # Pydantic domain models
 ├── storage/                       # JsonSnapshotStore, SQLite migrations
 ├── frontend/                      # Astro 4 + React dashboard
-├── tests/                         # 535 passing tests, no API quota required
+├── tests/                         # 911 passing tests (794 backend + 117 extension), no API quota required
 └── docs/                          # Extended documentation
 ```
 
@@ -387,7 +421,7 @@ Repo-Intelligence-Agent/
 
 | Requirement | Version / Notes |
 |---|---|
-| Python | 3.10, 3.11, or 3.12 |
+| Python | ≥ 3.9 (validated on 3.10, 3.11, 3.12) |
 | Node.js | ≥ 18 |
 | Git | Any recent version |
 | LLM API key | Google Gemini **or** NVIDIA NIM |
@@ -431,7 +465,24 @@ docker compose -f docker-compose.dev.yml up -d --build
 > [!NOTE]
 > Named volumes mount data/ (ChromaDB, graphs, SQLite) and the cloned repository cache independently of the container lifecycle. Data persists across container restarts.
 
-### 4 — Verify
+### 4 — VS Code Extension
+
+```bash
+cd vscode-extension
+npm install
+npm run compile
+npx @vscode/vsce package --allow-missing-repository
+```
+
+Brief Setup:
+1. In VS Code, install the generated `repo-intelligence-agent-0.1.0.vsix` file using the **Install from VSIX...** command.
+2. Start the local backend server (running on port `8001`).
+3. Open your target codebase repository folder in VS Code.
+4. Open the Command Palette (`Ctrl+Shift+P`), select **Set Active Repository**, and enter the `owner/repo` details.
+5. Click **Analyze Repository** in the sidebar.
+6. Verify your findings, advisor recommendations, and execution planner routes inside the custom views.
+
+### 5 — Verify
 
 ```bash
 curl http://localhost:8001/health
@@ -556,9 +607,10 @@ cp .env.example .env
 | API_SERVER_HOST | 0.0.0.0 | Uvicorn bind host |
 | API_SERVER_PORT | 8001 | Uvicorn bind port |
 | FRONTEND_URL | http://localhost:4321 | Allowed CORS origin — **set to your production domain before deploying** |
+| API_KEY | — | Optional API key authentication to secure resource-intensive endpoints |
 | SQLITE_DB_PATH | data/repo_understanding.db | SQLite database path |
 | CHROMA_DB_PATH | data/chroma_db | ChromaDB persistence directory |
-| CLONED_REPOS_PATH | ~/.repo_intelligence/cloned_repos | Clone destination — must be **outside** the project tree to avoid triggering uvicorn reload loops |
+| CLONED_REPOS_PATH | data/cloned_repos | Clone destination — must be **outside** the project tree to avoid triggering uvicorn reload loops (defaults to `~/.repo_intelligence/cloned_repos` if empty in `.env`) |
 | APP_ENV | development | development or production — controls fail-fast behavior at startup |
 | LOG_LEVEL | INFO | Logging verbosity |
 | LOG_FORMAT | human | human or json — use json in production |
@@ -587,7 +639,7 @@ Base URL: http://localhost:8001 · All routes also available under /api/v1/
 | GET | /metrics | Prometheus metrics |
 | POST | /api/analyze | Full analysis pipeline (SSE) |
 | POST | /api/index | Vector-only indexing |
-| GET | /api/analysis/{owner}/{repo} | Fetch analysis result |
+| GET | /api/analysis/{owner}/{repo_name} | Fetch analysis result |
 | POST | /api/repos/repair | Rebuild missing symbol or graph indexes |
 | GET | /api/repos/recent | Recently analyzed repositories |
 | GET | /api/repos/examples | Pre-configured example repositories |
@@ -616,15 +668,16 @@ Base URL: http://localhost:8001 · All routes also available under /api/v1/
 | Method | Path | Description |
 |---|---|---|
 | POST | /api/architecture/build | Build dependency graph |
-| GET | /api/architecture/{owner}/{repo}/graph | React Flow graph payload |
-| GET | /api/graph/{owner}/{repo}/neighbors/{path} | Node neighborhood |
-| GET | /api/graph/{owner}/{repo}/trace/{path} | BFS reachability trace |
+| GET | /api/architecture/{owner}/{repo_name}/graph | React Flow graph payload |
+| GET | /api/graph/{owner}/{repo}/full | Full file-level dependency graph |
+| GET | /api/graph/{owner}/{repo}/neighbors/{node_path} | Node neighborhood |
+| GET | /api/graph/{owner}/{repo}/trace/{node_path} | BFS reachability trace |
 | GET | /api/graph/{owner}/{repo}/search | Graph node search |
 | POST | /api/call-graph/build | Build call graph (SSE) |
-| GET | /api/call-graph/{owner}/{repo} | React Flow call graph payload |
-| GET | /api/call-graph/{owner}/{repo}/callers/{fn} | Callers of a function |
-| GET | /api/call-graph/{owner}/{repo}/callees/{fn} | Callees of a function |
-| GET | /api/call-graph/{owner}/{repo}/blast-radius/{fn} | Function blast radius |
+| GET | /api/call-graph/{owner}/{repo_name} | React Flow call graph payload |
+| GET | /api/call-graph/{owner}/{repo_name}/callers/{function_id} | Callers of a function |
+| GET | /api/call-graph/{owner}/{repo_name}/callees/{function_id} | Callees of a function |
+| GET | /api/call-graph/{owner}/{repo_name}/blast-radius/{function_id} | Function blast radius |
 
 </details>
 
@@ -635,15 +688,15 @@ Base URL: http://localhost:8001 · All routes also available under /api/v1/
 
 | Method | Path | Description |
 |---|---|---|
-| GET | /api/symbols/{owner}/{repo}/file/{path} | Symbols in a file |
-| GET | /api/symbols/{owner}/{repo}/definition/{name} | Symbol definition lookup |
-| GET | /api/symbols/{owner}/{repo}/references/{name} | Symbol cross-references |
+| GET | /api/symbols/{owner}/{repo}/file/{file_path} | Symbols in a file |
+| GET | /api/symbols/{owner}/{repo}/definition/{symbol_name} | Symbol definition lookup |
+| GET | /api/symbols/{owner}/{repo}/references/{symbol_name} | Symbol cross-references |
 | POST | /api/api-surface/build | Build API surface index (SSE) |
-| GET | /api/api-surface/{owner}/{repo} | Full API surface report |
-| GET | /api/api-surface/{owner}/{repo}/public | Public symbols only |
-| GET | /api/api-surface/{owner}/{repo}/breaking | Breaking change detection |
+| GET | /api/api-surface/{owner}/{repo_name} | Full API surface report |
+| GET | /api/api-surface/{owner}/{repo_name}/public | Public symbols only |
+| GET | /api/api-surface/{owner}/{repo_name}/breaking | Breaking change detection |
 | POST | /api/churn/analyze | Mine git history for churn scores (SSE) |
-| GET | /api/churn/{owner}/{repo}/hotspots | Top hotspot files |
+| GET | /api/churn/{owner}/{repo_name}/hotspots | Top hotspot files |
 | POST | /api/pr/analyze | PR risk scoring and blast radius |
 | POST | /api/architecture/drift | Architecture drift detection |
 | POST | /api/dead-code/analyze | Dead code reachability sweep |
@@ -666,25 +719,71 @@ Base URL: http://localhost:8001 · All routes also available under /api/v1/
 
 </details>
 
+<details>
+<summary><strong>Workspace</strong></summary>
+
+<br/>
+
+| Method | Path | Description |
+|---|---|---|
+| GET | /api/repositories/{username}/{repository}/workspace | Fetch full consolidated workspace snapshot |
+| GET | /api/repositories/{username}/{repository}/workspace/overview | Overview metrics only |
+| GET | /api/repositories/{username}/{repository}/workspace/findings | Workspace findings panel data |
+| GET | /api/repositories/{username}/{repository}/workspace/advisor | Workspace advisor panel recommendations |
+| GET | /api/repositories/{username}/{repository}/workspace/execution | Workspace execution plan panel batches |
+
+</details>
+
+<details>
+<summary><strong>Advisor</strong></summary>
+
+<br/>
+
+| Method | Path | Description |
+|---|---|---|
+| POST | /api/repositories/{username}/{repository}/advisor | Compile AI Advisor recommendations |
+| GET | /api/repositories/{username}/{repository}/advisor/latest | Fetch latest generated Advisor report |
+| GET | /api/repositories/{username}/{repository}/advisor/recommendations | List Advisor recommendations |
+| GET | /api/repositories/{username}/{repository}/advisor/roadmap | Fetch phased engineering roadmap |
+
+</details>
+
+<details>
+<summary><strong>Execution Planner</strong></summary>
+
+<br/>
+
+| Method | Path | Description |
+|---|---|---|
+| POST | /api/repositories/{username}/{repository}/execution-plan | Formulate AEA² implementation plan |
+| GET | /api/repositories/{username}/{repository}/execution-plan/latest | Fetch latest generated execution plan |
+| GET | /api/repositories/{username}/{repository}/execution-plan/batches | Get planned execution batches |
+| GET | /api/repositories/{username}/{repository}/execution-plan/critical-path | Get critical path of tasks |
+
+</details>
+
 > 📄 Full request/response schemas are documented in [docs/API_REFERENCE.md](docs/API_REFERENCE.md).
 
 ---
 
 ## 📈 Performance
 
-Measured on development hardware. Repository size, file count, and I/O characteristics will affect results.
+Typical development-machine measurements (Intel i7 / 16 GB RAM). Repository size, file count, and I/O characteristics will affect results.
 
-| Operation | Duration |
+| Operation | Latency / Duration |
 |---|---|
 | Fresh analysis — small repository (~300 files) | 25–45 s |
 | **Incremental rebuild (small change set)** | **< 2 s** |
-| Architecture graph build | ~1.8 s |
-| PR risk analysis | ~1.5 s |
+| Backend Health `/health` latency | ~10–15 ms |
+| Overview endpoint `/workspace/overview` latency | ~40–60 ms |
+| Findings `/workspace/findings` latency | ~80–120 ms |
+| Advisor `/advisor` generation latency | ~1.2–2.0 s |
+| Execution Planner `/execution-plan` latency | ~1.5–2.5 s |
 | Chat — first token latency | < 3 s |
 | Chat — streaming throughput | ~50–90 ms / token |
 
 > [!TIP]
-> **Why incremental is fast:** Subsequent runs skip re-embedding and re-indexing for unchanged files. Only files whose content hash has changed are re-processed. Graph nodes for unchanged files are served from the schema-versioned in-memory cache — not recomputed.
+> **Why incremental is fast:** Subsequent runs skip re-embedding and re-indexing for unchanged files. Only files whose content hash has changed are re-processed. Graph nodes for unchanged files are served from the schema-versioned in-memory cache — not recomputed (typical development-machine measurements).
 
 ### Prometheus Metrics
 
@@ -713,17 +812,27 @@ Built to be operated, not just installed.
 | **Rate limiting** | Sliding-window per-IP limiter — configurable via RATE_LIMIT_PER_MINUTE |
 | **CORS** | Restricted to FRONTEND_URL — set to your production domain before deploying |
 | **Input validation** | Pydantic model validation on every request body |
-| **Secret handling** | API keys loaded from environment variables only — never logged or exposed |
+| **Secret handling** | API keys loaded from environment variables only — helps prevent logging or exposure |
 | **LLM circuit breaker** | ProviderManager tracks LLM health and fails over to DeepSeek on provider errors |
 | **Fallback renderer** | If both LLM providers are unavailable, structured responses render without LLM |
 | **Fail-fast startup** | In APP_ENV=production, misconfiguration halts startup with an actionable error |
-| **Incremental analysis** | Hash-based change detection prevents redundant work on re-runs |
-| **In-memory cache** | Schema-versioned cache prevents stale data from surviving configuration changes |
+| **Incremental analysis** | Hash-based change detection helps prevent redundant work on re-runs |
+| **In-memory cache** | Schema-versioned cache helps prevent stale data from surviving configuration changes |
 | **Docker** | Production and development Compose files with named volumes for data persistence |
 | **TrustedHost** | ALLOWED_HOSTS middleware for hostname validation |
+| **Quality Gate** | **911 automated tests** (794 backend + 117 extension) providing automated coverage |
+| **Packaging Validation** | Automated VSIX packaging validations help prevent publishing failures |
+| **Clean Profile Testing** | Extension validated against isolated clean VS Code profiles to help prevent activation leaks |
+| **Regression Protection** | Automated tests help protect against regressions in Digital Twin mapping and AST processing |
+| **Race-condition Safety** | Asynchronous operations are wrapped in thread executors to help prevent ASGI loop blockage |
+| **Memory Isolation** | Capacity limits and TTL-based evictions protect caches from memory bloat |
+| **Structured Logs** | OutputChannel logging traces backend connections and workspace states |
+| **API Compliance** | Built-in Workspace API schema compliance checks help prevent UI rendering crashes |
+| **Self Diagnostics** | Startup configuration checks automatically report provider availability and key validations |
+| **Repository Switching** | State-clean routines clear active graphs and caches when changing active repos |
 
 > [!WARNING]
-> **No built-in authentication.** Multi-tenant or public deployments must add a reverse proxy with authentication in front of the backend.
+> **No built-in user/session management.** The application supports optional API key access control but does not include multi-user session/credential management. For multi-tenant or public deployments, place a reverse proxy with user authentication in front of the backend.
 
 ---
 
@@ -734,7 +843,7 @@ pytest tests/ -v                                      # Full suite
 pytest tests/ --cov=. --cov-report=term-missing      # With coverage
 ```
 
-- **535 tests** across unit, integration, and service-layer categories
+- **911 tests** across backend (794 tests) and extension (117 tests) suites
 - LLM and GitHub API boundaries are **isolated with mock adapters** — the full suite runs without consuming any API quota
 - GitHub Actions runs the full test suite, lint check, and format check on every pull request
 
@@ -745,34 +854,40 @@ pytest tests/ --cov=. --cov-report=term-missing      # With coverage
 
 ## 🗺️ Roadmap
 
-### v1.0.0 — ✅ Shipped
+### Completed (v1.0.0)
 
 - [x] Full structural analysis pipeline with incremental hash-based rebuilds
-- [x] Repository Chat v2 with 9 classified intent types and rule-based routing
-- [x] Architecture graph and call graph with React Flow visualization
-- [x] PR risk scoring and architecture drift detection
-- [x] Dead code detection with weighted cleanup scores
-- [x] Intelligence Report in HTML, PDF, and Markdown
+- [x] Digital Twin (AST parser) & Knowledge Graph (import topology) representation
+- [x] Repository Chat v2 with 9 intent types and rule-based routing
+- [x] Interactive Graph Navigation (React Flow canvas graphs)
+- [x] Engineering Findings (dead code, circular dependencies, smells)
+- [x] Health Scorecards & Intelligence Reports (HTML, PDF, Markdown)
+- [x] AI Advisor Dashboard (prioritized roadmaps & recommendations)
+- [x] Execution Planner (AEA² task batches & rollback checkpoints)
+- [x] Workspace APIs (consolidated snapshot endpoints)
+- [x] VS Code Extension Integration (symbol hovers, CodeLenses, sidebar panels)
+- [x] LLM Failover Management (Gemini to DeepSeek circuit breakers)
+- [x] Self Diagnostics & Startup Health Verifications
+- [x] Repository Review Command Actions
 
-### v1.1 — Planned
+### Planned (v1.1)
 
-- [ ] Multi-language AST support (beyond Python)
-- [ ] Private repository support via GitHub App
+- [ ] Module Stability endpoints router (`backend/routers/stability.py`)
+- [ ] Dependency Smells endpoints router (`backend/routers/dependency_smells.py`)
+- [ ] Treemap visualizers sizing dead code modules on dashboard canvas
 - [ ] Persistent cross-session conversation memory
 - [ ] Webhook-triggered incremental analysis on push events
-- [ ] Comparative Intelligence Reports across repository versions
 
 ### Under Consideration
 
-- [ ] Graph diff visualization between commits
-- [ ] Team-scoped deployments with per-user history
-- [ ] Custom scoring weights for report dimensions
+- [ ] Multi-repository workspaces (cross-service link resolution)
+- [ ] Team-scoped SaaS deployments with user access control
 
 ---
 
 ## 🤝 Contributing
 
-Contributions are welcome. This project follows the [Contributor Covenant](CODE_OF_CONDUCT.md). See [CONTRIBUTING.md](CONTRIBUTING.md) for the development workflow, coding standards, and pull request guidelines.
+Contributions are welcome. This project follows the Contributor Covenant. See [CONTRIBUTING.md](CONTRIBUTING.md) for the development workflow, coding standards, and pull request guidelines.
 
 Good first issues are tagged [good-first-issue](https://github.com/VarshithReddy2006/Repo-Intelligence-Agent/issues?q=label%3Agood-first-issue). Questions and ideas welcome in [Discussions](https://github.com/VarshithReddy2006/Repo-Intelligence-Agent/discussions).
 
@@ -814,14 +929,14 @@ Public repositories work out of the box. For private repositories, set GITHUB_TO
 <details>
 <summary><strong>Does it require a GPU?</strong></summary>
 
-No. BGE-small-en-v1.5 runs on CPU and is fast enough for interactive use on most developer machines. Embedding large repositories (~300 files) takes roughly 20–30 seconds on CPU.
+No. BGE-small-en-v1.5 runs on CPU and is fast enough for interactive use on most developer machines. Embedding large repositories (~300 files) takes roughly 20–30 seconds on CPU (typical development-machine measurements).
 
 </details>
 
 <details>
 <summary><strong>Does it work on Windows?</strong></summary>
 
-The backend has been developed on macOS and Linux. Windows support via WSL2 should work but is not actively tested. Native Windows support is not guaranteed.
+Yes. The platform is supported and validated on native Windows (via PowerShell and Command Prompt), Linux, macOS, and WSL2.
 
 </details>
 
@@ -849,7 +964,7 @@ The system has been tested on repositories up to several hundred files. Larger r
 <details>
 <summary><strong>How does incremental analysis work?</strong></summary>
 
-Each file's content is hashed after cloning. On subsequent runs, only files whose hash has changed are re-parsed, re-embedded, and re-indexed. Graph nodes and embeddings for unchanged files are read from the schema-versioned in-memory cache. Incremental rebuilds for small change sets complete in under 2 seconds.
+Each file's content is hashed after cloning. On subsequent runs, only files whose hash has changed are re-parsed, re-embedded, and re-indexed. Graph nodes and embeddings for unchanged files are read from the schema-versioned in-memory cache. Incremental rebuilds for small change sets complete in under 2 seconds (typical development-machine measurements).
 
 </details>
 
@@ -863,7 +978,49 @@ Conversation memory is maintained within a session. Persistent cross-session mem
 <details>
 <summary><strong>Is there built-in authentication?</strong></summary>
 
-No. Rate limiting and CORS restriction to FRONTEND_URL are included, but user authentication is not built in. For multi-tenant or public deployments, place a reverse proxy with authentication in front of the backend.
+The platform includes optional API key authentication middleware (via `API_KEY` configuration), rate limiting, and CORS restrictions. For multi-user credentials or session management, place a reverse proxy (e.g. nginx + OAuth2 proxy, Cloudflare Access) in front of the backend.
+
+</details>
+
+<details>
+<summary><strong>How do I install the VS Code Extension?</strong></summary>
+
+Compile the code inside the `vscode-extension` directory and run `vsce package` to generate a `.vsix` file. You can then install it directly in VS Code using the **Install from VSIX...** option.
+
+</details>
+
+<details>
+<summary><strong>How do I generate an execution plan?</strong></summary>
+
+Once a repository has been indexed and an Advisor report has been generated, trigger `POST /api/v1/repositories/{username}/{repository}/execution-plan` or expand the **Execution Planner** sidebar view in VS Code to automatically formulate a phased implementation roadmap.
+
+</details>
+
+<details>
+<summary><strong>What does Advisor do?</strong></summary>
+
+The AI Engineering Advisor analyzes codebase design smells, circular imports, and dead code, producing prioritized recommendations and structured refactoring roadmaps divided into phased segments.
+
+</details>
+
+<details>
+<summary><strong>What is Self Diagnostics?</strong></summary>
+
+At startup, the server automatically validates API configurations and validates connection health for the configured LLM providers (Gemini and DeepSeek) using non-quota-consuming API checks, flagging any authentication issues before requests are processed.
+
+</details>
+
+<details>
+<summary><strong>Can the extension work without the dashboard?</strong></summary>
+
+Yes. The VS Code extension connects directly to the FastAPI backend server (port `8001`) via Workspace API snapshots. The Astro dashboard (port `4321`) is optional for extension users.
+
+</details>
+
+<details>
+<summary><strong>How are ignored recommendations stored?</strong></summary>
+
+Ignored recommendations are saved persistently in the VS Code extension's `workspaceState` (via `IgnoredRecommendationService`). They survive reloads and panel refreshes, but are automatically reset when a fresh repository analysis is performed (detected via changed analysis timestamps).
 
 </details>
 
@@ -906,7 +1063,10 @@ Check that CHROMA_DB_PATH points to a persistent directory and that the path is 
 | Document | Description |
 |---|---|
 | [ARCHITECTURE.md](ARCHITECTURE.md) | Full component diagrams, sequence diagrams, and mathematical models |
-| [docs/API_REFERENCE.md](docs/API_REFERENCE.md) | Complete request/response schemas for all endpoints |
+| [docs/API_REFERENCE.md](docs/API_REFERENCE.md) | Request/response schemas for all endpoints |
+| [docs/EXECUTION_GUIDE.md](docs/EXECUTION_GUIDE.md) | Step-by-step setup, compilation, and validation sequences |
+| [docs/RELEASE_CHECKLIST.md](docs/RELEASE_CHECKLIST.md) | Production release validation and readiness checklist |
+| [docs/MVP_STATUS.md](docs/MVP_STATUS.md) | Core feature checklist, stubs, and technical debt log |
 | [CONTRIBUTING.md](CONTRIBUTING.md) | Development workflow, coding standards, and pull request checklist |
 | [SECURITY.md](SECURITY.md) | Responsible disclosure policy and security controls |
 
