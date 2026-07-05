@@ -1,4 +1,4 @@
-# API Guide
+# API Guide — Repo Intelligence Agent v1.0.0
 
 The Repo Intelligence Agent API is built on FastAPI. It exposes HTTP REST endpoints, server-sent events (SSE) progress streams, and Prometheus metrics.
 
@@ -28,9 +28,9 @@ cache_hits_total{cache_key="symbols"} 3.0
 
 ---
 
-## REST Endpoints
+## Key REST Endpoints
 
-### 1. `POST /api/v1/analyze`
+### 1. `POST /api/v1/analyze` or `POST /api/analyze`
 Triggers code checkout, syntax parsing, and AI embeddings indexing. Streams SSE progress JSON.
 - **Request Body**:
   ```json
@@ -41,7 +41,7 @@ Triggers code checkout, syntax parsing, and AI embeddings indexing. Streams SSE 
   }
   ```
 
-### 2. `GET /api/v1/architecture/{owner}/{repo}/graph`
+### 2. `GET /api/v1/architecture/{owner}/{repo}/graph` or `GET /api/architecture/{owner}/{repo}/graph`
 Exposes the repository dependency graph in a React-Flow-friendly node/edge schema.
 - **Response**:
   ```json
@@ -55,7 +55,7 @@ Exposes the repository dependency graph in a React-Flow-friendly node/edge schem
   }
   ```
 
-### 3. `GET /api/v1/health`
+### 3. `GET /health` or `GET /api/v1/health`
 Returns detailed application settings validation, LLM providers, and storage path health check details.
 
 ### 4. `POST /api/v1/report/{owner}/{repo}/build`
@@ -63,11 +63,13 @@ Generates or updates the Repository Intelligence Report for the specified reposi
 - **Response**: `ReportDataModel`
 
 ### 5. `GET /api/v1/report/{owner}/{repo}/summary`
-Fetches a brief summary of the latest health report (overall score, grade, generated timestamp) from the SQLite database.
+Fetches a brief summary of the latest health report (overall score, grade, generated timestamp).
 
 ### 6. `GET /api/v1/report/{owner}/{repo}/download`
 Downloads the compiled repository intelligence report.
 - **Query Parameters**:
-  - `format` (optional): `html` (default), `pdf` (adds auto-print window behavior), or `markdown`.
+  - `format` (optional): `html` (default), `pdf`, or `markdown`.
 - **Response**: Binary stream with `Content-Disposition: attachment; filename="..."` header.
 
+### 7. `GET /api/v1/repositories/{owner}/{repo}/workspace`
+ consolidated snaphot endpoint for all IDE panel datasets.

@@ -1,0 +1,55 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "Run Repo Intelligence Extension",
+      "type": "extensionHost",
+      "request": "launch",
+      "runtimeExecutable": "${execPath}",
+      "args": [
+        "--extensionDevelopmentPath=${workspaceFolder}/vscode-extension",
+        "--disable-extensions"
+      ],
+      "outFiles": [
+        "${workspaceFolder}/vscode-extension/out/**/*.js"
+      ],
+      "preLaunchTask": "npm: compile"
+    },
+    {
+      "name": "Extension Tests",
+      "type": "extensionHost",
+      "request": "launch",
+      "runtimeExecutable": "${execPath}",
+      "args": [
+        "--extensionDevelopmentPath=${workspaceFolder}/vscode-extension",
+        "--extensionTestsPath=${workspaceFolder}/vscode-extension/out/test/runTests",
+        "--disable-extensions"
+      ],
+      "outFiles": [
+        "${workspaceFolder}/vscode-extension/out/**/*.js"
+      ],
+      "preLaunchTask": "npm: compile"
+    },
+    {
+      "name": "Run Unit Tests (Mocha)",
+      "type": "node",
+      "request": "launch",
+      "cwd": "${workspaceFolder}/vscode-extension",
+      "runtimeArgs": [
+        "-r",
+        "module-alias/register"
+      ],
+      "program": "${workspaceFolder}/vscode-extension/node_modules/mocha/bin/mocha",
+      "args": [
+        "out/test/api.test.js",
+        "out/test/commands.test.js",
+        "out/test/graph.test.js",
+        "out/test/providers.test.js",
+        "out/test/settings.test.js",
+        "out/test/chat.test.js",
+        "out/test/workspaceViews.test.js"
+      ],
+      "preLaunchTask": "npm: compile"
+    }
+  ]
+}

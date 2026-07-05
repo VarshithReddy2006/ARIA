@@ -1,73 +1,138 @@
-# Troubleshooting Guide — Repo Intelligence Agent
+# Troubleshooting Guide — Repo Intelligence Agent v1.0.0
 
 This guide lists common problems, root causes, and solutions for the Repo Intelligence Agent backend, frontend, and VS Code extension.
 
 ---
 
-## 1. LLM & API Key Problems
+## 1. LLM Provider Authentication Failures
 
-### Symptom: API Limit Exceeded / Quota Errors (Google Gemini)
-- **Error Message**: `ResourceExhausted` or `HTTP 429: Quota exceeded`
-- **Cause**: Google AI Studio free tier limits requests to 15 RPM (Requests Per Minute).
-- **Solution**:
-  1. Configure NVIDIA NIM DeepSeek fallback in `.env` (`LLM_PROVIDER=deepseek`). The system will automatically reroute chat queries when Gemini fails.
-  2. Throttle chat queries or wait 60 seconds.
-  3. Set a premium Gemini API billing key.
+### Symptom
+Startup logs contain:
+```
+ERROR backend.startup: LLM_PROVIDER_HEALTH provider=gemini healthy=false error_type=invalid_credential_type
+```
+Chat requests always fall back to the FallbackRenderer. `GET /api/v1/chat/health` returns `"authenticated": false`.
 
-### Symptom: LLM Failover Log Warnings
-- **Log Entry**: `Primary LLM provider 'gemini' is unhealthy. ProviderManager will use the fallback provider...`
-- **Cause**: Startup validation check failed for Gemini, but DeepSeek is authenticated.
-- **Solution**: Check your `GEMINI_API_KEY` spelling and make sure it has not expired. The server will run, but queries will route to DeepSeek.
+### Root Cause
+The Gemini provider validates credentials at startup by listing available models. If the key is an OAuth token or Application Default Credentials instead of a Google AI Studio Developer API key, the SDK returns `401 UNAUTHENTICATED`.
 
----
+### Solution
+1. Get a valid API key from [Google AI Studio](https://aistudio.google.com/app/apikey).
+2. Set `GEMINI_API_KEY=AIza...` in your `.env` (must start with `AIza`).
+3. Call `POST /api/v1/chat/reload` or restart the server to reload.
 
-## 2. Ingestion & Database Issues
-
-### Symptom: SQLite Database Locked
-- **Error Message**: `sqlite3.OperationalError: database is locked`
-- **Cause**: Multiple python processes are writing to `data/repo_understanding.db` concurrently.
-- **Solution**:
-  1. Close any extra CLI processes or secondary backend instances.
-  2. Kill zombie python processes:
-     - On Windows: `taskkill /IM python.exe /F`
-     - On Linux/macOS: `pkill -f python`
-
-### Symptom: Vector Store (ChromaDB) Write Failures
-- **Error Message**: `RuntimeError: chroma_db index not found` or segmentation faults on embedding.
-- **Cause**: ChromaDB folder got corrupted during a forced server shutdown.
-- **Solution**: Wipe the cache databases and re-analyze the repository:
-  ```bash
-  rm -rf data/chroma_db data/repo_understanding.db data/cache.json
-  ```
-  *(Database tables and folders are automatically recreated on server restart)*
+For DeepSeek, verify your NVIDIA NIM key at [build.nvidia.com](https://build.nvidia.com) and set `DEEPSEEK_API_KEY=nvapi-...`.
 
 ---
 
-## 3. Server Startup & Build Errors
+## 2. HuggingFace Model Download Failures
 
-### Symptom: Uvicorn Reload Loop
-- **Symptom**: Backend restarts constantly when analyzing a repository.
-- **Cause**: Uvicorn is watching the entire directory tree. When a repository is cloned to `data/cloned_repos/`, the file writes trigger uvicorn to restart, killing active parsing tasks.
-- **Solution**: Exclude the data path using the correct directory settings config in `.env`:
-  ```env
-  CLONED_REPOS_PATH=data/cloned_repos
-  ```
-  Check `backend/main.py` lines 8-19 to verify that `data/**` is included in `_RELOAD_EXCLUDES`.
+### Symptom
+On first startup, the process hangs or throws a network error during BGE model download.
 
-### Symptom: Astro Dev Server Port Conflict
-- **Error Message**: `Port 4321 is already in use`
-- **Cause**: Another development server is running.
-- **Solution**:
-  - Run Astro on a different port: `npm run dev -- --port 4322`
-  - Update `FRONTEND_URL=http://localhost:4322` in your `.env` so CORS middleware is mapped correctly.
+### Root Cause
+`SentenceTransformer` downloads `BAAI/bge-small-en-v1.5` (~130 MB) from HuggingFace on first use. Network restrictions can interrupt this.
+
+### Solution
+Pre-download the model manually with your virtual environment active:
+```bash
+python -c "from sentence_transformers import SentenceTransformer; SentenceTransformer('BAAI/bge-small-en-v1.5')"
+```
+If you encounter rate limiting, set a HuggingFace access token:
+```bash
+# Windows PowerShell
+$env:HF_TOKEN="your_huggingface_token"
+
+# macOS / Linux
+export HF_TOKEN="your_huggingface_token"
+```
 
 ---
 
-## 4. VS Code Extension Debugging
+## 3. ChromaDB Dimension Mismatch
 
-### Symptom: CodeLens or Hovers Do Not Show Up
-- **Cause**: The extension cannot reach the backend server, or the active repository is not set.
-- **Solution**:
-  1. Verify the backend server is running on `http://127.0.0.1:8001`.
-  2. Open VS Code Settings, search for `repoIntelligence.backendUrl`, and verify it matches the backend address.
-  3. Run the Command Palette command: `Repo Intelligence: Set Active Repository` and type in the `owner/repo` identifier (e.g. `fastapi/fastapi`).
+### Symptom
+`POST /api/v1/analyze` raises `ValueError: Collection dimension mismatch`.
+
+### Root Cause
+The ChromaDB collection was created with a different embedding model (e.g. 768-dimensional embeddings) but the current model produces 384-dimensional BGE vectors.
+
+### Solution
+Delete the Chroma database directory and re-analyze.
+**Windows (PowerShell):**
+```powershell
+Remove-Item -Recurse -Force data/chroma_db
+```
+**macOS / Linux:**
+```bash
+rm -rf data/chroma_db
+```
+
+---
+
+## 4. Uvicorn Reload Loop During Ingestion
+
+### Symptom
+The backend restarts repeatedly while `POST /api/v1/analyze` is running, killing the active analysis.
+
+### Root Cause
+Uvicorn is watching the entire directory tree. When repositories are cloned to `data/cloned_repos/`, the writes trigger a reload.
+
+### Solution
+Ensure `CLONED_REPOS_PATH` is set outside the project directory in your `.env` (or use the default location which is `~/.repo_intelligence/cloned_repos`):
+```env
+CLONED_REPOS_PATH=C:/repo_intelligence_storage/cloned_repos
+```
+Check `backend/main.py` lines 8-19 to verify that `data/**` is included in `_RELOAD_EXCLUDES`.
+
+---
+
+## 5. SSE Stream Terminates Prematurely
+
+### Symptom
+The frontend/extension shows a connection error mid-analysis.
+
+### Solution
+Stop all Python/Uvicorn processes and restart:
+**Windows (PowerShell):**
+```powershell
+Get-Process -Name python, uvicorn -ErrorAction SilentlyContinue | Stop-Process -Force
+```
+**macOS / Linux:**
+```bash
+pkill -f uvicorn; pkill -f "python backend"
+```
+Restart on port 8001:
+```bash
+python backend/main.py
+```
+
+---
+
+## 6. Empty Tree Views in VS Code Extension
+
+### Symptom
+The findings, advisor, or execution panels show "No active repository" or are blank.
+
+### Root Cause
+Active repository is not selected, or analysis hasn't been run.
+
+### Solution
+1. Click **Set Active Repository** in the status bar or Command Palette and enter the `owner/repo-name`.
+2. Run **Analyze Repository** in the sidebar.
+
+---
+
+## 7. Repairing Missing or Stale Indexes
+
+### Symptom
+A repository shows in recent lists but graph or symbol operations return 404 errors.
+
+### Solution
+Run the repair command to rebuild index artifacts:
+```bash
+curl -X POST http://localhost:8001/api/v1/repos/repair \
+  -H "Content-Type: application/json" \
+  -d '{"owner": "fastapi", "repo": "fastapi"}'
+```
+This will rebuild the dependency graph and symbol index on disk without re-cloning or re-embedding.

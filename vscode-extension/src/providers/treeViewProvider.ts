@@ -17,6 +17,7 @@
 
 import * as vscode from 'vscode';
 import { client, extractErrorMessage, RecentRepo } from '../api';
+import { StateService } from '../utils/stateService';
 
 // ---------------------------------------------------------------------------
 // Tree item kinds
@@ -149,8 +150,7 @@ export class RepositoryExplorerProvider
   // ── Root ───────────────────────────────────────────────────────────────
 
   private async _getRootNodes(): Promise<ExplorerNode[]> {
-    const cfg = vscode.workspace.getConfiguration('repoIntelligence');
-    const activeRepo = cfg.get<string>('activeRepository') ?? '';
+    const activeRepo = StateService.getActiveRepository();
 
     if (!this._loadingRepos && this._recentRepos.length === 0) {
       this._loadingRepos = true;

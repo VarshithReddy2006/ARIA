@@ -198,6 +198,22 @@ describe('RepoIntelligenceClient', () => {
     );
     mockConfig.requestTimeoutMs = 5000;
   });
+
+  it('generateExecutionPlan() calls /execution-plan endpoint (regression RIVSC-200)', async () => {
+    let requestedUrl = '';
+    let requestedMethod = '';
+    ({ server } = await startMockServer((req, res) => {
+      requestedUrl = req.url || '';
+      requestedMethod = req.method || '';
+      jsonResponse(res, { status: 'success' });
+    }));
+    mockConfig.backendUrl = `http://127.0.0.1:${(server.address() as AddressInfo).port}`;
+    client = new RepoIntelligenceClient();
+
+    await client.generateExecutionPlan('owner', 'repo');
+    assert.strictEqual(requestedUrl, '/api/repositories/owner/repo/execution-plan');
+    assert.strictEqual(requestedMethod, 'POST');
+  });
 });
 
 // ---------------------------------------------------------------------------

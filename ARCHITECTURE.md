@@ -1,6 +1,6 @@
 # Architecture Specification
 
-This document describes the production architecture of Repo Intelligence Agent v1.0. Every diagram, component, and flow reflects the current implementation in the codebase.
+This document describes the production architecture of Repo Intelligence Agent v1.0.0. Every diagram, component, and flow reflects the current implementation in the codebase.
 
 ---
 
@@ -627,6 +627,16 @@ Base URL: `http://localhost:8001` — all routes also available under `/api/v1/`
 | `POST` | `/api/v1/report/{owner}/{repo}/build` | Build intelligence report |
 | `GET` | `/api/v1/report/{owner}/{repo}/summary` | Report health summary |
 | `GET` | `/api/v1/report/{owner}/{repo}/download` | Download HTML/PDF/Markdown |
+| `POST` | `/api/v1/repositories/{owner}/{repo}/advisor` | Generate AI Advisor Report |
+| `GET` | `/api/v1/repositories/{owner}/{repo}/advisor/latest` | Get Latest Advisor Report |
+| `GET` | `/api/v1/repositories/{owner}/{repo}/advisor/recommendations` | Get Advisor Recommendations |
+| `GET` | `/api/v1/repositories/{owner}/{repo}/advisor/roadmap` | Get Advisor Roadmap |
+| `POST` | `/api/v1/repositories/{owner}/{repo}/execution-plan` | Generate AEA² Execution Plan |
+| `GET` | `/api/v1/repositories/{owner}/{repo}/execution-plan/latest` | Get Latest Execution Plan |
+| `GET` | `/api/v1/repositories/{owner}/{repo}/execution-plan/batches` | Get AEA² Batches |
+| `GET` | `/api/v1/repositories/{owner}/{repo}/execution-plan/critical-path` | Get AEA² Critical Path |
+| `GET` | `/api/v1/repositories/{owner}/{repo}/workspace` | Get consolidated IDE workspace snapshot |
+| `GET` | `/api/v1/repositories/{owner}/{repo}/workspace/{panel}` | Get specific workspace panel snapshot |
 
 ---
 

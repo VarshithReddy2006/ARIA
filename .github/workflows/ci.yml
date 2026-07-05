@@ -24,7 +24,7 @@ jobs:
     - name: Set up Python
       uses: actions/setup-python@v5
       with:
-        python-version: '3.11'
+        python-version: '3.12'
         cache: 'pip'
 
     - name: Install dependencies
@@ -117,3 +117,64 @@ jobs:
       run: |
         cd vscode-extension
         npm test
+    - name: Tree-Sitter diagnostics
+  run: |
+    python --version
+    pip freeze | grep tree-sitter || true
+
+    python - <<'PY'
+    import sys
+    import tree_sitter
+    import tree_sitter_python
+    import tree_sitter_javascript
+    import tree_sitter_typescript
+
+    print("Python:", sys.version)
+    print("tree_sitter module:", tree_sitter)
+
+    print("python.language() =", tree_sitter_python.language())
+    print("python.type =", type(tree_sitter_python.language()))
+
+    print("javascript.language() =", tree_sitter_javascript.language())
+    print("javascript.type =", type(tree_sitter_javascript.language()))
+
+    print("typescript.language() =", tree_sitter_typescript.language())
+    print("typescript.type =", type(tree_sitter_typescript.language()))
+
+    from tree_sitter import Language, Parser
+
+    try:
+        lang = Language(tree_sitter_python.language(), "python")
+        print("✓ Language() succeeded")
+    except Exception as e:
+        print("✗ Language() failed:", repr(e))
+        raise
+
+    try:
+        parser = Parser()
+        parser.set_language(lang)
+        print("✓ Parser.set_language() succeeded")
+    except Exception as e:
+        print("✗ Parser.set_language() failed:", repr(e))
+        raise
+
+    try:
+        tree = parser.parse(b"def hello():\n    return 1\n")
+        print("✓ Parse succeeded")
+        print(tree.root_node)
+    except Exception as e:
+        print("✗ Parse failed:", repr(e))
+        raise
+        print("✗ Parse failed:", repr(e))
+        raise
+    PY
+        print("✗ Parse failed:", repr(e))
+        raise
+    PY
+        print("✗ Parse failed:", repr(e))
+        raise
+        print("✗ Parse failed:", repr(e))
+        raise
+        print("✗ Parse failed:", repr(e))
+        raise
+    PY

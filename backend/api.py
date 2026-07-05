@@ -78,10 +78,11 @@ app.add_middleware(TrustedHostMiddleware, allowed_hosts=settings.allowed_hosts)
 # CORS spec — browsers reject credentialed responses with a wildcard origin.
 # Use the configured frontend URL instead.
 _cors_origins = [settings.frontend_url]
-# In development also permit the default Astro dev-server port if a custom
-# FRONTEND_URL has been set to something else.
+# In development also permit the default Astro and Vite dev-server ports.
 if "localhost:4321" not in settings.frontend_url:
     _cors_origins.append("http://localhost:4321")
+if "localhost:5173" not in settings.frontend_url:
+    _cors_origins.append("http://localhost:5173")
 
 app.add_middleware(
     CORSMiddleware,
@@ -249,6 +250,19 @@ from backend.dependencies import (  # noqa: E402, F401
     api_surface_service,
     breaking_change_analyzer,
     _persist_analysis_store,
+    repository_twin_builder,
+    repository_twin_navigator,
+    repository_knowledge_graph_builder,
+    repository_knowledge_graph_navigator,
+    structural_retrieval_engine,
+    engineering_reasoning_engine,
+    graph_rag_service,
+    engineering_memory_service,
+    repository_inspector,
+    continuous_monitoring_service,
+    advisor_service,
+    execution_planner_service,
+    workspace_service,
 )
 
 # ---------------------------------------------------------------------------
@@ -256,7 +270,7 @@ from backend.dependencies import (  # noqa: E402, F401
 # ---------------------------------------------------------------------------
 from backend.routers.health import router as health_router  # noqa: E402
 from backend.routers.repositories import router as repositories_router  # noqa: E402
-from backend.routers.chat import router as chat_router  # noqa: E402
+from backend.routers.chat import router as chat_router, graph_rag_router  # noqa: E402
 from backend.routers.architecture import router as architecture_router  # noqa: E402
 from backend.routers.graph import router as graph_router  # noqa: E402
 from backend.routers.symbols import router as symbols_router  # noqa: E402
@@ -268,6 +282,16 @@ from backend.routers.stability import router as stability_router  # noqa: E402
 from backend.routers.dependency_smells import router as dependency_smells_router  # noqa: E402
 from backend.routers.metrics import router as metrics_router  # noqa: E402
 from backend.routers.report import router as report_router  # noqa: E402
+from backend.routers.twin import router as twin_router  # noqa: E402
+from backend.routers.knowledge_graph import router as knowledge_graph_router  # noqa: E402
+from backend.routers.retrieval import router as retrieval_router  # noqa: E402
+from backend.routers.reasoning import router as reasoning_router  # noqa: E402
+from backend.routers.memory import router as memory_router  # noqa: E402
+from backend.routers.inspection import router as inspection_router  # noqa: E402
+from backend.routers.monitoring import router as monitoring_router  # noqa: E402
+from backend.routers.advisor import router as advisor_router  # noqa: E402
+from backend.routers.execution import router as execution_router  # noqa: E402
+from backend.routers.workspace import router as workspace_router  # noqa: E402
 
 
 # 1. Register routes under root (backward compatibility)
@@ -285,6 +309,28 @@ app.include_router(stability_router)
 app.include_router(dependency_smells_router)
 app.include_router(metrics_router)
 app.include_router(report_router)
+app.include_router(twin_router)
+app.include_router(twin_router, prefix="/api")
+app.include_router(knowledge_graph_router)
+app.include_router(knowledge_graph_router, prefix="/api")
+app.include_router(retrieval_router)
+app.include_router(retrieval_router, prefix="/api")
+app.include_router(reasoning_router)
+app.include_router(reasoning_router, prefix="/api")
+app.include_router(graph_rag_router)
+app.include_router(graph_rag_router, prefix="/api")
+app.include_router(memory_router)
+app.include_router(memory_router, prefix="/api")
+app.include_router(inspection_router)
+app.include_router(inspection_router, prefix="/api")
+app.include_router(monitoring_router)
+app.include_router(monitoring_router, prefix="/api")
+app.include_router(advisor_router)
+app.include_router(advisor_router, prefix="/api")
+app.include_router(execution_router)
+app.include_router(execution_router, prefix="/api")
+app.include_router(workspace_router)
+app.include_router(workspace_router, prefix="/api")
 
 
 # 2. Register versioned routes under /api/v1
@@ -302,6 +348,17 @@ app.include_router(stability_router, prefix="/api/v1")
 app.include_router(dependency_smells_router, prefix="/api/v1")
 app.include_router(metrics_router, prefix="/api/v1")
 app.include_router(report_router, prefix="/api/v1")
+app.include_router(twin_router, prefix="/api/v1")
+app.include_router(knowledge_graph_router, prefix="/api/v1")
+app.include_router(retrieval_router, prefix="/api/v1")
+app.include_router(reasoning_router, prefix="/api/v1")
+app.include_router(graph_rag_router, prefix="/api/v1")
+app.include_router(memory_router, prefix="/api/v1")
+app.include_router(inspection_router, prefix="/api/v1")
+app.include_router(monitoring_router, prefix="/api/v1")
+app.include_router(advisor_router, prefix="/api/v1")
+app.include_router(execution_router, prefix="/api/v1")
+app.include_router(workspace_router, prefix="/api/v1")
 
 
 # ---------------------------------------------------------------------------

@@ -5,7 +5,7 @@ This document outlines the step-by-step checklist to manually test and verify th
 ---
 
 ## 1. Setup
-Ensure the Python backend is running on port 8000 and the Astro frontend is running on port 4321/3000. Navigate to the dashboard (e.g. `http://localhost:3000/?repo=Repo-Intelligence-Agent`).
+Ensure the Python backend is running on port 8001 and the Astro frontend is running on port 4321. Navigate to the dashboard (e.g. `http://localhost:4321/?repo=Repo-Intelligence-Agent`).
 
 ---
 

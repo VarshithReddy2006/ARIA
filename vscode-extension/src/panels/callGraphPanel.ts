@@ -82,6 +82,8 @@ export class CallGraphPanel {
     type: string;
     nodeId?: string;
     query?: string;
+    risk?: string;
+    affected?: string[];
   }): Promise<void> {
     if (msg.type === 'search') {
       await this._loadGraph(msg.query);
@@ -113,6 +115,12 @@ export class CallGraphPanel {
           message: extractErrorMessage(err),
         });
       }
+    } else if (msg.type === 'showNotification') {
+      const risk = msg.risk ?? 'N/A';
+      const affected = msg.affected || [];
+      void vscode.window.showInformationMessage(
+        `Blast Radius Risk: ${risk} — Affected functions: ${affected.join(', ')}`
+      );
     }
   }
 
@@ -407,7 +415,7 @@ window.addEventListener('message', e => {
     fitView(); draw();
   } else if (msg.type === 'blastRadius') {
     const r = msg.data;
-    vscode.window && alert('Blast Radius: ' + r.risk_level + ' — ' + r.affected_functions.length + ' affected functions');
+    vscode.postMessage({ type: 'showNotification', risk: r.risk_level, affected: r.affected_functions });
   } else if (msg.type === 'error') {
     loadingOverlay.style.display = 'none';
     infoBar.textContent = '⚠ ' + msg.message;

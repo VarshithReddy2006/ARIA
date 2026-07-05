@@ -233,6 +233,163 @@ export interface ArchitectureBuildResponse {
   entry_points: string[];
 }
 
+// ── Workspace Panel Types ──────────────────────────────────────────────────
+
+export interface WorkspaceState {
+  repository: string;
+  selected_file: string | null;
+  selected_symbol: string | null;
+  active_panel: string;
+  filters: Record<string, any>;
+  ui_preferences: Record<string, any>;
+}
+
+export interface HealthSummary {
+  overall_score: number | null;
+  overall_priority: string | null;
+  critical_count: number;
+  high_count: number;
+  medium_count: number;
+  low_count: number;
+  trend_direction: string | null;
+}
+
+export interface OverviewPanel {
+  repository: string;
+  description: string | null;
+  primary_language: string | null;
+  languages: string[];
+  total_files: number;
+  total_symbols: number;
+  architecture_style: string | null;
+  dependency_count: number;
+  health: HealthSummary;
+  last_indexed_at: number | null;
+  metadata: Record<string, any>;
+}
+
+export interface ExplorerNode {
+  id: string;
+  label: string;
+  kind: string;
+  children: ExplorerNode[];
+  metadata: Record<string, any>;
+}
+
+export interface ExplorerPanel {
+  repository: string;
+  total_nodes: number;
+  total_edges: number;
+  root_nodes: ExplorerNode[];
+  entry_points: string[];
+  dependency_summary: Record<string, number>;
+  metadata: Record<string, any>;
+}
+
+export interface ChatSessionMeta {
+  repository: string;
+  grounding_available: boolean;
+  context_nodes: number;
+  suggested_questions: string[];
+  metadata: Record<string, any>;
+}
+
+export interface FindingsSummary {
+  id: string;
+  title: string;
+  category: string;
+  severity: string;
+  confidence: number;
+  affected_entities: string[];
+  recommendation_count: number;
+}
+
+export interface FindingsPanel {
+  repository: string;
+  total_findings: number;
+  findings: FindingsSummary[];
+  by_severity: Record<string, number>;
+  by_category: Record<string, number>;
+  last_inspected_at: number | null;
+  metadata: Record<string, any>;
+}
+
+export interface TimelineEntry {
+  snapshot_id: string;
+  timestamp: number;
+  commit_hash: string | null;
+  summary: string;
+  metrics: Record<string, any>;
+}
+
+export interface TimelinePanel {
+  repository: string;
+  snapshot_count: number;
+  timeline: TimelineEntry[];
+  trends: Record<string, any>;
+  metadata: Record<string, any>;
+}
+
+export interface MonitorPanel {
+  repository: string;
+  status: string;
+  last_run_at: number | null;
+  last_trigger: string | null;
+  run_count: number;
+  health_trend: string | null;
+  overall_health_score: number | null;
+  recent_runs: Array<Record<string, any>>;
+  alerts: Array<Record<string, any>>;
+  metadata: Record<string, any>;
+}
+
+export interface AdvisorPanel {
+  repository: string;
+  overall_priority: string;
+  total_recommendations: number;
+  top_recommendations: Array<Record<string, any>>;
+  roadmap_phases: number;
+  roadmap_summary: Array<Record<string, any>>;
+  metadata: Record<string, any>;
+}
+
+export interface BatchSummary {
+  batch_id: string;
+  order: number;
+  title: string;
+  task_count: number;
+  parallel: boolean;
+  estimated_effort: string;
+}
+
+export interface ExecutionPanel {
+  repository: string;
+  total_tasks: number;
+  total_batches: number;
+  critical_path_length: number;
+  rollback_checkpoints: number;
+  conflict_count: number;
+  overall_risk: string;
+  batches: BatchSummary[];
+  critical_path: string[];
+  metadata: Record<string, any>;
+}
+
+export interface WorkspaceSnapshot {
+  state: WorkspaceState;
+  overview: OverviewPanel | null;
+  explorer: ExplorerPanel | null;
+  chat: ChatSessionMeta | null;
+  findings: FindingsPanel | null;
+  timeline: TimelinePanel | null;
+  monitor: MonitorPanel | null;
+  advisor: AdvisorPanel | null;
+  execution: ExecutionPanel | null;
+  available_panels: string[];
+  metadata: Record<string, any>;
+}
+
+
 // ---------------------------------------------------------------------------
 // SSE helpers
 // ---------------------------------------------------------------------------
@@ -244,6 +401,13 @@ export type SseEventHandler = (event: Record<string, unknown>) => void;
 // ---------------------------------------------------------------------------
 
 export class RepoIntelligenceClient {
+  private _token = '';
+  public onUnauthorized?: () => Promise<string | undefined>;
+
+  public setToken(token: string): void {
+    this._token = token;
+  }
+
   private get baseUrl(): string {
     const cfg = vscode.workspace.getConfiguration('repoIntelligence');
     return (cfg.get<string>('backendUrl') ?? 'http://127.0.0.1:8001').replace(/\/$/, '');
@@ -255,9 +419,7 @@ export class RepoIntelligenceClient {
   }
 
   private get authHeaders(): Record<string, string> {
-    const cfg = vscode.workspace.getConfiguration('repoIntelligence');
-    const token = cfg.get<string>('apiToken') ?? '';
-    return token ? { Authorization: `Bearer ${token}` } : {};
+    return this._token ? { Authorization: `Bearer ${this._token}` } : {};
   }
 
   // ── Core fetch ──────────────────────────────────────────────────────────
@@ -293,6 +455,18 @@ export class RepoIntelligenceClient {
         res.on('data', (chunk) => (data += chunk));
         res.on('end', () => {
           try {
+            if (res.statusCode === 401 && this.onUnauthorized) {
+              this.onUnauthorized().then((newToken) => {
+                if (newToken !== undefined) {
+                  this.setToken(newToken);
+                  this.fetchJson<T>(path, options).then(resolve, reject);
+                } else {
+                  reject(new Error('HTTP 401 Unauthorized'));
+                }
+              }).catch(reject);
+              return;
+            }
+
             if (res.statusCode && res.statusCode >= 400) {
               let detail = `HTTP ${res.statusCode}`;
               try {
@@ -354,6 +528,16 @@ export class RepoIntelligenceClient {
     };
 
     const req = transport.request(reqOptions, (res) => {
+      if (res.statusCode === 401 && this.onUnauthorized) {
+        this.onUnauthorized().then((newToken) => {
+          if (newToken !== undefined) {
+            this.setToken(newToken);
+          }
+        }).catch(() => {});
+        onError(new Error('HTTP 401 Unauthorized'));
+        return;
+      }
+
       let buffer = '';
       res.on('data', (chunk: Buffer) => {
         buffer += chunk.toString();
@@ -402,6 +586,30 @@ export class RepoIntelligenceClient {
 
   async getAnalysis(owner: string, repo: string): Promise<AnalysisDetails> {
     return this.fetchJson<AnalysisDetails>(`/api/analysis/${owner}/${repo}`);
+  }
+
+  async runInspection(owner: string, repo: string, policy = 'default'): Promise<any> {
+    return this.fetchJson(`/api/repositories/${owner}/${repo}/inspect?policy=${policy}`, {
+      method: 'POST',
+    });
+  }
+
+  async runMonitoring(owner: string, repo: string, policy = 'immediate'): Promise<any> {
+    return this.fetchJson(`/api/repositories/${owner}/${repo}/monitor?policy=${policy}`, {
+      method: 'POST',
+    });
+  }
+
+  async generateRoadmap(owner: string, repo: string): Promise<any> {
+    return this.fetchJson(`/api/repositories/${owner}/${repo}/advisor`, {
+      method: 'POST',
+    });
+  }
+
+  async generateExecutionPlan(owner: string, repo: string): Promise<any> {
+    return this.fetchJson(`/api/repositories/${owner}/${repo}/execution-plan`, {
+      method: 'POST',
+    });
   }
 
   // ── Symbols ─────────────────────────────────────────────────────────────
@@ -530,6 +738,55 @@ export class RepoIntelligenceClient {
   }
 
   // ── Chat ────────────────────────────────────────────────────────────────
+
+  // ── Workspace ────────────────────────────────────────────────────────────
+
+  async getWorkspace(
+    owner: string,
+    repo: string,
+    file?: string,
+    symbol?: string,
+    panel?: string
+  ): Promise<WorkspaceSnapshot> {
+    const params: string[] = [];
+    if (file) { params.push(`file=${encodeURIComponent(file)}`); }
+    if (symbol) { params.push(`symbol=${encodeURIComponent(symbol)}`); }
+    if (panel) { params.push(`panel=${encodeURIComponent(panel)}`); }
+    const query = params.length > 0 ? `?${params.join('&')}` : '';
+    return this.fetchJson<WorkspaceSnapshot>(`/api/repositories/${owner}/${repo}/workspace${query}`);
+  }
+
+  async getOverview(owner: string, repo: string): Promise<OverviewPanel> {
+    return this.fetchJson<OverviewPanel>(`/api/repositories/${owner}/${repo}/workspace/overview`);
+  }
+
+  async getExplorer(owner: string, repo: string): Promise<ExplorerPanel> {
+    return this.fetchJson<ExplorerPanel>(`/api/repositories/${owner}/${repo}/workspace/explorer`);
+  }
+
+  async getChatMeta(owner: string, repo: string): Promise<ChatSessionMeta> {
+    return this.fetchJson<ChatSessionMeta>(`/api/repositories/${owner}/${repo}/workspace/chat`);
+  }
+
+  async getFindings(owner: string, repo: string): Promise<FindingsPanel> {
+    return this.fetchJson<FindingsPanel>(`/api/repositories/${owner}/${repo}/workspace/findings`);
+  }
+
+  async getTimeline(owner: string, repo: string): Promise<TimelinePanel> {
+    return this.fetchJson<TimelinePanel>(`/api/repositories/${owner}/${repo}/workspace/timeline`);
+  }
+
+  async getMonitoring(owner: string, repo: string): Promise<MonitorPanel> {
+    return this.fetchJson<MonitorPanel>(`/api/repositories/${owner}/${repo}/workspace/monitor`);
+  }
+
+  async getAdvisor(owner: string, repo: string): Promise<AdvisorPanel> {
+    return this.fetchJson<AdvisorPanel>(`/api/repositories/${owner}/${repo}/workspace/advisor`);
+  }
+
+  async getExecutionPlan(owner: string, repo: string): Promise<ExecutionPanel> {
+    return this.fetchJson<ExecutionPanel>(`/api/repositories/${owner}/${repo}/workspace/execution`);
+  }
 
   streamChat(
     repo: string,

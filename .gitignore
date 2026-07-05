@@ -267,3 +267,6 @@ pnpm-debug.log*
 
 # Local testing environment
 testenv/
+
+# Chrome / browser test profiles
+temp-profile/

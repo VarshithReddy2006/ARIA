@@ -26,10 +26,31 @@ export const workspace = {
       };
       return (key in defaults ? defaults[key] : defaultValue) as T;
     },
-    update: async (_key: string, _value: unknown, _target?: unknown) => {},
+    update: async (key: string, value: unknown, target?: unknown) => {
+      const updates = (global as any).__vscodeConfigUpdates__ || [];
+      updates.push({ key, value, target });
+      (global as any).__vscodeConfigUpdates__ = updates;
+      const overrides = (global as any).__vscodeConfig__ || {};
+      if (value === undefined) {
+        delete overrides[key];
+      } else {
+        overrides[key] = value;
+      }
+      (global as any).__vscodeConfig__ = overrides;
+    },
   }),
-  asRelativePath: (_uri: unknown, _includeWorkspaceFolder?: boolean) => 'test/file.py',
-  getWorkspaceFolder: (_uri: unknown) => ({ uri: { toString: () => '/workspace' } }),
+  asRelativePath: (uri: any, _includeWorkspaceFolder?: boolean) => {
+    const fsPath = (uri && uri.fsPath) ? uri.fsPath : String(uri);
+    const normalized = fsPath.replace(/\\/g, '/');
+    if (normalized.startsWith('/workspace/')) {
+      return normalized.substring('/workspace/'.length);
+    }
+    return normalized;
+  },
+  getWorkspaceFolder: (_uri: unknown) => ({ uri: { fsPath: '/workspace', toString: () => '/workspace' } }),
+  workspaceFolders: [
+    { uri: { fsPath: '/workspace', toString: () => '/workspace' } }
+  ],
   onDidChangeConfiguration: (_handler: unknown) => ({ dispose: () => {} }),
   onDidSaveTextDocument: (_handler: unknown) => ({ dispose: () => {} }),
 };
@@ -71,12 +92,29 @@ export const window = {
     dispose: () => {},
   }),
   activeTextEditor: undefined as unknown,
+  visibleTextEditors: [] as any[],
   registerTreeDataProvider: (_id: string, _provider: unknown) => ({ dispose: () => {} }),
+  onDidChangeActiveTextEditor: (_handler: unknown) => ({ dispose: () => {} }),
+  registerFileDecorationProvider: (_provider: unknown) => ({ dispose: () => {} }),
+  createTextEditorDecorationType: (_options: any) => ({
+    dispose: () => {},
+  }),
 };
+
+class MockDiagnosticCollection {
+  private map = new Map<string, any>();
+  clear() { this.map.clear(); }
+  delete(uri: any) { this.map.delete(uri.toString()); }
+  set(uri: any, diagnostics: any) { this.map.set(uri.toString(), diagnostics); }
+  get(uri: any) { return this.map.get(uri.toString()); }
+  has(uri: any) { return this.map.has(uri.toString()); }
+  dispose() { this.clear(); }
+}
 
 export const languages = {
   registerHoverProvider: (_selector: unknown, _provider: unknown) => ({ dispose: () => {} }),
   registerCodeLensProvider: (_selector: unknown, _provider: unknown) => ({ dispose: () => {} }),
+  createDiagnosticCollection: (_name: string) => new MockDiagnosticCollection(),
 };
 
 export const commands = {
@@ -85,8 +123,19 @@ export const commands = {
 };
 
 export const Uri = {
-  file: (path: string) => ({ fsPath: path, toString: () => path }),
-  joinPath: (base: unknown, ...segments: string[]) => ({ fsPath: segments.join('/'), toString: () => segments.join('/') }),
+  file: (path: string) => {
+    const normalized = path.replace(/\\/g, '/');
+    return { fsPath: normalized, toString: () => normalized };
+  },
+  joinPath: (base: any, ...segments: string[]) => {
+    const basePath = (base && base.fsPath) ? base.fsPath : String(base);
+    const joined = [basePath, ...segments].join('/').replace(/\\/g, '/');
+    return { fsPath: joined, toString: () => joined };
+  },
+  parse: (str: string) => {
+    const normalized = str.replace(/\\/g, '/');
+    return { fsPath: normalized, toString: () => normalized };
+  },
 };
 
 export class MarkdownString {
@@ -105,17 +154,17 @@ export class CodeLens {
   constructor(public range: unknown, public command?: unknown) {}
 }
 
-export class Range {
-  constructor(
-    public startLine: number,
-    public startChar: number,
-    public endLine: number,
-    public endChar: number
-  ) {}
-}
-
 export class Position {
   constructor(public line: number, public character: number) {}
+}
+
+export class Range {
+  public start: Position;
+  public end: Position;
+  constructor(startLine: number, startChar: number, endLine: number, endChar: number) {
+    this.start = new Position(startLine, startChar);
+    this.end = new Position(endLine, endChar);
+  }
 }
 
 export class ThemeColor {
@@ -178,4 +227,50 @@ export enum ConfigurationTarget {
 export const CancellationToken = {
   isCancellationRequested: false,
   onCancellationRequested: (_handler: unknown) => ({ dispose: () => {} }),
+};
+
+export class CancellationTokenSource {
+  public token = {
+    isCancellationRequested: false,
+    onCancellationRequested: (_handler: unknown) => ({ dispose: () => {} }),
+  };
+  cancel() {}
+  dispose() {}
+}
+
+export enum DiagnosticSeverity {
+  Error = 0,
+  Warning = 1,
+  Information = 2,
+  Hint = 3,
+}
+
+export class Diagnostic {
+  public source?: string;
+  public code?: string | number;
+  constructor(
+    public range: Range,
+    public message: string,
+    public severity: DiagnosticSeverity = DiagnosticSeverity.Error
+  ) {}
+}
+
+export const CodeActionKind = {
+  Refactor: 'refactor',
+};
+
+export class CodeAction {
+  public command?: any;
+  constructor(public title: string, public kind?: any) {}
+}
+
+export enum OverviewRulerLane {
+  Left = 1,
+  Center = 2,
+  Right = 4,
+  Full = 7,
+}
+
+export const extensions = {
+  getExtension: (_id: string) => undefined,
 };

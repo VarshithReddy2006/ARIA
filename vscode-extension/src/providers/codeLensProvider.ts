@@ -8,14 +8,14 @@
 
 import * as vscode from 'vscode';
 import { client, Symbol as RepoSymbol } from '../api';
+import { DocumentLruCache } from '../utils/lruCache';
+import { StateService } from '../utils/stateService';
 
-// Simple LRU cache: one entry per open document
-const symbolCache = new Map<string, { symbols: RepoSymbol[]; version: number }>();
+// Bounded LRU Cache (max 50 documents)
+export const codeLensCache = new DocumentLruCache<RepoSymbol[]>(50);
 
 function getActiveRepo(): string {
-  return (
-    vscode.workspace.getConfiguration('repoIntelligence').get<string>('activeRepository') ?? ''
-  );
+  return StateService.getActiveRepository();
 }
 
 function repoToOwnerRepo(id: string): [string, string] | null {
@@ -73,16 +73,16 @@ export class RepoIntelligenceCodeLensProvider
     const filePath = getRelativePath(document);
 
     // Invalidate stale cache
-    const cached = symbolCache.get(document.uri.toString());
+    const cached = codeLensCache.get(document.uri.toString());
     let symbols: RepoSymbol[];
     if (cached && cached.version === document.version) {
-      symbols = cached.symbols;
+      symbols = cached.value;
     } else {
       try {
         const result = await client.getFileSymbols(owner, repo, filePath);
         symbols = result.symbols;
-        symbolCache.set(document.uri.toString(), {
-          symbols,
+        codeLensCache.set(document.uri.toString(), {
+          value: symbols,
           version: document.version,
         });
       } catch {
@@ -107,62 +107,14 @@ export class RepoIntelligenceCodeLensProvider
 
       const lineIndex = Math.max(0, symbol.line_number - 1);
       const range = new vscode.Range(lineIndex, 0, lineIndex, 0);
-      const functionId = encodeURIComponent(`${filePath}::${symbol.qualified}`);
+      const functionId = `${filePath}::${symbol.qualified}`; // no need to encode here, handle in command
 
-      // ── Show Callers ───────────────────────────────────────────────────
       lenses.push(
         new vscode.CodeLens(range, {
-          title: `$(arrow-left) Callers${typeof symbol.fan_in === 'number' ? ` (${symbol.fan_in})` : ''}`,
-          command: 'repoIntelligence.showCallers',
-          arguments: [{ owner, repo, functionId }],
-          tooltip: 'Show all functions that call this one',
-        })
-      );
-
-      // ── Show Callees ───────────────────────────────────────────────────
-      lenses.push(
-        new vscode.CodeLens(range, {
-          title: `$(arrow-right) Callees${typeof symbol.fan_out === 'number' ? ` (${symbol.fan_out})` : ''}`,
-          command: 'repoIntelligence.showCallees',
-          arguments: [{ owner, repo, functionId }],
-          tooltip: 'Show all functions called by this one',
-        })
-      );
-
-      // ── Blast Radius (functions and methods only) ──────────────────────
-      if (symbol.symbol_type !== 'class') {
-        lenses.push(
-          new vscode.CodeLens(range, {
-            title: '$(pulse) Blast Radius',
-            command: 'repoIntelligence.showBlastRadius',
-            arguments: [{ owner, repo, functionId }],
-            tooltip: 'Compute the change impact radius of this function',
-          })
-        );
-      }
-
-      // ── Impact Analysis (classes only, or any symbol) ──────────────────
-      lenses.push(
-        new vscode.CodeLens(range, {
-          title: '$(beaker) Impact Analysis',
-          command: 'repoIntelligence.showImpactAnalysis',
-          arguments: [
-            {
-              repo: `${owner}/${repo}`,
-              issue: `Change to ${symbol.qualified}`,
-            },
-          ],
-          tooltip: 'Predict impact of modifying this symbol',
-        })
-      );
-
-      // ── Reading Path ──────────────────────────────────────────────────
-      lenses.push(
-        new vscode.CodeLens(range, {
-          title: '$(book) Reading Path',
-          command: 'repoIntelligence.showReadingPathForFile',
-          arguments: [{ file: filePath }],
-          tooltip: 'Generate recommended reading order from this file',
+          title: '$(repo) Repository Intelligence',
+          command: 'repoIntelligence.showCodeLensQuickPick',
+          arguments: [{ owner, repo, filePath, symbol, functionId }],
+          tooltip: 'Open Repository Intelligence actions for this symbol',
         })
       );
     }

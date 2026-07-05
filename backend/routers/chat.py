@@ -353,3 +353,43 @@ async def map_issue(request: IssueMapRequest):
     except Exception as e:
         logger.error("Failed to map issue: %s", e, exc_info=True)
         raise HTTPException(status_code=500, detail=f"Issue mapping failed: {str(e)}")
+
+
+# ---------------------------------------------------------------------------
+# Graph-RAG Router
+# ---------------------------------------------------------------------------
+from backend.dependencies import graph_rag_service
+
+graph_rag_router = APIRouter(tags=["Graph-RAG Chat"])
+
+
+class GraphRAGRequest(BaseModel):
+    question: str = Field(..., description="User query or message.")
+    policy: str = Field("default", description="Retrieval & reasoning policy.")
+    options: Dict[str, Any] = Field(default_factory=dict, description="Configuration options.")
+
+
+@graph_rag_router.post("/repositories/{username}/{repository}/chat")
+async def graph_rag_chat(username: str, repository: str, request: GraphRAGRequest):
+    repo_name = f"{username}/{repository}"
+    # Verify indexed
+    if repo_name not in graph_rag_service.pipeline.get_retrieval_engine().navigator.get_builder().twin_builder.store:
+        raise HTTPException(status_code=404, detail=f"Repository '{repo_name}' is not indexed.")
+
+    if request.options.get("stream"):
+        async def event_generator():
+            async for chunk in graph_rag_service.stream_answer(
+                repo_name=repo_name,
+                question=request.question,
+                policy=request.policy,
+                options=request.options,
+            ):
+                yield chunk
+        return StreamingResponse(event_generator(), media_type="text/plain")
+
+    return await graph_rag_service.chat(
+        repo_name=repo_name,
+        question=request.question,
+        policy=request.policy,
+        options=request.options,
+    )

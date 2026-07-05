@@ -1,4 +1,4 @@
-# Installation & Setup Guide — Repo Intelligence Agent v1.0
+# Installation & Setup Guide — Repo Intelligence Agent v1.0.0
 
 This guide walks you through setting up and running the Repo Intelligence Agent backend, frontend, VS Code extension, and Docker containers.
 
@@ -8,8 +8,9 @@ This guide walks you through setting up and running the Repo Intelligence Agent 
 
 Ensure you have the following tools installed:
 
-- **Python**: Version `3.10`, `3.11`, or `3.12` (validated against Python 3.12).
-- **Node.js**: Version `18` or higher (LTS recommended) for compiling the Astro frontend.
+- **Python**: Version `>=3.9` (fully validated against Python `3.10`, `3.11`, and `3.12` in development).
+- **Node.js**: Version `18` or higher (LTS recommended) for compiling the Astro frontend and VS Code extension.
+- **npm**: Version `9.x` or `10.x`.
 - **Git**: Required for cloning the repositories to analyze.
 - **Docker & Compose**: (Optional) For running the application in containers.
 
@@ -28,7 +29,7 @@ Open the `.env` file and configure the settings:
 ```env
 # ── Application Environment ──────────────────────────────────────────────────
 APP_ENV=development
-API_SERVER_HOST=0.0.0.0
+API_SERVER_HOST=127.0.0.1
 API_SERVER_PORT=8001
 LOG_LEVEL=INFO
 LOG_FORMAT=human  # or "json" in production
@@ -138,9 +139,9 @@ npm run compile
 2. Press `F5` to open a new **Extension Development Host** window.
 3. To package the extension as a `.vsix` file:
    ```bash
-   npx vsce package
+   npx @vscode/vsce package --allow-missing-repository
    ```
-4. Install the packaged `.vsix` file using VS Code's **Install from VSIX...** option.
+4. Install the packaged `repo-intelligence-agent-0.1.0.vsix` file using VS Code's **Install from VSIX...** option.
 
 ---
 
@@ -167,7 +168,7 @@ docker-compose -f docker-compose.prod.yml up --build
 To confirm your installation is 100% stable, execute this check:
 ```bash
 # 1. Run backend tests
-pytest
+pytest tests/
 
 # 2. Check Python code styling
 ruff check .

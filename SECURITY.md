@@ -28,7 +28,19 @@ You will receive an acknowledgement within 72 hours and a status update within 7
 
 ### Authentication
 
-The API is currently a **public API** — there is no user authentication or authorization layer. All endpoints are accessible without credentials. This is a documented known limitation. For multi-tenant or internet-facing deployments, place a reverse proxy with authentication (e.g., nginx + OAuth2 proxy, Cloudflare Access) in front of the API.
+The API can be secured using an optional `API_KEY` configuration (via the environment variable). When configured, all resource-intensive endpoints (cloning, indexing, chat, reports) require clients to authenticate by supplying the API key in one of the following HTTP headers:
+
+1. **X-API-Key Header**:
+   ```http
+   X-API-Key: your_secret_api_key_here
+   ```
+
+2. **Authorization Bearer Token Header**:
+   ```http
+   Authorization: Bearer your_secret_api_key_here
+   ```
+
+If the API key is not configured, the endpoints default to public access for simplified local development. For multi-tenant or production internet-facing deployments, it is highly recommended to configure the `API_KEY` or place a reverse proxy with full user authentication (e.g., nginx + OAuth2 proxy, Cloudflare Access) in front of the API.
 
 ### LLM Provider Credentials
 
@@ -96,7 +108,7 @@ Analyzed repositories are cloned to `CLONED_REPOS_PATH` (defaults to `~/.repo_in
 
 ## Known Limitations
 
-- **No user authentication**: See above. Add a proxy layer for production.
+- **No built-in user/session management**: The application supports optional API key access control but does not include multi-user session/credential management. Place a proxy layer in front of the API for multi-tenant production requirements.
 - **No request signing**: Internal service-to-service calls are not authenticated.
 - **CORS in development**: In development mode, `localhost:4321` is added as an additional allowed origin alongside `FRONTEND_URL`. This is intentional for local development.
 - **GitHub token scope**: `GITHUB_TOKEN` is used for cloning and API calls. Use a fine-grained PAT with the minimum required scopes (`contents:read`, `metadata:read`).
