@@ -86,14 +86,14 @@ async def get_pr_health(
     github_token_exists = bool(token)
 
     rate_info: dict = {"limit": 0, "remaining": 0, "reset": 0}
-    github_rate_limit_authenticated = False
-    if github_token_exists:
-        try:
-            # Synchronous call so @patch("backend.api.github_service") intercepts it
-            rate_info = await asyncio.to_thread(_api.github_service.get_rate_limit_info)
-            github_rate_limit_authenticated = rate_info.get("limit", 0) >= 5000
-        except Exception:
-            pass
+    try:
+        # Synchronous call so @patch("backend.api.github_service") intercepts it
+        rate_info = await asyncio.to_thread(_api.github_service.get_rate_limit_info)
+    except Exception:
+        pass
+    github_rate_limit_authenticated = (
+        github_token_exists and rate_info.get("limit", 0) >= 5000
+    )
 
     analysis_exists = False
     graph_avail = False

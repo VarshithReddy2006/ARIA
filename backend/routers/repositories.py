@@ -269,9 +269,15 @@ async def index_repository(request: IndexRequest):
             "chunks": len(all_chunks),
         }
     except Exception as e:
+        error_message = str(e).lower()
         if isinstance(e, InvalidGitHubRepoURLError):
             raise HTTPException(status_code=400, detail=str(e))
         if isinstance(e, RepositoryNotFoundError):
+            raise HTTPException(status_code=404, detail=str(e))
+        if isinstance(e, RuntimeError) and (
+            "was not found anonymously" in error_message
+            or "repository not found" in error_message
+        ):
             raise HTTPException(status_code=404, detail=str(e))
         if isinstance(e, ValueError) and "Invalid GitHub repository URL" in str(e):
             raise HTTPException(status_code=400, detail=str(e))
