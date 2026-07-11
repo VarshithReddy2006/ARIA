@@ -2,9 +2,9 @@ name: CI
 
 on:
   push:
-    branches: [ main ]
+    branches: [main]
   pull_request:
-    branches: [ main ]
+    branches: [main]
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
@@ -18,163 +18,77 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-    - name: Checkout repository
-      uses: actions/checkout@v4
+      - name: Checkout repository
+        uses: actions/checkout@v4
 
-    - name: Set up Python
-      uses: actions/setup-python@v5
-      with:
-        python-version: '3.12'
-        cache: 'pip'
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: "pip"
 
-    - name: Install dependencies
-      run: |
-        python -m pip install --upgrade pip
-        pip install ruff pytest httpx
-        pip install -r requirements.txt
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install ruff pytest httpx
+          pip install -r requirements.txt
 
-    - name: Lint and Format verification with Ruff
-      run: |
-        ruff check .
-        ruff format --check .
+      - name: Lint with Ruff
+        run: ruff check .
 
-    - name: Run Pytest
-      env:
-        PYTHONPATH: .
-      run: |
-        echo "=== Package Versions ==="
-        pip show tree-sitter tree-sitter-python tree-sitter-javascript tree-sitter-typescript
-        echo "=== Running Diagnostic Parse ==="
-        python -c "
-        import logging
-        logging.basicConfig(level=logging.INFO)
-        try:
-            from tree_sitter import Language, Parser
-            import tree_sitter_python as tspython
-            print('Imported packages successfully.')
-            lang = Language(tspython.language(), 'python')
-            print('Loaded Python language:', lang)
-            parser = Parser()
-            parser.set_language(lang)
-            print('Set language on parser successfully.')
-            tree = parser.parse(b'def foo(): pass')
-            print('Parsed dummy code successfully:', tree.root_node)
-        except Exception as e:
-            import traceback
-            traceback.print_exc()
-        "
-        pytest tests/ -v
+      - name: Check formatting with Ruff
+        run: ruff format --check .
+
+      - name: Run tests
+        env:
+          PYTHONPATH: .
+        run: pytest tests/ -v
 
   frontend-build:
     runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: frontend
 
     steps:
-    - name: Checkout repository
-      uses: actions/checkout@v4
+      - name: Checkout repository
+        uses: actions/checkout@v4
 
-    - name: Set up Node.js
-      uses: actions/setup-node@v4
-      with:
-        node-version: '20'
-        cache: 'npm'
-        cache-dependency-path: frontend/package-lock.json
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "npm"
+          cache-dependency-path: frontend/package-lock.json
 
-    - name: Install dependencies
-      run: |
-        cd frontend
-        npm ci
+      - name: Install dependencies
+        run: npm ci
 
-    - name: Verify Production Build
-      run: |
-        cd frontend
-        npm run build
+      - name: Build
+        run: npm run build
 
   vscode-extension-build:
     runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: vscode-extension
 
     steps:
-    - name: Checkout repository
-      uses: actions/checkout@v4
+      - name: Checkout repository
+        uses: actions/checkout@v4
 
-    - name: Set up Node.js
-      uses: actions/setup-node@v4
-      with:
-        node-version: '20'
-        cache: 'npm'
-        cache-dependency-path: vscode-extension/package-lock.json
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "npm"
+          cache-dependency-path: vscode-extension/package-lock.json
 
-    - name: Install dependencies
-      run: |
-        cd vscode-extension
-        npm ci
+      - name: Install dependencies
+        run: npm ci
 
-    - name: Compile TypeScript
-      run: |
-        cd vscode-extension
-        npm run compile
+      - name: Compile TypeScript
+        run: npm run compile
 
-    - name: Run tests (unit only)
-      run: |
-        cd vscode-extension
-        npm test
-    - name: Tree-Sitter diagnostics
-  run: |
-    python --version
-    pip freeze | grep tree-sitter || true
-
-    python - <<'PY'
-    import sys
-    import tree_sitter
-    import tree_sitter_python
-    import tree_sitter_javascript
-    import tree_sitter_typescript
-
-    print("Python:", sys.version)
-    print("tree_sitter module:", tree_sitter)
-
-    print("python.language() =", tree_sitter_python.language())
-    print("python.type =", type(tree_sitter_python.language()))
-
-    print("javascript.language() =", tree_sitter_javascript.language())
-    print("javascript.type =", type(tree_sitter_javascript.language()))
-
-    print("typescript.language() =", tree_sitter_typescript.language())
-    print("typescript.type =", type(tree_sitter_typescript.language()))
-
-    from tree_sitter import Language, Parser
-
-    try:
-        lang = Language(tree_sitter_python.language(), "python")
-        print("✓ Language() succeeded")
-    except Exception as e:
-        print("✗ Language() failed:", repr(e))
-        raise
-
-    try:
-        parser = Parser()
-        parser.set_language(lang)
-        print("✓ Parser.set_language() succeeded")
-    except Exception as e:
-        print("✗ Parser.set_language() failed:", repr(e))
-        raise
-
-    try:
-        tree = parser.parse(b"def hello():\n    return 1\n")
-        print("✓ Parse succeeded")
-        print(tree.root_node)
-    except Exception as e:
-        print("✗ Parse failed:", repr(e))
-        raise
-        print("✗ Parse failed:", repr(e))
-        raise
-    PY
-        print("✗ Parse failed:", repr(e))
-        raise
-    PY
-        print("✗ Parse failed:", repr(e))
-        raise
-        print("✗ Parse failed:", repr(e))
-        raise
-        print("✗ Parse failed:", repr(e))
-        raise
-    PY
+      - name: Run tests
+        run: npm test
