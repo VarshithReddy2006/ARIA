@@ -30,10 +30,12 @@ class ComplexityInspector(InspectionPack):
                     title="High Cognitive Codebase Complexity",
                     description="The repository exhibits high overall complexity, making it difficult to maintain.",
                     affected_entities=["Whole Codebase"],
-                    evidence=[f"Calculated codebase complexity rating of {complexity} exceeds standard limit of 5.0."],
+                    evidence=[
+                        f"Calculated codebase complexity rating of {complexity} exceeds standard limit of 5.0."
+                    ],
                     recommendations=[
                         "Enforce strict limits on function sizes and cyclomatic parameters.",
-                        "Refactor complex branches and nested conditionals."
+                        "Refactor complex branches and nested conditionals.",
                     ],
                     estimated_effort="8 hours",
                     metadata={"complexity_rating": complexity},
@@ -59,12 +61,14 @@ class ComplexityInspector(InspectionPack):
                     file_path = parts[1] if len(parts) > 1 else ""
                     calls_count = fan_out.get(node_id, 0)
                     complexity_val = 5 + calls_count * 3
-                    symbols.append({
-                        "name": props.get("name", ""),
-                        "file_path": file_path,
-                        "complexity": complexity_val,
-                        "docstring": props.get("docstring", "")
-                    })
+                    symbols.append(
+                        {
+                            "name": props.get("name", ""),
+                            "file_path": file_path,
+                            "complexity": complexity_val,
+                            "docstring": props.get("docstring", ""),
+                        }
+                    )
         highly_complex_symbols = []
         for s in symbols:
             if isinstance(s, dict) and s.get("complexity", 0) > 15:
@@ -87,10 +91,12 @@ class ComplexityInspector(InspectionPack):
                     ],
                     recommendations=[
                         "Decompose functions into smaller sub-helpers.",
-                        "Simplify branch nesting and logical expression chains."
+                        "Simplify branch nesting and logical expression chains.",
                     ],
                     estimated_effort="3 hours",
-                    metadata={"highly_complex_declarations_count": len(highly_complex_symbols)},
+                    metadata={
+                        "highly_complex_declarations_count": len(highly_complex_symbols)
+                    },
                 )
             )
 

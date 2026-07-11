@@ -29,6 +29,7 @@ logger = logging.getLogger(__name__)
 # Sub-Engine 1: Evidence Analyzer
 # ---------------------------------------------------------------------------
 
+
 class EvidenceAnalyzer:
     """Transforms loose ContextReferences into strongly-typed Evidence findings."""
 
@@ -73,6 +74,7 @@ class EvidenceAnalyzer:
 # Pluggable RulePacks & Sub-Engine 2: Rule Engine
 # ---------------------------------------------------------------------------
 
+
 class RulePack(ABC):
     """Base interface for pluggable engineering reasoning rules."""
 
@@ -97,7 +99,11 @@ class ArchitectureRulePack(RulePack):
         contradictions: List[Contradiction],
     ) -> None:
         # Check for cycles
-        cycle_evidence = [e for e in evidence if e.type == "architecture" and e.reference_id.endswith("::architecture")]
+        cycle_evidence = [
+            e
+            for e in evidence
+            if e.type == "architecture" and e.reference_id.endswith("::architecture")
+        ]
         for ev in cycle_evidence:
             hypotheses.append(
                 Hypothesis(
@@ -131,7 +137,11 @@ class BugRulePack(RulePack):
         contradictions: List[Contradiction],
     ) -> None:
         # Check for high blast radius call chains
-        symbol_evidence = [e for e in evidence if e.type == "symbol" and e.reference_id.split("::")[-1].startswith("_")]
+        symbol_evidence = [
+            e
+            for e in evidence
+            if e.type == "symbol" and e.reference_id.split("::")[-1].startswith("_")
+        ]
         if symbol_evidence:
             hypotheses.append(
                 Hypothesis(
@@ -154,7 +164,10 @@ class ComplianceRulePack(RulePack):
     ) -> None:
         compliance_evidence = [e for e in evidence if e.type == "compliance"]
         for ev in compliance_evidence:
-            if "warning" in ev.description.lower() or "non-compliant" in ev.description.lower():
+            if (
+                "warning" in ev.description.lower()
+                or "non-compliant" in ev.description.lower()
+            ):
                 hypotheses.append(
                     Hypothesis(
                         id="HYP-COMP-01",
@@ -166,7 +179,10 @@ class ComplianceRulePack(RulePack):
 
             # Contradiction: Compliance report has warnings, but overall score is high
             health_evs = [e for e in evidence if e.type == "health"]
-            if health_evs and ("warning" in ev.description.lower() or "non-compliant" in ev.description.lower()):
+            if health_evs and (
+                "warning" in ev.description.lower()
+                or "non-compliant" in ev.description.lower()
+            ):
                 contradictions.append(
                     Contradiction(
                         id="CON-COMP-01",
@@ -181,13 +197,19 @@ class RuleEngine:
     """Coordinates pluggable RulePacks to evaluate hypotheses and contradictions."""
 
     def __init__(self, rule_packs: Optional[List[RulePack]] = None) -> None:
-        self.rule_packs = rule_packs if rule_packs is not None else [
-            ArchitectureRulePack(),
-            BugRulePack(),
-            ComplianceRulePack(),
-        ]
+        self.rule_packs = (
+            rule_packs
+            if rule_packs is not None
+            else [
+                ArchitectureRulePack(),
+                BugRulePack(),
+                ComplianceRulePack(),
+            ]
+        )
 
-    def evaluate(self, evidence: List[Evidence]) -> tuple[List[Hypothesis], List[Contradiction]]:
+    def evaluate(
+        self, evidence: List[Evidence]
+    ) -> tuple[List[Hypothesis], List[Contradiction]]:
         hypotheses: List[Hypothesis] = []
         contradictions: List[Contradiction] = []
 
@@ -195,7 +217,12 @@ class RuleEngine:
             try:
                 pack.evaluate(evidence, hypotheses, contradictions)
             except Exception as e:
-                logger.error("RulePack %s failed during evaluation: %s", pack.__class__.__name__, e, exc_info=True)
+                logger.error(
+                    "RulePack %s failed during evaluation: %s",
+                    pack.__class__.__name__,
+                    e,
+                    exc_info=True,
+                )
 
         return hypotheses, contradictions
 
@@ -204,15 +231,21 @@ class RuleEngine:
 # Sub-Engine 3: Confidence Engine
 # ---------------------------------------------------------------------------
 
+
 class ConfidenceEngine:
     """Computes separated trust scores for evidence quality, reasoning, and recommendations."""
 
-    def calculate(self, evidence: List[Evidence], contradictions: List[Contradiction], validated_count: int) -> ConfidenceBreakdown:
+    def calculate(
+        self,
+        evidence: List[Evidence],
+        contradictions: List[Contradiction],
+        validated_count: int,
+    ) -> ConfidenceBreakdown:
         # 1. Evidence Quality
         if evidence:
             avg_quality = sum(e.quality_score for e in evidence) / len(evidence) * 100.0
         else:
-            avg_quality = 80.0 # default baseline
+            avg_quality = 80.0  # default baseline
 
         # 2. Reasoning Confidence
         # Lose 25% for every contradiction detected
@@ -234,6 +267,7 @@ class ConfidenceEngine:
 # ---------------------------------------------------------------------------
 # Sub-Engine 4: Recommendation Planner & Decision Analysis
 # ---------------------------------------------------------------------------
+
 
 class RecommendationPlanner:
     """Generates trade-offs and decision options before planning final Recommendations."""
@@ -268,9 +302,14 @@ class RecommendationPlanner:
                 name="Defensive Wrapping",
                 description="Encapsulate highly coupled elements behind simple API interfaces or adapters.",
                 pros=["Faster implementation time", "Minimal regression footprint"],
-                cons=["Increases indirect layers", "Hides structural coupling rather than fixing it"],
-                recommendation_confidence=max(10.0, confidence_breakdown.recommendation_confidence - 10.0),
-            )
+                cons=[
+                    "Increases indirect layers",
+                    "Hides structural coupling rather than fixing it",
+                ],
+                recommendation_confidence=max(
+                    10.0, confidence_breakdown.recommendation_confidence - 10.0
+                ),
+            ),
         ]
         decision = DecisionAnalysis(
             problem_statement=f"Code coupling or cycles detected affecting target: {target}",
@@ -289,7 +328,9 @@ class RecommendationPlanner:
                     id=f"REC-{idx + 1:03d}",
                     type=rec_type,
                     target=target,
-                    priority="high" if confidence_breakdown.recommendation_confidence > 70 else "medium",
+                    priority="high"
+                    if confidence_breakdown.recommendation_confidence > 70
+                    else "medium",
                     estimated_effort="4h" if rec_type == "refactor" else "1h",
                     reasoning_chain=[hyp.id],
                 )
@@ -301,6 +342,7 @@ class RecommendationPlanner:
 # ---------------------------------------------------------------------------
 # Orchestrator: Engineering Reasoning Engine
 # ---------------------------------------------------------------------------
+
 
 class EngineeringReasoningEngine:
     """lightweight orchestrator coordinating sub-engine reasoning stages."""
@@ -370,7 +412,9 @@ class EngineeringReasoningEngine:
             )
         # Add Hypothesis nodes (link to supporting evidence)
         for h in hypotheses:
-            relationships = [{"target": eid, "type": "SUPPORTS"} for eid in h.supporting_evidence]
+            relationships = [
+                {"target": eid, "type": "SUPPORTS"} for eid in h.supporting_evidence
+            ]
             graph_nodes.append(
                 ReasoningChainNode(
                     id=h.id,
@@ -381,7 +425,9 @@ class EngineeringReasoningEngine:
             )
         # Add Recommendation nodes (link to hypothesis reasoning chains)
         for r in recommendations:
-            relationships = [{"target": hid, "type": "IMPLIES"} for hid in r.reasoning_chain]
+            relationships = [
+                {"target": hid, "type": "IMPLIES"} for hid in r.reasoning_chain
+            ]
             graph_nodes.append(
                 ReasoningChainNode(
                     id=r.id,

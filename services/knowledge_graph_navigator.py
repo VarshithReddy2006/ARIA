@@ -24,10 +24,13 @@ class RepositoryKnowledgeGraphNavigator:
         """Lazily resolve the builder to prevent process-startup circular dependency issues."""
         if self.builder is None:
             from backend.dependencies import repository_knowledge_graph_builder
+
             self.builder = repository_knowledge_graph_builder
         return self.builder
 
-    def _get_node_as_dto(self, graph: nx.DiGraph, node_id: str) -> Optional[KnowledgeGraphNode]:
+    def _get_node_as_dto(
+        self, graph: nx.DiGraph, node_id: str
+    ) -> Optional[KnowledgeGraphNode]:
         """Convert a NetworkX node to its Pydantic Node DTO."""
         if node_id not in graph:
             return None
@@ -42,7 +45,9 @@ class RepositoryKnowledgeGraphNavigator:
         nx_graph = builder.build_networkx_graph(repo_name)
         return self._get_node_as_dto(nx_graph, node_id)
 
-    def find_neighbors(self, repo_name: str, node_id: str, edge_type: Optional[str] = None) -> List[KnowledgeGraphNode]:
+    def find_neighbors(
+        self, repo_name: str, node_id: str, edge_type: Optional[str] = None
+    ) -> List[KnowledgeGraphNode]:
         """Finds immediate successor and predecessor neighbor nodes, optionally filtering by relationship type."""
         builder = self.get_builder()
         nx_graph = builder.build_networkx_graph(repo_name)
@@ -69,7 +74,11 @@ class RepositoryKnowledgeGraphNavigator:
 
         # Convert unique IDs back to DTOs
         unique_neighbors = list(set(neighbors))
-        return [self._get_node_as_dto(nx_graph, nid) for nid in unique_neighbors if nid in nx_graph]
+        return [
+            self._get_node_as_dto(nx_graph, nid)
+            for nid in unique_neighbors
+            if nid in nx_graph
+        ]
 
     def find_path(self, repo_name: str, source: str, target: str) -> List[str]:
         """Finds any path of node IDs connecting source and target nodes."""
@@ -96,7 +105,9 @@ class RepositoryKnowledgeGraphNavigator:
         except (nx.NetworkXNoPath, nx.NodeNotFound):
             return []
         except Exception as e:
-            logger.debug("Failed to find shortest path from %s to %s: %s", source, target, e)
+            logger.debug(
+                "Failed to find shortest path from %s to %s: %s", source, target, e
+            )
             return []
 
     def find_cycles(self, repo_name: str) -> List[List[str]]:
@@ -131,7 +142,9 @@ class RepositoryKnowledgeGraphNavigator:
         builder = self.get_builder()
         nx_graph = builder.build_networkx_graph(repo_name)
 
-        entrypoint_ids = [node_id for node_id, in_degree in nx_graph.in_degree() if in_degree == 0]
+        entrypoint_ids = [
+            node_id for node_id, in_degree in nx_graph.in_degree() if in_degree == 0
+        ]
         # Filter for file/symbol types specifically to avoid report/repo root clutter
         res = []
         for nid in entrypoint_ids:
@@ -205,11 +218,8 @@ class RepositoryKnowledgeGraphNavigator:
 
         edges = []
         for u, v, etype in visited_edges:
-            edges.append({
-                "source": u,
-                "target": v,
-                "type": etype or "unknown",
-                "properties": {}
-            })
+            edges.append(
+                {"source": u, "target": v, "type": etype or "unknown", "properties": {}}
+            )
 
         return {"nodes": nodes, "edges": edges}

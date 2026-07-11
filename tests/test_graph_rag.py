@@ -30,9 +30,17 @@ client = TestClient(app)
 
 def test_graph_rag_models() -> None:
     """Verifies that Pydantic models for Graph-RAG validate correctly."""
-    conf = ConfidenceBreakdown(evidence_quality=85.0, reasoning_confidence=90.0, recommendation_confidence=87.5)
-    rec = Recommendation(id="REC-001", type="refactor", target="repo::file", priority="high", estimated_effort="2h")
-    
+    conf = ConfidenceBreakdown(
+        evidence_quality=85.0, reasoning_confidence=90.0, recommendation_confidence=87.5
+    )
+    rec = Recommendation(
+        id="REC-001",
+        type="refactor",
+        target="repo::file",
+        priority="high",
+        estimated_effort="2h",
+    )
+
     res = GraphRAGResult(
         answer="This is the answer.",
         summary="Summary.",
@@ -55,13 +63,27 @@ def test_prompt_abstractions_and_budget() -> None:
         repository_name=repo_name,
         question="Is there coupling?",
         references=[
-            ContextReference(id=f"{repo_name}::main.py", type="file", source="subgraph"),
-            ContextReference(id=f"{repo_name}::doc1", type="document", source="embedding", snippet="long doc text" * 200),
+            ContextReference(
+                id=f"{repo_name}::main.py", type="file", source="subgraph"
+            ),
+            ContextReference(
+                id=f"{repo_name}::doc1",
+                type="document",
+                source="embedding",
+                snippet="long doc text" * 200,
+            ),
         ],
         subgraph=None,
-        explanation={"resolved_entities": [], "policy": "default", "confidence": 1.0, "metrics": {}},
+        explanation={
+            "resolved_entities": [],
+            "policy": "default",
+            "confidence": 1.0,
+            "metrics": {},
+        },
     )
-    conf = ConfidenceBreakdown(evidence_quality=85.0, reasoning_confidence=90.0, recommendation_confidence=87.5)
+    conf = ConfidenceBreakdown(
+        evidence_quality=85.0, reasoning_confidence=90.0, recommendation_confidence=87.5
+    )
     reasoning = ReasoningResult(
         repository_name=repo_name,
         question="Is there coupling?",
@@ -90,7 +112,9 @@ def test_prompt_abstractions_and_budget() -> None:
     budget_mgr = TokenBudgetManager()
     # Optimize with small budget that only fits 1 reference
     optimized = budget_mgr.optimize(doc, max_tokens=150)
-    assert len(optimized.references) < 2  # should prune document snippet reference due to token limit
+    assert (
+        len(optimized.references) < 2
+    )  # should prune document snippet reference due to token limit
 
 
 def test_grounding_validator() -> None:
@@ -100,10 +124,17 @@ def test_grounding_validator() -> None:
         repository_name=repo_name,
         question="Find files",
         references=[
-            ContextReference(id=f"{repo_name}::main.py", type="file", source="subgraph"),
+            ContextReference(
+                id=f"{repo_name}::main.py", type="file", source="subgraph"
+            ),
         ],
         subgraph=None,
-        explanation={"resolved_entities": [], "policy": "default", "confidence": 1.0, "metrics": {}},
+        explanation={
+            "resolved_entities": [],
+            "policy": "default",
+            "confidence": 1.0,
+            "metrics": {},
+        },
     )
 
     validator = GroundingValidator()
@@ -112,7 +143,9 @@ def test_grounding_validator() -> None:
     grounded, citations = validator.validate(answer, context)
 
     assert f"{repo_name}::main.py" in citations
-    assert f"{repo_name}::fake.py" not in citations  # fake.py does not exist in context!
+    assert (
+        f"{repo_name}::fake.py" not in citations
+    )  # fake.py does not exist in context!
 
 
 @pytest.mark.anyio
@@ -122,16 +155,29 @@ async def test_chat_pipeline_execution() -> None:
 
     # Mocks
     mock_sre = MagicMock()
-    mock_sre.retrieve = AsyncMock(return_value=RepositoryRetrievalContext(
-        repository_name=repo_name,
-        question="Query?",
-        references=[ContextReference(id=f"{repo_name}::main.py", type="file", source="subgraph")],
-        subgraph=None,
-        explanation={"resolved_entities": [], "policy": "default", "confidence": 1.0, "metrics": {}},
-    ))
+    mock_sre.retrieve = AsyncMock(
+        return_value=RepositoryRetrievalContext(
+            repository_name=repo_name,
+            question="Query?",
+            references=[
+                ContextReference(
+                    id=f"{repo_name}::main.py", type="file", source="subgraph"
+                )
+            ],
+            subgraph=None,
+            explanation={
+                "resolved_entities": [],
+                "policy": "default",
+                "confidence": 1.0,
+                "metrics": {},
+            },
+        )
+    )
 
     mock_ere = MagicMock()
-    conf = ConfidenceBreakdown(evidence_quality=90.0, reasoning_confidence=90.0, recommendation_confidence=90.0)
+    conf = ConfidenceBreakdown(
+        evidence_quality=90.0, reasoning_confidence=90.0, recommendation_confidence=90.0
+    )
     mock_ere.reason.return_value = ReasoningResult(
         repository_name=repo_name,
         question="Query?",
@@ -148,9 +194,13 @@ async def test_chat_pipeline_execution() -> None:
 
     # Mock LLM provider call
     mock_provider = AsyncMock()
-    mock_provider.generate.return_value = "Answer referencing [test-owner/test-repo::main.py]"
-    
-    with patch("services.graph_rag.ProviderFactory.get_provider", return_value=mock_provider):
+    mock_provider.generate.return_value = (
+        "Answer referencing [test-owner/test-repo::main.py]"
+    )
+
+    with patch(
+        "services.graph_rag.ProviderFactory.get_provider", return_value=mock_provider
+    ):
         res = await pipeline.execute(repo_name, "Query?", "default", {})
         assert res.answer == "Answer referencing [test-owner/test-repo::main.py]"
         assert f"{repo_name}::main.py" in res.citations
@@ -169,14 +219,20 @@ def test_graph_rag_router_endpoint() -> None:
         mock_service.pipeline.get_retrieval_engine.return_value.navigator.get_builder.return_value = mock_builder
 
         # Mock service chat return
-        conf = ConfidenceBreakdown(evidence_quality=90.0, reasoning_confidence=90.0, recommendation_confidence=90.0)
-        mock_service.chat = AsyncMock(return_value=GraphRAGResult(
-            answer="LLM response",
-            summary="summary",
-            reasoning_summary="reason summary",
-            citations=[],
-            confidence=conf,
-        ))
+        conf = ConfidenceBreakdown(
+            evidence_quality=90.0,
+            reasoning_confidence=90.0,
+            recommendation_confidence=90.0,
+        )
+        mock_service.chat = AsyncMock(
+            return_value=GraphRAGResult(
+                answer="LLM response",
+                summary="summary",
+                reasoning_summary="reason summary",
+                citations=[],
+                confidence=conf,
+            )
+        )
 
         response = client.post(
             "/api/repositories/test-owner/test-repo/chat",

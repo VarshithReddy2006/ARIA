@@ -23,9 +23,13 @@ client = TestClient(app)
 
 def test_knowledge_graph_models() -> None:
     """Verifies that Knowledge Graph Pydantic models can be instantiated and validated."""
-    node = KnowledgeGraphNode(id="repo1", type="repository", properties={"name": "test-repo"})
+    node = KnowledgeGraphNode(
+        id="repo1", type="repository", properties={"name": "test-repo"}
+    )
     edge = KnowledgeGraphEdge(source="repo1", target="repo1::health", type="HAS_HEALTH")
-    kg = KnowledgeGraph(repository_name="test-owner/test-repo", nodes=[node], edges=[edge])
+    kg = KnowledgeGraph(
+        repository_name="test-owner/test-repo", nodes=[node], edges=[edge]
+    )
 
     assert kg.repository_name == "test-owner/test-repo"
     assert len(kg.nodes) == 1
@@ -45,8 +49,15 @@ def test_knowledge_graph_builder_and_navigator(mock_tb, mock_gs, mock_ss) -> Non
     mock_twin.metadata = {"tech_stack": ["Python"], "total_loc": 100}
     mock_twin.files = ["main.py", "utils.py"]
     mock_twin.health_summary = {"overall_score": 90.0, "grade": "A", "breakdown": {}}
-    mock_twin.compliance_summary = {"status": "compliant", "reasons": [], "dead_code_ratio": 0.0}
-    mock_twin.architecture_summary = {"cycles_count": 0, "strongly_connected_components": 1}
+    mock_twin.compliance_summary = {
+        "status": "compliant",
+        "reasons": [],
+        "dead_code_ratio": 0.0,
+    }
+    mock_twin.architecture_summary = {
+        "cycles_count": 0,
+        "strongly_connected_components": 1,
+    }
     mock_twin.symbols_summary = {"total_symbols": 0}
     mock_tb.build_twin.return_value = mock_twin
 
@@ -68,7 +79,7 @@ def test_knowledge_graph_builder_and_navigator(mock_tb, mock_gs, mock_ss) -> Non
 
     kg = builder.build_graph(repo_name)
     assert kg.repository_name == repo_name
-    
+
     # Assert nodes presence
     node_ids = {node.id for node in kg.nodes}
     assert repo_name in node_ids
@@ -118,8 +129,10 @@ def test_knowledge_graph_endpoints() -> None:
     repo_name = "test-owner/test-repo"
 
     with (
-        patch("backend.routers.knowledge_graph.repository_knowledge_graph_builder") as mock_builder,
-        patch("backend.routers.knowledge_graph.repository_knowledge_graph_navigator") as mock_navigator,
+        patch(
+            "backend.routers.knowledge_graph.repository_knowledge_graph_builder"
+        ) as mock_builder,
+        patch("backend.routers.knowledge_graph.repository_knowledge_graph_navigator"),
     ):
         mock_builder.build_graph.return_value = KnowledgeGraph(
             repository_name=repo_name,
@@ -141,11 +154,15 @@ def test_knowledge_graph_endpoints() -> None:
         assert response.json()["repository_name"] == repo_name
 
         # Test KG summary route
-        response_summary = client.get("/api/repositories/test-owner/test-repo/knowledge-graph/summary")
+        response_summary = client.get(
+            "/api/repositories/test-owner/test-repo/knowledge-graph/summary"
+        )
         assert response_summary.status_code == 200
         assert response_summary.json()["nodes_count"] == 1
 
         # Test versioned v1 route
-        response_v1 = client.get("/api/v1/repositories/test-owner/test-repo/knowledge-graph/summary")
+        response_v1 = client.get(
+            "/api/v1/repositories/test-owner/test-repo/knowledge-graph/summary"
+        )
         assert response_v1.status_code == 200
         assert response_v1.json()["nodes_count"] == 1

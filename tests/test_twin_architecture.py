@@ -30,11 +30,42 @@ def test_twin_models() -> None:
         snapshot=snapshot,
         metadata={"tech_stack": ["Python"], "total_loc": 100, "commits_count": 10},
         files=["main.py", "utils.py"],
-        symbols_summary={"total_symbols": 5, "public_symbols": 4, "private_symbols": 1, "public_private_ratio": 4.0},
-        dependencies_summary={"dependencies": [], "import_relationships_count": 1, "dependency_nodes_count": 2},
-        architecture_summary={"summary": "Simple app", "cycles_count": 0, "strongly_connected_components": 1, "entry_points": ["main.py"], "reading_order": ["utils.py", "main.py"]},
-        health_summary={"overall_score": 95.0, "grade": "A", "breakdown": {"architecture": 100.0, "api": 90.0, "hygiene": 95.0, "churn": 100.0, "readability": 90.0}},
-        compliance_summary={"status": "compliant", "reasons": [], "has_license": True, "cycles_count": 0, "dead_code_ratio": 0.0},
+        symbols_summary={
+            "total_symbols": 5,
+            "public_symbols": 4,
+            "private_symbols": 1,
+            "public_private_ratio": 4.0,
+        },
+        dependencies_summary={
+            "dependencies": [],
+            "import_relationships_count": 1,
+            "dependency_nodes_count": 2,
+        },
+        architecture_summary={
+            "summary": "Simple app",
+            "cycles_count": 0,
+            "strongly_connected_components": 1,
+            "entry_points": ["main.py"],
+            "reading_order": ["utils.py", "main.py"],
+        },
+        health_summary={
+            "overall_score": 95.0,
+            "grade": "A",
+            "breakdown": {
+                "architecture": 100.0,
+                "api": 90.0,
+                "hygiene": 95.0,
+                "churn": 100.0,
+                "readability": 90.0,
+            },
+        },
+        compliance_summary={
+            "status": "compliant",
+            "reasons": [],
+            "has_license": True,
+            "cycles_count": 0,
+            "dead_code_ratio": 0.0,
+        },
     )
 
     assert twin.repository_name == "test-owner/test-repo"
@@ -79,11 +110,24 @@ def test_twin_builder_and_navigator(
     }
 
     from models.symbol import Symbol
+
     mock_ss.load.return_value = MagicMock(
         symbol_count=2,
         symbols=[
-            Symbol(name="start_server", file_path="main.py", type="function", line_number=10, language="python"),
-            Symbol(name="_internal_helper", file_path="utils.py", type="function", line_number=5, language="python"),
+            Symbol(
+                name="start_server",
+                file_path="main.py",
+                type="function",
+                line_number=10,
+                language="python",
+            ),
+            Symbol(
+                name="_internal_helper",
+                file_path="utils.py",
+                type="function",
+                line_number=5,
+                language="python",
+            ),
         ],
     )
 
@@ -152,8 +196,22 @@ def test_twin_builder_and_navigator(
     )
 
     # findSymbol
-    mock_ss.get_definition.return_value = Symbol(name="start_server", type="function", file_path="main.py", line_number=10, language="python")
-    mock_ss.get_references.return_value = [Symbol(name="start_server", type="function", file_path="main.py", line_number=10, language="python")]
+    mock_ss.get_definition.return_value = Symbol(
+        name="start_server",
+        type="function",
+        file_path="main.py",
+        line_number=10,
+        language="python",
+    )
+    mock_ss.get_references.return_value = [
+        Symbol(
+            name="start_server",
+            type="function",
+            file_path="main.py",
+            line_number=10,
+            language="python",
+        )
+    ]
     sym_res = navigator.find_symbol(repo_name, "start_server")
     assert sym_res["symbol_name"] == "start_server"
     assert sym_res["definition"]["name"] == "start_server"
@@ -172,7 +230,7 @@ def test_twin_endpoints() -> None:
 
     with (
         patch("backend.routers.twin.repository_twin_builder") as mock_builder,
-        patch("backend.routers.twin.repository_twin_navigator") as mock_navigator,
+        patch("backend.routers.twin.repository_twin_navigator"),
     ):
         snapshot_dto = RepositorySnapshot(
             commit_sha="123456",
@@ -187,11 +245,42 @@ def test_twin_endpoints() -> None:
             snapshot=snapshot_dto,
             metadata={"tech_stack": ["Python"], "total_loc": 100, "commits_count": 10},
             files=["main.py"],
-            symbols_summary={"total_symbols": 1, "public_symbols": 1, "private_symbols": 0, "public_private_ratio": 1.0},
-            dependencies_summary={"dependencies": [], "import_relationships_count": 0, "dependency_nodes_count": 1},
-            architecture_summary={"summary": "App", "cycles_count": 0, "strongly_connected_components": 1, "entry_points": [], "reading_order": []},
-            health_summary={"overall_score": 90.0, "grade": "A", "breakdown": {"architecture": 90.0, "api": 90.0, "hygiene": 90.0, "churn": 90.0, "readability": 90.0}},
-            compliance_summary={"status": "compliant", "reasons": [], "has_license": True, "cycles_count": 0, "dead_code_ratio": 0.0},
+            symbols_summary={
+                "total_symbols": 1,
+                "public_symbols": 1,
+                "private_symbols": 0,
+                "public_private_ratio": 1.0,
+            },
+            dependencies_summary={
+                "dependencies": [],
+                "import_relationships_count": 0,
+                "dependency_nodes_count": 1,
+            },
+            architecture_summary={
+                "summary": "App",
+                "cycles_count": 0,
+                "strongly_connected_components": 1,
+                "entry_points": [],
+                "reading_order": [],
+            },
+            health_summary={
+                "overall_score": 90.0,
+                "grade": "A",
+                "breakdown": {
+                    "architecture": 90.0,
+                    "api": 90.0,
+                    "hygiene": 90.0,
+                    "churn": 90.0,
+                    "readability": 90.0,
+                },
+            },
+            compliance_summary={
+                "status": "compliant",
+                "reasons": [],
+                "has_license": True,
+                "cycles_count": 0,
+                "dead_code_ratio": 0.0,
+            },
         )
 
         # Mock summary
@@ -214,13 +303,17 @@ def test_twin_endpoints() -> None:
         assert data["snapshot"]["commit_sha"] == "123456"
 
         # Test twin summary route
-        response_summary = client.get("/api/repositories/test-owner/test-repo/twin/summary")
+        response_summary = client.get(
+            "/api/repositories/test-owner/test-repo/twin/summary"
+        )
         assert response_summary.status_code == 200
         summary_data = response_summary.json()
         assert summary_data["repository_name"] == repo_name
         assert summary_data["overall_health_score"] == 90.0
 
         # Test versioned v1 route
-        response_v1 = client.get("/api/v1/repositories/test-owner/test-repo/twin/summary")
+        response_v1 = client.get(
+            "/api/v1/repositories/test-owner/test-repo/twin/summary"
+        )
         assert response_v1.status_code == 200
         assert response_v1.json()["overall_health_score"] == 90.0

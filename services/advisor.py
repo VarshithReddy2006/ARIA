@@ -51,10 +51,22 @@ _CATEGORY_TO_PHASE: Dict[str, int] = {
 }
 
 _PHASE_META: Dict[int, Tuple[str, str]] = {
-    1: ("Phase 1 — Security & Stability", "Resolve critical security vulnerabilities and stability blockers."),
-    2: ("Phase 2 — Architecture & Structure", "Improve architectural boundaries and remove structural debt."),
-    3: ("Phase 3 — Performance & Complexity", "Optimize hot paths and reduce code complexity."),
-    4: ("Phase 4 — Maintainability", "Improve documentation, test coverage, and long-term maintainability."),
+    1: (
+        "Phase 1 — Security & Stability",
+        "Resolve critical security vulnerabilities and stability blockers.",
+    ),
+    2: (
+        "Phase 2 — Architecture & Structure",
+        "Improve architectural boundaries and remove structural debt.",
+    ),
+    3: (
+        "Phase 3 — Performance & Complexity",
+        "Optimize hot paths and reduce code complexity.",
+    ),
+    4: (
+        "Phase 4 — Maintainability",
+        "Improve documentation, test coverage, and long-term maintainability.",
+    ),
 }
 
 _EFFORT_LEVELS = [
@@ -81,7 +93,9 @@ class RecommendationAggregator:
     # Source: Repository Inspector findings
     # ------------------------------------------------------------------
 
-    def from_inspection_report(self, report: Dict[str, Any]) -> List[AdvisorRecommendation]:
+    def from_inspection_report(
+        self, report: Dict[str, Any]
+    ) -> List[AdvisorRecommendation]:
         """Normalises InspectionReport findings into AdvisorRecommendations."""
         results: List[AdvisorRecommendation] = []
         for finding in report.get("findings", []):
@@ -123,7 +137,9 @@ class RecommendationAggregator:
     # Source: Engineering Reasoning Engine
     # ------------------------------------------------------------------
 
-    def from_reasoning_result(self, reasoning: Dict[str, Any]) -> List[AdvisorRecommendation]:
+    def from_reasoning_result(
+        self, reasoning: Dict[str, Any]
+    ) -> List[AdvisorRecommendation]:
         """Normalises EngineeringReasoningResult recommendations."""
         results: List[AdvisorRecommendation] = []
         for rec in reasoning.get("recommendations", []):
@@ -147,7 +163,9 @@ class RecommendationAggregator:
     # Source: Engineering Memory trends
     # ------------------------------------------------------------------
 
-    def from_memory_context(self, memory: Dict[str, Any]) -> List[AdvisorRecommendation]:
+    def from_memory_context(
+        self, memory: Dict[str, Any]
+    ) -> List[AdvisorRecommendation]:
         """Derives recommendations from recurring trend signals in Engineering Memory."""
         results: List[AdvisorRecommendation] = []
         for trend in memory.get("trends", []):
@@ -198,7 +216,10 @@ class RecommendationAggregator:
                     confidence=0.95,
                     sources=["ContinuousMonitoring"],
                     recurrence_count=1,
-                    metadata={"run_id": run.get("id", ""), "trigger": run.get("trigger", "")},
+                    metadata={
+                        "run_id": run.get("id", ""),
+                        "trigger": run.get("trigger", ""),
+                    },
                 )
             )
         elif high_count > 0:
@@ -216,7 +237,10 @@ class RecommendationAggregator:
                     confidence=0.85,
                     sources=["ContinuousMonitoring"],
                     recurrence_count=1,
-                    metadata={"run_id": run.get("id", ""), "trigger": run.get("trigger", "")},
+                    metadata={
+                        "run_id": run.get("id", ""),
+                        "trigger": run.get("trigger", ""),
+                    },
                 )
             )
         return results
@@ -225,7 +249,9 @@ class RecommendationAggregator:
     # Source: Graph-RAG validated recommendations
     # ------------------------------------------------------------------
 
-    def from_graph_rag_result(self, rag_result: Dict[str, Any]) -> List[AdvisorRecommendation]:
+    def from_graph_rag_result(
+        self, rag_result: Dict[str, Any]
+    ) -> List[AdvisorRecommendation]:
         """Imports pre-validated recommendations from a Graph-RAG response."""
         results: List[AdvisorRecommendation] = []
         for rec in rag_result.get("recommendations", []):
@@ -280,9 +306,14 @@ class DuplicateResolver:
     _SIMILARITY_THRESHOLD = 0.72
 
     def _similar(self, a: str, b: str) -> bool:
-        return SequenceMatcher(None, a.lower(), b.lower()).ratio() >= self._SIMILARITY_THRESHOLD
+        return (
+            SequenceMatcher(None, a.lower(), b.lower()).ratio()
+            >= self._SIMILARITY_THRESHOLD
+        )
 
-    def _same_entity_overlap(self, a: AdvisorRecommendation, b: AdvisorRecommendation) -> bool:
+    def _same_entity_overlap(
+        self, a: AdvisorRecommendation, b: AdvisorRecommendation
+    ) -> bool:
         """Returns True when the two recommendations share at least one affected entity."""
         set_a = set(a.affected_entities)
         set_b = set(b.affected_entities)
@@ -315,9 +346,13 @@ class DuplicateResolver:
                     if ent not in matched.affected_entities:
                         matched.affected_entities.append(ent)
                 # Take maximum confidence
-                matched.confidence = round(max(matched.confidence, candidate.confidence), 2)
+                matched.confidence = round(
+                    max(matched.confidence, candidate.confidence), 2
+                )
                 # Escalate priority if higher
-                if _PRIORITY_ORDER.get(candidate.priority, 0) > _PRIORITY_ORDER.get(matched.priority, 0):
+                if _PRIORITY_ORDER.get(candidate.priority, 0) > _PRIORITY_ORDER.get(
+                    matched.priority, 0
+                ):
                     matched.priority = candidate.priority
                 # Accumulate recurrence
                 matched.recurrence_count += candidate.recurrence_count
@@ -372,7 +407,9 @@ class PriorityEngine:
             return "medium"
         return "low"
 
-    def prioritize(self, recs: List[AdvisorRecommendation]) -> List[AdvisorRecommendation]:
+    def prioritize(
+        self, recs: List[AdvisorRecommendation]
+    ) -> List[AdvisorRecommendation]:
         """Rescores and reorders recommendations by deterministic priority."""
         for rec in recs:
             score = self._compute_score(rec)
@@ -414,10 +451,14 @@ class EffortEstimator:
         # Scale by number of affected entities (diminishing returns)
         entity_factor = 1.0 + min(len(rec.affected_entities) * 0.25, 2.0)
         # Critical items typically require additional triage and review time
-        priority_factor = {"critical": 1.5, "high": 1.2, "medium": 1.0, "low": 0.8}.get(rec.priority, 1.0)
+        priority_factor = {"critical": 1.5, "high": 1.2, "medium": 1.0, "low": 0.8}.get(
+            rec.priority, 1.0
+        )
         return round(base * entity_factor * priority_factor, 1)
 
-    def estimate(self, recs: List[AdvisorRecommendation]) -> List[AdvisorRecommendation]:
+    def estimate(
+        self, recs: List[AdvisorRecommendation]
+    ) -> List[AdvisorRecommendation]:
         """Fills `estimated_effort` for any recommendation lacking an explicit value."""
         for rec in recs:
             if rec.estimated_effort in ("unknown", "", None):
@@ -455,7 +496,12 @@ class RoadmapPlanner:
 
     def plan(self, recs: List[AdvisorRecommendation]) -> List[RoadmapPhase]:
         """Organises recommendations into phases without generating new recommendations."""
-        phase_buckets: Dict[int, List[AdvisorRecommendation]] = {1: [], 2: [], 3: [], 4: []}
+        phase_buckets: Dict[int, List[AdvisorRecommendation]] = {
+            1: [],
+            2: [],
+            3: [],
+            4: [],
+        }
 
         for rec in recs:
             phase = _CATEGORY_TO_PHASE.get(rec.category, 4)
@@ -520,7 +566,9 @@ class AdvisorService:
         for path in (ts_path, latest_path):
             with open(path, "w", encoding="utf-8") as fh:
                 json.dump(payload, fh, indent=2)
-        logger.info("Saved AdvisorReport for '%s' to %s", report.repository, latest_path)
+        logger.info(
+            "Saved AdvisorReport for '%s' to %s", report.repository, latest_path
+        )
 
     def load_latest(self, repo_name: str) -> Optional[AdvisorReport]:
         """Loads the latest persisted AdvisorReport."""
@@ -604,13 +652,15 @@ class AdvisorService:
             statistics=self._compute_statistics(estimated, roadmap),
             metadata={
                 "sources_consulted": [
-                    s for s, v in [
+                    s
+                    for s, v in [
                         ("inspection_report", inspection_report),
                         ("reasoning_result", reasoning_result),
                         ("memory_context", memory_context),
                         ("monitoring_run", monitoring_run),
                         ("graph_rag_result", graph_rag_result),
-                    ] if v is not None
+                    ]
+                    if v is not None
                 ],
                 "pipeline_stages": [
                     "RecommendationAggregator",

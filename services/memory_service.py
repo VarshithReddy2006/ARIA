@@ -30,6 +30,7 @@ logger = logging.getLogger(__name__)
 # Memory Policy Strategy Pattern
 # ---------------------------------------------------------------------------
 
+
 class MemoryPolicy(ABC):
     """Abstract strategy for context pruning and bounding."""
 
@@ -63,11 +64,11 @@ class RecentHistoryPolicy(MemoryPolicy):
         events: List[RepositoryEvent],
     ) -> Tuple[List[RepositorySnapshot], List[RepositoryEvent]]:
         sorted_snapshots = sorted(snapshots, key=lambda s: s.timestamp)
-        bounded_snapshots = sorted_snapshots[-self.limit:]
-        
+        bounded_snapshots = sorted_snapshots[-self.limit :]
+
         if not bounded_snapshots:
             return [], []
-            
+
         min_time = bounded_snapshots[0].timestamp
         bounded_events = [e for e in events if e.timestamp >= min_time]
         return bounded_snapshots, bounded_events
@@ -85,8 +86,10 @@ class ArchitectureHistoryPolicy(MemoryPolicy):
         events: List[RepositoryEvent],
     ) -> Tuple[List[RepositorySnapshot], List[RepositoryEvent]]:
         arch_events = [
-            e for e in events
-            if e.event_type in ("ArchitectureChanged", "ComplexityChanged", "FileAdded", "FileRemoved")
+            e
+            for e in events
+            if e.event_type
+            in ("ArchitectureChanged", "ComplexityChanged", "FileAdded", "FileRemoved")
         ]
         return sorted(snapshots, key=lambda s: s.timestamp), arch_events
 
@@ -103,7 +106,8 @@ class DependencyHistoryPolicy(MemoryPolicy):
         events: List[RepositoryEvent],
     ) -> Tuple[List[RepositorySnapshot], List[RepositoryEvent]]:
         dep_events = [
-            e for e in events
+            e
+            for e in events
             if e.event_type in ("DependencyAdded", "DependencyRemoved")
         ]
         return sorted(snapshots, key=lambda s: s.timestamp), dep_events
@@ -121,8 +125,7 @@ class ComplianceHistoryPolicy(MemoryPolicy):
         events: List[RepositoryEvent],
     ) -> Tuple[List[RepositorySnapshot], List[RepositoryEvent]]:
         comp_events = [
-            e for e in events
-            if e.event_type in ("ComplianceChanged", "HealthChanged")
+            e for e in events if e.event_type in ("ComplianceChanged", "HealthChanged")
         ]
         return sorted(snapshots, key=lambda s: s.timestamp), comp_events
 
@@ -130,6 +133,7 @@ class ComplianceHistoryPolicy(MemoryPolicy):
 # ---------------------------------------------------------------------------
 # Timeline Builder
 # ---------------------------------------------------------------------------
+
 
 class TimelineBuilder:
     """Constructs chronological timelines by joining snapshots and event streams."""
@@ -153,6 +157,7 @@ class TimelineBuilder:
 # ---------------------------------------------------------------------------
 # Trend Analyzer
 # ---------------------------------------------------------------------------
+
 
 class TrendAnalyzer:
     """Performs mathematical trend calculations over historic repository metrics."""
@@ -214,10 +219,10 @@ class TrendAnalyzer:
             diffs = []
             for i in range(1, len(values)):
                 diffs.append(values[i] - values[i - 1])
-            
+
             mean_diff = sum(diffs) / len(diffs)
             variance = sum((d - mean_diff) ** 2 for d in diffs) / len(diffs)
-            volatility_val = variance ** 0.5
+            volatility_val = variance**0.5
 
             if volatility_val > 10.0:
                 volatility = "High"
@@ -227,7 +232,9 @@ class TrendAnalyzer:
                 volatility = "Low"
 
             # Confidence based on volatility and sample size
-            confidence = max(0.0, min(1.0, 1.0 - (volatility_val / (max(values) or 1.0))))
+            confidence = max(
+                0.0, min(1.0, 1.0 - (volatility_val / (max(values) or 1.0)))
+            )
             if len(values) < 3:
                 confidence *= 0.7  # penalty for very small sample size
 
@@ -248,6 +255,7 @@ class TrendAnalyzer:
 # Memory Navigator (Historical Query Engine)
 # ---------------------------------------------------------------------------
 
+
 class MemoryNavigator:
     """Query façade navigates history, comparing snapshots/commits and resolving context."""
 
@@ -256,7 +264,9 @@ class MemoryNavigator:
         self.timeline_builder = TimelineBuilder()
         self.trend_analyzer = TrendAnalyzer()
 
-    def get_snapshot(self, repo_name: str, commit_sha: str) -> Optional[RepositorySnapshot]:
+    def get_snapshot(
+        self, repo_name: str, commit_sha: str
+    ) -> Optional[RepositorySnapshot]:
         return self.service.load_snapshot(repo_name, commit_sha)
 
     def get_history(self, repo_name: str) -> List[RepositorySnapshot]:
@@ -302,11 +312,15 @@ class MemoryNavigator:
             dependency_delta=dep_delta,
         )
 
-    def compare_commits(self, repo_name: str, prev_commit: str, curr_commit: str) -> ComparisonResult:
+    def compare_commits(
+        self, repo_name: str, prev_commit: str, curr_commit: str
+    ) -> ComparisonResult:
         prev = self.get_snapshot(repo_name, prev_commit)
         curr = self.get_snapshot(repo_name, curr_commit)
         if not prev or not curr:
-            raise ValueError(f"Cannot compare commits. Snapshots for commits '{prev_commit}' or '{curr_commit}' not found.")
+            raise ValueError(
+                f"Cannot compare commits. Snapshots for commits '{prev_commit}' or '{curr_commit}' not found."
+            )
         return self.compare_snapshots(prev, curr)
 
     def get_memory_context(self, repo_name: str, policy: MemoryPolicy) -> MemoryContext:
@@ -314,7 +328,9 @@ class MemoryNavigator:
         events = self.get_changes(repo_name)
 
         filtered_snapshots, filtered_events = policy.filter_context(snapshots, events)
-        timeline = self.timeline_builder.build_timeline(repo_name, filtered_snapshots, filtered_events)
+        timeline = self.timeline_builder.build_timeline(
+            repo_name, filtered_snapshots, filtered_events
+        )
         trends = self.trend_analyzer.analyze_trends(filtered_snapshots)
 
         return MemoryContext(
@@ -328,6 +344,7 @@ class MemoryNavigator:
 # ---------------------------------------------------------------------------
 # Engineering Memory Service
 # ---------------------------------------------------------------------------
+
 
 class EngineeringMemoryService:
     """Append-only storage service managing facts-only snapshots and repository event logs."""
@@ -350,14 +367,21 @@ class EngineeringMemoryService:
 
     def save_snapshot(self, snapshot: RepositorySnapshot) -> None:
         """Saves a facts-only repository snapshot to disk."""
-        path = os.path.join(self._get_repo_dir(snapshot.repository, "snapshots"), f"{snapshot.commit_sha}.json")
+        path = os.path.join(
+            self._get_repo_dir(snapshot.repository, "snapshots"),
+            f"{snapshot.commit_sha}.json",
+        )
         with open(path, "w", encoding="utf-8") as fh:
             json.dump(snapshot.model_dump(), fh, indent=2)
         logger.info("Saved Engineering Memory Snapshot: %s", path)
 
-    def load_snapshot(self, repo_name: str, commit_sha: str) -> Optional[RepositorySnapshot]:
+    def load_snapshot(
+        self, repo_name: str, commit_sha: str
+    ) -> Optional[RepositorySnapshot]:
         """Loads a repository snapshot associated with a specific commit."""
-        path = os.path.join(self._get_repo_dir(repo_name, "snapshots"), f"{commit_sha}.json")
+        path = os.path.join(
+            self._get_repo_dir(repo_name, "snapshots"), f"{commit_sha}.json"
+        )
         if not os.path.exists(path):
             return None
         try:
@@ -380,17 +404,25 @@ class EngineeringMemoryService:
                     snapshots.append(snap)
         return sorted(snapshots, key=lambda s: s.timestamp)
 
-    def save_events(self, repo_name: str, commit_sha: str, events: List[RepositoryEvent]) -> None:
+    def save_events(
+        self, repo_name: str, commit_sha: str, events: List[RepositoryEvent]
+    ) -> None:
         """Saves a batch of events introduced in a commit."""
-        path = os.path.join(self._get_repo_dir(repo_name, "events"), f"{commit_sha}.json")
+        path = os.path.join(
+            self._get_repo_dir(repo_name, "events"), f"{commit_sha}.json"
+        )
         payload = [e.model_dump() for e in events]
         with open(path, "w", encoding="utf-8") as fh:
             json.dump(payload, fh, indent=2)
-        logger.info("Saved Engineering Memory Events (%d events): %s", len(events), path)
+        logger.info(
+            "Saved Engineering Memory Events (%d events): %s", len(events), path
+        )
 
     def load_events(self, repo_name: str, commit_sha: str) -> List[RepositoryEvent]:
         """Loads events associated with a specific commit."""
-        path = os.path.join(self._get_repo_dir(repo_name, "events"), f"{commit_sha}.json")
+        path = os.path.join(
+            self._get_repo_dir(repo_name, "events"), f"{commit_sha}.json"
+        )
         if not os.path.exists(path):
             return []
         try:
@@ -421,13 +453,15 @@ class EngineeringMemoryService:
     ) -> RepositorySnapshot:
         """Constructs and persists a facts-only snapshot and its events log."""
         timestamp = time.time()
-        
+
         # Calculate summary metrics
         twin_meta = twin_data.get("metadata", {})
         metrics = {
             "health_score": twin_meta.get("health_score", 100.0),
             "complexity": twin_meta.get("complexity", 1.0),
-            "dependency_count": len(twin_data.get("dependencies", {}).get("relationships", [])),
+            "dependency_count": len(
+                twin_data.get("dependencies", {}).get("relationships", [])
+            ),
             "files_count": len(twin_data.get("files", [])),
             "symbols_count": len(twin_data.get("symbols", {}).get("declarations", [])),
         }
@@ -485,7 +519,7 @@ class EngineeringMemoryService:
                         severity="info",
                     )
                 )
-        
+
         # Save snapshot & events
         self.save_snapshot(snapshot)
         self.save_events(repo_name, commit_sha, events)

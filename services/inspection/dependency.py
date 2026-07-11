@@ -23,11 +23,13 @@ class DependencyInspector(InspectionPack):
                 if edge.get("type") == "IMPORTS":
                     src = edge.get("source", "").split("::")[-1]
                     tgt = edge.get("target", "").split("::")[-1]
-                    relationships.append({
-                        "source": src,
-                        "target": tgt,
-                    })
-        
+                    relationships.append(
+                        {
+                            "source": src,
+                            "target": tgt,
+                        }
+                    )
+
         # Check for circular imports in dependencies
         # Let's write a simple cyclic check in dependency relationships
         cycles = []
@@ -51,10 +53,13 @@ class DependencyInspector(InspectionPack):
                     title="Circular Module Imports Detected",
                     description="Circular imports between files prevent clean module initialization and cause execution failures.",
                     affected_entities=[f"{s} <-> {t}" for s, t in cycles[:3]],
-                    evidence=[f"Module import cycle between {s} and {t}" for s, t in cycles[:3]],
+                    evidence=[
+                        f"Module import cycle between {s} and {t}"
+                        for s, t in cycles[:3]
+                    ],
                     recommendations=[
                         "Refactor shared exports to a third leaf module.",
-                        "Reorganize files using interface encapsulation."
+                        "Reorganize files using interface encapsulation.",
                     ],
                     estimated_effort="3 hours",
                     metadata={"cyclic_imports_count": len(cycles)},
@@ -62,7 +67,6 @@ class DependencyInspector(InspectionPack):
             )
 
         # Check for bloated dependencies list
-        tech_stack = context.twin.get("metadata", {}).get("tech_stack", [])
         dep_count = len(relationships)
         if dep_count > 30:
             findings.append(
@@ -77,7 +81,7 @@ class DependencyInspector(InspectionPack):
                     evidence=[f"Found {dep_count} component dependency edges."],
                     recommendations=[
                         "Audit dependencies to prune unused packages.",
-                        "Consolidate components with overlapping responsibilities."
+                        "Consolidate components with overlapping responsibilities.",
                     ],
                     estimated_effort="4 hours",
                     metadata={"dependency_edges_count": dep_count},

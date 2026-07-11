@@ -115,13 +115,15 @@ class ChangeDetector:
             "has_new_commits": any(k in repository_event for k in self._COMMIT_FIELDS),
             "has_reindex": trigger in ("indexing", "reindex"),
             "has_dependency_update": bool(repository_event.get("dependency_changed")),
-            "has_architecture_change": bool(repository_event.get("architecture_changed")),
-            "has_health_degradation": self._detect_health_degradation(repository_event, last_run),
+            "has_architecture_change": bool(
+                repository_event.get("architecture_changed")
+            ),
+            "has_health_degradation": self._detect_health_degradation(
+                repository_event, last_run
+            ),
             "has_memory_event": bool(repository_event.get("memory_event")),
         }
-        changes["is_significant"] = any(
-            v for k, v in changes.items() if k != "trigger"
-        )
+        changes["is_significant"] = any(v for k, v in changes.items() if k != "trigger")
         return changes
 
     def _detect_health_degradation(
@@ -161,16 +163,25 @@ class HealthTrendEngine:
     """Generates deterministic repository health trends from monitoring run history."""
 
     # Severity weights for per-category scoring
-    _SEVERITY_WEIGHTS = {"critical": 20.0, "high": 10.0, "medium": 5.0, "low": 2.0, "info": 0.5}
+    _SEVERITY_WEIGHTS = {
+        "critical": 20.0,
+        "high": 10.0,
+        "medium": 5.0,
+        "low": 2.0,
+        "info": 0.5,
+    }
     _ARCH_CATEGORIES = {"architecture", "complexity"}
     _SEC_CATEGORIES = {"security", "dependency"}
     _MAINT_CATEGORIES = {"dead_code", "documentation", "testing"}
 
-    def _category_score(self, findings: List[Dict[str, Any]], target_categories: set) -> float:
+    def _category_score(
+        self, findings: List[Dict[str, Any]], target_categories: set
+    ) -> float:
         """Computes a 0–100 score for a subset of finding categories."""
         relevant = [f for f in findings if f.get("category") in target_categories]
         deduction = sum(
-            self._SEVERITY_WEIGHTS.get(f.get("severity", "info"), 0) * float(f.get("confidence", 0.8))
+            self._SEVERITY_WEIGHTS.get(f.get("severity", "info"), 0)
+            * float(f.get("confidence", 0.8))
             for f in relevant
         )
         return round(max(0.0, 100.0 - deduction), 1)
@@ -200,7 +211,11 @@ class HealthTrendEngine:
 
         for run in sorted(runs, key=lambda r: r.timestamp):
             report = next(
-                (rep for rep in inspection_reports if rep.get("timestamp") == run.timestamp),
+                (
+                    rep
+                    for rep in inspection_reports
+                    if rep.get("timestamp") == run.timestamp
+                ),
                 None,
             )
             findings = report.get("findings", []) if report else []
@@ -331,7 +346,9 @@ class ContinuousMonitoringService:
         # 2. Policy authorization
         scheduler = MonitoringScheduler(active_policy)
         if not scheduler.is_authorized(event):
-            logger.info("Policy '%s' skipped run for '%s'.", active_policy.name, repo_name)
+            logger.info(
+                "Policy '%s' skipped run for '%s'.", active_policy.name, repo_name
+            )
             run = MonitoringRun(
                 id=run_id,
                 repository=repo_name,
@@ -388,7 +405,10 @@ class ContinuousMonitoringService:
             duration_ms=duration_ms,
             overall_score=overall_score,
             finding_counts=finding_counts,
-            metadata={"change_summary": change_summary, "inspection_policy": inspection_policy},
+            metadata={
+                "change_summary": change_summary,
+                "inspection_policy": inspection_policy,
+            },
         )
         self._save_run(run)
 
@@ -403,7 +423,9 @@ class ContinuousMonitoringService:
             runs = self.load_history(repo_name)
             inspection_reports = []
             for run in runs:
-                if run.inspection_report_path and os.path.exists(run.inspection_report_path):
+                if run.inspection_report_path and os.path.exists(
+                    run.inspection_report_path
+                ):
                     report = self._load_report(run.inspection_report_path)
                     if report:
                         inspection_reports.append(report)

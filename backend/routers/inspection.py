@@ -23,7 +23,9 @@ logger = logging.getLogger(__name__)
 router = APIRouter(tags=["Repository Inspector"])
 
 
-def _build_context_data(repo_name: str) -> tuple[Dict[str, Any], Dict[str, Any], Optional[Dict[str, Any]]]:
+def _build_context_data(
+    repo_name: str,
+) -> tuple[Dict[str, Any], Dict[str, Any], Optional[Dict[str, Any]]]:
     """Resolves twin, KG, and memory context data for a repository."""
     # Build twin
     try:
@@ -62,7 +64,10 @@ def _build_context_data(repo_name: str) -> tuple[Dict[str, Any], Dict[str, Any],
 async def inspect_repository(
     username: str,
     repository: str,
-    policy: str = Query("default", description="default | architecture | security | performance | documentation"),
+    policy: str = Query(
+        "default",
+        description="default | architecture | security | performance | documentation",
+    ),
 ):
     """Runs the full Autonomous Repository Inspector pipeline and returns a structured InspectionReport."""
     repo_name = f"{username}/{repository}"
@@ -108,8 +113,13 @@ async def get_latest_report(username: str, repository: str):
 async def get_findings(
     username: str,
     repository: str,
-    severity: Optional[str] = Query(None, description="Filter by severity: critical | high | medium | low | info"),
-    category: Optional[str] = Query(None, description="Filter by category: architecture | security | performance | dependency | complexity | dead_code | documentation | testing"),
+    severity: Optional[str] = Query(
+        None, description="Filter by severity: critical | high | medium | low | info"
+    ),
+    category: Optional[str] = Query(
+        None,
+        description="Filter by category: architecture | security | performance | dependency | complexity | dead_code | documentation | testing",
+    ),
 ):
     """Returns deduplicated findings from the latest inspection report, with optional filters."""
     repo_name = f"{username}/{repository}"

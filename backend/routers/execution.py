@@ -63,8 +63,12 @@ async def generate_execution_plan(username: str, repository: str):
         )
         return plan
     except Exception as exc:
-        logger.error("ExecutionPlanner failed for '%s': %s", repo_name, exc, exc_info=True)
-        raise HTTPException(status_code=500, detail=f"Execution planning failed: {str(exc)}")
+        logger.error(
+            "ExecutionPlanner failed for '%s': %s", repo_name, exc, exc_info=True
+        )
+        raise HTTPException(
+            status_code=500, detail=f"Execution planning failed: {str(exc)}"
+        )
 
 
 @router.get(

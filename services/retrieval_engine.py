@@ -25,7 +25,9 @@ class RetrievalExecutor(ABC):
     """Abstract base class for structural retrieval executors."""
 
     @abstractmethod
-    async def execute(self, repo_name: str, targets: List[str], params: Dict[str, Any]) -> List[ContextReference]:
+    async def execute(
+        self, repo_name: str, targets: List[str], params: Dict[str, Any]
+    ) -> List[ContextReference]:
         """Runs the retrieval step and returns a list of stable ContextReferences."""
         pass
 
@@ -39,10 +41,13 @@ class SubgraphExecutor(RetrievalExecutor):
     def get_navigator(self) -> Any:
         if self.navigator is None:
             from backend.dependencies import repository_knowledge_graph_navigator
+
             self.navigator = repository_knowledge_graph_navigator
         return self.navigator
 
-    async def execute(self, repo_name: str, targets: List[str], params: Dict[str, Any]) -> List[ContextReference]:
+    async def execute(
+        self, repo_name: str, targets: List[str], params: Dict[str, Any]
+    ) -> List[ContextReference]:
         navigator = self.get_navigator()
         if not targets:
             # Fallback: try to find entrypoints
@@ -88,10 +93,13 @@ class SymbolExecutor(RetrievalExecutor):
     def get_service(self) -> Any:
         if self.symbol_service is None:
             from backend.dependencies import symbol_service
+
             self.symbol_service = symbol_service
         return self.symbol_service
 
-    async def execute(self, repo_name: str, targets: List[str], params: Dict[str, Any]) -> List[ContextReference]:
+    async def execute(
+        self, repo_name: str, targets: List[str], params: Dict[str, Any]
+    ) -> List[ContextReference]:
         symbol_service = self.get_service()
         references = []
         for target in targets:
@@ -105,7 +113,11 @@ class SymbolExecutor(RetrievalExecutor):
             definition = symbol_service.get_definition(repo_name, symbol_name)
             if definition:
                 norm_file = definition.file_path.replace("\\", "/")
-                qualified_name = f"{definition.parent_class}.{definition.name}" if definition.parent_class else definition.name
+                qualified_name = (
+                    f"{definition.parent_class}.{definition.name}"
+                    if definition.parent_class
+                    else definition.name
+                )
                 symbol_id = f"{repo_name}::{norm_file}::{qualified_name}"
                 references.append(
                     ContextReference(
@@ -126,7 +138,9 @@ class SymbolExecutor(RetrievalExecutor):
             refs = symbol_service.get_references(repo_name, symbol_name) or []
             for ref in refs[:20]:  # limit to prevent pollution
                 norm_file = ref.file_path.replace("\\", "/")
-                qualified_name = f"{ref.parent_class}.{ref.name}" if ref.parent_class else ref.name
+                qualified_name = (
+                    f"{ref.parent_class}.{ref.name}" if ref.parent_class else ref.name
+                )
                 symbol_id = f"{repo_name}::{norm_file}::{qualified_name}"
                 references.append(
                     ContextReference(
@@ -154,10 +168,13 @@ class DependencyExecutor(RetrievalExecutor):
     def get_service(self) -> Any:
         if self.graph_service is None:
             from backend.dependencies import graph_service
+
             self.graph_service = graph_service
         return self.graph_service
 
-    async def execute(self, repo_name: str, targets: List[str], params: Dict[str, Any]) -> List[ContextReference]:
+    async def execute(
+        self, repo_name: str, targets: List[str], params: Dict[str, Any]
+    ) -> List[ContextReference]:
         graph_service = self.get_service()
         dep_graph = graph_service.load_graph(repo_name)
         if dep_graph is None:
@@ -209,10 +226,13 @@ class EmbeddingExecutor(RetrievalExecutor):
     def get_service(self) -> Any:
         if self.retrieval_service is None:
             from backend.dependencies import get_retrieval_pipeline
+
             self.retrieval_service = get_retrieval_pipeline()
         return self.retrieval_service
 
-    async def execute(self, repo_name: str, targets: List[str], params: Dict[str, Any]) -> List[ContextReference]:
+    async def execute(
+        self, repo_name: str, targets: List[str], params: Dict[str, Any]
+    ) -> List[ContextReference]:
         query = params.get("query")
         if not query:
             return []
@@ -255,19 +275,23 @@ class EmbeddingExecutor(RetrievalExecutor):
 class RepositoryContextAssembler:
     """Assembles, normalizes, and ranks retrieved ContextReferences into a unified DTO."""
 
-    def __init__(self, git_history_service: Optional[Any] = None, navigator: Optional[Any] = None) -> None:
+    def __init__(
+        self, git_history_service: Optional[Any] = None, navigator: Optional[Any] = None
+    ) -> None:
         self.git_history_service = git_history_service
         self.navigator = navigator
 
     def get_git_history_service(self) -> Any:
         if self.git_history_service is None:
             from backend.dependencies import git_history_service
+
             self.git_history_service = git_history_service
         return self.git_history_service
 
     def get_navigator(self) -> Any:
         if self.navigator is None:
             from backend.dependencies import repository_knowledge_graph_navigator
+
             self.navigator = repository_knowledge_graph_navigator
         return self.navigator
 
@@ -406,6 +430,7 @@ class StructuralRetrievalEngine:
     def get_navigator(self) -> Any:
         if self.navigator is None:
             from backend.dependencies import repository_knowledge_graph_navigator
+
             self.navigator = repository_knowledge_graph_navigator
         return self.navigator
 
@@ -416,28 +441,68 @@ class StructuralRetrievalEngine:
 
         steps = []
         if policy == "architecture":
-            steps.append(RetrievalPlanStep(executor="subgraph", targets=targets, parameters={"max_depth": 2}))
+            steps.append(
+                RetrievalPlanStep(
+                    executor="subgraph", targets=targets, parameters={"max_depth": 2}
+                )
+            )
             steps.append(RetrievalPlanStep(executor="dependency", targets=targets))
         elif policy == "implementation":
             steps.append(RetrievalPlanStep(executor="symbol", targets=targets))
-            steps.append(RetrievalPlanStep(executor="subgraph", targets=targets, parameters={"max_depth": 1}))
-            steps.append(RetrievalPlanStep(executor="embedding", targets=targets, parameters={"query": question}))
+            steps.append(
+                RetrievalPlanStep(
+                    executor="subgraph", targets=targets, parameters={"max_depth": 1}
+                )
+            )
+            steps.append(
+                RetrievalPlanStep(
+                    executor="embedding",
+                    targets=targets,
+                    parameters={"query": question},
+                )
+            )
         elif policy == "impact":
-            steps.append(RetrievalPlanStep(executor="subgraph", targets=targets, parameters={"max_depth": 3}))
+            steps.append(
+                RetrievalPlanStep(
+                    executor="subgraph", targets=targets, parameters={"max_depth": 3}
+                )
+            )
             steps.append(RetrievalPlanStep(executor="dependency", targets=targets))
             steps.append(RetrievalPlanStep(executor="symbol", targets=targets))
         elif policy == "security" or policy == "performance":
-            steps.append(RetrievalPlanStep(executor="subgraph", targets=targets, parameters={"max_depth": 2}))
+            steps.append(
+                RetrievalPlanStep(
+                    executor="subgraph", targets=targets, parameters={"max_depth": 2}
+                )
+            )
             steps.append(RetrievalPlanStep(executor="dependency", targets=targets))
-            steps.append(RetrievalPlanStep(executor="embedding", targets=targets, parameters={"query": question}))
+            steps.append(
+                RetrievalPlanStep(
+                    executor="embedding",
+                    targets=targets,
+                    parameters={"query": question},
+                )
+            )
         else:
-            steps.append(RetrievalPlanStep(executor="subgraph", targets=targets, parameters={"max_depth": 2}))
+            steps.append(
+                RetrievalPlanStep(
+                    executor="subgraph", targets=targets, parameters={"max_depth": 2}
+                )
+            )
             steps.append(RetrievalPlanStep(executor="symbol", targets=targets))
-            steps.append(RetrievalPlanStep(executor="embedding", targets=targets, parameters={"query": question}))
+            steps.append(
+                RetrievalPlanStep(
+                    executor="embedding",
+                    targets=targets,
+                    parameters={"query": question},
+                )
+            )
 
         return RetrievalPlan(policy=policy, steps=steps)
 
-    async def retrieve(self, repo_name: str, question: str, policy: str = "default") -> RepositoryRetrievalContext:
+    async def retrieve(
+        self, repo_name: str, question: str, policy: str = "default"
+    ) -> RepositoryRetrievalContext:
         """Executes a policy-driven retrieval plan and returns the assembled RepositoryRetrievalContext."""
         intent_res = self.intent_detector.detect(question)
         resolved_entities = intent_res.entities if intent_res.entities else []
@@ -455,12 +520,14 @@ class StructuralRetrievalEngine:
                 mapped_targets = []
                 for t in targets:
                     if "/" in t:
-                        t_clean = t.replace('\\', '/')
+                        t_clean = t.replace("\\", "/")
                         mapped_targets.append(f"{repo_name}::{t_clean}")
                     else:
                         mapped_targets.append(t)
 
-                tasks.append(executor.execute(repo_name, mapped_targets, step.parameters))
+                tasks.append(
+                    executor.execute(repo_name, mapped_targets, step.parameters)
+                )
 
         results_lists = await asyncio.gather(*tasks)
 

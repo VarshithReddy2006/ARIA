@@ -69,8 +69,12 @@ async def get_workspace(
     try:
         return workspace_service.get_workspace(repo_name, state=state)
     except Exception as exc:
-        logger.error("Workspace composition failed for '%s': %s", repo_name, exc, exc_info=True)
-        raise HTTPException(status_code=500, detail=f"Workspace composition failed: {exc}")
+        logger.error(
+            "Workspace composition failed for '%s': %s", repo_name, exc, exc_info=True
+        )
+        raise HTTPException(
+            status_code=500, detail=f"Workspace composition failed: {exc}"
+        )
 
 
 @router.get(

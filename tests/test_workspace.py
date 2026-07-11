@@ -47,11 +47,16 @@ def _twin(files=10, symbols=50, language="Python") -> Dict[str, Any]:
 
 def _kg(node_count=5, edge_count=8) -> Dict[str, Any]:
     nodes = [
-        {"id": f"n{i}", "label": f"module_{i}", "kind": "module", "file_path": f"module_{i}.py"}
+        {
+            "id": f"n{i}",
+            "label": f"module_{i}",
+            "kind": "module",
+            "file_path": f"module_{i}.py",
+        }
         for i in range(node_count)
     ]
     edges = [
-        {"source": f"n{i}", "target": f"n{(i+1) % node_count}", "kind": "imports"}
+        {"source": f"n{i}", "target": f"n{(i + 1) % node_count}", "kind": "imports"}
         for i in range(edge_count)
     ]
     return {"nodes": nodes, "edges": edges}
@@ -107,8 +112,16 @@ def _monitoring_status() -> Dict[str, Any]:
 
 def _monitoring_history() -> List[Dict[str, Any]]:
     return [
-        {"id": "run-1", "trigger": "push", "finding_counts": {"critical": 0, "high": 1}},
-        {"id": "run-2", "trigger": "push", "finding_counts": {"critical": 1, "high": 0}},
+        {
+            "id": "run-1",
+            "trigger": "push",
+            "finding_counts": {"critical": 0, "high": 1},
+        },
+        {
+            "id": "run-2",
+            "trigger": "push",
+            "finding_counts": {"critical": 1, "high": 0},
+        },
     ]
 
 
@@ -206,7 +219,9 @@ class TestWorkspaceCoordinator:
 
     def test_safe_read_does_not_raise_on_error(self):
         coord = WorkspaceCoordinator()
-        result = coord._safe(lambda: (_ for _ in ()).throw(RuntimeError("boom")), default="fallback")
+        result = coord._safe(
+            lambda: (_ for _ in ()).throw(RuntimeError("boom")), default="fallback"
+        )
         assert result == "fallback"
 
 
@@ -312,7 +327,9 @@ class TestPanelComposerTimeline:
 class TestPanelComposerMonitor:
     def test_monitor_with_status_and_history(self):
         composer = PanelComposer()
-        panel = composer.compose_monitor("owner/repo", _monitoring_status(), _monitoring_history())
+        panel = composer.compose_monitor(
+            "owner/repo", _monitoring_status(), _monitoring_history()
+        )
         assert panel.status == "active"
         assert panel.run_count == 5
         assert panel.overall_health_score == 82.0
@@ -326,7 +343,13 @@ class TestPanelComposerMonitor:
 
     def test_monitor_alerts_only_for_elevated_runs(self):
         composer = PanelComposer()
-        history = [{"id": "r1", "trigger": "push", "finding_counts": {"critical": 0, "high": 0}}]
+        history = [
+            {
+                "id": "r1",
+                "trigger": "push",
+                "finding_counts": {"critical": 0, "high": 0},
+            }
+        ]
         panel = composer.compose_monitor("owner/repo", None, history)
         assert len(panel.alerts) == 0
 
@@ -530,12 +553,16 @@ class TestWorkspaceRouter:
         assert response.status_code == 404
 
     def test_get_workspace_returns_snapshot_when_mocked(self):
-        coord = _mock_coordinator(twin=_twin(), kg=_kg(), inspection=_inspection_report())
+        coord = _mock_coordinator(
+            twin=_twin(), kg=_kg(), inspection=_inspection_report()
+        )
         svc = WorkspaceService(coord)
         snapshot = svc.get_workspace("owner/repo")
         with patch("backend.routers.workspace.workspace_service") as mock_svc:
             mock_svc.get_workspace.return_value = snapshot
-            with patch("backend.routers.workspace.repository_twin_builder") as mock_twin:
+            with patch(
+                "backend.routers.workspace.repository_twin_builder"
+            ) as mock_twin:
                 mock_twin.build_twin.return_value = MagicMock()
                 response = client.get("/api/repositories/owner/repo/workspace")
                 assert response.status_code == 200
@@ -549,7 +576,9 @@ class TestWorkspaceRouter:
         panel = OverviewPanel(repository="owner/repo", total_files=10)
         with patch("backend.routers.workspace.workspace_service") as mock_svc:
             mock_svc.get_overview.return_value = panel
-            with patch("backend.routers.workspace.repository_twin_builder") as mock_twin:
+            with patch(
+                "backend.routers.workspace.repository_twin_builder"
+            ) as mock_twin:
                 mock_twin.build_twin.return_value = MagicMock()
                 response = client.get("/api/repositories/owner/repo/workspace/overview")
                 assert response.status_code == 200
@@ -561,17 +590,23 @@ class TestWorkspaceRouter:
         panel = FindingsPanel(repository="owner/repo", total_findings=2)
         with patch("backend.routers.workspace.workspace_service") as mock_svc:
             mock_svc.get_findings.return_value = panel
-            with patch("backend.routers.workspace.repository_twin_builder") as mock_twin:
+            with patch(
+                "backend.routers.workspace.repository_twin_builder"
+            ) as mock_twin:
                 mock_twin.build_twin.return_value = MagicMock()
                 response = client.get("/api/repositories/owner/repo/workspace/findings")
                 assert response.status_code == 200
                 assert response.json()["total_findings"] == 2
 
     def test_get_advisor_returns_panel_when_mocked(self):
-        panel = AdvisorPanel(repository="owner/repo", overall_priority="high", total_recommendations=3)
+        panel = AdvisorPanel(
+            repository="owner/repo", overall_priority="high", total_recommendations=3
+        )
         with patch("backend.routers.workspace.workspace_service") as mock_svc:
             mock_svc.get_advisor.return_value = panel
-            with patch("backend.routers.workspace.repository_twin_builder") as mock_twin:
+            with patch(
+                "backend.routers.workspace.repository_twin_builder"
+            ) as mock_twin:
                 mock_twin.build_twin.return_value = MagicMock()
                 response = client.get("/api/repositories/owner/repo/workspace/advisor")
                 assert response.status_code == 200
@@ -580,12 +615,18 @@ class TestWorkspaceRouter:
                 assert data["total_recommendations"] == 3
 
     def test_get_execution_returns_panel_when_mocked(self):
-        panel = ExecutionPanel(repository="owner/repo", total_tasks=5, overall_risk="medium")
+        panel = ExecutionPanel(
+            repository="owner/repo", total_tasks=5, overall_risk="medium"
+        )
         with patch("backend.routers.workspace.workspace_service") as mock_svc:
             mock_svc.get_execution.return_value = panel
-            with patch("backend.routers.workspace.repository_twin_builder") as mock_twin:
+            with patch(
+                "backend.routers.workspace.repository_twin_builder"
+            ) as mock_twin:
                 mock_twin.build_twin.return_value = MagicMock()
-                response = client.get("/api/repositories/owner/repo/workspace/execution")
+                response = client.get(
+                    "/api/repositories/owner/repo/workspace/execution"
+                )
                 assert response.status_code == 200
                 data = response.json()
                 assert data["total_tasks"] == 5

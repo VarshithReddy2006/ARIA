@@ -42,53 +42,79 @@ def get_policy_strategy(policy_name: str) -> MemoryPolicy:
         return RecentHistoryPolicy()
 
 
-@router.get("/repositories/{username}/{repository}/memory", response_model=MemoryContext)
+@router.get(
+    "/repositories/{username}/{repository}/memory", response_model=MemoryContext
+)
 async def get_memory_context(
     username: str,
     repository: str,
-    policy: str = Query("recent_history", description="recent_history | architecture_history | dependency_history | compliance_history"),
+    policy: str = Query(
+        "recent_history",
+        description="recent_history | architecture_history | dependency_history | compliance_history",
+    ),
 ):
     """Retrieve bounded historical memory context for reasoning."""
     repo_name = f"{username}/{repository}"
     snapshots = engineering_memory_service.navigator.get_history(repo_name)
     if not snapshots:
-        raise HTTPException(status_code=404, detail=f"No Engineering Memory found for repository '{repo_name}'. Index it first.")
-    
+        raise HTTPException(
+            status_code=404,
+            detail=f"No Engineering Memory found for repository '{repo_name}'. Index it first.",
+        )
+
     strategy = get_policy_strategy(policy)
     return engineering_memory_service.navigator.get_memory_context(repo_name, strategy)
 
 
-@router.get("/repositories/{username}/{repository}/memory/snapshots", response_model=List[RepositorySnapshot])
+@router.get(
+    "/repositories/{username}/{repository}/memory/snapshots",
+    response_model=List[RepositorySnapshot],
+)
 async def get_snapshots(username: str, repository: str):
     """Retrieve all facts-only snapshots of the repository."""
     repo_name = f"{username}/{repository}"
     snapshots = engineering_memory_service.navigator.get_history(repo_name)
     if not snapshots:
-        raise HTTPException(status_code=404, detail=f"No snapshots found for repository '{repo_name}'.")
+        raise HTTPException(
+            status_code=404, detail=f"No snapshots found for repository '{repo_name}'."
+        )
     return snapshots
 
 
-@router.get("/repositories/{username}/{repository}/memory/timeline", response_model=RepositoryTimeline)
+@router.get(
+    "/repositories/{username}/{repository}/memory/timeline",
+    response_model=RepositoryTimeline,
+)
 async def get_timeline(username: str, repository: str):
     """Retrieve chronological event and snapshot timeline."""
     repo_name = f"{username}/{repository}"
     snapshots = engineering_memory_service.navigator.get_history(repo_name)
     if not snapshots:
-        raise HTTPException(status_code=404, detail=f"No timeline found for repository '{repo_name}'.")
+        raise HTTPException(
+            status_code=404, detail=f"No timeline found for repository '{repo_name}'."
+        )
     return engineering_memory_service.navigator.get_timeline(repo_name)
 
 
-@router.get("/repositories/{username}/{repository}/memory/trends", response_model=List[TrendMetric])
+@router.get(
+    "/repositories/{username}/{repository}/memory/trends",
+    response_model=List[TrendMetric],
+)
 async def get_trends(username: str, repository: str):
     """Retrieve calculated trend analytics across snapshots."""
     repo_name = f"{username}/{repository}"
     snapshots = engineering_memory_service.navigator.get_history(repo_name)
     if not snapshots:
-        raise HTTPException(status_code=404, detail=f"No trends found for repository '{repo_name}'.")
+        raise HTTPException(
+            status_code=404, detail=f"No trends found for repository '{repo_name}'."
+        )
     return engineering_memory_service.navigator.get_trends(repo_name)
 
 
-@router.get("/repositories/{username}/{repository}/memory/compare", response_model=ComparisonResult)
+@router.get(
+    "/repositories/{username}/{repository}/memory/compare",
+    response_model=ComparisonResult,
+)
 async def compare_commits(
     username: str,
     repository: str,
@@ -98,7 +124,9 @@ async def compare_commits(
     """Compare two commit snapshots or repository states."""
     repo_name = f"{username}/{repository}"
     try:
-        return engineering_memory_service.navigator.compare_commits(repo_name, base, head)
+        return engineering_memory_service.navigator.compare_commits(
+            repo_name, base, head
+        )
     except ValueError as exc:
         raise HTTPException(status_code=404, detail=str(exc))
     except Exception as exc:

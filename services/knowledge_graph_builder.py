@@ -138,7 +138,9 @@ class SymbolProvider(KnowledgeGraphProvider):
         for sym in symbol_index.symbols:
             norm_file = sym.file_path.replace("\\", "/")
             file_id = f"{repo_id}::{norm_file}"
-            qualified_name = f"{sym.parent_class}.{sym.name}" if sym.parent_class else sym.name
+            qualified_name = (
+                f"{sym.parent_class}.{sym.name}" if sym.parent_class else sym.name
+            )
             symbol_id = f"{repo_id}::{norm_file}::{qualified_name}"
 
             graph.add_node(
@@ -199,8 +201,8 @@ class CallGraphProvider(KnowledgeGraphProvider):
                 u_file, u_qual = u.split("::", 1)
                 v_file, v_qual = v.split("::", 1)
 
-                u_file_clean = u_file.replace('\\', '/')
-                v_file_clean = v_file.replace('\\', '/')
+                u_file_clean = u_file.replace("\\", "/")
+                v_file_clean = v_file.replace("\\", "/")
                 u_id = f"{repo_id}::{u_file_clean}::{u_qual}"
                 v_id = f"{repo_id}::{v_file_clean}::{v_qual}"
 
@@ -227,13 +229,17 @@ class RepositoryKnowledgeGraphBuilder:
         self.cache = cache or default_cache
 
         # Set default providers
-        self.providers = providers if providers is not None else [
-            MetadataProvider(),
-            HierarchyProvider(),
-            SymbolProvider(),
-            DependencyProvider(),
-            CallGraphProvider(),
-        ]
+        self.providers = (
+            providers
+            if providers is not None
+            else [
+                MetadataProvider(),
+                HierarchyProvider(),
+                SymbolProvider(),
+                DependencyProvider(),
+                CallGraphProvider(),
+            ]
+        )
 
     def register_provider(self, provider: KnowledgeGraphProvider) -> None:
         """Dynamically registers a new plugin provider to extend the Knowledge Graph."""
@@ -261,7 +267,6 @@ class RepositoryKnowledgeGraphBuilder:
     def build_graph(self, repo_name: str) -> KnowledgeGraph:
         """Assembles and returns the fully serialized Pydantic KnowledgeGraph."""
         # 1. Try to fetch from cache first
-        cache_key = f"{repo_name}_knowledge_graph"
         cached = self.cache.get(repo_name, "knowledge_graph", 1)
         if cached is not None:
             return cached
@@ -274,13 +279,17 @@ class RepositoryKnowledgeGraphBuilder:
         for node_id, data in nx_graph.nodes(data=True):
             node_type = data.get("type", "unknown")
             props = {k: v for k, v in data.items() if k != "type"}
-            nodes.append(KnowledgeGraphNode(id=node_id, type=node_type, properties=props))
+            nodes.append(
+                KnowledgeGraphNode(id=node_id, type=node_type, properties=props)
+            )
 
         edges = []
         for u, v, data in nx_graph.edges(data=True):
             edge_type = data.get("type", "unknown")
             props = {k: v for k, v in data.items() if k != "type"}
-            edges.append(KnowledgeGraphEdge(source=u, target=v, type=edge_type, properties=props))
+            edges.append(
+                KnowledgeGraphEdge(source=u, target=v, type=edge_type, properties=props)
+            )
 
         kg = KnowledgeGraph(repository_name=repo_name, nodes=nodes, edges=edges)
 

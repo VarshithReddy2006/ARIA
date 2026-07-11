@@ -52,7 +52,9 @@ def test_memory_models() -> None:
         severity="info",
     )
 
-    timeline = RepositoryTimeline(repository="owner/repo", snapshots=[snap], events=[ev])
+    timeline = RepositoryTimeline(
+        repository="owner/repo", snapshots=[snap], events=[ev]
+    )
     assert timeline.repository == "owner/repo"
     assert len(timeline.snapshots) == 1
     assert timeline.events[0].event_type == "FileAdded"
@@ -169,10 +171,10 @@ def test_memory_service_storage() -> None:
     repo = "owner/repo"
     with tempfile.TemporaryDirectory() as tmpdir:
         service = EngineeringMemoryService(base_dir=tmpdir)
-        
+
         # Verify empty load
         assert service.load_snapshot(repo, "c1") is None
-        
+
         # Save snapshot
         snap = RepositorySnapshot(
             snapshot_id="r_c1",
@@ -187,7 +189,7 @@ def test_memory_service_storage() -> None:
             metrics={"health_score": 90.0},
         )
         service.save_snapshot(snap)
-        
+
         # Load snapshot
         loaded = service.load_snapshot(repo, "c1")
         assert loaded is not None
@@ -232,9 +234,15 @@ def test_memory_router_endpoints() -> None:
         timeline = RepositoryTimeline(repository=repo_name, snapshots=[snap], events=[])
         mock_service.navigator.get_timeline.return_value = timeline
         mock_service.navigator.get_trends.return_value = [
-            TrendMetric(metric_name="health_score", direction="Stable", velocity="Low", volatility="Low", confidence=1.0)
+            TrendMetric(
+                metric_name="health_score",
+                direction="Stable",
+                velocity="Low",
+                volatility="Low",
+                confidence=1.0,
+            )
         ]
-        
+
         # Test GET snapshots
         response = client.get("/api/repositories/test-owner/test-repo/memory/snapshots")
         assert response.status_code == 200

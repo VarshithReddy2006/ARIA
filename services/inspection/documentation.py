@@ -17,7 +17,7 @@ class DocumentationInspector(InspectionPack):
         findings = []
 
         files = context.twin.get("files", [])
-        
+
         # Check if README.md exists
         has_readme = False
         for f in files:
@@ -36,7 +36,9 @@ class DocumentationInspector(InspectionPack):
                     title="Missing Project README",
                     description="No README.md file detected in the root directory. This makes onboard onboarding difficult.",
                     affected_entities=["Project Root"],
-                    evidence=["No file matching README.md found in codebase file list."],
+                    evidence=[
+                        "No file matching README.md found in codebase file list."
+                    ],
                     recommendations=[
                         "Create a README.md file detailing codebase setup, scripts, and architecture."
                     ],
@@ -55,11 +57,13 @@ class DocumentationInspector(InspectionPack):
                     node_id = node.get("id")
                     parts = node_id.split("::")
                     file_path = parts[1] if len(parts) > 1 else ""
-                    symbols.append({
-                        "name": props.get("name", ""),
-                        "file_path": file_path,
-                        "docstring": props.get("docstring", "")
-                    })
+                    symbols.append(
+                        {
+                            "name": props.get("name", ""),
+                            "file_path": file_path,
+                            "docstring": props.get("docstring", ""),
+                        }
+                    )
         missing_doc_symbols = []
         for s in symbols:
             if isinstance(s, dict) and not s.get("docstring"):
@@ -75,7 +79,10 @@ class DocumentationInspector(InspectionPack):
                     title="Undocumented Code Symbols Found",
                     description="Several public/nested symbol declarations lack docstrings or code comments.",
                     affected_entities=missing_doc_symbols[:5],
-                    evidence=[f"Declaration '{name}' lacks docstrings." for name in missing_doc_symbols[:3]],
+                    evidence=[
+                        f"Declaration '{name}' lacks docstrings."
+                        for name in missing_doc_symbols[:3]
+                    ],
                     recommendations=[
                         "Add descriptive docstrings detailing parameters, return values, and exceptions."
                     ],

@@ -16,9 +16,6 @@ class PerformanceInspector(InspectionPack):
     def inspect(self, context: InspectionContext) -> List[Finding]:
         findings = []
 
-        twin_metadata = context.twin.get("metadata", {})
-        total_loc = twin_metadata.get("total_loc", 0)
-
         # Flag extremely large file performance impact
         large_files = []
         files = context.twin.get("files", [])
@@ -29,6 +26,7 @@ class PerformanceInspector(InspectionPack):
                     large_files.append(f.get("path"))
             elif isinstance(f, str) and local_path:
                 import os
+
                 full_path = os.path.join(local_path, f)
                 if os.path.exists(full_path):
                     try:
@@ -47,10 +45,13 @@ class PerformanceInspector(InspectionPack):
                     title="Extremely Large Source Files Detected",
                     description="Large source files (>100KB) can lead to slow compilation, high parsing latency, and poor caching.",
                     affected_entities=large_files,
-                    evidence=[f"File '{path}' exceeds standard size constraints." for path in large_files[:3]],
+                    evidence=[
+                        f"File '{path}' exceeds standard size constraints."
+                        for path in large_files[:3]
+                    ],
                     recommendations=[
                         "Split the module into smaller, cohesive classes/functions.",
-                        "Employ lazy loading or dynamic imports to reduce load-time performance costs."
+                        "Employ lazy loading or dynamic imports to reduce load-time performance costs.",
                     ],
                     estimated_effort="4 hours",
                     metadata={"large_files_count": len(large_files)},

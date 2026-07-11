@@ -29,6 +29,7 @@ client = TestClient(app)
 # Helpers
 # ---------------------------------------------------------------------------
 
+
 def _make_run(
     repo="owner/repo",
     trigger="indexing",
@@ -74,6 +75,7 @@ def _mock_inspector(overall_score=88.0, base_dir=None) -> MagicMock:
 # 1. Monitoring Policies
 # ---------------------------------------------------------------------------
 
+
 class TestMonitoringPolicies:
     def test_immediate_triggers_on_indexing(self):
         assert ImmediatePolicy().should_run({"trigger": "indexing"})
@@ -95,12 +97,14 @@ class TestMonitoringPolicies:
 
     def test_time_based_triggers_after_interval(self):
         import time
+
         policy = TimeBasedPolicy(interval_seconds=60)
         old_ts = time.time() - 120
         assert policy.should_run({"last_run_timestamp": old_ts})
 
     def test_time_based_does_not_trigger_too_soon(self):
         import time
+
         policy = TimeBasedPolicy(interval_seconds=3600)
         recent_ts = time.time() - 30
         assert not policy.should_run({"last_run_timestamp": recent_ts})
@@ -116,6 +120,7 @@ class TestMonitoringPolicies:
 # 2. Monitoring Scheduler
 # ---------------------------------------------------------------------------
 
+
 class TestMonitoringScheduler:
     def test_authorized_when_policy_allows(self):
         scheduler = MonitoringScheduler(ImmediatePolicy())
@@ -129,6 +134,7 @@ class TestMonitoringScheduler:
 # ---------------------------------------------------------------------------
 # 3. Change Detector
 # ---------------------------------------------------------------------------
+
 
 class TestChangeDetector:
     def test_detects_reindex(self):
@@ -145,13 +151,17 @@ class TestChangeDetector:
     def test_detects_health_degradation(self):
         detector = ChangeDetector()
         last_run = _make_run(overall_score=90.0)
-        changes = detector.detect({"trigger": "push", "current_health_score": 80.0}, last_run)
+        changes = detector.detect(
+            {"trigger": "push", "current_health_score": 80.0}, last_run
+        )
         assert changes["has_health_degradation"] is True
 
     def test_no_health_degradation_when_stable(self):
         detector = ChangeDetector()
         last_run = _make_run(overall_score=85.0)
-        changes = detector.detect({"trigger": "push", "current_health_score": 83.0}, last_run)
+        changes = detector.detect(
+            {"trigger": "push", "current_health_score": 83.0}, last_run
+        )
         assert changes["has_health_degradation"] is False
 
     def test_not_significant_when_no_changes(self):
@@ -165,6 +175,7 @@ class TestChangeDetector:
 # ---------------------------------------------------------------------------
 # 4. Health Trend Engine
 # ---------------------------------------------------------------------------
+
 
 class TestHealthTrendEngine:
     def test_builds_trend_from_runs(self):
@@ -220,6 +231,7 @@ class TestHealthTrendEngine:
 # ---------------------------------------------------------------------------
 # 5. ContinuousMonitoringService — Pipeline Orchestration
 # ---------------------------------------------------------------------------
+
 
 class TestContinuousMonitoringService:
     def test_trigger_completed_run(self):
@@ -360,6 +372,7 @@ class TestContinuousMonitoringService:
 # 6. REST Endpoints
 # ---------------------------------------------------------------------------
 
+
 class TestMonitoringRouter:
     def test_post_monitor_returns_404_for_unindexed_repo(self):
         response = client.post("/api/repositories/ghost/nonexistent/monitor")
@@ -387,7 +400,9 @@ class TestMonitoringRouter:
         assert data["last_run_timestamp"] is None
 
     def test_get_latest_returns_run_when_mocked(self):
-        with patch("backend.routers.monitoring.continuous_monitoring_service") as mock_svc:
+        with patch(
+            "backend.routers.monitoring.continuous_monitoring_service"
+        ) as mock_svc:
             mock_svc.load_latest_run.return_value = _make_run()
             response = client.get("/api/repositories/owner/repo/monitor/latest")
             assert response.status_code == 200
@@ -396,7 +411,9 @@ class TestMonitoringRouter:
             assert data["status"] == "completed"
 
     def test_get_trends_returns_trend_when_mocked(self):
-        with patch("backend.routers.monitoring.continuous_monitoring_service") as mock_svc:
+        with patch(
+            "backend.routers.monitoring.continuous_monitoring_service"
+        ) as mock_svc:
             mock_trend = RepositoryHealthTrend(
                 repository="owner/repo",
                 timestamps=[1000.0, 2000.0],
@@ -415,7 +432,9 @@ class TestMonitoringRouter:
             assert data["confidence"] == 0.8
 
     def test_get_status_returns_mocked_status(self):
-        with patch("backend.routers.monitoring.continuous_monitoring_service") as mock_svc:
+        with patch(
+            "backend.routers.monitoring.continuous_monitoring_service"
+        ) as mock_svc:
             mock_svc.get_status.return_value = MonitoringStatus(
                 repository="owner/repo",
                 total_runs=5,

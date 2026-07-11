@@ -157,20 +157,29 @@ class TestRecommendationAggregator:
     def test_aggregates_high_severity_monitoring(self):
         agg = RecommendationAggregator()
         recs = agg.from_monitoring_run(
-            {"id": "r1", "trigger": "push", "finding_counts": {"critical": 0, "high": 3}}
+            {
+                "id": "r1",
+                "trigger": "push",
+                "finding_counts": {"critical": 0, "high": 3},
+            }
         )
         assert len(recs) == 1
         assert recs[0].priority == "high"
 
     def test_no_monitoring_rec_when_no_findings(self):
         agg = RecommendationAggregator()
-        recs = agg.from_monitoring_run({"id": "r1", "trigger": "push", "finding_counts": {}})
+        recs = agg.from_monitoring_run(
+            {"id": "r1", "trigger": "push", "finding_counts": {}}
+        )
         assert len(recs) == 0
 
     def test_skips_ungrounded_rag_recommendations(self):
         agg = RecommendationAggregator()
         recs = agg.from_graph_rag_result(
-            {"grounded": False, "recommendations": [{"title": "Bad rec", "description": ""}]}
+            {
+                "grounded": False,
+                "recommendations": [{"title": "Bad rec", "description": ""}],
+            }
         )
         assert len(recs) == 0
 
@@ -215,8 +224,12 @@ class TestDuplicateResolver:
 
     def test_merges_same_category_and_overlapping_entities(self):
         resolver = DuplicateResolver()
-        r1 = _rec(title="High coupling", category="architecture", entities=["a.py", "b.py"])
-        r2 = _rec(title="Tight coupling", category="architecture", entities=["a.py", "c.py"])
+        r1 = _rec(
+            title="High coupling", category="architecture", entities=["a.py", "b.py"]
+        )
+        r2 = _rec(
+            title="Tight coupling", category="architecture", entities=["a.py", "c.py"]
+        )
         merged = resolver.resolve([r1, r2])
         assert len(merged) == 1
 
@@ -280,9 +293,24 @@ class TestPriorityEngine:
     def test_sorted_by_priority_descending(self):
         engine = PriorityEngine()
         recs = [
-            _rec(title="Low thing", category="documentation", priority="low", confidence=0.5),
-            _rec(title="Critical thing", category="security", priority="critical", confidence=1.0),
-            _rec(title="Medium thing", category="architecture", priority="medium", confidence=0.8),
+            _rec(
+                title="Low thing",
+                category="documentation",
+                priority="low",
+                confidence=0.5,
+            ),
+            _rec(
+                title="Critical thing",
+                category="security",
+                priority="critical",
+                confidence=1.0,
+            ),
+            _rec(
+                title="Medium thing",
+                category="architecture",
+                priority="medium",
+                confidence=0.8,
+            ),
         ]
         result = engine.prioritize(recs)
         scores = [r.metadata.get("priority_score", 0) for r in result]
@@ -318,7 +346,11 @@ class TestEffortEstimator:
     def test_more_entities_increases_effort(self):
         estimator = EffortEstimator()
         rec_small = _rec(category="architecture", effort="unknown", entities=[])
-        rec_large = _rec(category="architecture", effort="unknown", entities=["a", "b", "c", "d", "e"])
+        rec_large = _rec(
+            category="architecture",
+            effort="unknown",
+            entities=["a", "b", "c", "d", "e"],
+        )
         estimator.estimate([rec_small])
         estimator.estimate([rec_large])
         small_hours = rec_small.metadata.get("estimated_hours", 0)
@@ -331,7 +363,9 @@ class TestEffortEstimator:
         rec_low = _rec(category="security", priority="low", effort="unknown")
         estimator.estimate([rec_crit])
         estimator.estimate([rec_low])
-        assert rec_crit.metadata["estimated_hours"] > rec_low.metadata["estimated_hours"]
+        assert (
+            rec_crit.metadata["estimated_hours"] > rec_low.metadata["estimated_hours"]
+        )
 
 
 # ---------------------------------------------------------------------------
@@ -476,7 +510,9 @@ class TestAdvisorService:
                 repo_name="owner/repo",
                 inspection_report={"findings": findings},
             )
-            arch_recs = [r for r in report.recommendations if r.category == "architecture"]
+            arch_recs = [
+                r for r in report.recommendations if r.category == "architecture"
+            ]
             assert len(arch_recs) <= len(findings)
 
     def test_recommendations_sorted_by_priority(self):
@@ -488,7 +524,9 @@ class TestAdvisorService:
                 monitoring_run=_monitoring_run_critical(),
             )
             # First recommendation should be the highest-priority
-            scores = [r.metadata.get("priority_score", 0) for r in report.recommendations]
+            scores = [
+                r.metadata.get("priority_score", 0) for r in report.recommendations
+            ]
             assert scores == sorted(scores, reverse=True)
 
 
@@ -507,7 +545,9 @@ class TestAdvisorRouter:
         assert response.status_code == 404
 
     def test_get_recommendations_returns_404_when_no_report(self):
-        response = client.get("/api/repositories/ghost/nonexistent/advisor/recommendations")
+        response = client.get(
+            "/api/repositories/ghost/nonexistent/advisor/recommendations"
+        )
         assert response.status_code == 404
 
     def test_get_roadmap_returns_404_when_no_report(self):

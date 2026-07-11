@@ -17,11 +17,21 @@ class WorkspaceState(BaseModel):
     """Represents the current interactive state of a developer's workspace session."""
 
     repository: str = Field(..., description="Repository owner/name.")
-    selected_file: Optional[str] = Field(None, description="File currently focused in the editor.")
-    selected_symbol: Optional[str] = Field(None, description="Symbol (function, class, etc.) under focus.")
-    active_panel: str = Field("overview", description="Which workspace panel is currently active.")
-    filters: Dict[str, Any] = Field(default_factory=dict, description="Active filters per panel.")
-    ui_preferences: Dict[str, Any] = Field(default_factory=dict, description="User UI preferences.")
+    selected_file: Optional[str] = Field(
+        None, description="File currently focused in the editor."
+    )
+    selected_symbol: Optional[str] = Field(
+        None, description="Symbol (function, class, etc.) under focus."
+    )
+    active_panel: str = Field(
+        "overview", description="Which workspace panel is currently active."
+    )
+    filters: Dict[str, Any] = Field(
+        default_factory=dict, description="Active filters per panel."
+    )
+    ui_preferences: Dict[str, Any] = Field(
+        default_factory=dict, description="User UI preferences."
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -77,7 +87,9 @@ class ExplorerPanel(BaseModel):
     total_nodes: int = 0
     total_edges: int = 0
     root_nodes: List[ExplorerNode] = Field(default_factory=list)
-    entry_points: List[str] = Field(default_factory=list, description="Primary module entry points.")
+    entry_points: List[str] = Field(
+        default_factory=list, description="Primary module entry points."
+    )
     dependency_summary: Dict[str, int] = Field(default_factory=dict)
     metadata: Dict[str, Any] = Field(default_factory=dict)
 

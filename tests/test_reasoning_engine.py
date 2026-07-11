@@ -32,9 +32,23 @@ client = TestClient(app)
 
 def test_reasoning_models() -> None:
     """Verifies that Pydantic models for reasoning validate correctly."""
-    ev = Evidence(id="EVD-001", type="file", reference_id="repo1::main.py", description="Main file")
-    hyp = Hypothesis(id="HYP-01", description="Circular dependency", status="validated", supporting_evidence=["EVD-001"])
-    conf = ConfidenceBreakdown(evidence_quality=90.0, reasoning_confidence=100.0, recommendation_confidence=95.0)
+    ev = Evidence(
+        id="EVD-001",
+        type="file",
+        reference_id="repo1::main.py",
+        description="Main file",
+    )
+    hyp = Hypothesis(
+        id="HYP-01",
+        description="Circular dependency",
+        status="validated",
+        supporting_evidence=["EVD-001"],
+    )
+    conf = ConfidenceBreakdown(
+        evidence_quality=90.0,
+        reasoning_confidence=100.0,
+        recommendation_confidence=95.0,
+    )
 
     res = ReasoningResult(
         repository_name="test-owner/test-repo",
@@ -60,12 +74,16 @@ def test_ere_sub_engines() -> None:
 
     # 1. EvidenceAnalyzer
     analyzer = EvidenceAnalyzer()
-    explanation = RetrievalExplanation(resolved_entities=[], policy="default", confidence=1.0, metrics={})
+    explanation = RetrievalExplanation(
+        resolved_entities=[], policy="default", confidence=1.0, metrics={}
+    )
     ref_context = RepositoryRetrievalContext(
         repository_name=repo_name,
         question="Is it compliant?",
         references=[
-            ContextReference(id=f"{repo_name}::main.py", type="file", source="subgraph"),
+            ContextReference(
+                id=f"{repo_name}::main.py", type="file", source="subgraph"
+            ),
             ContextReference(
                 id=f"{repo_name}::compliance",
                 type="compliance",
@@ -112,7 +130,11 @@ def test_reasoning_router_endpoint() -> None:
 
     with patch("backend.routers.reasoning.engineering_reasoning_engine") as mock_engine:
         # Mock engine reasoning return
-        conf = ConfidenceBreakdown(evidence_quality=90.0, reasoning_confidence=100.0, recommendation_confidence=95.0)
+        conf = ConfidenceBreakdown(
+            evidence_quality=90.0,
+            reasoning_confidence=100.0,
+            recommendation_confidence=95.0,
+        )
         mock_engine.reason.return_value = ReasoningResult(
             repository_name=repo_name,
             question="Find circular dependencies",

@@ -16,14 +16,22 @@ class DeadCodeInspector(InspectionPack):
     def inspect(self, context: InspectionContext) -> List[Finding]:
         findings = []
 
-        # Access twin's dead_code elements (or warnings containing dead code/unused)
-        twin_metadata = context.twin.get("metadata", {})
-        dead_code_report = twin_metadata.get("dead_code_report", {}) or {}
-        
         # Or look for warnings
-        compliance_summary = context.twin.get("compliance_summary", {}) or context.twin.get("compliance", {}) or {}
-        warnings = compliance_summary.get("reasons", []) or compliance_summary.get("warnings", [])
-        dead_code_warnings = [w for w in warnings if "unused" in w.lower() or "dead" in w.lower() or "unreferenced" in w.lower()]
+        compliance_summary = (
+            context.twin.get("compliance_summary", {})
+            or context.twin.get("compliance", {})
+            or {}
+        )
+        warnings = compliance_summary.get("reasons", []) or compliance_summary.get(
+            "warnings", []
+        )
+        dead_code_warnings = [
+            w
+            for w in warnings
+            if "unused" in w.lower()
+            or "dead" in w.lower()
+            or "unreferenced" in w.lower()
+        ]
 
         if dead_code_warnings:
             findings.append(
@@ -38,7 +46,7 @@ class DeadCodeInspector(InspectionPack):
                     evidence=dead_code_warnings,
                     recommendations=[
                         "Remove or safely comment out the unreferenced elements.",
-                        "Use build/lint tools to automatically prune unused imports."
+                        "Use build/lint tools to automatically prune unused imports.",
                     ],
                     estimated_effort="1 hour",
                     metadata={"dead_code_warnings_count": len(dead_code_warnings)},

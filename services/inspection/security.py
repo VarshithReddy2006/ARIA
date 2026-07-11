@@ -16,9 +16,15 @@ class SecurityInspector(InspectionPack):
     def inspect(self, context: InspectionContext) -> List[Finding]:
         findings = []
 
-        compliance_summary = context.twin.get("compliance_summary", {}) or context.twin.get("compliance", {}) or {}
+        compliance_summary = (
+            context.twin.get("compliance_summary", {})
+            or context.twin.get("compliance", {})
+            or {}
+        )
         vulnerabilities = compliance_summary.get("vulnerabilities", [])
-        warnings = compliance_summary.get("reasons", []) or compliance_summary.get("warnings", [])
+        warnings = compliance_summary.get("reasons", []) or compliance_summary.get(
+            "warnings", []
+        )
 
         # Parse vulnerabilities
         if vulnerabilities:
@@ -38,7 +44,7 @@ class SecurityInspector(InspectionPack):
                     ],
                     recommendations=[
                         "Upgrade package versions to patched releases.",
-                        "Run dependency vulnerability checking audits regularly."
+                        "Run dependency vulnerability checking audits regularly.",
                     ],
                     estimated_effort="2 hours",
                     metadata={"vulnerabilities_count": len(vulnerabilities)},
@@ -46,7 +52,11 @@ class SecurityInspector(InspectionPack):
             )
 
         # Parse compliance warnings or raw exposures (like hardcoded keys)
-        secret_warnings = [w for w in warnings if "secret" in w.lower() or "token" in w.lower() or "key" in w.lower()]
+        secret_warnings = [
+            w
+            for w in warnings
+            if "secret" in w.lower() or "token" in w.lower() or "key" in w.lower()
+        ]
         if secret_warnings:
             findings.append(
                 Finding(
@@ -60,7 +70,7 @@ class SecurityInspector(InspectionPack):
                     evidence=secret_warnings,
                     recommendations=[
                         "Revoke the exposed credentials immediately.",
-                        "Migrate secrets to environment variables or a key vault manager."
+                        "Migrate secrets to environment variables or a key vault manager.",
                     ],
                     estimated_effort="1 hour",
                     metadata={"secret_warnings_count": len(secret_warnings)},

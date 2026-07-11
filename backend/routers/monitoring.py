@@ -80,7 +80,9 @@ async def trigger_monitoring(
         "default",
         description="default | architecture | security | performance | documentation",
     ),
-    commit_count: int = Query(0, description="Number of new commits (for commit_threshold policy)."),
+    commit_count: int = Query(
+        0, description="Number of new commits (for commit_threshold policy)."
+    ),
 ):
     """Triggers a monitoring run using the selected policy and returns the MonitoringRun record."""
     repo_name = f"{username}/{repository}"
@@ -105,8 +107,12 @@ async def trigger_monitoring(
         )
         return run
     except Exception as exc:
-        logger.error("Monitoring trigger failed for '%s': %s", repo_name, exc, exc_info=True)
-        raise HTTPException(status_code=500, detail=f"Monitoring run failed: {str(exc)}")
+        logger.error(
+            "Monitoring trigger failed for '%s': %s", repo_name, exc, exc_info=True
+        )
+        raise HTTPException(
+            status_code=500, detail=f"Monitoring run failed: {str(exc)}"
+        )
 
 
 @router.get(
@@ -117,7 +123,9 @@ async def trigger_monitoring(
 async def get_history(
     username: str,
     repository: str,
-    limit: int = Query(20, ge=1, le=100, description="Maximum number of runs to return."),
+    limit: int = Query(
+        20, ge=1, le=100, description="Maximum number of runs to return."
+    ),
 ):
     """Returns the chronological list of monitoring runs for a repository."""
     repo_name = f"{username}/{repository}"

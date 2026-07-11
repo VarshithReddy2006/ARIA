@@ -129,8 +129,15 @@ class TestTaskDecomposer:
     def test_all_known_categories_produce_tasks(self):
         decomposer = TaskDecomposer()
         categories = [
-            "security", "architecture", "performance", "dependency",
-            "complexity", "dead_code", "documentation", "testing", "general",
+            "security",
+            "architecture",
+            "performance",
+            "dependency",
+            "complexity",
+            "dead_code",
+            "documentation",
+            "testing",
+            "general",
         ]
         for cat in categories:
             tasks = decomposer.decompose([_advisor_rec(category=cat)])
@@ -420,24 +427,34 @@ class TestExecutionRouter:
         assert response.status_code == 404
 
     def test_get_latest_returns_404_when_no_plan(self):
-        response = client.get("/api/repositories/ghost/nonexistent/execution-plan/latest")
+        response = client.get(
+            "/api/repositories/ghost/nonexistent/execution-plan/latest"
+        )
         assert response.status_code == 404
 
     def test_get_batches_returns_404_when_no_plan(self):
-        response = client.get("/api/repositories/ghost/nonexistent/execution-plan/batches")
+        response = client.get(
+            "/api/repositories/ghost/nonexistent/execution-plan/batches"
+        )
         assert response.status_code == 404
 
     def test_get_critical_path_returns_404_when_no_plan(self):
-        response = client.get("/api/repositories/ghost/nonexistent/execution-plan/critical-path")
+        response = client.get(
+            "/api/repositories/ghost/nonexistent/execution-plan/critical-path"
+        )
         assert response.status_code == 404
 
     def test_get_latest_returns_plan_when_mocked(self):
         with tempfile.TemporaryDirectory() as tmpdir:
             svc = ExecutionPlannerService(base_dir=tmpdir)
             plan = svc.plan("owner/repo", _advisor_report())
-            with patch("backend.routers.execution.execution_planner_service") as mock_svc:
+            with patch(
+                "backend.routers.execution.execution_planner_service"
+            ) as mock_svc:
                 mock_svc.load_latest.return_value = plan
-                response = client.get("/api/repositories/owner/repo/execution-plan/latest")
+                response = client.get(
+                    "/api/repositories/owner/repo/execution-plan/latest"
+                )
                 assert response.status_code == 200
                 data = response.json()
                 assert data["repository"] == "owner/repo"
@@ -449,9 +466,13 @@ class TestExecutionRouter:
         with tempfile.TemporaryDirectory() as tmpdir:
             svc = ExecutionPlannerService(base_dir=tmpdir)
             plan = svc.plan("owner/repo", _advisor_report())
-            with patch("backend.routers.execution.execution_planner_service") as mock_svc:
+            with patch(
+                "backend.routers.execution.execution_planner_service"
+            ) as mock_svc:
                 mock_svc.load_latest.return_value = plan
-                response = client.get("/api/repositories/owner/repo/execution-plan/batches")
+                response = client.get(
+                    "/api/repositories/owner/repo/execution-plan/batches"
+                )
                 assert response.status_code == 200
                 batches = response.json()
                 orders = [b["order"] for b in batches]
@@ -461,9 +482,13 @@ class TestExecutionRouter:
         with tempfile.TemporaryDirectory() as tmpdir:
             svc = ExecutionPlannerService(base_dir=tmpdir)
             plan = svc.plan("owner/repo", _advisor_report())
-            with patch("backend.routers.execution.execution_planner_service") as mock_svc:
+            with patch(
+                "backend.routers.execution.execution_planner_service"
+            ) as mock_svc:
                 mock_svc.load_latest.return_value = plan
-                response = client.get("/api/repositories/owner/repo/execution-plan/critical-path")
+                response = client.get(
+                    "/api/repositories/owner/repo/execution-plan/critical-path"
+                )
                 assert response.status_code == 200
                 data = response.json()
                 assert "critical_path" in data

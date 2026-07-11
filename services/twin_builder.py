@@ -51,7 +51,10 @@ class RepositoryTwinBuilder:
         self.snapshot_store = snapshot_store or snap_store
 
     def build_snapshot(
-        self, repo_name: str, local_path: Optional[str], manifest: Optional[Dict[str, Any]]
+        self,
+        repo_name: str,
+        local_path: Optional[str],
+        manifest: Optional[Dict[str, Any]],
     ) -> RepositorySnapshot:
         """Constructs a RepositorySnapshot representation pinning the current repository state."""
         commit_sha = "unknown"
@@ -102,7 +105,9 @@ class RepositoryTwinBuilder:
     def build_twin(self, repo_name: str) -> RepositoryTwin:
         """Aggregates existing services to build the full RepositoryTwin view."""
         if repo_name not in self.store:
-            raise ValueError(f"Repository '{repo_name}' is not indexed. Analyze it first.")
+            raise ValueError(
+                f"Repository '{repo_name}' is not indexed. Analyze it first."
+            )
 
         entry = self.store[repo_name]
         analysis_data = entry["analysis"]
@@ -155,15 +160,21 @@ class RepositoryTwinBuilder:
         dependencies_list = getattr(analysis_data, "dependencies", []) or []
         dependencies_summary = {
             "dependencies": dependencies_list,
-            "import_relationships_count": dep_graph.number_of_edges() if dep_graph is not None else 0,
-            "dependency_nodes_count": dep_graph.number_of_nodes() if dep_graph is not None else 0,
+            "import_relationships_count": dep_graph.number_of_edges()
+            if dep_graph is not None
+            else 0,
+            "dependency_nodes_count": dep_graph.number_of_nodes()
+            if dep_graph is not None
+            else 0,
         }
 
         # 5. Retrieve Architecture summary
         cycles_count = 0
         strongly_connected_components = 0
         if dep_graph is not None and dep_graph.number_of_nodes() > 0:
-            strongly_connected_components = nx.number_strongly_connected_components(dep_graph)
+            strongly_connected_components = nx.number_strongly_connected_components(
+                dep_graph
+            )
             try:
                 cycles_count = len(list(nx.simple_cycles(dep_graph)))
             except Exception:
@@ -201,7 +212,9 @@ class RepositoryTwinBuilder:
         dead_code_result = self.dead_code_service.analyze(repo_name)
         dead_code_ratio = 0.0
         if dead_code_result and symbol_index and symbol_index.symbol_count > 0:
-            dead_code_ratio = len(dead_code_result.unused_files) / symbol_index.symbol_count
+            dead_code_ratio = (
+                len(dead_code_result.unused_files) / symbol_index.symbol_count
+            )
 
         has_license = any(f.lower().startswith("license") for f in files)
 

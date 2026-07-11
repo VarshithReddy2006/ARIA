@@ -46,6 +46,7 @@ class RepositoryTwinNavigator:
         """Helper to resolve twin_builder lazily to prevent circular imports."""
         if self.twin_builder is None:
             from backend.dependencies import repository_twin_builder
+
             self.twin_builder = repository_twin_builder
         return self.twin_builder
 
@@ -69,7 +70,9 @@ class RepositoryTwinNavigator:
             raise ValueError(f"Path traversal detected: {file_path}")
 
         if not os.path.exists(safe_path):
-            raise FileNotFoundError(f"File '{file_path}' not found in repository clone.")
+            raise FileNotFoundError(
+                f"File '{file_path}' not found in repository clone."
+            )
 
         with open(safe_path, "r", encoding="utf-8", errors="replace") as fh:
             content = fh.read()

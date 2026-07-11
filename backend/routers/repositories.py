@@ -672,9 +672,14 @@ async def analyze_repository(request: AnalyzeRequest):
                     twin.model_dump(),
                     change_set,
                 )
-                logger.info("Successfully recorded Engineering Memory Snapshot for commit %s", commit_sha)
+                logger.info(
+                    "Successfully recorded Engineering Memory Snapshot for commit %s",
+                    commit_sha,
+                )
             except Exception as exc_memory:
-                logger.error("Failed to create memory snapshot: %s", exc_memory, exc_info=True)
+                logger.error(
+                    "Failed to create memory snapshot: %s", exc_memory, exc_info=True
+                )
 
             timer.stop("Report")
 

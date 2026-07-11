@@ -87,25 +87,32 @@ class WorkspaceCoordinator:
         if not self._twin:
             return None
         result = self._safe(self._twin.build_twin, repo_name)
-        return result.model_dump() if result and hasattr(result, "model_dump") else result
+        return (
+            result.model_dump() if result and hasattr(result, "model_dump") else result
+        )
 
     def get_knowledge_graph(self, repo_name: str) -> Optional[Dict[str, Any]]:
         if not self._kg:
             return None
         result = self._safe(self._kg.build_graph, repo_name)
-        return result.model_dump() if result and hasattr(result, "model_dump") else result
+        return (
+            result.model_dump() if result and hasattr(result, "model_dump") else result
+        )
 
     def get_inspection_report(self, repo_name: str) -> Optional[Dict[str, Any]]:
         if not self._inspector:
             return None
         result = self._safe(self._inspector.load_latest, repo_name)
-        return result.model_dump() if result and hasattr(result, "model_dump") else result
+        return (
+            result.model_dump() if result and hasattr(result, "model_dump") else result
+        )
 
     def get_memory_context(self, repo_name: str) -> Optional[Dict[str, Any]]:
         if not self._memory:
             return None
         try:
             from services.memory_service import RecentHistoryPolicy
+
             ctx = self._safe(
                 self._memory.navigator.get_memory_context,
                 repo_name,
@@ -119,29 +126,36 @@ class WorkspaceCoordinator:
         if not self._monitoring:
             return None
         result = self._safe(self._monitoring.get_status, repo_name)
-        return result.model_dump() if result and hasattr(result, "model_dump") else result
+        return (
+            result.model_dump() if result and hasattr(result, "model_dump") else result
+        )
 
-    def get_monitoring_history(self, repo_name: str, limit: int = 5) -> List[Dict[str, Any]]:
+    def get_monitoring_history(
+        self, repo_name: str, limit: int = 5
+    ) -> List[Dict[str, Any]]:
         if not self._monitoring:
             return []
         runs = self._safe(self._monitoring.get_history, repo_name, default=[])
         items = runs or []
         return [
-            r.model_dump() if hasattr(r, "model_dump") else r
-            for r in items[-limit:]
+            r.model_dump() if hasattr(r, "model_dump") else r for r in items[-limit:]
         ]
 
     def get_advisor_report(self, repo_name: str) -> Optional[Dict[str, Any]]:
         if not self._advisor:
             return None
         result = self._safe(self._advisor.load_latest, repo_name)
-        return result.model_dump() if result and hasattr(result, "model_dump") else result
+        return (
+            result.model_dump() if result and hasattr(result, "model_dump") else result
+        )
 
     def get_execution_plan(self, repo_name: str) -> Optional[Dict[str, Any]]:
         if not self._execution:
             return None
         result = self._safe(self._execution.load_latest, repo_name)
-        return result.model_dump() if result and hasattr(result, "model_dump") else result
+        return (
+            result.model_dump() if result and hasattr(result, "model_dump") else result
+        )
 
 
 # ---------------------------------------------------------------------------
@@ -163,10 +177,15 @@ class NavigationService:
         if not kg:
             return {"file": file_path, "nodes": [], "edges": []}
         nodes = [
-            n for n in kg.get("nodes", [])
+            n
+            for n in kg.get("nodes", [])
             if file_path in (n.get("file_path", "") or "")
         ]
-        return {"file": file_path, "nodes": nodes, "edge_count": len(kg.get("edges", []))}
+        return {
+            "file": file_path,
+            "nodes": nodes,
+            "edge_count": len(kg.get("edges", [])),
+        }
 
     def navigate_to_symbol(self, repo_name: str, symbol: str) -> Dict[str, Any]:
         """Returns Knowledge Graph context for a specific symbol."""
@@ -174,7 +193,8 @@ class NavigationService:
         if not kg:
             return {"symbol": symbol, "nodes": [], "references": []}
         nodes = [
-            n for n in kg.get("nodes", [])
+            n
+            for n in kg.get("nodes", [])
             if symbol.lower() in (n.get("label", "") or "").lower()
         ]
         return {"symbol": symbol, "nodes": nodes}
@@ -185,8 +205,16 @@ class NavigationService:
         if not kg:
             return {"symbol": symbol, "callers": [], "callees": []}
         edges = kg.get("edges", [])
-        callers = [e["source"] for e in edges if e.get("target") == symbol and e.get("kind") == "calls"]
-        callees = [e["target"] for e in edges if e.get("source") == symbol and e.get("kind") == "calls"]
+        callers = [
+            e["source"]
+            for e in edges
+            if e.get("target") == symbol and e.get("kind") == "calls"
+        ]
+        callees = [
+            e["target"]
+            for e in edges
+            if e.get("source") == symbol and e.get("kind") == "calls"
+        ]
         return {"symbol": symbol, "callers": callers, "callees": callees}
 
 
@@ -204,7 +232,9 @@ class PanelComposer:
     # Overview panel
     # ------------------------------------------------------------------
 
-    def compose_overview(self, repo_name: str, twin: Optional[Dict], inspection: Optional[Dict]) -> OverviewPanel:
+    def compose_overview(
+        self, repo_name: str, twin: Optional[Dict], inspection: Optional[Dict]
+    ) -> OverviewPanel:
         health = HealthSummary()
 
         if inspection:
@@ -261,7 +291,9 @@ class PanelComposer:
                 id=n.get("id", ""),
                 label=n.get("label", ""),
                 kind=n.get("kind", "module"),
-                metadata={k: v for k, v in n.items() if k not in ("id", "label", "kind")},
+                metadata={
+                    k: v for k, v in n.items() if k not in ("id", "label", "kind")
+                },
             )
             for n in root_raw
         ]
@@ -303,7 +335,9 @@ class PanelComposer:
     # Findings panel
     # ------------------------------------------------------------------
 
-    def compose_findings(self, repo_name: str, inspection: Optional[Dict]) -> FindingsPanel:
+    def compose_findings(
+        self, repo_name: str, inspection: Optional[Dict]
+    ) -> FindingsPanel:
         if not inspection:
             return FindingsPanel(repository=repo_name)
 
@@ -317,15 +351,17 @@ class PanelComposer:
             cat = f.get("category", "general")
             by_severity[sev] = by_severity.get(sev, 0) + 1
             by_category[cat] = by_category.get(cat, 0) + 1
-            summaries.append(FindingsSummary(
-                id=f.get("id", ""),
-                title=f.get("title", ""),
-                category=cat,
-                severity=sev,
-                confidence=float(f.get("confidence", 0.8)),
-                affected_entities=list(f.get("affected_entities", [])),
-                recommendation_count=len(f.get("recommendations", [])),
-            ))
+            summaries.append(
+                FindingsSummary(
+                    id=f.get("id", ""),
+                    title=f.get("title", ""),
+                    category=cat,
+                    severity=sev,
+                    confidence=float(f.get("confidence", 0.8)),
+                    affected_entities=list(f.get("affected_entities", [])),
+                    recommendation_count=len(f.get("recommendations", [])),
+                )
+            )
 
         return FindingsPanel(
             repository=repo_name,
@@ -381,12 +417,14 @@ class PanelComposer:
         for run in history:
             counts = run.get("finding_counts", {})
             if counts.get("critical", 0) > 0 or counts.get("high", 0) > 0:
-                alerts.append({
-                    "run_id": run.get("id"),
-                    "trigger": run.get("trigger"),
-                    "critical": counts.get("critical", 0),
-                    "high": counts.get("high", 0),
-                })
+                alerts.append(
+                    {
+                        "run_id": run.get("id"),
+                        "trigger": run.get("trigger"),
+                        "critical": counts.get("critical", 0),
+                        "high": counts.get("high", 0),
+                    }
+                )
 
         return MonitorPanel(
             repository=repo_name,
@@ -404,7 +442,9 @@ class PanelComposer:
     # Advisor panel
     # ------------------------------------------------------------------
 
-    def compose_advisor(self, repo_name: str, advisor_report: Optional[Dict]) -> AdvisorPanel:
+    def compose_advisor(
+        self, repo_name: str, advisor_report: Optional[Dict]
+    ) -> AdvisorPanel:
         if not advisor_report:
             return AdvisorPanel(repository=repo_name)
 
@@ -541,7 +581,9 @@ class WorkspaceService:
     # Full workspace snapshot
     # ------------------------------------------------------------------
 
-    def get_workspace(self, repo_name: str, state: Optional[WorkspaceState] = None) -> WorkspaceSnapshot:
+    def get_workspace(
+        self, repo_name: str, state: Optional[WorkspaceState] = None
+    ) -> WorkspaceSnapshot:
         """Returns the complete workspace snapshot for a repository."""
         if state is None:
             state = self._default_state(repo_name)

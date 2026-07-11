@@ -57,49 +57,137 @@ _EFFORT_HOURS: Dict[str, float] = {
 _CATEGORY_SUBTASKS: Dict[str, List[Tuple[str, str, bool]]] = {
     # (title_suffix, description, is_rollback_point)
     "security": [
-        ("Audit vulnerable dependency", "Identify and document the vulnerable package and affected versions.", False),
-        ("Apply security patch", "Upgrade or replace the vulnerable dependency.", False),
-        ("Verify patch", "Run security scans and integration tests to confirm resolution.", True),
+        (
+            "Audit vulnerable dependency",
+            "Identify and document the vulnerable package and affected versions.",
+            False,
+        ),
+        (
+            "Apply security patch",
+            "Upgrade or replace the vulnerable dependency.",
+            False,
+        ),
+        (
+            "Verify patch",
+            "Run security scans and integration tests to confirm resolution.",
+            True,
+        ),
     ],
     "architecture": [
-        ("Identify refactoring boundaries", "Map the module boundaries that will change.", False),
-        ("Refactor module structure", "Apply the structural change while preserving external interfaces.", False),
-        ("Update integration points", "Adjust all callers/consumers of the modified module.", False),
-        ("Verify architecture compliance", "Run architecture linting and integration tests.", True),
+        (
+            "Identify refactoring boundaries",
+            "Map the module boundaries that will change.",
+            False,
+        ),
+        (
+            "Refactor module structure",
+            "Apply the structural change while preserving external interfaces.",
+            False,
+        ),
+        (
+            "Update integration points",
+            "Adjust all callers/consumers of the modified module.",
+            False,
+        ),
+        (
+            "Verify architecture compliance",
+            "Run architecture linting and integration tests.",
+            True,
+        ),
     ],
     "performance": [
         ("Profile hot-path", "Measure current performance baseline.", False),
-        ("Implement optimization", "Apply the targeted performance improvement.", False),
-        ("Benchmark and verify", "Confirm improvement against baseline and check for regressions.", True),
+        (
+            "Implement optimization",
+            "Apply the targeted performance improvement.",
+            False,
+        ),
+        (
+            "Benchmark and verify",
+            "Confirm improvement against baseline and check for regressions.",
+            True,
+        ),
     ],
     "dependency": [
-        ("Audit outdated dependencies", "List all affected packages and their current/target versions.", False),
+        (
+            "Audit outdated dependencies",
+            "List all affected packages and their current/target versions.",
+            False,
+        ),
         ("Upgrade dependencies", "Apply version upgrades incrementally.", False),
-        ("Run compatibility tests", "Verify no breaking changes were introduced.", True),
+        (
+            "Run compatibility tests",
+            "Verify no breaking changes were introduced.",
+            True,
+        ),
     ],
     "complexity": [
-        ("Identify complex units", "Mark functions and modules exceeding complexity thresholds.", False),
-        ("Decompose complex logic", "Break large units into smaller, testable functions.", False),
+        (
+            "Identify complex units",
+            "Mark functions and modules exceeding complexity thresholds.",
+            False,
+        ),
+        (
+            "Decompose complex logic",
+            "Break large units into smaller, testable functions.",
+            False,
+        ),
         ("Verify test coverage", "Ensure decomposed units are covered by tests.", True),
     ],
     "dead_code": [
-        ("Identify unused declarations", "Locate unreferenced symbols across the codebase.", False),
+        (
+            "Identify unused declarations",
+            "Locate unreferenced symbols across the codebase.",
+            False,
+        ),
         ("Remove dead code", "Delete confirmed-unused declarations.", False),
-        ("Verify build integrity", "Confirm the project builds and tests pass after removal.", True),
+        (
+            "Verify build integrity",
+            "Confirm the project builds and tests pass after removal.",
+            True,
+        ),
     ],
     "documentation": [
-        ("Audit missing documentation", "Identify undocumented public APIs and modules.", False),
-        ("Write documentation", "Add docstrings, README sections, or architecture notes.", True),
+        (
+            "Audit missing documentation",
+            "Identify undocumented public APIs and modules.",
+            False,
+        ),
+        (
+            "Write documentation",
+            "Add docstrings, README sections, or architecture notes.",
+            True,
+        ),
     ],
     "testing": [
-        ("Audit test coverage gaps", "Identify critical code paths lacking test coverage.", False),
-        ("Write missing tests", "Implement unit and integration tests for uncovered paths.", False),
-        ("Verify coverage targets", "Confirm coverage meets the defined threshold.", True),
+        (
+            "Audit test coverage gaps",
+            "Identify critical code paths lacking test coverage.",
+            False,
+        ),
+        (
+            "Write missing tests",
+            "Implement unit and integration tests for uncovered paths.",
+            False,
+        ),
+        (
+            "Verify coverage targets",
+            "Confirm coverage meets the defined threshold.",
+            True,
+        ),
     ],
     "general": [
-        ("Investigate issue", "Understand the root cause and define the remediation approach.", False),
+        (
+            "Investigate issue",
+            "Understand the root cause and define the remediation approach.",
+            False,
+        ),
         ("Implement remediation", "Apply the fix or improvement.", False),
-        ("Verify resolution", "Confirm the issue is resolved and no regressions were introduced.", True),
+        (
+            "Verify resolution",
+            "Confirm the issue is resolved and no regressions were introduced.",
+            True,
+        ),
     ],
 }
 
@@ -121,7 +209,9 @@ class TaskDecomposer:
 
         for rec in recommendations:
             category = rec.get("category", "general")
-            subtask_templates = _CATEGORY_SUBTASKS.get(category, _CATEGORY_SUBTASKS["general"])
+            subtask_templates = _CATEGORY_SUBTASKS.get(
+                category, _CATEGORY_SUBTASKS["general"]
+            )
             rec_id = rec.get("id", "")
             affected = list(rec.get("affected_entities", []))
             effort = rec.get("estimated_effort", "unknown")
@@ -182,7 +272,9 @@ class DependencyResolver:
 
         if len(ordered) != len(tasks):
             # Circular dependency detected — return original order with a warning
-            logger.warning("Circular dependency detected; returning tasks in original order.")
+            logger.warning(
+                "Circular dependency detected; returning tasks in original order."
+            )
             return tasks
 
         return ordered
@@ -256,7 +348,9 @@ class ConflictDetector:
 
         return conflicts
 
-    def _check_pair(self, a: ExecutionTask, b: ExecutionTask) -> Optional[ConflictReport]:
+    def _check_pair(
+        self, a: ExecutionTask, b: ExecutionTask
+    ) -> Optional[ConflictReport]:
         """Checks two tasks for conflicts. Returns ConflictReport or None."""
         # Skip tasks that already have an explicit dependency ordering
         if b.id in a.dependencies or a.id in b.dependencies:
@@ -329,8 +423,11 @@ class ParallelizationPlanner:
 
     def _hours_to_label(self, hours: float) -> str:
         for threshold, label in [
-            (1.5, "< 2 hours"), (4.0, "Half day"), (8.0, "1 day"),
-            (20.0, "2–3 days"), (40.0, "1 week"),
+            (1.5, "< 2 hours"),
+            (4.0, "Half day"),
+            (8.0, "1 day"),
+            (20.0, "2–3 days"),
+            (40.0, "1 week"),
         ]:
             if hours <= threshold:
                 return label
@@ -365,7 +462,8 @@ class ParallelizationPlanner:
             bucket_ids = [t.id for t in bucket_tasks]
             for task in bucket_tasks:
                 task.parallel_with = [
-                    tid for tid in bucket_ids
+                    tid
+                    for tid in bucket_ids
                     if tid != task.id and tid not in task.dependencies
                 ]
             total_hours = self._effort_hours(bucket_tasks)
@@ -403,8 +501,8 @@ class RiskAnalyzer:
     }
 
     _RISK_ESCALATION_THRESHOLDS = {
-        "entities_high": 5,     # Many affected entities → escalate
-        "dep_depth_high": 3,    # Deep dependency chain → escalate
+        "entities_high": 5,  # Many affected entities → escalate
+        "dep_depth_high": 3,  # Deep dependency chain → escalate
     }
 
     def _escalate(self, base: str) -> str:
@@ -413,8 +511,13 @@ class RiskAnalyzer:
         return levels[min(idx + 1, len(levels) - 1)]
 
     def _risk_rationale(self, task: ExecutionTask, risk: str, dep_depth: int) -> str:
-        parts = [f"Category '{task.category}' baseline risk: {self._CATEGORY_BASE_RISK.get(task.category, 'medium')}."]
-        if len(task.affected_entities) >= self._RISK_ESCALATION_THRESHOLDS["entities_high"]:
+        parts = [
+            f"Category '{task.category}' baseline risk: {self._CATEGORY_BASE_RISK.get(task.category, 'medium')}."
+        ]
+        if (
+            len(task.affected_entities)
+            >= self._RISK_ESCALATION_THRESHOLDS["entities_high"]
+        ):
             parts.append(f"Affects {len(task.affected_entities)} entities (escalated).")
         if dep_depth >= self._RISK_ESCALATION_THRESHOLDS["dep_depth_high"]:
             parts.append(f"Dependency depth {dep_depth} (escalated).")
@@ -433,7 +536,10 @@ class RiskAnalyzer:
             risk = base_risk
 
             # Escalate for many affected entities
-            if len(task.affected_entities) >= self._RISK_ESCALATION_THRESHOLDS["entities_high"]:
+            if (
+                len(task.affected_entities)
+                >= self._RISK_ESCALATION_THRESHOLDS["entities_high"]
+            ):
                 risk = self._escalate(risk)
 
             # Escalate for deep dependency chains

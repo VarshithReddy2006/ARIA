@@ -37,6 +37,7 @@ _SEVERITY_ORDER = {"critical": 5, "high": 4, "medium": 3, "low": 2, "info": 1}
 # Inspection Planner
 # ---------------------------------------------------------------------------
 
+
 class InspectionPlanner:
     """Resolves which inspection packs should execute given a requested policy."""
 
@@ -52,7 +53,11 @@ class InspectionPlanner:
     ]
 
     _POLICY_MAP: Dict[str, List[str]] = {
-        "architecture": ["ArchitectureInspector", "DependencyInspector", "ComplexityInspector"],
+        "architecture": [
+            "ArchitectureInspector",
+            "DependencyInspector",
+            "ComplexityInspector",
+        ],
         "security": ["SecurityInspector", "DependencyInspector"],
         "performance": ["PerformanceInspector", "ComplexityInspector"],
         "documentation": ["DocumentationInspector", "TestingInspector"],
@@ -65,15 +70,13 @@ class InspectionPlanner:
         allowed = self._POLICY_MAP.get(policy)
         if allowed is None:
             return list(self._ALL)
-        return [
-            pack for pack in self._ALL
-            if type(pack).__name__ in allowed
-        ]
+        return [pack for pack in self._ALL if type(pack).__name__ in allowed]
 
 
 # ---------------------------------------------------------------------------
 # Finding Aggregator
 # ---------------------------------------------------------------------------
+
 
 class FindingAggregator:
     """Deduplicates overlapping findings and merges their evidence and recommendations."""
@@ -92,7 +95,9 @@ class FindingAggregator:
         for candidate in all_findings:
             merged_into = None
             for existing in merged:
-                if existing.category == candidate.category and self._similar(existing.title, candidate.title):
+                if existing.category == candidate.category and self._similar(
+                    existing.title, candidate.title
+                ):
                     merged_into = existing
                     break
 
@@ -111,10 +116,14 @@ class FindingAggregator:
                     if path not in merged_into.graph_paths:
                         merged_into.graph_paths.append(path)
                 # Escalate severity if candidate's is higher
-                if _SEVERITY_ORDER.get(candidate.severity, 0) > _SEVERITY_ORDER.get(merged_into.severity, 0):
+                if _SEVERITY_ORDER.get(candidate.severity, 0) > _SEVERITY_ORDER.get(
+                    merged_into.severity, 0
+                ):
                     merged_into.severity = candidate.severity
                 # Take max confidence
-                merged_into.confidence = max(merged_into.confidence, candidate.confidence)
+                merged_into.confidence = max(
+                    merged_into.confidence, candidate.confidence
+                )
             else:
                 merged.append(candidate.model_copy(deep=True))
 
@@ -125,10 +134,13 @@ class FindingAggregator:
 # Severity Engine
 # ---------------------------------------------------------------------------
 
+
 class SeverityEngine:
     """Deterministically rescores finding severity using repository metrics."""
 
-    def rescore(self, findings: List[Finding], twin_data: Dict[str, Any]) -> List[Finding]:
+    def rescore(
+        self, findings: List[Finding], twin_data: Dict[str, Any]
+    ) -> List[Finding]:
         """Adjusts severity scores based on repository context signals."""
         twin_metadata = twin_data.get("metadata", {}) or {}
         health_score = float(twin_metadata.get("health_score", 100.0) or 100.0)
@@ -151,7 +163,11 @@ class SeverityEngine:
                     finding.severity = "high"
 
             # Escalate dependency findings when there are many
-            if finding.category == "dependency" and dep_count > 50 and current_rank < _SEVERITY_ORDER["high"]:
+            if (
+                finding.category == "dependency"
+                and dep_count > 50
+                and current_rank < _SEVERITY_ORDER["high"]
+            ):
                 finding.severity = "high"
 
         return findings
@@ -161,13 +177,15 @@ class SeverityEngine:
 # Confidence Engine
 # ---------------------------------------------------------------------------
 
+
 class ConfidenceEngine:
     """Deterministically calculates composite confidence scores from multiple signals."""
 
-    def rescore(self, findings: List[Finding], twin_data: Dict[str, Any]) -> List[Finding]:
+    def rescore(
+        self, findings: List[Finding], twin_data: Dict[str, Any]
+    ) -> List[Finding]:
         """Adjusts finding confidence given evidence quality and repository signals."""
         twin_metadata = twin_data.get("metadata", {}) or {}
-        symbols_count = int(twin_metadata.get("symbols_count", 0) or 0)
         files_count = int(twin_metadata.get("files_count", 0) or 0)
 
         for finding in findings:
@@ -178,7 +196,9 @@ class ConfidenceEngine:
             entity_penalty = 0.0
             if files_count > 20 and len(finding.affected_entities) == 0:
                 entity_penalty = 0.10
-            adjusted = min(1.0, max(0.0, base_confidence + evidence_bonus - entity_penalty))
+            adjusted = min(
+                1.0, max(0.0, base_confidence + evidence_bonus - entity_penalty)
+            )
             finding.confidence = round(adjusted, 2)
 
         return findings
@@ -188,18 +208,43 @@ class ConfidenceEngine:
 # Recommendation Planner
 # ---------------------------------------------------------------------------
 
+
 class RecommendationPlanner:
     """Enriches findings with structured, actionable engineering recommendations."""
 
     _CATEGORY_TEMPLATES: Dict[str, Tuple[str, str]] = {
-        "architecture": ("Refactor component boundaries using SOLID principles.", "4 hours"),
-        "security": ("Perform a dedicated security audit and patch all critical CVEs.", "2 hours"),
-        "performance": ("Profile and optimize identified hot-path functions.", "4 hours"),
-        "dependency": ("Run `pip list --outdated` or equivalent and upgrade affected packages.", "2 hours"),
-        "complexity": ("Decompose complex functions into focused, testable units.", "4 hours"),
-        "dead_code": ("Use a linter or code coverage tool to prune unused declarations.", "1 hour"),
-        "documentation": ("Add docstrings and update README.md with architecture notes.", "2 hours"),
-        "testing": ("Write unit tests covering critical flows with ≥80% coverage targets.", "4 hours"),
+        "architecture": (
+            "Refactor component boundaries using SOLID principles.",
+            "4 hours",
+        ),
+        "security": (
+            "Perform a dedicated security audit and patch all critical CVEs.",
+            "2 hours",
+        ),
+        "performance": (
+            "Profile and optimize identified hot-path functions.",
+            "4 hours",
+        ),
+        "dependency": (
+            "Run `pip list --outdated` or equivalent and upgrade affected packages.",
+            "2 hours",
+        ),
+        "complexity": (
+            "Decompose complex functions into focused, testable units.",
+            "4 hours",
+        ),
+        "dead_code": (
+            "Use a linter or code coverage tool to prune unused declarations.",
+            "1 hour",
+        ),
+        "documentation": (
+            "Add docstrings and update README.md with architecture notes.",
+            "2 hours",
+        ),
+        "testing": (
+            "Write unit tests covering critical flows with ≥80% coverage targets.",
+            "4 hours",
+        ),
     }
 
     def enrich(self, findings: List[Finding]) -> List[Finding]:
@@ -211,7 +256,10 @@ class RecommendationPlanner:
                     category, ("Review and remediate the identified issue.", "2 hours")
                 )
                 finding.recommendations.append(template_rec)
-                if finding.estimated_effort == "unknown" or not finding.estimated_effort:
+                if (
+                    finding.estimated_effort == "unknown"
+                    or not finding.estimated_effort
+                ):
                     finding.estimated_effort = template_effort
 
         return findings
@@ -220,6 +268,7 @@ class RecommendationPlanner:
 # ---------------------------------------------------------------------------
 # Repository Inspector
 # ---------------------------------------------------------------------------
+
 
 class RepositoryInspector:
     """Main orchestrator that coordinates inspection packs and produces inspection reports."""
@@ -281,8 +330,7 @@ class RepositoryInspector:
             "info": 0.5,
         }
         total_deduction = sum(
-            deductions.get(f.severity, 0) * f.confidence
-            for f in findings
+            deductions.get(f.severity, 0) * f.confidence for f in findings
         )
         return round(max(0.0, 100.0 - total_deduction), 1)
 
@@ -294,8 +342,12 @@ class RepositoryInspector:
             "by_category": {},
         }
         for f in findings:
-            stats["by_severity"][f.severity] = stats["by_severity"].get(f.severity, 0) + 1
-            stats["by_category"][f.category] = stats["by_category"].get(f.category, 0) + 1
+            stats["by_severity"][f.severity] = (
+                stats["by_severity"].get(f.severity, 0) + 1
+            )
+            stats["by_category"][f.category] = (
+                stats["by_category"].get(f.category, 0) + 1
+            )
         return stats
 
     def inspect(
@@ -319,7 +371,12 @@ class RepositoryInspector:
 
         # 1. Plan which packs to run
         packs = self.planner.plan(policy)
-        logger.info("Running %d inspection packs for '%s' (policy=%s)", len(packs), repo_name, policy)
+        logger.info(
+            "Running %d inspection packs for '%s' (policy=%s)",
+            len(packs),
+            repo_name,
+            policy,
+        )
 
         # 2. Execute each pack independently and collect raw findings
         raw_findings: List[Finding] = []
@@ -328,7 +385,9 @@ class RepositoryInspector:
                 pack_findings = pack.inspect(context)
                 raw_findings.extend(pack_findings)
             except Exception as exc:
-                logger.error("Pack %s failed: %s", type(pack).__name__, exc, exc_info=True)
+                logger.error(
+                    "Pack %s failed: %s", type(pack).__name__, exc, exc_info=True
+                )
 
         # 3. Aggregate (deduplicate and merge)
         aggregated = self.aggregator.aggregate(raw_findings)

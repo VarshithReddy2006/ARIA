@@ -17,7 +17,7 @@ class TestingInspector(InspectionPack):
         findings = []
 
         files = context.twin.get("files", [])
-        
+
         # Check for test files (e.g. files with 'test' in path)
         test_files = []
         for f in files:
@@ -37,10 +37,12 @@ class TestingInspector(InspectionPack):
                     title="Missing Test Suite Coverage",
                     description="No unit test files or test framework configurations detected in the repository.",
                     affected_entities=["Whole Codebase"],
-                    evidence=["No test files matched standard patterns (test_*.py, *_test.py, etc.)."],
+                    evidence=[
+                        "No test files matched standard patterns (test_*.py, *_test.py, etc.)."
+                    ],
                     recommendations=[
                         "Setup a unit test framework (e.g., pytest, jest) and write core unit tests.",
-                        "Establish code coverage thresholds in CI pipeline."
+                        "Establish code coverage thresholds in CI pipeline.",
                     ],
                     estimated_effort="4 hours",
                     metadata={"test_files_count": 0},

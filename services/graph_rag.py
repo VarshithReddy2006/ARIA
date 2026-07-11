@@ -22,6 +22,7 @@ logger = logging.getLogger(__name__)
 # Prompt Document & Builder & Renderer (Model-Agnostic Prompt Abstraction)
 # ---------------------------------------------------------------------------
 
+
 class PromptDocument(BaseModel):
     """An intermediate structured representation of the compiled prompt content."""
 
@@ -37,7 +38,9 @@ class PromptDocument(BaseModel):
 class PromptBuilder:
     """Constructs a model-agnostic PromptDocument from context and reasoning."""
 
-    def build_document(self, context: RepositoryRetrievalContext, reasoning: ReasoningResult) -> PromptDocument:
+    def build_document(
+        self, context: RepositoryRetrievalContext, reasoning: ReasoningResult
+    ) -> PromptDocument:
         system_instruction = (
             "You are an expert AI software architect. Answer the user's question based strictly "
             "on the provided repository evidence, reasoning hypotheses, and recommendations. "
@@ -79,14 +82,18 @@ class PromptRenderer:
         if doc.contradictions:
             prompt_parts.append("## DETECTED CONTRADICTIONS / WARNINGS")
             for c in doc.contradictions:
-                prompt_parts.append(f"- WARNING [{c.id}]: {c.description} (Severity: {c.severity})")
+                prompt_parts.append(
+                    f"- WARNING [{c.id}]: {c.description} (Severity: {c.severity})"
+                )
             prompt_parts.append("")
 
         # 5. Proposed Recommendations
         if doc.recommendations:
             prompt_parts.append("## PROPOSED RECOMMENDATIONS")
             for r in doc.recommendations:
-                prompt_parts.append(f"- [{r.id}] Type: {r.type} targeting '{r.target}' (Priority: {r.priority}, Effort: {r.estimated_effort})")
+                prompt_parts.append(
+                    f"- [{r.id}] Type: {r.type} targeting '{r.target}' (Priority: {r.priority}, Effort: {r.estimated_effort})"
+                )
             prompt_parts.append("")
 
         # 6. Repository Context References
@@ -109,6 +116,7 @@ class PromptRenderer:
 # Token Budget Manager & Grounding Validator
 # ---------------------------------------------------------------------------
 
+
 class TokenBudgetManager:
     """Prunes and ranks ContextReferences in a PromptDocument to fit within token limits."""
 
@@ -116,8 +124,12 @@ class TokenBudgetManager:
         # Estimate overall size using string length divided by 4 as token approximation
         # Base overhead (system instruction, hypotheses, recommendations)
         overhead_str = (
-            doc.system_instruction + doc.question + doc.policy +
-            str(doc.hypotheses) + str(doc.contradictions) + str(doc.recommendations)
+            doc.system_instruction
+            + doc.question
+            + doc.policy
+            + str(doc.hypotheses)
+            + str(doc.contradictions)
+            + str(doc.recommendations)
         )
         base_tokens = len(overhead_str) // 4
 
@@ -169,7 +181,9 @@ class TokenBudgetManager:
 
         for score, ref in scored_refs:
             # Render a single reference to estimate its size
-            ref_str = f"### REFERENCE [{ref.id}] (Type: {ref.type})\nSource: {ref.source}\n"
+            ref_str = (
+                f"### REFERENCE [{ref.id}] (Type: {ref.type})\nSource: {ref.source}\n"
+            )
             if ref.snippet:
                 ref_str += ref.snippet
             ref_tokens = len(ref_str) // 4
@@ -195,7 +209,9 @@ class TokenBudgetManager:
 class GroundingValidator:
     """Scans LLM output to verify citations and reference list presence against the context."""
 
-    def validate(self, answer: str, context: RepositoryRetrievalContext) -> tuple[str, List[str]]:
+    def validate(
+        self, answer: str, context: RepositoryRetrievalContext
+    ) -> tuple[str, List[str]]:
         # Match citations like [EVD-001](...) or [ref_id](...) or [id]
         # Look for square bracket patterns
         brackets_pattern = re.compile(r"\[([^\]]+)\]")
@@ -224,6 +240,7 @@ class GroundingValidator:
 # Chat Pipeline & Orchestrator Service
 # ---------------------------------------------------------------------------
 
+
 class ChatPipeline:
     """Execution pipeline coordinating RAG + ERE + Prompting + LLM Generation + Validation."""
 
@@ -246,12 +263,14 @@ class ChatPipeline:
     def get_retrieval_engine(self) -> Any:
         if self.retrieval_engine is None:
             from backend.dependencies import structural_retrieval_engine
+
             self.retrieval_engine = structural_retrieval_engine
         return self.retrieval_engine
 
     def get_reasoning_engine(self) -> Any:
         if self.reasoning_engine is None:
             from backend.dependencies import engineering_reasoning_engine
+
             self.reasoning_engine = engineering_reasoning_engine
         return self.reasoning_engine
 
@@ -303,12 +322,26 @@ class ChatPipeline:
         if context.subgraph:
             for edge in context.subgraph.get("edges", []):
                 if edge["source"] in citations or edge["target"] in citations:
-                    graph_paths.append({"source": edge["source"], "target": edge["target"], "type": edge["type"]})
+                    graph_paths.append(
+                        {
+                            "source": edge["source"],
+                            "target": edge["target"],
+                            "type": edge["type"],
+                        }
+                    )
 
-        referenced_files = [ref.properties.get("path") for ref in context.references if ref.id in citations and ref.type == "file"]
+        referenced_files = [
+            ref.properties.get("path")
+            for ref in context.references
+            if ref.id in citations and ref.type == "file"
+        ]
         referenced_files = [f for f in referenced_files if f]
 
-        referenced_symbols = [ref.properties.get("name") for ref in context.references if ref.id in citations and ref.type == "symbol"]
+        referenced_symbols = [
+            ref.properties.get("name")
+            for ref in context.references
+            if ref.id in citations and ref.type == "symbol"
+        ]
         referenced_symbols = [s for s in referenced_symbols if s]
 
         # Token usage estimates
@@ -326,7 +359,11 @@ class ChatPipeline:
         }
 
         # Composing brief summaries
-        summary = grounded_answer[:150] + "..." if len(grounded_answer) > 150 else grounded_answer
+        summary = (
+            grounded_answer[:150] + "..."
+            if len(grounded_answer) > 150
+            else grounded_answer
+        )
         reasoning_summary = f"ERE analyzed {len(reasoning_res.evidence)} evidence nodes, validating {len(reasoning_res.hypotheses)} hypotheses."
 
         return GraphRAGResult(
@@ -372,7 +409,6 @@ class GraphRAGService:
         """Streams answer chunks from the LLM provider directly."""
         opt = options or {}
         # Fetch retrieval & reasoning
-        t0 = time.perf_counter()
         retrieval_engine = self.pipeline.get_retrieval_engine()
         context = await retrieval_engine.retrieve(repo_name, question, policy)
         reasoning_engine = self.pipeline.get_reasoning_engine()

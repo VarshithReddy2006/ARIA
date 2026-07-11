@@ -100,8 +100,12 @@ async def generate_advisor_report(username: str, repository: str):
         )
         return report
     except Exception as exc:
-        logger.error("Advisor pipeline failed for '%s': %s", repo_name, exc, exc_info=True)
-        raise HTTPException(status_code=500, detail=f"Advisor pipeline failed: {str(exc)}")
+        logger.error(
+            "Advisor pipeline failed for '%s': %s", repo_name, exc, exc_info=True
+        )
+        raise HTTPException(
+            status_code=500, detail=f"Advisor pipeline failed: {str(exc)}"
+        )
 
 
 @router.get(
@@ -129,7 +133,9 @@ async def get_latest_report(username: str, repository: str):
 async def get_recommendations(
     username: str,
     repository: str,
-    priority: Optional[str] = Query(None, description="Filter by: critical | high | medium | low"),
+    priority: Optional[str] = Query(
+        None, description="Filter by: critical | high | medium | low"
+    ),
     category: Optional[str] = Query(None, description="Filter by category name"),
     limit: int = Query(50, ge=1, le=200, description="Maximum number to return"),
 ):

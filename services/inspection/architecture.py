@@ -23,16 +23,16 @@ class ArchitectureInspector(InspectionPack):
                 if edge.get("type") == "IMPORTS":
                     src = edge.get("source", "").split("::")[-1]
                     tgt = edge.get("target", "").split("::")[-1]
-                    relationships.append({
-                        "source": src,
-                        "target": tgt,
-                        "dependencies": [tgt]
-                    })
+                    relationships.append(
+                        {"source": src, "target": tgt, "dependencies": [tgt]}
+                    )
 
         # Check for high coupling
         high_coupling_components = []
         for rel in relationships:
-            coupling_score = rel.get("coupling_score", 0.0) or (len(rel.get("dependencies", [])) * 2)
+            coupling_score = rel.get("coupling_score", 0.0) or (
+                len(rel.get("dependencies", [])) * 2
+            )
             if coupling_score > 10:
                 high_coupling_components.append(rel)
 
@@ -53,7 +53,7 @@ class ArchitectureInspector(InspectionPack):
                     ],
                     recommendations=[
                         "Introduce abstractions or interface layers to isolate components.",
-                        "Refactor high-coupling components into smaller, independent modules."
+                        "Refactor high-coupling components into smaller, independent modules.",
                     ],
                     estimated_effort="4 hours",
                     metadata={"high_coupling_count": len(high_coupling_components)},
@@ -90,10 +90,13 @@ class ArchitectureInspector(InspectionPack):
                     title="Circular Dependency Cycles Detected",
                     description="Cycles detected between architectural layers, violating clean architecture boundaries.",
                     affected_entities=affected,
-                    evidence=[f"Bidirectional dependency path between {s} and {t}" for s, t in mutual_relations],
+                    evidence=[
+                        f"Bidirectional dependency path between {s} and {t}"
+                        for s, t in mutual_relations
+                    ],
                     recommendations=[
                         "Apply Dependency Inversion Principle using interfaces.",
-                        "Extract shared logic into a separate utility or leaf component."
+                        "Extract shared logic into a separate utility or leaf component.",
                     ],
                     estimated_effort="8 hours",
                     metadata={"cycles_count": len(mutual_relations)},

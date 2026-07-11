@@ -34,6 +34,7 @@ client = TestClient(app)
 # Helpers
 # ---------------------------------------------------------------------------
 
+
 def _mock_context(twin_overrides=None, kg_overrides=None) -> InspectionContext:
     return InspectionContext(
         repository="owner/repo",
@@ -55,97 +56,149 @@ def _mock_context(twin_overrides=None, kg_overrides=None) -> InspectionContext:
         },
     )
 
+
 # ---------------------------------------------------------------------------
 # 1. Inspector Pack Tests
 # ---------------------------------------------------------------------------
 
+
 class TestInspectorPacksRegression:
     def test_architecture_inspector_resolves_from_kg(self):
-        ctx = _mock_context(kg_overrides={
-            "edges": [
-                {"source": "owner/repo::main.py", "target": "owner/repo::utils.py", "type": "IMPORTS"}
-            ]
-        })
+        ctx = _mock_context(
+            kg_overrides={
+                "edges": [
+                    {
+                        "source": "owner/repo::main.py",
+                        "target": "owner/repo::utils.py",
+                        "type": "IMPORTS",
+                    }
+                ]
+            }
+        )
         findings = ArchitectureInspector().inspect(ctx)
         # Should complete successfully without raising errors
         assert isinstance(findings, list)
 
     def test_security_inspector_resolves_from_compliance_summary(self):
-        ctx = _mock_context(twin_overrides={
-            "compliance_summary": {
-                "status": "warning",
-                "reasons": ["Possible secret token exposed in config file."],
-                "has_license": True,
-                "cycles_count": 0,
-                "dead_code_ratio": 0.0,
+        ctx = _mock_context(
+            twin_overrides={
+                "compliance_summary": {
+                    "status": "warning",
+                    "reasons": ["Possible secret token exposed in config file."],
+                    "has_license": True,
+                    "cycles_count": 0,
+                    "dead_code_ratio": 0.0,
+                }
             }
-        })
+        )
         findings = SecurityInspector().inspect(ctx)
         assert len(findings) > 0
         assert findings[0].category == "security"
 
     def test_dependency_inspector_resolves_from_kg(self):
-        ctx = _mock_context(kg_overrides={
-            "edges": [
-                {"source": "owner/repo::main.py", "target": "owner/repo::utils.py", "type": "IMPORTS"},
-                {"source": "owner/repo::utils.py", "target": "owner/repo::main.py", "type": "IMPORTS"},
-            ]
-        })
+        ctx = _mock_context(
+            kg_overrides={
+                "edges": [
+                    {
+                        "source": "owner/repo::main.py",
+                        "target": "owner/repo::utils.py",
+                        "type": "IMPORTS",
+                    },
+                    {
+                        "source": "owner/repo::utils.py",
+                        "target": "owner/repo::main.py",
+                        "type": "IMPORTS",
+                    },
+                ]
+            }
+        )
         findings = DependencyInspector().inspect(ctx)
         assert len(findings) > 0
         assert findings[0].category == "dependency"
 
     def test_dead_code_inspector_resolves_from_compliance_summary(self):
-        ctx = _mock_context(twin_overrides={
-            "compliance_summary": {
-                "status": "warning",
-                "reasons": ["Dead code ratio is high (>15%)."],
-                "has_license": True,
-                "cycles_count": 0,
-                "dead_code_ratio": 16.0,
+        ctx = _mock_context(
+            twin_overrides={
+                "compliance_summary": {
+                    "status": "warning",
+                    "reasons": ["Dead code ratio is high (>15%)."],
+                    "has_license": True,
+                    "cycles_count": 0,
+                    "dead_code_ratio": 16.0,
+                }
             }
-        })
+        )
         findings = DeadCodeInspector().inspect(ctx)
         assert len(findings) > 0
         assert findings[0].category == "dead_code"
 
     def test_documentation_inspector_resolves_from_kg(self):
-        ctx = _mock_context(kg_overrides={
-            "nodes": [
-                {"id": "owner/repo::main.py::foo", "type": "symbol", "properties": {"name": "foo"}}
-            ]
-        })
+        ctx = _mock_context(
+            kg_overrides={
+                "nodes": [
+                    {
+                        "id": "owner/repo::main.py::foo",
+                        "type": "symbol",
+                        "properties": {"name": "foo"},
+                    }
+                ]
+            }
+        )
         findings = DocumentationInspector().inspect(ctx)
         assert len(findings) > 0
         assert findings[0].category == "documentation"
 
     def test_complexity_inspector_resolves_from_kg(self):
-        ctx = _mock_context(kg_overrides={
-            "nodes": [
-                {"id": "owner/repo::main.py::bar", "type": "symbol", "properties": {"name": "bar"}}
-            ],
-            "edges": [
-                {"source": "owner/repo::main.py::bar", "target": "owner/repo::main.py::foo", "type": "CALLS"},
-                {"source": "owner/repo::main.py::bar", "target": "owner/repo::main.py::baz", "type": "CALLS"},
-                {"source": "owner/repo::main.py::bar", "target": "owner/repo::main.py::qux", "type": "CALLS"},
-                {"source": "owner/repo::main.py::bar", "target": "owner/repo::main.py::xyz", "type": "CALLS"},
-            ]
-        })
+        ctx = _mock_context(
+            kg_overrides={
+                "nodes": [
+                    {
+                        "id": "owner/repo::main.py::bar",
+                        "type": "symbol",
+                        "properties": {"name": "bar"},
+                    }
+                ],
+                "edges": [
+                    {
+                        "source": "owner/repo::main.py::bar",
+                        "target": "owner/repo::main.py::foo",
+                        "type": "CALLS",
+                    },
+                    {
+                        "source": "owner/repo::main.py::bar",
+                        "target": "owner/repo::main.py::baz",
+                        "type": "CALLS",
+                    },
+                    {
+                        "source": "owner/repo::main.py::bar",
+                        "target": "owner/repo::main.py::qux",
+                        "type": "CALLS",
+                    },
+                    {
+                        "source": "owner/repo::main.py::bar",
+                        "target": "owner/repo::main.py::xyz",
+                        "type": "CALLS",
+                    },
+                ],
+            }
+        )
         findings = ComplexityInspector().inspect(ctx)
         assert len(findings) > 0
         assert findings[0].category == "complexity"
 
     def test_performance_inspector_handles_dicts_gracefully(self):
-        ctx = _mock_context(twin_overrides={
-            "files": [{"path": "big_file.py", "size": 120000}]
-        })
+        ctx = _mock_context(
+            twin_overrides={"files": [{"path": "big_file.py", "size": 120000}]}
+        )
         findings = PerformanceInspector().inspect(ctx)
         assert len(findings) > 0
         assert findings[0].category == "performance"
 
+
 # ---------------------------------------------------------------------------
 # 2. Advisor Service Tests
 # ---------------------------------------------------------------------------
+
 
 class TestAdvisorServiceRegression:
     def test_advisor_aggregates_findings_correctly(self):
@@ -171,9 +224,11 @@ class TestAdvisorServiceRegression:
             assert adv_report.recommendations[0].priority == "critical"
             assert len(adv_report.roadmap) > 0
 
+
 # ---------------------------------------------------------------------------
 # 3. Execution Planner Tests
 # ---------------------------------------------------------------------------
+
 
 class TestExecutionPlannerRegression:
     def test_execution_planner_decomposes_recommendations(self):
@@ -199,9 +254,11 @@ class TestExecutionPlannerRegression:
             assert len(plan.critical_path) > 0
             assert len(plan.rollback_points) > 0
 
+
 # ---------------------------------------------------------------------------
 # 4. REST API Route Tests
 # ---------------------------------------------------------------------------
+
 
 class TestRESTAPIRoutesRegression:
     @patch("backend.routers.workspace.repository_twin_builder")

@@ -28,7 +28,7 @@ client = TestClient(app)
 def test_retrieval_models() -> None:
     """Verifies that Pydantic models for structural retrieval validate correctly."""
     ref = ContextReference(id="repo1::main.py", type="file", source="subgraph")
-    plan = RetrievalPlan(policy="architecture", steps=[])
+    RetrievalPlan(policy="architecture", steps=[])
     explanation = {
         "resolved_entities": ["main.py"],
         "policy": "architecture",
@@ -80,14 +80,26 @@ async def test_executors_and_assembler() -> None:
     # 3. Assembler
     mock_ghs = MagicMock()
     mock_ghs.load.return_value = MagicMock(hotspots=[])
-    assembler = RepositoryContextAssembler(git_history_service=mock_ghs, navigator=mock_nav)
+    assembler = RepositoryContextAssembler(
+        git_history_service=mock_ghs, navigator=mock_nav
+    )
 
     combined_context = assembler.assemble(
         repo_name=repo_name,
         question="What does UserService do?",
         references_lists=[
-            [ContextReference(id=f"{repo_name}::UserService", type="symbol", source="symbol_expansion")],
-            [ContextReference(id=f"{repo_name}::main.py", type="file", source="subgraph")],
+            [
+                ContextReference(
+                    id=f"{repo_name}::UserService",
+                    type="symbol",
+                    source="symbol_expansion",
+                )
+            ],
+            [
+                ContextReference(
+                    id=f"{repo_name}::main.py", type="file", source="subgraph"
+                )
+            ],
         ],
         policy="default",
         resolved_entities=["UserService"],
@@ -103,10 +115,8 @@ async def test_executors_and_assembler() -> None:
 @pytest.mark.anyio
 async def test_retrieval_engine_planning() -> None:
     """Verifies that retrieval engine generates correct plans and executes them."""
-    repo_name = "test-owner/test-repo"
-
     engine = StructuralRetrievalEngine()
-    
+
     # 1. Architecture policy plan
     plan_arch = engine.generate_plan("What is the architecture?", "architecture")
     executors = {step.executor for step in plan_arch.steps}
@@ -125,6 +135,7 @@ def test_retrieval_router_endpoint() -> None:
     repo_name = "test-owner/test-repo"
 
     from unittest.mock import AsyncMock
+
     with patch("backend.routers.retrieval.structural_retrieval_engine") as mock_engine:
         # Mock navigate builder storage
         mock_builder = MagicMock()
@@ -132,20 +143,24 @@ def test_retrieval_router_endpoint() -> None:
         mock_engine.navigator.get_builder.return_value = mock_builder
 
         # Mock retrieval return
-        mock_engine.retrieve = AsyncMock(return_value=RepositoryRetrievalContext(
-            repository_name=repo_name,
-            question="What is the architecture?",
-            references=[
-                ContextReference(id=f"{repo_name}::main.py", type="file", source="subgraph")
-            ],
-            subgraph=None,
-            explanation={
-                "resolved_entities": [],
-                "policy": "architecture",
-                "confidence": 1.0,
-                "metrics": {},
-            },
-        ))
+        mock_engine.retrieve = AsyncMock(
+            return_value=RepositoryRetrievalContext(
+                repository_name=repo_name,
+                question="What is the architecture?",
+                references=[
+                    ContextReference(
+                        id=f"{repo_name}::main.py", type="file", source="subgraph"
+                    )
+                ],
+                subgraph=None,
+                explanation={
+                    "resolved_entities": [],
+                    "policy": "architecture",
+                    "confidence": 1.0,
+                    "metrics": {},
+                },
+            )
+        )
 
         response = client.post(
             "/api/repositories/test-owner/test-repo/retrieve",
