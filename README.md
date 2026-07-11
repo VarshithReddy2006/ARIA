@@ -4,18 +4,19 @@
 
 # 🧠 Repo Intelligence Agent
 
-### Structural codebase intelligence — not just vector search.
+### Understand any codebase in minutes—not weeks.
 
 <p>
-Most AI dev tools are text retrievers wearing a code costume.<br/>
-This one builds a real dependency graph, call graph, and symbol index — <em>then</em> answers your questions.
+Repo Intelligence Agent combines AST analysis, dependency graphs, semantic search, AI repository chat, PR intelligence, and a VS Code extension to help developers understand unfamiliar repositories faster.
 </p>
 
 <br/>
 
 <!-- Status -->
-[![CI](https://img.shields.io/github/actions/workflow/status/VarshithReddy2006/Repo-Intelligence-Agent/ci.yml?style=for-the-badge&label=CI&logo=githubactions&logoColor=white)](https://github.com/VarshithReddy2006/Repo-Intelligence-Agent/actions)
-![Version](https://img.shields.io/badge/version-1.0.0-blue?style=for-the-badge)
+[![CI](https://img.shields.io/github/actions/workflow/status/VarshithReddy2006/Repo-Intelligence-Agent/ci.yml?branch=main&style=for-the-badge&label=CI)](https://github.com/VarshithReddy2006/Repo-Intelligence-Agent/actions/workflows/ci.yml)
+[![GitHub Stars](https://img.shields.io/github/stars/VarshithReddy2006/Repo-Intelligence-Agent?style=for-the-badge)](https://github.com/VarshithReddy2006/Repo-Intelligence-Agent/stargazers)
+[![GitHub Forks](https://img.shields.io/github/forks/VarshithReddy2006/Repo-Intelligence-Agent?style=for-the-badge)](https://github.com/VarshithReddy2006/Repo-Intelligence-Agent/network/members)
+[![Release](https://img.shields.io/github/v/release/VarshithReddy2006/Repo-Intelligence-Agent?style=for-the-badge)](https://github.com/VarshithReddy2006/Repo-Intelligence-Agent/releases)
 ![License](https://img.shields.io/badge/license-MIT-blue?style=for-the-badge)
 ![Tests](https://img.shields.io/badge/tests-911%20passing-brightgreen?style=for-the-badge)
 
@@ -33,11 +34,56 @@ This one builds a real dependency graph, call graph, and symbol index — <em>th
 
 <br/>
 
-[**Quick Start**](#️-quick-start) · [**Capabilities**](#-capabilities) · [**Architecture**](#️-architecture) · [**API Reference**](#-api-reference) · [**Performance**](#-performance) · [**Roadmap**](#️-roadmap)
+[**🎥 Live Demo**](#-live-demo) ·
+[**⚡ Quick Start**](#-quick-start) ·
+[**🚀 Capabilities**](#-capabilities) ·
+[**🏗️ Architecture**](#️-architecture) ·
+[**📡 API Reference**](#-api-reference) ·
+[**🗺️ Roadmap**](#️-roadmap)
 
 <br/>
 
 </div>
+---
+
+## 🎥 Live Demo
+
+<p align="center">
+  <a href="https://www.youtube.com/watch?v=evpdcO4QxzI">
+    <img src="docs/assets/demo.gif" width="100%" alt="Repo Intelligence Agent Demo">
+  </a>
+</p>
+
+<p align="center">
+<strong>▶ Click the GIF to watch the complete demo on YouTube</strong>
+</p>
+
+---
+
+# 🚀 Why Repo Intelligence Agent?
+
+Most AI code assistants treat repositories as collections of text chunks. They retrieve similar snippets using embeddings but lack an understanding of the repository's structure.
+
+Repo Intelligence Agent takes a different approach.
+
+Before any AI reasoning happens, it builds a structural understanding of the repository using AST parsing, dependency graphs, call graphs, and symbol indexing. This enables the AI to reason about relationships between modules, identify architectural patterns, estimate change impact, and answer questions with structural context rather than semantic similarity alone.
+
+The result is more reliable repository understanding, better developer workflows, and insights that traditional RAG-based systems cannot provide.
+
+---
+
+# 🎯 Who Is This For?
+
+Repo Intelligence Agent is designed for developers and teams who need to understand complex codebases quickly.
+
+| User | How It Helps |
+|------|--------------|
+| 👨‍💻 **Software Engineers** | Understand unfamiliar repositories without reading hundreds of files. |
+| 🔓 **Open Source Contributors** | Navigate large projects, trace dependencies, and estimate change impact before submitting pull requests. |
+| 🏗️ **Tech Leads & Architects** | Analyze architecture, module coupling, dependency graphs, and code quality. |
+| 🤖 **AI Engineering Teams** | Build AI-powered developer tools on top of structured repository intelligence instead of plain vector search. |
+| 🛠️ **Maintainers** | Detect dead code, architectural drift, hotspot files, and repository health issues. |
+
 ---
 
 ## 🖼️ Preview Images
@@ -66,18 +112,6 @@ This one builds a real dependency graph, call graph, and symbol index — <em>th
     </tr>
   </table>
 </div>
-
-## 🎥 See Repo Intelligence Agent in Action
-
-<p align="center">
-  <a href="https://www.youtube.com/watch?v=evpdcO4QxzI">
-    <img src="docs/assets/demo.gif" width="100%" alt="Repo Intelligence Agent Demo">
-  </a>
-</p>
-
-<p align="center">
-  <strong>▶ Click the GIF to watch the full demo on YouTube</strong>
-</p>
 
 ## 🔴 The Problem
 
