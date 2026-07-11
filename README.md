@@ -70,13 +70,13 @@ This one builds a real dependency graph, call graph, and symbol index — <em>th
 ## 🎥 See Repo Intelligence Agent in Action
 
 <p align="center">
-  <a href="https://youtu.be/evpdcO4QxzI">
-    <img src="docs/assets/demo.gif" width="100%" alt="Demo">
+  <a href="https://www.youtube.com/watch?v=evpdcO4QxzI">
+    <img src="docs/assets/demo.gif" width="100%" alt="Repo Intelligence Agent Demo">
   </a>
 </p>
 
 <p align="center">
-Click the GIF to watch the full demo on YouTube.
+  <strong>▶ Click the GIF to watch the full demo on YouTube</strong>
 </p>
 
 ## 🔴 The Problem
