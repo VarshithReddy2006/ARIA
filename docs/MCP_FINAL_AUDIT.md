@@ -20,8 +20,8 @@ This document records the final engineering audit of the MCP subsystem for the v
 
 | File Path | Purpose of Change | Category |
 |-----------|-------------------|----------|
-| `requirements.txt` | Upper-bound `pydantic<2.7.0` and `mcp[cli]<2` | Dependency Pin |
-| `pyproject.toml` | Upper-bound `pydantic<2.7.0` and `mcp[cli]<2`; add `pythonpath = ["."]` for pytest root resolution | Dependency Pin / Test Config |
+| `requirements.txt` | Align `pydantic>=2.8.0,<3.0.0` and `mcp[cli]<2` | Dependency Pin |
+| `pyproject.toml` | Align `pydantic>=2.8.0,<3.0.0` and `mcp[cli]<2`; add `pythonpath = ["."]` for pytest root resolution | Dependency Pin / Test Config |
 | `tests/test_mcp_transport_stdio.py` | Add buffer write & process termination guards to `send_raw()` | Test Infrastructure |
 | `backend/mcp_server.py` | Add graceful `shutdown`/`exit` protocol method handler | Transport / Protocol Compliance |
 | `tests/integration/test_stdio_transport.py` | Add buffer write & pipe guards; fix project root `cwd` path calculation (`parents[2]`); rename iterator variable to fix E741 | Test Infrastructure / Bug Fix |
@@ -34,7 +34,7 @@ This document records the final engineering audit of the MCP subsystem for the v
 ## Audit Findings by Domain
 
 ### 1. Dependency Audit
-- **Findings**: Unpinned `pydantic>=2.0.0` previously allowed `pydantic==2.7.4` installation, which broke FastMCP `create_model()` reflection. Bounding `pydantic<2.7.0` and `mcp[cli]<2` in both package manifests resolved the issue.
+- **Findings**: Bounding `pydantic>=2.8.0,<3.0.0` and `mcp[cli]<2` in package manifests resolved version conflicts between `mcp`, `google-genai`, and `pydantic-settings`, enabling clean resolution under Python 3.12.
 - **Verification**: Clean-room `pip install -r requirements.txt` verified.
 - **Status**: **PASSED**
 
