@@ -25,18 +25,18 @@ sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from backend.settings import settings
 
-from fastapi import FastAPI  # noqa: E402
-from fastapi.middleware.cors import CORSMiddleware  # noqa: E402
-from fastapi.middleware.trustedhost import TrustedHostMiddleware  # noqa: E402
-from fastapi.middleware.gzip import GZipMiddleware  # noqa: E402
-from backend.logging_middleware import RequestIdMiddleware  # noqa: E402
-from backend.security_middleware import RateLimitMiddleware  # noqa: E402
-from backend.metrics_middleware import MetricsMiddleware  # noqa: E402
+from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
+from fastapi.middleware.trustedhost import TrustedHostMiddleware
+from fastapi.middleware.gzip import GZipMiddleware
+from backend.logging_middleware import RequestIdMiddleware
+from backend.security_middleware import RateLimitMiddleware
+from backend.metrics_middleware import MetricsMiddleware
 
 # ---------------------------------------------------------------------------
 # Application
 # ---------------------------------------------------------------------------
-from contextlib import asynccontextmanager  # noqa: E402
+from contextlib import asynccontextmanager
 
 
 @asynccontextmanager

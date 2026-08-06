@@ -21,7 +21,7 @@ from contextlib import contextmanager
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from types import TracebackType
-from typing import IO, Dict, Iterator, List, Optional, Sequence, Tuple, Type  # noqa: F401
+from typing import IO, Dict, Iterator, List, Optional, Sequence, Tuple, Type
 
 from ria.domain.enums import CommitIndexState, JobKind, JobState, RepositoryStatus
 from ria.domain.errors import (

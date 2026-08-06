@@ -33,6 +33,17 @@ dependencies = [
 [project.scripts]
 repo-intel = "backend.cli:app"
 
+[tool.ruff.lint]
+# Pinned explicitly to the rule set this repository has always been linted
+# against. Ruff 0.16.0 expanded its implicit default selection from 59 to 413
+# rules, so relying on the default made `ruff check .` change meaning on every
+# Ruff upgrade. Declaring the selection keeps CI deterministic across versions.
+# Widening this set is a deliberate, staged decision: the newly-default rules
+# report ~5.9k findings, many of which (FA100, BLE001, UP045, B008) would alter
+# runtime annotation evaluation, exception handling, or FastAPI dependency
+# defaults rather than being mechanical cleanups.
+select = ["E4", "E7", "E9", "F"]
+
 [tool.pytest.ini_options]
 pythonpath = ["."]
 testpaths = ["tests"]

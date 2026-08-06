@@ -156,7 +156,9 @@ If `SymbolProvider` or `CallGraphProvider` throws, the loop continues and `build
 
 *Issue.* `backend/dependencies.py:246,251,256`:
 ```python
-analysis_registry.register("Module Stability", type(None), dependencies=["API Surface"], outputs=["stability"])
+analysis_registry.register(
+    "Module Stability", type(None), dependencies=["API Surface"], outputs=["stability"]
+)
 analysis_registry.register("Dependency Smells", type(None), ...)
 analysis_registry.register("Architecture Health", type(None), ...)
 ```
@@ -483,7 +485,9 @@ Two independent problems. First, `len//4` is not a tokenizer; code tokenizes far
 
 `services/chat/context_builder.py:434-438`:
 ```python
-slots[key] = current[: len(current) - excess] + "\n... [context trimmed for token budget]"
+slots[key] = (
+    current[: len(current) - excess] + "\n... [context trimmed for token budget]"
+)
 ```
 This is a raw string slice across a block that contains fenced code (`:399-402`). It can cut mid-identifier, mid-line, and mid-fence — leaving an unterminated ``` block. The system instruction meanwhile says *"Keep code snippets accurate — reproduce only what is in the context"* (`:333`).
 

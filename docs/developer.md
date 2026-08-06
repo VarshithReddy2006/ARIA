@@ -11,6 +11,7 @@ This guide describes how to extend the Repo Intelligence Agent by adding new ana
        def build(self, repo_name: str, repo_path: str = None, files: list = None) -> None:
            # Perform analysis and save results using snapshot_store
            from backend.dependencies import snapshot_store
+
            snapshot_store.save(repo_name, "security_issues", {"issues": []})
    ```
 
@@ -27,7 +28,7 @@ analysis_registry.register(
     "Security Scan",
     SecurityScannerService,
     dependencies=["Symbol Index"],  # Run after Symbol Index completes
-    outputs=["security_issues"]
+    outputs=["security_issues"],
 )
 ```
 The `ExecutionScheduler` will automatically place your task in the correct execution stage, and the `ParallelExecutionRunner` will schedule it concurrently. No manual threading or stage management is needed!
