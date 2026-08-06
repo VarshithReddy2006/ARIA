@@ -64,7 +64,7 @@ def test_json_and_human_formatters_redact():
         level=logging.INFO,
         pathname="test.py",
         lineno=1,
-        msg="Logging key AIzaSy123456789012345678901234567890123",
+        msg="Logging key GOOGLE_API_KEY_PLACEHOLDER",
         args=(),
         exc_info=None,
     )
