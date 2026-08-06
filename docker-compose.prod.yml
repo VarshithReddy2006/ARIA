@@ -1,23 +1,58 @@
-version: '3.8'
-
 services:
   app:
     build:
       context: .
       dockerfile: Dockerfile
     image: repo-intelligence-agent:latest
+    restart: unless-stopped
     ports:
       - "8001:8001"
     environment:
+      # ── Application ────────────────────────────────────────────────────────
       - APP_ENV=production
+      - API_SERVER_HOST=0.0.0.0
+      - API_SERVER_PORT=8001
+
+      # ── Observability ──────────────────────────────────────────────────────
       - LOG_FORMAT=json
       - LOG_LEVEL=INFO
-      - GITHUB_TOKEN=${GITHUB_TOKEN}
+      - SLOW_REQUEST_THRESHOLD_SECONDS=${SLOW_REQUEST_THRESHOLD_SECONDS:-2.0}
+
+      # ── Authentication / security ──────────────────────────────────────────
+      # APIKeyMiddleware refuses to start with APP_ENV=production and no API_KEY.
+      - API_KEY=${API_KEY:?API_KEY is required when APP_ENV=production}
+      - ALLOWED_HOSTS=${ALLOWED_HOSTS:-["*"]}
+      - RATE_LIMIT_PER_MINUTE=${RATE_LIMIT_PER_MINUTE:-60}
+
+      # ── LLM provider ───────────────────────────────────────────────────────
+      # Startup validation fails fast in production when no provider is healthy.
+      - LLM_PROVIDER=${LLM_PROVIDER:-gemini}
+      - GEMINI_API_KEY=${GEMINI_API_KEY}
+      - GEMINI_MODEL=${GEMINI_MODEL:-gemini-2.5-flash}
       - DEEPSEEK_API_KEY=${DEEPSEEK_API_KEY}
+      - DEEPSEEK_BASE_URL=${DEEPSEEK_BASE_URL:-https://integrate.api.nvidia.com/v1}
+      - DEEPSEEK_MODEL=${DEEPSEEK_MODEL:-deepseek-ai/deepseek-v4-flash}
+
+      # ── GitHub ─────────────────────────────────────────────────────────────
+      - GITHUB_TOKEN=${GITHUB_TOKEN}
+
+      # ── Storage ────────────────────────────────────────────────────────────
+      - SQLITE_DB_PATH=${SQLITE_DB_PATH:-data/repo_understanding.db}
+      - CHROMA_DB_PATH=${CHROMA_DB_PATH:-data/chroma_db}
+      - CLONED_REPOS_PATH=/home/appuser/.repo_intelligence/cloned_repos
+
+      # ── Frontend / CORS ────────────────────────────────────────────────────
+      - FRONTEND_URL=${FRONTEND_URL:-http://localhost:4321}
+
+      # ── Build / cache ──────────────────────────────────────────────────────
+      - BUILD_TIMEOUT=${BUILD_TIMEOUT:-1800}
+      - CACHE_SIZE_LIMIT=${CACHE_SIZE_LIMIT:-1000}
     volumes:
       - repo-intel-data:/app/data
-      - repo-intel-cloned:/root/.repo_intelligence/cloned_repos
+      - repo-intel-cloned:/home/appuser/.repo_intelligence/cloned_repos
+      - repo-intel-model-cache:/home/appuser/.cache
 
 volumes:
   repo-intel-data:
   repo-intel-cloned:
+  repo-intel-model-cache:

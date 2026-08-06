@@ -30,7 +30,7 @@ jobs:
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
-          pip install ruff pytest httpx
+          pip install ruff pytest httpx pytest-cov==5.0.0
           pip install -r requirements.txt
 
       - name: Lint with Ruff
@@ -39,10 +39,15 @@ jobs:
       - name: Check formatting with Ruff
         run: ruff format --check .
 
-      - name: Run tests
+      - name: Run tests with coverage gate
         env:
           PYTHONPATH: .
-        run: pytest tests/ -v
+        run: >-
+          pytest tests/ -v
+          --cov=agents --cov=backend --cov=core --cov=memory --cov=mcp
+          --cov=models --cov=ria --cov=services --cov=storage --cov=utils
+          --cov-report=term-missing --cov-report=xml
+          --cov-fail-under=50
 
   frontend-build:
     runs-on: ubuntu-latest

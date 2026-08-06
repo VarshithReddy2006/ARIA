@@ -306,7 +306,7 @@ Multiple interfaces provide excellent developer experience.
 - **Quality:** Good - comprehensive IDE integration
 
 #### 6.3 JetBrains Plugin
-- **Status:** 🗓️ Planned (Out of scope for v1.0.0)
+- **Status:** 🗓️ Planned (Out of scope for v1.5.0)
 - **Features:** Similar to VS Code extension (future milestone)
 - **Quality:** Future integration planned
 

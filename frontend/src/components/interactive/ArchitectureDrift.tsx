@@ -111,7 +111,7 @@ export const ArchitectureDrift: React.FC<Props> = ({ repoName }) => {
     }
 
     try {
-      const res = await fetch(apiUrl('/api/architecture/drift'), {
+      const res = await fetch(apiUrl('/api/v1/architecture/drift'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload),

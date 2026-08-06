@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useRef } from 'react';
+import React, { useCallback, useEffect, useRef, useMemo } from 'react';
 import ReactFlow, {
   MiniMap,
   Controls,
@@ -14,6 +14,7 @@ import dagre from 'dagre';
 import 'reactflow/dist/style.css';
 import { CATEGORY_COLORS } from './types';
 import type { GraphNode, GraphEdge } from './types';
+import { useGraphWorkspace } from './workspaceStore';
 
 // ---------------------------------------------------------------------------
 // Layout
@@ -45,79 +46,99 @@ function applyDagreLayout(
   return { nodes: laid, edges: rfEdges };
 }
 
-// ---------------------------------------------------------------------------
-// Node style factory
-// ---------------------------------------------------------------------------
-
-/**
- * Returns a Tailwind className string for a graph node.
- *
- * Style priority: focus > highlighted > category > regular.
- */
 function nodeClassName(
   category: string,
   highlighted: boolean,
   isFocus: boolean,
+  isDimmed: boolean,
+  heatmapMode: string,
+  degree: number,
 ): string {
   const base =
-    'rounded px-3 py-2 text-center text-xs font-mono truncate shadow cursor-pointer transition-all';
+    'rounded px-3 py-2 text-center text-xs font-mono truncate shadow cursor-pointer transition-all duration-200';
+  const dim = isDimmed ? 'opacity-20 scale-95' : 'opacity-100';
+
+  if (heatmapMode !== 'none') {
+    if (heatmapMode === 'coupling' || heatmapMode === 'fan_out') {
+      if (degree > 10) return `${base} ${dim} !bg-red-950/80 !border-2 !border-red-500 !text-red-300 font-bold`;
+      if (degree > 5) return `${base} ${dim} !bg-amber-950/80 !border-2 !border-amber-500 !text-amber-300 font-bold`;
+      return `${base} ${dim} !bg-zinc-900 !border !border-zinc-700 !text-zinc-400`;
+    }
+    if (heatmapMode === 'complexity' || heatmapMode === 'violations') {
+      if (category === 'high_coupling') return `${base} ${dim} !bg-rose-950/90 !border-2 !border-rose-500 !text-rose-300 font-bold animate-pulse`;
+      return `${base} ${dim} !bg-slate-900 !border !border-slate-800 !text-slate-400`;
+    }
+  }
 
   if (isFocus)
-    return `${base} !bg-white/20 !border-2 !border-white !text-white shadow-lg shadow-white/10 hover:!bg-white/30`;
+    return `${base} ${dim} !bg-white/20 !border-2 !border-white !text-white shadow-lg shadow-white/10 hover:!bg-white/30`;
 
   if (highlighted) {
-    return `${base} !bg-amber-950/60 !border-2 !border-amber-400 !text-amber-300 shadow-lg shadow-amber-500/10 hover:!bg-amber-900/40`;
+    return `${base} ${dim} !bg-amber-950/60 !border-2 !border-amber-400 !text-amber-300 shadow-lg shadow-amber-500/10 hover:!bg-amber-900/40`;
   }
 
   switch (category) {
     case 'entry_point':
-      return `${base} !bg-emerald-950/60 !border-2 !border-emerald-500 !text-emerald-400 font-semibold shadow-emerald-500/5 hover:!bg-emerald-900/40`;
+      return `${base} ${dim} !bg-emerald-950/60 !border-2 !border-emerald-500 !text-emerald-400 font-semibold shadow-emerald-500/5 hover:!bg-emerald-900/40`;
     case 'core_module':
-      return `${base} !bg-blue-950/60 !border-2 !border-blue-500 !text-blue-400 font-semibold shadow-blue-500/5 hover:!bg-blue-900/40`;
+      return `${base} ${dim} !bg-blue-950/60 !border-2 !border-blue-500 !text-blue-400 font-semibold shadow-blue-500/5 hover:!bg-blue-900/40`;
     case 'high_coupling':
-      return `${base} !bg-orange-950/60 !border !border-orange-500 !text-orange-400 hover:!bg-orange-900/40`;
+      return `${base} ${dim} !bg-orange-950/60 !border !border-orange-500 !text-orange-400 hover:!bg-orange-900/40`;
     case 'directory':
-      return `${base} !bg-purple-950/60 !border !border-purple-500 !text-purple-400 font-semibold hover:!bg-purple-900/40`;
+      return `${base} ${dim} !bg-purple-950/60 !border !border-purple-500 !text-purple-400 font-semibold hover:!bg-purple-900/40`;
+    case 'service':
+      return `${base} ${dim} !bg-indigo-950/60 !border !border-indigo-500 !text-indigo-400 font-semibold hover:!bg-indigo-900/40`;
+    case 'controller':
+      return `${base} ${dim} !bg-pink-950/60 !border !border-pink-500 !text-pink-400 font-semibold hover:!bg-pink-900/40`;
     default:
-      return `${base} !bg-zinc-900 !border !border-zinc-700 !text-zinc-300 hover:!border-zinc-500`;
+      return `${base} ${dim} !bg-zinc-900 !border !border-zinc-700 !text-zinc-300 hover:!border-zinc-500`;
   }
 }
 
-// ---------------------------------------------------------------------------
-// Conversion helpers
-// ---------------------------------------------------------------------------
-
-export function toReactFlowNodes(apiNodes: GraphNode[]): Node[] {
-  return apiNodes.map((n) => ({
-    id: n.id,
-    type: 'default',
-    data: { label: n.label, raw: n },
-    className: nodeClassName(n.category, n.highlighted, n.is_focus),
-    position: { x: 0, y: 0 }, // overwritten by layout
-  }));
+export function toReactFlowNodes(apiNodes: GraphNode[], activeNodeId: string | null, neighborIds: Set<string>, heatmapMode: string): Node[] {
+  return apiNodes.map((n) => {
+    const isDimmed = activeNodeId !== null && !neighborIds.has(n.id);
+    return {
+      id: n.id,
+      type: 'default',
+      data: { label: n.label, raw: n },
+      className: nodeClassName(n.category, n.highlighted, n.is_focus, isDimmed, heatmapMode, n.degree),
+      position: { x: 0, y: 0 },
+    };
+  });
 }
 
-export function toReactFlowEdges(apiEdges: GraphEdge[], categoryMap: Map<string, string>): Edge[] {
+export function toReactFlowEdges(apiEdges: GraphEdge[], categoryMap: Map<string, string>, activeNodeId: string | null, pathNodes: string[]): Edge[] {
+  const pathSet = new Set(pathNodes);
   return apiEdges.map((e) => {
-    const srcCategory = categoryMap.get(e.source) ?? 'regular';
-    let strokeColor = '#4b5563'; // default gray
-    
-    if (srcCategory === 'entry_point') {
-      strokeColor = '#10b981'; // emerald
-    } else if (srcCategory === 'core_module') {
-      strokeColor = '#3b82f6'; // blue
-    } else if (srcCategory === 'high_coupling') {
-      strokeColor = '#f97316'; // orange
-    } else if (srcCategory === 'directory') {
-      strokeColor = '#a855f7'; // purple
+    const isPathEdge = pathSet.size > 1 && pathSet.has(e.source) && pathSet.has(e.target);
+    const isConnected = activeNodeId !== null && (e.source === activeNodeId || e.target === activeNodeId);
+    const isDimmed = activeNodeId !== null && !isConnected && !isPathEdge;
+    const isIncoming = activeNodeId !== null && e.target === activeNodeId;
+    const isOutgoing = activeNodeId !== null && e.source === activeNodeId;
+
+    let strokeColor = '#4b5563';
+    if (isPathEdge) strokeColor = '#f43f5e'; // rose-500 for path trace
+    else if (isIncoming) strokeColor = '#10b981';
+    else if (isOutgoing) strokeColor = '#6366f1';
+    else {
+      const srcCategory = categoryMap.get(e.source) ?? 'regular';
+      if (srcCategory === 'entry_point') strokeColor = '#10b981';
+      else if (srcCategory === 'core_module') strokeColor = '#3b82f6';
+      else if (srcCategory === 'high_coupling') strokeColor = '#f97316';
+      else if (srcCategory === 'directory') strokeColor = '#a855f7';
     }
 
     return {
       id: `${e.source}→${e.target}`,
       source: e.source,
       target: e.target,
-      animated: e.relationship === 'imports',
-      style: { stroke: strokeColor, strokeWidth: 1.5 },
+      animated: isPathEdge || isConnected || e.relationship === 'imports',
+      style: {
+        stroke: strokeColor,
+        strokeWidth: isPathEdge ? 3.5 : isConnected ? 2.5 : 1.5,
+        opacity: isDimmed ? 0.15 : 1.0,
+      },
       markerEnd: {
         type: MarkerType.ArrowClosed,
         width: 12,
@@ -128,25 +149,13 @@ export function toReactFlowEdges(apiEdges: GraphEdge[], categoryMap: Map<string,
   });
 }
 
-// ---------------------------------------------------------------------------
-// Component
-// ---------------------------------------------------------------------------
-
 interface GraphCanvasProps {
   apiNodes: GraphNode[];
   apiEdges: GraphEdge[];
   onNodeSelect: (node: GraphNode | null) => void;
-  /** Exposed ref so parent can call fitView imperatively */
   fitViewRef: React.MutableRefObject<(() => void) | null>;
 }
 
-/**
- * Pure React Flow canvas — receives serialised graph data, converts it to
- * React Flow node/edge format, applies Dagre layout, and renders.
- *
- * Does NOT own any fetching logic.  The parent (InteractiveDependencyGraph)
- * manages all data fetching and passes results down.
- */
 export const GraphCanvas: React.FC<GraphCanvasProps> = ({
   apiNodes,
   apiEdges,
@@ -157,20 +166,44 @@ export const GraphCanvas: React.FC<GraphCanvasProps> = ({
   const [edges, setEdges, onEdgesChange] = useEdgesState([]);
   const rfRef = useRef<any>(null);
 
-  // Re-layout whenever the API data changes — keep setState inside an effect.
+  const { selectedNodeId, hoveredNodeId, hoverNode, activeFilters, focusMode, heatmapMode, dependencyPath } = useGraphWorkspace();
+  const activeNodeId = hoveredNodeId || selectedNodeId;
+  const pathNodes = dependencyPath?.path_nodes || [];
+
+  // Filter nodes based on active filter bar chips
+  const filteredNodes = useMemo(() => {
+    if (activeFilters.length === 0) return apiNodes;
+    return apiNodes.filter((n) => activeFilters.includes(n.category));
+  }, [apiNodes, activeFilters]);
+
+  // Compute neighbor node IDs for hover/selection highlight
+  const neighborIds = useMemo(() => {
+    if (!activeNodeId) return new Set<string>();
+    const set = new Set<string>([activeNodeId]);
+    apiEdges.forEach((e) => {
+      if (e.source === activeNodeId) set.add(e.target);
+      if (e.target === activeNodeId) set.add(e.source);
+    });
+    return set;
+  }, [activeNodeId, apiEdges]);
+
+  // Focus mode filtering
+  const visibleNodes = useMemo(() => {
+    if (!focusMode || !selectedNodeId) return filteredNodes;
+    return filteredNodes.filter((n) => neighborIds.has(n.id));
+  }, [filteredNodes, focusMode, selectedNodeId, neighborIds]);
+
   useEffect(() => {
-    const rfNodes = toReactFlowNodes(apiNodes);
-    
+    const rfNodes = toReactFlowNodes(visibleNodes, activeNodeId, neighborIds, heatmapMode);
     const categoryMap = new Map<string, string>();
-    apiNodes.forEach((n) => categoryMap.set(n.id, n.category));
-    
-    const rfEdges = toReactFlowEdges(apiEdges, categoryMap);
+    visibleNodes.forEach((n) => categoryMap.set(n.id, n.category));
+    const rfEdges = toReactFlowEdges(apiEdges, categoryMap, activeNodeId, pathNodes);
+
     const { nodes: laid, edges: laidEdges } = applyDagreLayout(rfNodes, rfEdges, 'TB');
     setNodes(laid);
     setEdges(laidEdges);
-  }, [apiNodes, apiEdges, setNodes, setEdges]);
+  }, [visibleNodes, apiEdges, activeNodeId, neighborIds, setNodes, setEdges]);
 
-  // Expose fitView to parent via ref
   const onInit = useCallback(
     (instance: any) => {
       rfRef.current = instance;
@@ -186,9 +219,21 @@ export const GraphCanvas: React.FC<GraphCanvasProps> = ({
     [onNodeSelect],
   );
 
+  const handleNodeMouseEnter = useCallback(
+    (_evt: React.MouseEvent, node: Node) => {
+      hoverNode(node.id);
+    },
+    [hoverNode],
+  );
+
+  const handleNodeMouseLeave = useCallback(() => {
+    hoverNode(null);
+  }, [hoverNode]);
+
   const handlePaneClick = useCallback(() => {
     onNodeSelect(null);
-  }, [onNodeSelect]);
+    hoverNode(null);
+  }, [onNodeSelect, hoverNode]);
 
   return (
     <ReactFlow
@@ -197,6 +242,8 @@ export const GraphCanvas: React.FC<GraphCanvasProps> = ({
       onNodesChange={onNodesChange}
       onEdgesChange={onEdgesChange}
       onNodeClick={handleNodeClick}
+      onNodeMouseEnter={handleNodeMouseEnter}
+      onNodeMouseLeave={handleNodeMouseLeave}
       onPaneClick={handlePaneClick}
       onInit={onInit}
       fitView

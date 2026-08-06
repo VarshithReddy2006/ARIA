@@ -39,16 +39,25 @@ class RepositoryContext:
         self._repo_name = repo_name
         self._repo_path = repo_path
 
-        # Lazy imports to prevent process-startup circular dependency issues
-        from backend.dependencies import (
-            analysis_cache as default_cache,
-            graph_service as default_graph,
-            snapshot_store as default_store,
-        )
+        if cache is not None:
+            self._cache = cache
+        else:
+            from core.cache import AnalysisCache
+            self._cache = AnalysisCache()
 
-        self._cache = cache or default_cache
-        self._store = store or default_store
-        self._graph_service = graph_service or default_graph
+        if store is not None:
+            self._store = store
+        else:
+            from storage.snapshot_store import JsonSnapshotStore
+
+            self._store = JsonSnapshotStore()
+
+        if graph_service is not None:
+            self._graph_service = graph_service
+        else:
+            from services.graph_service import GraphService
+
+            self._graph_service = GraphService()
 
     @property
     def repo_name(self) -> str:

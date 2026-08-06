@@ -1,14 +1,14 @@
-# Production Status — v1.0.0
+# Production Status — v1.5.0
 
-This document tracks feature coverage, validation results, known limitations, and technical debt for Repo Intelligence Agent v1.0.0.
+This document tracks feature coverage, validation results, known limitations, and technical debt for Repo Intelligence Agent v1.5.0.
 
 ---
 
-## Feature Completeness: 100% (v1.0.0 Release)
+## Feature Completeness: 100% (v1.5.0 Release)
 
-All core analysis, semantic retrieval, SSE streaming, multi-provider LLM reasoning, AST parsing, repository chat, call graph intelligence, API surface analysis, git history mining, PR risk assessment, architecture drift, dead code detection, the repository intelligence report, and the VS Code extension are fully implemented and verified.
+All core analysis, semantic retrieval, SSE streaming, multi-provider LLM reasoning, AST parsing, repository chat, call graph intelligence, API surface analysis, git history mining, PR risk assessment, architecture drift, dead code detection, the repository intelligence report, the VS Code extension, and the MCP subsystem are fully implemented and verified. The platform is built on the **Repository Intelligence Architecture (RIA)**, a modular, layered production architecture.
 
-**794 automated tests passing.**
+**2505 automated tests passing.**
 
 ---
 
@@ -64,7 +64,7 @@ All core analysis, semantic retrieval, SSE streaming, multi-provider LLM reasoni
 
 ---
 
-## Roadmap (Post v1.0.0)
+## Roadmap (Post v1.5.0)
 
 ### v1.1 (Near-term)
 - [ ] Implement Module Stability endpoints (`backend/routers/stability.py`)

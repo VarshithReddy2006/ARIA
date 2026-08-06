@@ -102,12 +102,25 @@ export interface GraphEdge {
   id: string;
   source: string;
   target: string;
+  /** Alias of `source`, retained for edge consumers that traverse from/to. */
+  from?: string;
+  /** Alias of `target`, retained for edge consumers that traverse from/to. */
+  to?: string;
   type?: string;
+  [key: string]: unknown;
 }
 
 export interface GraphData {
   nodes: GraphNode[];
   edges: GraphEdge[];
+}
+
+export interface CallGraphStats {
+  node_count: number;
+  edge_count: number;
+  /** Mapped from the backend `entry_functions` field. */
+  entry_count: number;
+  [key: string]: unknown;
 }
 
 export interface CallNode {
@@ -428,6 +441,9 @@ export class RepoIntelligenceClient {
     path: string,
     options: { method?: string; body?: unknown } = {}
   ): Promise<T> {
+    if (path.startsWith('/api/') && !path.startsWith('/api/v1/')) {
+      path = '/api/v1' + path.substring(4);
+    }
     const url = `${this.baseUrl}${path}`;
     const method = options.method ?? 'GET';
     const headers: Record<string, string> = {
@@ -508,6 +524,9 @@ export class RepoIntelligenceClient {
     onDone: () => void,
     onError: (err: Error) => void
   ): () => void {
+    if (path.startsWith('/api/') && !path.startsWith('/api/v1/')) {
+      path = '/api/v1' + path.substring(4);
+    }
     const url = `${this.baseUrl}${path}`;
     const parsedUrl = new URL(url);
     const isHttps = parsedUrl.protocol === 'https:';
@@ -646,29 +665,33 @@ export class RepoIntelligenceClient {
   }
 
   async getReadingOrder(repo: string): Promise<ReadingOrder> {
-    return this.fetchJson<ReadingOrder>('/api/reading-order', {
-      method: 'POST',
-      body: { repo },
-    });
+    return mapReadingOrder(
+      await this.fetchJson<unknown>('/api/reading-order', {
+        method: 'POST',
+        body: { repo },
+      })
+    );
   }
 
   async getImpactAnalysis(repo: string, issue: string): Promise<ImpactAnalysis> {
-    return this.fetchJson<ImpactAnalysis>('/api/impact-analysis', {
-      method: 'POST',
-      body: { repo, issue },
-    });
+    return mapImpactAnalysis(
+      await this.fetchJson<unknown>('/api/impact-analysis', {
+        method: 'POST',
+        body: { repo, issue },
+      })
+    );
   }
 
   // ── Graph ────────────────────────────────────────────────────────────────
 
   async getDependencyGraph(owner: string, repo: string, query?: string): Promise<GraphData> {
     const q = query ? `?q=${encodeURIComponent(query)}` : '';
-    return this.fetchJson<GraphData>(`/api/graph/${owner}/${repo}/full${q}`);
+    return mapGraphData(await this.fetchJson<unknown>(`/api/graph/${owner}/${repo}/full${q}`));
   }
 
   async getGraphNeighbors(owner: string, repo: string, nodePath: string): Promise<GraphData> {
-    return this.fetchJson<GraphData>(
-      `/api/graph/${owner}/${repo}/neighbors/${nodePath}`
+    return mapGraphData(
+      await this.fetchJson<unknown>(`/api/graph/${owner}/${repo}/neighbors/${nodePath}`)
     );
   }
 
@@ -679,8 +702,10 @@ export class RepoIntelligenceClient {
     direction = 'both',
     depth = 6
   ): Promise<GraphData> {
-    return this.fetchJson<GraphData>(
-      `/api/graph/${owner}/${repo}/trace/${nodePath}?direction=${direction}&depth=${depth}`
+    return mapGraphData(
+      await this.fetchJson<unknown>(
+        `/api/graph/${owner}/${repo}/trace/${nodePath}?direction=${direction}&depth=${depth}`
+      )
     );
   }
 
@@ -688,7 +713,13 @@ export class RepoIntelligenceClient {
 
   async getCallGraph(owner: string, repo: string, query?: string): Promise<GraphData> {
     const q = query ? `?q=${encodeURIComponent(query)}` : '';
-    return this.fetchJson<GraphData>(`/api/call-graph/${owner}/${repo}${q}`);
+    return mapGraphData(await this.fetchJson<unknown>(`/api/call-graph/${owner}/${repo}${q}`));
+  }
+
+  async getCallGraphStats(owner: string, repo: string): Promise<CallGraphStats> {
+    return mapCallGraphStats(
+      await this.fetchJson<unknown>(`/api/call-graph/${owner}/${repo}/stats`)
+    );
   }
 
   async getCallers(owner: string, repo: string, functionId: string): Promise<CallersResponse> {
@@ -794,11 +825,13 @@ export class RepoIntelligenceClient {
     history: Array<{ role: string; content: string }>,
     onToken: (text: string) => void,
     onDone: (sources: string[], confidence: number) => void,
-    onError: (err: Error) => void
+    onError: (err: Error) => void,
+    sessionId?: string
   ): () => void {
+    const body = sessionId ? { repo, message, history, session_id: sessionId } : { repo, message, history };
     return this.streamSse(
       '/api/chat',
-      { repo, message, history },
+      body,
       (event) => {
         if (typeof event.text === 'string') {
           onToken(event.text);
@@ -814,6 +847,103 @@ export class RepoIntelligenceClient {
       onError
     );
   }
+}
+
+/**
+ * Backend → extension response mappers.
+ *
+ * The backend emits flattened graph nodes, `ordered_files` reading orders,
+ * split impact file lists, and `entry_functions` call-graph statistics.
+ * These helpers adapt those payloads to the DTOs the extension consumes,
+ * without altering any backend contract.
+ */
+
+function mapGraphData(raw: unknown): GraphData {
+  const payload = (raw ?? {}) as { nodes?: unknown[]; edges?: unknown[] };
+
+  const nodes: GraphNode[] = (payload.nodes ?? []).map((entry) => {
+    const node = (entry ?? {}) as Record<string, unknown>;
+    const id = String(node.id ?? '');
+
+    if (node.data && typeof node.data === 'object') {
+      return {
+        ...node,
+        id,
+        data: node.data as GraphNode['data'],
+        position: (node.position as GraphNode['position']) ?? { x: 0, y: 0 },
+      } as GraphNode;
+    }
+
+    const { id: _id, position, ...rest } = node;
+    return {
+      id,
+      data: {
+        ...rest,
+        label: String(node.label ?? id.split('/').pop() ?? id),
+      },
+      position: (position as GraphNode['position']) ?? { x: 0, y: 0 },
+    } as GraphNode;
+  });
+
+  const edges: GraphEdge[] = (payload.edges ?? []).map((entry, index) => {
+    const edge = (entry ?? {}) as Record<string, unknown>;
+    const source = String(edge.source ?? edge.from ?? '');
+    const target = String(edge.target ?? edge.to ?? '');
+    return {
+      ...edge,
+      id: String(edge.id ?? `${source}->${target}#${index}`),
+      source,
+      target,
+      from: source,
+      to: target,
+    } as GraphEdge;
+  });
+
+  return { nodes, edges };
+}
+
+function mapReadingOrder(raw: unknown): ReadingOrder {
+  const payload = (raw ?? {}) as Record<string, unknown>;
+  const source = (payload.ordered_files ?? payload.entries ?? []) as unknown[];
+
+  const entries: ReadingOrderEntry[] = source.map((item, index) => {
+    const entry = (item ?? {}) as Record<string, unknown>;
+    return {
+      ...entry,
+      file: String(entry.file_path ?? entry.file ?? ''),
+      score: Number(entry.score ?? entry.rank ?? index + 1),
+      reason: String(entry.reason ?? ''),
+    } as ReadingOrderEntry;
+  });
+
+  return { ...payload, repo: String(payload.repo ?? ''), entries } as ReadingOrder;
+}
+
+function mapImpactAnalysis(raw: unknown): ImpactAnalysis {
+  const payload = (raw ?? {}) as Record<string, unknown>;
+  const direct = (payload.directly_affected_files ?? []) as string[];
+  const indirect = (payload.indirectly_affected_files ?? []) as string[];
+  const existing = payload.affected_files as string[] | undefined;
+  const affected = existing ?? [...direct, ...indirect];
+
+  return {
+    ...payload,
+    repo: String(payload.repo ?? ''),
+    issue: String(payload.issue ?? payload.issue_text ?? ''),
+    affected_files: affected,
+    risk_level: String(payload.risk_level ?? ''),
+    risk_score: Number(payload.risk_score ?? payload.confidence ?? 0),
+  } as ImpactAnalysis;
+}
+
+function mapCallGraphStats(raw: unknown): CallGraphStats {
+  const payload = (raw ?? {}) as Record<string, unknown>;
+  return {
+    ...payload,
+    node_count: Number(payload.node_count ?? 0),
+    edge_count: Number(payload.edge_count ?? 0),
+    entry_count: Number(payload.entry_count ?? payload.entry_functions ?? 0),
+  } as CallGraphStats;
 }
 
 /**

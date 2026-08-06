@@ -1,7 +1,7 @@
 """Graph Serializer Service — PH2-001 Interactive Dependency Graph.
 
 Provides fast, focused graph queries on top of the persisted NetworkX DiGraph.
-All methods load the graph from the pickle cache (GraphService.load_graph) and
+All methods load the graph from the persisted graph storage (GraphService.load_graph) and
 return React-Flow-compatible dicts.
 
 Four query modes:

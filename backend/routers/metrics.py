@@ -9,5 +9,7 @@ router = APIRouter(tags=["Metrics"])
 @router.get("/metrics")
 def get_metrics():
     """Returns Prometheus metrics."""
-    metrics_data = metrics_registry.generate_prometheus_metrics()
+    from backend.dependencies import analysis_cache
+
+    metrics_data = metrics_registry.generate_prometheus_metrics(cache=analysis_cache)
     return Response(content=metrics_data, media_type="text/plain; version=0.0.4")

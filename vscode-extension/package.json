@@ -40,8 +40,6 @@
     "onCommand:repoIntelligence.setActiveRepository",
     "onCommand:repoIntelligence.showDependencyGraph",
     "onCommand:repoIntelligence.showCallGraph",
-    "onCommand:repoIntelligence.showArchitectureHealth",
-    "onCommand:repoIntelligence.showModuleStability",
     "onCommand:repoIntelligence.showAPISurface",
     "onCommand:repoIntelligence.showRepositoryChat",
     "onCommand:repoIntelligence.showReadingPath",
@@ -174,16 +172,6 @@
         "command": "repoIntelligence.showCallGraph",
         "title": "Repo Intelligence: Show Call Graph",
         "icon": "$(call-outgoing)"
-      },
-      {
-        "command": "repoIntelligence.showArchitectureHealth",
-        "title": "Repo Intelligence: Show Architecture Health",
-        "icon": "$(pulse)"
-      },
-      {
-        "command": "repoIntelligence.showModuleStability",
-        "title": "Repo Intelligence: Show Module Stability",
-        "icon": "$(shield)"
       },
       {
         "command": "repoIntelligence.showAPISurface",
@@ -641,7 +629,7 @@
     "compile": "tsc -p ./",
     "watch": "tsc -watch -p ./",
     "package": "vsce package",
-    "test": "npm run compile && npx mocha --require module-alias/register out/test/api.test.js out/test/commands.test.js out/test/graph.test.js out/test/providers.test.js out/test/settings.test.js out/test/chat.test.js out/test/workspaceViews.test.js out/test/foundation.test.js out/test/developerExperience.test.js out/test/aiAssistant.test.js out/test/hardening.test.js",
+    "test": "npm run compile && npx mocha --require module-alias/register out/test/api.test.js out/test/commands.test.js out/test/graph.test.js out/test/providers.test.js out/test/settings.test.js out/test/chat.test.js out/test/workspaceViews.test.js out/test/foundation.test.js out/test/developerExperience.test.js out/test/aiAssistant.test.js out/test/hardening.test.js out/test/noFabricatedWebviews.test.js",
     "test:integration": "npm run compile && npx mocha --require module-alias/register out/test/chat.integration.test.js",
     "lint": "eslint src --ext .ts",
     "pretest": "npm run compile"

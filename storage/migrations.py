@@ -4,7 +4,7 @@ import os
 import sqlite3
 import logging
 from typing import List, Tuple
-from backend.settings import settings
+from core.config import settings
 
 logger = logging.getLogger(__name__)
 

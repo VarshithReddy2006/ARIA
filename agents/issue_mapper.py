@@ -105,7 +105,7 @@ class IssueMapper:
         self._provider = provider or ProviderFactory.get_provider()
         self.embedding_service = embedding_service or EmbeddingService()
 
-        from backend.settings import settings
+        from core.config import settings
 
         self.chroma_store = chroma_store or ChromaStore(
             persist_directory=settings.chroma_db_path

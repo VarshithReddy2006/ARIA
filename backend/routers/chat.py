@@ -19,6 +19,7 @@ No prompt building. No embedding calls. No LLM calls. No retry logic.
 import json
 import logging
 import asyncio
+import uuid
 from typing import Any, Dict, List, Optional
 
 from fastapi import APIRouter, HTTPException
@@ -35,7 +36,7 @@ from models.schemas import IssueMapResponse
 
 logger = logging.getLogger(__name__)
 
-router = APIRouter(prefix="/api", tags=["Chat"])
+router = APIRouter(tags=["Chat"])
 
 
 # ---------------------------------------------------------------------------
@@ -50,8 +51,9 @@ class ChatRequest(BaseModel):
         default_factory=list, description="Conversation history"
     )
     session_id: str = Field(
-        default="default",
-        description="Optional session identifier for conversation memory",
+        default_factory=lambda: uuid.uuid4().hex,
+        description="Unique conversation identifier for conversation memory",
+        max_length=128,
     )
 
     @field_validator("repo")
@@ -64,6 +66,13 @@ class ChatRequest(BaseModel):
                 "Please open a repository from the analysis page first."
             )
         return stripped
+    @field_validator("session_id")
+    @classmethod
+    def session_id_must_not_be_empty(cls, value: str) -> str:
+        session_id = value.strip()
+        if not session_id:
+            raise ValueError("session_id must not be empty.")
+        return session_id
 
 
 class IssueMapRequest(BaseModel):

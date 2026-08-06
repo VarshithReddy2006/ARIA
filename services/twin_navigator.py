@@ -24,30 +24,16 @@ class RepositoryTwinNavigator:
         github_service: Optional[Any] = None,
         twin_builder: Optional[Any] = None,
     ) -> None:
-        """Initialise the navigator. Resolves dependencies lazily if not provided."""
-        from backend.dependencies import (
-            symbol_service as ss,
-            graph_service as gs,
-            architecture_service as as_srv,
-            report_composer as rc,
-            impact_analysis_service as ias,
-            github_service as gh,
-        )
-
-        self.symbol_service = symbol_service or ss
-        self.graph_service = graph_service or gs
-        self.architecture_service = architecture_service or as_srv
-        self.report_composer = report_composer or rc
-        self.impact_analysis_service = impact_analysis_service or ias
-        self.github_service = github_service or gh
+        self.symbol_service = symbol_service
+        self.graph_service = graph_service
+        self.architecture_service = architecture_service
+        self.report_composer = report_composer
+        self.impact_analysis_service = impact_analysis_service
+        self.github_service = github_service
         self.twin_builder = twin_builder
 
     def get_twin_builder(self) -> Any:
-        """Helper to resolve twin_builder lazily to prevent circular imports."""
-        if self.twin_builder is None:
-            from backend.dependencies import repository_twin_builder
-
-            self.twin_builder = repository_twin_builder
+        """Return the injected twin builder."""
         return self.twin_builder
 
     def find_symbol(self, repo_name: str, symbol_name: str) -> Dict[str, Any]:

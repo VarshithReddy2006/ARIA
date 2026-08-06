@@ -30,7 +30,7 @@ from services.github_service import GitHubConfig
 
 logger = logging.getLogger(__name__)
 
-router = APIRouter(prefix="/api", tags=["PR Intelligence"])
+router = APIRouter(tags=["PR Intelligence"])
 
 
 @router.post("/pr/analyze")
@@ -126,7 +126,8 @@ async def get_pr_health(
     return {
         "github_token": github_token_exists,
         "github_token_loaded": github_token_exists,
-        "github_token_prefix": token[:12] if token else "missing",
+        # Credential material is never returned to clients; only presence is reported.
+        "github_token_prefix": "configured" if token else "missing",
         "github_rate_limit_authenticated": github_rate_limit_authenticated,
         "rate_limit_remaining": rate_info.get("remaining", 0),
         "analysis_exists": analysis_exists,

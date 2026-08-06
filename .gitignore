@@ -230,6 +230,13 @@ frontend/.vercel/
 data/
 test_analyze.py
 
+# RIA runtime storage (SQLite db, blob store, git mirrors, workspaces).
+# Created by ria.config.settings.Settings.ensure_directories() at container build.
+.ria/
+
+# Local developer scratch scripts (not part of the runtime or test suite)
+scratch/
+
 # AI / vector DB persistence (for non-default locations)
 chroma_db/
 chroma_db/**

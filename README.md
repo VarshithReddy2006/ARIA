@@ -7,7 +7,7 @@
 ### Understand any codebase in minutes—not weeks.
 
 <p>
-Repo Intelligence Agent combines AST analysis, dependency graphs, semantic search, AI repository chat, PR intelligence, and a VS Code extension to help developers understand unfamiliar repositories faster.
+Repo Intelligence Agent combines AST analysis, dependency graphs, semantic search, AI repository chat, PR intelligence, and a VS Code extension to help developers understand unfamiliar repositories faster. Built on the <strong>Repository Intelligence Architecture (RIA)</strong> — a modular, layered architecture designed for AI-native repository understanding — v1.5.0 introduces production-ready <strong>Model Context Protocol (MCP)</strong> servers, enabling AI coding assistants such as Cursor, Claude Desktop, VS Code MCP clients, and MCP Inspector to interact with repository intelligence directly over JSON-RPC 2.0.
 </p>
 
 <br/>
@@ -18,7 +18,9 @@ Repo Intelligence Agent combines AST analysis, dependency graphs, semantic searc
 [![GitHub Forks](https://img.shields.io/github/forks/VarshithReddy2006/Repo-Intelligence-Agent?style=for-the-badge)](https://github.com/VarshithReddy2006/Repo-Intelligence-Agent/network/members)
 [![Release](https://img.shields.io/github/v/release/VarshithReddy2006/Repo-Intelligence-Agent?style=for-the-badge)](https://github.com/VarshithReddy2006/Repo-Intelligence-Agent/releases)
 ![License](https://img.shields.io/badge/license-MIT-blue?style=for-the-badge)
-![Tests](https://img.shields.io/badge/tests-911%20passing-brightgreen?style=for-the-badge)
+![Tests](https://img.shields.io/badge/tests-2505%20passing-brightgreen?style=for-the-badge)
+![Version](https://img.shields.io/badge/release-v1.5.0-blue?style=for-the-badge)
+![RIA](https://img.shields.io/badge/Architecture-RIA-purple?style=for-the-badge)
 
 <!-- Stack -->
 <br/>
@@ -31,6 +33,8 @@ Repo Intelligence Agent combines AST analysis, dependency graphs, semantic searc
 ![ChromaDB](https://img.shields.io/badge/ChromaDB-vector%20store-1C7ED6?style=for-the-badge)
 ![Gemini](https://img.shields.io/badge/Gemini%202.5%20Flash-4285F4?style=for-the-badge&logo=google&logoColor=white)
 ![DeepSeek](https://img.shields.io/badge/DeepSeek%20V4%20Flash-6C5CE7?style=for-the-badge)
+![MCP](https://img.shields.io/badge/Model%20Context%20Protocol-MCP-00B4D8?style=for-the-badge)
+![JSON-RPC](https://img.shields.io/badge/JSON--RPC%202.0-Transport-FF6B6B?style=for-the-badge)
 
 <br/>
 
@@ -44,6 +48,24 @@ Repo Intelligence Agent combines AST analysis, dependency graphs, semantic searc
 <br/>
 
 </div>
+---
+
+## 🚀 What's New in v1.5.0
+
+Version **v1.5.0** represents the largest architectural evolution of the project to date.
+
+### Highlights
+
+- 🏗️ Repository Intelligence Architecture (RIA v1)
+- 🤖 Production Model Context Protocol (MCP) Integration Layer
+- ⚡ Dual MCP Server Architecture (Legacy JSON-RPC + FastMCP)
+- 🔍 Graph-based Repository Intelligence
+- 🧠 AI Repository Chat v2
+- 📊 Intelligence Reports & Health Scorecards
+- 🗺️ Dependency Graph & Call Graph Intelligence
+- 💻 Enhanced VS Code Extension
+- 🧪 Production validation across Windows, Linux, and macOS
+
 ---
 
 ## 🎥 Live Demo
@@ -69,6 +91,20 @@ Repo Intelligence Agent takes a different approach.
 Before any AI reasoning happens, it builds a structural understanding of the repository using AST parsing, dependency graphs, call graphs, and symbol indexing. This enables the AI to reason about relationships between modules, identify architectural patterns, estimate change impact, and answer questions with structural context rather than semantic similarity alone.
 
 The result is more reliable repository understanding, better developer workflows, and insights that traditional RAG-based systems cannot provide.
+
+As of v1.5.0, the platform is organized around the **Repository Intelligence Architecture (RIA v1)** — a layered architecture that separates the Agent Layer, Application Layer, Domain Layer, Infrastructure Layer, Repository Intelligence Services, Production MCP Integration Layer, API Layer, VS Code Extension, and Dashboard into well-defined boundaries. Every capability — from graph intelligence and semantic search to MCP tool serving and intelligence reports — operates within RIA.
+
+Repository Intelligence Architecture (RIA v1) serves as the architectural foundation of the platform. Every subsystem—including repository analysis, graph intelligence, semantic search, AI reasoning, the Production MCP Integration Layer, REST APIs, the VS Code extension, and future multi-agent workflows—operates within RIA, providing clear boundaries, maintainability, extensibility, and production scalability.
+
+## 🏛️ Architecture Principles
+
+Repository Intelligence Agent is built around five engineering principles:
+
+- **Structure Before Semantics** — structural understanding precedes AI reasoning.
+- **Graph-First Intelligence** — dependency graphs and call graphs are first-class knowledge sources.
+- **AI-Native Architecture** — every subsystem is designed for intelligent developer tooling.
+- **Incremental Computation** — recompute only what changes.
+- **Production-Ready Interfaces** — every capability is exposed consistently through APIs, MCP, and IDE integrations.
 
 ---
 
@@ -195,6 +231,10 @@ Traditional RAG tools index text. This tool indexes **your codebase's structure.
 | 🧠 Rule-based intent routing (zero LLM overhead) | ❌ | ✅ |
 | 🔄 Circuit-breaker LLM failover | ❌ | ✅ |
 | 📈 Prometheus observability | ❌ | ✅ |
+| 🧠 Model Context Protocol (MCP) | ❌ | ✅ |
+| 🔌 JSON-RPC 2.0 Tool Server | ❌ | ✅ |
+| 🤖 AI Agent Integration (Cursor, Claude Desktop) | ❌ | ✅ |
+| 🖥️ VS Code MCP Client Compatibility | ❌ | ✅ |
 
 ---
 
@@ -294,7 +334,196 @@ Brings the full power of codebase intelligence directly into your editor:
 
 ---
 
-## 🏗️ Architecture
+## 🧠 Model Context Protocol (MCP)
+
+The Production MCP Integration Layer is a first-class subsystem within the Repository Intelligence Architecture (RIA v1), exposing repository intelligence capabilities to AI coding assistants through the Model Context Protocol (MCP). Any MCP-compatible client can connect over stdio and invoke tools, query resources, and use prompt templates — without needing the REST API or dashboard.
+
+### Dual MCP Architecture
+
+The project ships two complementary MCP server implementations:
+
+| Server | Entry Point | Transport | Purpose |
+|---|---|---|---|
+| **Legacy MCP Server** | `backend/mcp_server.py` | stdio (JSON-RPC 2.0) | Production stdio server — lightweight, zero SDK dependencies, direct JSON-RPC over stdin/stdout |
+| **FastMCP Server** | `mcp/server.py` | stdio · SSE | FastMCP SDK integration — automatic tool discovery, resource templates, prompt templates, and Server-Sent Events support |
+
+### Supported MCP Clients
+
+| Client | Status |
+|---|:---:|
+| 🖱️ **Cursor** | ✅ Verified |
+| 🤖 **Claude Desktop** | ✅ Verified |
+| 🔌 **VS Code MCP** | ✅ Verified |
+| 🔍 **MCP Inspector** | ✅ Verified |
+| 🛠️ **Custom JSON-RPC Clients** | ✅ Compatible |
+
+> **Production Validation Status (v1.5.0):** JSON-RPC 2.0 compliant · Legacy stdio server verified · FastMCP server verified · Cursor verified · Claude Desktop verified · VS Code MCP verified · MCP Inspector verified · Cross-platform transport validated (Windows, Linux, macOS)
+
+### Transport Support
+
+| Transport | Server | Status |
+|---|---|:---:|
+| **stdio** | Legacy MCP + FastMCP | ✅ |
+| **Server-Sent Events (SSE)** | FastMCP | ✅ |
+
+### Production Features
+
+- **JSON-RPC 2.0 compliant** — full protocol conformance with proper error codes
+- **Automatic Tool Discovery** — tools are registered from decorated handler functions
+- **Resource Templates** — repository-scoped resources for structured data access
+- **Prompt Templates** — pre-built prompts for common analysis workflows
+- **Structured Error Responses** — client-safe error messages with traceback sanitization
+- **Windows / Linux / macOS validated** — cross-platform stdio transport verified
+- **Production-ready transport** — unbuffered I/O, graceful shutdown, pipe safety guards
+- **Manual MCP Inspector verification** — every tool validated through interactive Inspector sessions
+
+### 🔧 MCP Tool Inventory
+
+<details open>
+<summary><strong>Repository Tools</strong></summary>
+
+<br/>
+
+| Tool | Description |
+|---|---|
+| `list_repositories` | List all indexed repositories |
+| `get_repository_summary` | Full structural summary for a repository |
+| `query_codebase` | Natural language query over indexed code |
+
+</details>
+
+<details open>
+<summary><strong>Navigation Tools</strong></summary>
+
+<br/>
+
+| Tool | Description |
+|---|---|
+| `get_file_symbols` | AST-extracted symbols for a file |
+| `get_symbol_definition` | Definition lookup across the repository |
+| `get_symbol_references` | Cross-file reference search |
+
+</details>
+
+<details open>
+<summary><strong>Architecture Tools</strong></summary>
+
+<br/>
+
+| Tool | Description |
+|---|---|
+| `get_call_graph` | Function-level call graph |
+| `get_dead_code` | Reachability sweep for unused code |
+| `get_impact_analysis` | Change impact prediction |
+
+</details>
+
+<details>
+<summary><strong>Extended FastMCP Tools</strong></summary>
+
+<br/>
+
+| Tool | Description |
+|---|---|
+| `semantic_search` | Embedding-based code search |
+| `architecture_overview` | High-level architecture summary |
+| `dependency_analysis` | Module dependency analysis |
+| `api_surface` | Public/internal API classification |
+| `workspace_snapshot` | Consolidated workspace metrics |
+| `health_report` | Repository health scorecard |
+| `execution_trace` | Execution plan trace |
+| `report_generation` | Intelligence report generation |
+
+</details>
+
+### 🚀 MCP Quick Start
+
+```bash
+# Start the MCP server (communicates over stdio using JSON-RPC 2.0)
+python -m backend.cli mcp
+```
+
+The server reads JSON-RPC requests from stdin and writes responses to stdout. Connect directly from any MCP-compatible client:
+
+- **Cursor** — Add to your MCP configuration
+- **Claude Desktop** — Register in `claude_desktop_config.json`
+- **VS Code MCP** — Configure as an MCP server in settings
+- **MCP Inspector** — Connect via `npx @modelcontextprotocol/inspector`
+
+### MCP Architecture
+
+```mermaid
+flowchart TD
+    A["AI Client\nCursor · Claude Desktop · VS Code MCP · Inspector"] -->|"JSON-RPC 2.0\nstdio"| B["Legacy MCP Server\nbackend/mcp_server.py"]
+    A -->|"JSON-RPC 2.0\nstdio · SSE"| C["FastMCP Server\nmcp/server.py"]
+
+    B --> D["Repository Intelligence Services"]
+    C --> D
+
+    subgraph services["Intelligence Layer"]
+        D --> D1["Symbol Service"]
+        D --> D2["Call Graph Service"]
+        D --> D3["Dead Code Service"]
+        D --> D4["Retrieval Engine"]
+        D --> D5["Architecture Service"]
+    end
+
+    subgraph data["Data Layer"]
+        D1 --> S1[("Analysis Store")]
+        D2 --> S1
+        D3 --> S1
+        D4 --> S2[("ChromaDB")]
+        D5 --> S3[("NetworkX DiGraph")]
+    end
+```
+
+## 💡 Why RIA?
+
+```text
+Traditional RAG
+
+Repository
+      │
+      ▼
+Chunks
+      │
+      ▼
+Embeddings
+      │
+      ▼
+LLM
+
+────────────────────────────
+
+Repository Intelligence Architecture (RIA)
+
+Repository
+      │
+      ▼
+AST
+      │
+      ▼
+Knowledge Graph
+      │
+      ▼
+Dependency Graph
+      │
+      ▼
+Call Graph
+      │
+      ▼
+Symbol Index
+      │
+      ▼
+Semantic Search
+      │
+      ▼
+LLM
+```
+
+---
+
+## 🏗️ Architecture — Repository Intelligence Architecture (RIA)
 
 ```mermaid
 flowchart TD
@@ -338,11 +567,13 @@ flowchart TD
     C5 --> D3
 ```
 
+The platform is organized around the **Repository Intelligence Architecture (RIA)**, which separates concerns across well-defined layers: the **API Layer** (FastAPI gateway), the **Application Layer** (analysis and chat pipelines), the **Domain Layer** (graph, symbol, and retrieval services), the **Infrastructure Layer** (ChromaDB, NetworkX, SQLite), and the **MCP Integration Layer** (Legacy + FastMCP servers). The Dashboard (Astro 4 + React) and VS Code Extension consume these layers through REST APIs and Workspace snapshots.
+
 > 🗂️ Full component diagrams, sequence diagrams, and mathematical models are documented in [ARCHITECTURE.md](ARCHITECTURE.md).
 
 ### 🧬 Codebase Intelligence Pipeline
 
-The platform processes repository structures through an end-to-end multi-tier pipeline:
+The Repository Intelligence Architecture processes repository structures through an end-to-end multi-tier pipeline:
 1. **Repository Ingestion**: Clones files and identifies program stacks.
 2. **Digital Twin**: Generates a local AST representation of all code symbols, imports, and exports.
 3. **Knowledge Graph**: Builds a directed import graph and function call graph via NetworkX.
@@ -379,6 +610,19 @@ Each repository analysis runs through **eight sequential stages.** Incremental m
 > [!TIP]
 > **Why incremental is fast:** Subsequent runs skip re-embedding and re-indexing for unchanged files. Only files whose content hash has changed are re-processed through the pipeline. Graph nodes for unchanged files are read from the schema-versioned in-memory cache rather than recomputed (typical development-machine measurements).
 
+## 📈 Repository Statistics
+
+| Category | Details |
+|-----------|----------|
+| Architecture | Repository Intelligence Architecture (RIA v1) |
+| Languages | Python, TypeScript, JavaScript |
+| AI Providers | Gemini, DeepSeek |
+| Knowledge Layer | AST + Dependency Graph + Call Graph + Symbol Index |
+| Retrieval | ChromaDB + Semantic Search |
+| AI Interfaces | REST API + Production MCP Integration Layer |
+| IDE Integration | VS Code Extension |
+| Dashboard | Astro + React |
+
 ---
 
 ## 🛠️ Technology Stack
@@ -396,7 +640,8 @@ Each repository analysis runs through **eight sequential stages.** Incremental m
 | Fallback LLM | DeepSeek V4 Flash (NVIDIA NIM) | Circuit-breaker secondary provider |
 | Persistence | SQLite + JSON snapshots | Reports, analysis state |
 | Metrics | Prometheus | HTTP and build pipeline observability |
-| Testing | pytest + Mocha | 911 tests (794 backend + 117 extension) — isolated from LLM and GitHub APIs |
+| MCP | Model Context Protocol | JSON-RPC 2.0 tool server for AI coding assistants (Cursor, Claude Desktop, VS Code) |
+| Testing | pytest + Mocha | 2505 tests (backend + extension + MCP) — isolated from LLM and GitHub APIs |
 
 <details>
 <summary><strong>View directory layout</strong></summary>
@@ -437,11 +682,27 @@ Repo-Intelligence-Agent/
 │   ├── change_detector.py         # File hash-based incremental detection
 │   ├── analysis_registry.py       # DAG task registry
 │   └── build_pipeline.py          # DAG orchestration
+├── ria/                           # Repository Intelligence Architecture (RIA) — v1.5.0
+│   ├── agent/                     # Agent Layer
+│   ├── application/               # Application Layer
+│   ├── domain/                    # Domain Layer
+│   ├── infrastructure/            # Infrastructure Layer
+│   ├── plugins/                   # Language plugins and extensions
+│   ├── search/                    # Semantic search services
+│   ├── query/                     # Query engine and ports
+│   ├── knowledge/                 # Knowledge graph services
+│   ├── ports/                     # Hexagonal port interfaces
+│   └── container.py               # Dependency injection container
+├── mcp/
+│   ├── server.py                  # FastMCP server — automatic tool discovery, resources, prompts
+│   ├── tools/                     # MCP tool handlers (repository, symbol, architecture, search, analysis, report, workspace)
+│   └── resources/                 # MCP resource providers
+│
 ├── memory/                        # ChromaStore adapter
 ├── models/                        # Pydantic domain models
 ├── storage/                       # JsonSnapshotStore, SQLite migrations
 ├── frontend/                      # Astro 4 + React dashboard
-├── tests/                         # 911 passing tests (794 backend + 117 extension), no API quota required
+├── tests/                         # 2505 passing tests (backend + extension + MCP), no API quota required
 └── docs/                          # Extended documentation
 ```
 
@@ -532,6 +793,14 @@ curl http://localhost:8001/health
   "status": "healthy"
 }
 ```
+
+### 6 — Start MCP Server
+
+```bash
+python -m backend.cli mcp
+```
+
+The MCP server communicates over JSON-RPC 2.0 using stdio. It is compatible with Cursor, Claude Desktop, VS Code MCP, and MCP Inspector. No additional configuration is required beyond the standard `.env` setup.
 
 ---
 
@@ -836,34 +1105,46 @@ Exposed at /metrics:
 
 ## 🛡️ Production Readiness
 
-Built to be operated, not just installed.
+Built to be operated, not just installed. Released in v1.5.0 — production certified.
 
 | Concern | Implementation |
 |---|---|
-| **Observability** | Prometheus metrics at /metrics with histograms for build and task durations |
-| **Structured logging** | JSON log format via LOG_FORMAT=json, with request IDs on every log line |
+| | **Infrastructure** |
+| **Docker** | Production and development Compose files with named volumes for data persistence |
 | **Health endpoint** | /health reports backend status, active LLM provider, and vector store state |
-| **Rate limiting** | Sliding-window per-IP limiter — configurable via RATE_LIMIT_PER_MINUTE |
-| **CORS** | Restricted to FRONTEND_URL — set to your production domain before deploying |
-| **Input validation** | Pydantic model validation on every request body |
-| **Secret handling** | API keys loaded from environment variables only — helps prevent logging or exposure |
-| **LLM circuit breaker** | ProviderManager tracks LLM health and fails over to DeepSeek on provider errors |
-| **Fallback renderer** | If both LLM providers are unavailable, structured responses render without LLM |
 | **Fail-fast startup** | In APP_ENV=production, misconfiguration halts startup with an actionable error |
 | **Incremental analysis** | Hash-based change detection helps prevent redundant work on re-runs |
 | **In-memory cache** | Schema-versioned cache helps prevent stale data from surviving configuration changes |
-| **Docker** | Production and development Compose files with named volumes for data persistence |
+| **Repository Switching** | State-clean routines clear active graphs and caches when changing active repos |
+| | **Security** |
+| **Rate limiting** | Sliding-window per-IP limiter — configurable via RATE_LIMIT_PER_MINUTE |
+| **CORS** | Restricted to FRONTEND_URL — set to your production domain before deploying |
 | **TrustedHost** | ALLOWED_HOSTS middleware for hostname validation |
-| **Quality Gate** | **911 automated tests** (794 backend + 117 extension) providing automated coverage |
+| **Input validation** | Pydantic model validation on every request body |
+| **Secret handling** | API keys loaded from environment variables only — helps prevent logging or exposure |
+| **Traceback Sanitization** | Server errors return client-safe messages — internal tracebacks never leak to MCP clients |
+| | **Reliability** |
+| **LLM circuit breaker** | ProviderManager tracks LLM health and fails over to DeepSeek on provider errors |
+| **Fallback renderer** | If both LLM providers are unavailable, structured responses render without LLM |
+| **Race-condition Safety** | Asynchronous operations are wrapped in thread executors to help prevent ASGI loop blockage |
+| **Memory Isolation** | Capacity limits and TTL-based evictions protect caches from memory bloat |
+| **Self Diagnostics** | Startup configuration checks automatically report provider availability and key validations |
+| | **Observability** |
+| **Prometheus metrics** | Prometheus metrics at /metrics with histograms for build and task durations |
+| **Structured logging** | JSON log format via LOG_FORMAT=json, with request IDs on every log line |
+| **Structured Logs** | OutputChannel logging traces backend connections and workspace states |
+| **API Compliance** | Built-in Workspace API schema compliance checks help prevent UI rendering crashes |
+| | **MCP** |
+| **MCP Inspector Validation** | Every MCP tool manually validated through interactive MCP Inspector sessions |
+| **MCP Transport Verification** | Cross-platform stdio transport verified with unbuffered I/O and graceful shutdown |
+| **FastMCP SDK Compatibility** | FastMCP server construction and tool registration validated across pydantic versions |
+| **MCP Behavioral Parity** | Legacy and FastMCP servers produce equivalent results for all shared tools |
+| **JSON-RPC Compliance** | Full protocol conformance including error codes, notifications, and method dispatch |
+| | **Testing** |
+| **Quality Gate** | **2505 automated tests** (backend + extension + MCP) providing automated coverage |
 | **Packaging Validation** | Automated VSIX packaging validations help prevent publishing failures |
 | **Clean Profile Testing** | Extension validated against isolated clean VS Code profiles to help prevent activation leaks |
 | **Regression Protection** | Automated tests help protect against regressions in Digital Twin mapping and AST processing |
-| **Race-condition Safety** | Asynchronous operations are wrapped in thread executors to help prevent ASGI loop blockage |
-| **Memory Isolation** | Capacity limits and TTL-based evictions protect caches from memory bloat |
-| **Structured Logs** | OutputChannel logging traces backend connections and workspace states |
-| **API Compliance** | Built-in Workspace API schema compliance checks help prevent UI rendering crashes |
-| **Self Diagnostics** | Startup configuration checks automatically report provider availability and key validations |
-| **Repository Switching** | State-clean routines clear active graphs and caches when changing active repos |
 
 > [!WARNING]
 > **No built-in user/session management.** The application supports optional API key access control but does not include multi-user session/credential management. For multi-tenant or public deployments, place a reverse proxy with user authentication in front of the backend.
@@ -877,9 +1158,14 @@ pytest tests/ -v                                      # Full suite
 pytest tests/ --cov=. --cov-report=term-missing      # With coverage
 ```
 
-- **911 tests** across backend (794 tests) and extension (117 tests) suites
+- **2505 tests** across backend, extension, and MCP suites
 - LLM and GitHub API boundaries are **isolated with mock adapters** — the full suite runs without consuming any API quota
 - GitHub Actions runs the full test suite, lint check, and format check on every pull request
+- **MCP transport tests** — stdio subprocess integration tests validating full JSON-RPC round-trips
+- **Behavioral parity tests** — verify Legacy MCP and FastMCP produce identical results for all shared tools
+- **SDK compatibility tests** — validate FastMCP server construction and tool registration across pydantic versions
+- **Protocol conformance tests** — verify JSON-RPC 2.0 compliance including error codes, notifications, and edge cases
+- **Manual MCP Inspector validation** — every tool verified through interactive Inspector sessions
 
 > [!CAUTION]
 > Always run pytest tests/ with the explicit path. Running bare pytest from the repository root will traverse data/ and encounter import errors from cloned repositories.
@@ -888,8 +1174,9 @@ pytest tests/ --cov=. --cov-report=term-missing      # With coverage
 
 ## 🗺️ Roadmap
 
-### Completed (v1.0.0)
+### Completed (v1.5.0)
 
+- [x] Repository Intelligence Architecture (RIA) — layered, modular production architecture
 - [x] Full structural analysis pipeline with incremental hash-based rebuilds
 - [x] Digital Twin (AST parser) & Knowledge Graph (import topology) representation
 - [x] Repository Chat v2 with 9 intent types and rule-based routing
@@ -903,8 +1190,17 @@ pytest tests/ --cov=. --cov-report=term-missing      # With coverage
 - [x] LLM Failover Management (Gemini to DeepSeek circuit breakers)
 - [x] Self Diagnostics & Startup Health Verifications
 - [x] Repository Review Command Actions
+- [x] AI Repository Intelligence (graph-based code understanding)
+- [x] Production MCP Server (Legacy stdio JSON-RPC)
+- [x] FastMCP SDK Integration (automatic tool discovery, resources, prompts)
+- [x] MCP Inspector Validation (manual verification of all tools)
+- [x] JSON-RPC 2.0 Transport (stdio + SSE)
+- [x] Cursor Compatibility
+- [x] Claude Desktop Compatibility
+- [x] Cross-platform support (Windows, Linux, macOS)
+- [x] Production validation (2505 automated tests)
 
-### Planned (v1.1)
+### Planned (v1.6.0)
 
 - [ ] Module Stability endpoints router (`backend/routers/stability.py`)
 - [ ] Dependency Smells endpoints router (`backend/routers/dependency_smells.py`)
@@ -912,10 +1208,17 @@ pytest tests/ --cov=. --cov-report=term-missing      # With coverage
 - [ ] Persistent cross-session conversation memory
 - [ ] Webhook-triggered incremental analysis on push events
 
-### Under Consideration
+### Planned (v1.7.0)
 
 - [ ] Multi-repository workspaces (cross-service link resolution)
+- [ ] PR Review Assistant (GitHub App webhook integration)
+- [ ] Incremental indexing (parse only modified files on branch updates)
+
+### Future (v2.0)
+
 - [ ] Team-scoped SaaS deployments with user access control
+- [ ] Collaborative multi-user dashboards
+- [ ] Plugin ecosystem for custom Tree-sitter query modules
 
 ---
 
@@ -1058,6 +1361,41 @@ Ignored recommendations are saved persistently in the VS Code extension's `works
 
 </details>
 
+<details>
+<summary><strong>What is MCP?</strong></summary>
+
+The Model Context Protocol (MCP) is an open standard for connecting AI coding assistants to external tools and data sources. Repo Intelligence Agent implements MCP so that clients like Cursor, Claude Desktop, and VS Code MCP extensions can directly invoke repository intelligence tools over JSON-RPC 2.0.
+
+</details>
+
+<details>
+<summary><strong>Which AI clients are supported via MCP?</strong></summary>
+
+Cursor, Claude Desktop, VS Code MCP clients, MCP Inspector, and any custom JSON-RPC 2.0 client that speaks the MCP protocol. The server communicates over stdio — any client that can spawn a subprocess and read/write JSON-RPC messages is compatible.
+
+</details>
+
+<details>
+<summary><strong>How do I start the MCP server?</strong></summary>
+
+Run `python -m backend.cli mcp` from the project root. The server reads JSON-RPC requests from stdin and writes responses to stdout. No additional configuration is required beyond the standard `.env` setup.
+
+</details>
+
+<details>
+<summary><strong>What is the difference between Legacy MCP and FastMCP?</strong></summary>
+
+The Legacy MCP server (`backend/mcp_server.py`) is a lightweight, zero-SDK-dependency JSON-RPC server that runs over stdio. The FastMCP server (`mcp/server.py`) uses the FastMCP SDK and provides automatic tool discovery, resource templates, prompt templates, and SSE transport support. Both servers expose the same core repository intelligence tools and produce equivalent results.
+
+</details>
+
+<details>
+<summary><strong>Why does Repo Intelligence Agent use RIA instead of a traditional RAG architecture?</strong></summary>
+
+Traditional RAG architectures retrieve text chunks based on embedding similarity, which works well for general knowledge but lacks structural understanding of codebases. The Repository Intelligence Architecture (RIA), introduced in v1.5.0, goes beyond semantic retrieval by building AST-level structural understanding, dependency graphs, call graphs, and symbol indexes before any AI reasoning occurs. This means the LLM reasons over verified structural relationships — not just similar-looking text — enabling accurate dependency tracing, change impact estimation, dead code detection, and architectural analysis that pure embedding-based systems cannot provide.
+
+</details>
+
 ---
 
 ## 🔧 Troubleshooting
@@ -1096,11 +1434,12 @@ Check that CHROMA_DB_PATH points to a persistent directory and that the path is 
 
 | Document | Description |
 |---|---|
-| [ARCHITECTURE.md](ARCHITECTURE.md) | Full component diagrams, sequence diagrams, and mathematical models |
+| [ARCHITECTURE.md](ARCHITECTURE.md) | Repository Intelligence Architecture (RIA) — component diagrams, sequence diagrams, and mathematical models |
 | [docs/API_REFERENCE.md](docs/API_REFERENCE.md) | Request/response schemas for all endpoints |
+| [docs/MCP_RELEASE_READINESS.md](docs/MCP_RELEASE_READINESS.md) | MCP subsystem production release readiness and validation results |
+| [docs/MCP_FINAL_AUDIT.md](docs/MCP_FINAL_AUDIT.md) | MCP final audit — production certified in v1.5.0 |
+| [docs/MCP_SDK_MIGRATION.md](docs/MCP_SDK_MIGRATION.md) | MCP SDK migration guide and pydantic compatibility notes |
 | [docs/EXECUTION_GUIDE.md](docs/EXECUTION_GUIDE.md) | Step-by-step setup, compilation, and validation sequences |
-| [docs/RELEASE_CHECKLIST.md](docs/RELEASE_CHECKLIST.md) | Production release validation and readiness checklist |
-| [docs/MVP_STATUS.md](docs/MVP_STATUS.md) | Core feature checklist, stubs, and technical debt log |
 | [CONTRIBUTING.md](CONTRIBUTING.md) | Development workflow, coding standards, and pull request checklist |
 | [SECURITY.md](SECURITY.md) | Responsible disclosure policy and security controls |
 
@@ -1124,7 +1463,9 @@ Built on excellent open-source foundations:
 [Tree-sitter](https://tree-sitter.github.io/tree-sitter/) ·
 [NetworkX](https://networkx.org/) ·
 [Google Gemini](https://ai.google.dev/) ·
-[NVIDIA NIM](https://www.nvidia.com/en-us/ai/)
+[NVIDIA NIM](https://www.nvidia.com/en-us/ai/) ·
+[Model Context Protocol](https://modelcontextprotocol.io/) ·
+[FastMCP](https://github.com/jlowin/fastmcp)
 
 ---
 

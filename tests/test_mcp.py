@@ -148,7 +148,7 @@ def test_execute_tool_get_call_graph():
     mock_cg_service = MagicMock()
     mock_summary = MagicMock()
     mock_summary.model_dump.return_value = {"nodes": [], "edges": []}
-    mock_cg_service.get_graph_summary.return_value = mock_summary
+    mock_cg_service.load_summary.return_value = mock_summary
 
     res = execute_tool(
         "get_call_graph",
@@ -160,12 +160,12 @@ def test_execute_tool_get_call_graph():
         None,
     )
     assert res == {"nodes": [], "edges": []}
-    mock_cg_service.get_graph_summary.assert_called_once_with("owner/repo")
+    mock_cg_service.load_summary.assert_called_once_with("owner/repo")
 
 
 def test_execute_tool_get_call_graph_none():
     mock_cg_service = MagicMock()
-    mock_cg_service.get_graph_summary.return_value = None
+    mock_cg_service.load_summary.return_value = None
 
     with pytest.raises(ValueError, match="No call graph indexed"):
         execute_tool(
@@ -221,7 +221,7 @@ def test_execute_tool_query_codebase():
     mock_retrieval_service = MagicMock()
     mock_source = MagicMock()
     mock_source.model_dump.return_value = {"file": "a.py", "score": 0.8}
-    mock_retrieval_service.retrieve_and_evaluate.return_value = {
+    mock_retrieval_service.retrieve_and_answer.return_value = {
         "answer": "Answer here",
         "sources": [mock_source],
         "confidence": 0.85,
@@ -243,7 +243,7 @@ def test_execute_tool_query_codebase():
         "confidence": 0.85,
         "verified": True,
     }
-    mock_retrieval_service.retrieve_and_evaluate.assert_called_once_with(
+    mock_retrieval_service.retrieve_and_answer.assert_called_once_with(
         "owner/repo", "what is this"
     )
 

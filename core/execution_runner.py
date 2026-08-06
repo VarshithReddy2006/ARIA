@@ -39,9 +39,11 @@ def execute_single_task(
     context: Any,
     force_rebuild: bool,
     build_id: str,
+    service_resolver: Optional[Any] = None,
+    snapshot_store: Optional[Any] = None,
 ) -> List[BuildEvent]:
     """Execute a single build task and capture all events generated."""
-    from backend.logging_config import build_id_var, repository_var, analysis_var
+    from core.logging_context import build_id_var, repository_var, analysis_var
 
     token_build = build_id_var.set(build_id)
     token_repo = repository_var.set(repo_name)
@@ -63,10 +65,15 @@ def execute_single_task(
         start_time = time.time()
 
         try:
-            # Resolve service singleton
-            from backend.dependencies import get_service_by_class
-
-            service_instance = get_service_by_class(node.service_class)
+            # Resolve service singleton via resolver or direct instantiation
+            service_instance = None
+            if service_resolver is not None:
+                service_instance = service_resolver(node.service_class)
+            elif node.service_class is not None:
+                try:
+                    service_instance = node.service_class()
+                except Exception:
+                    service_instance = None
 
             if service_instance is not None:
                 has_new_api = hasattr(service_instance, "build_full")
@@ -191,10 +198,15 @@ def execute_single_task(
                         )
             else:
                 # Placeholder for future analyses (service_instance is None)
-                from backend.dependencies import snapshot_store
+                if snapshot_store is not None:
+                    store = snapshot_store
+                else:
+                    from storage.snapshot_store import JsonSnapshotStore
+
+                    store = JsonSnapshotStore()
 
                 key = node.outputs[0] if node.outputs else node.name.lower()
-                snapshot_store.save(
+                store.save(
                     repo_name,
                     key,
                     {"status": "placeholder", "_schema_version": node.schema_version},
@@ -243,6 +255,8 @@ class ParallelExecutionRunner:
         max_workers: Optional[int] = None,
         force_rebuild: bool = False,
         build_id: Optional[str] = None,
+        service_resolver: Optional[Any] = None,
+        snapshot_store: Optional[Any] = None,
     ) -> None:
         import uuid
 
@@ -253,6 +267,8 @@ class ParallelExecutionRunner:
         self.registry = registry
         self.force_rebuild = force_rebuild
         self.build_id = build_id or str(uuid.uuid4())
+        self.service_resolver = service_resolver
+        self.snapshot_store = snapshot_store
 
         # Default workers count: max(1, CPU cores - 1)
         if max_workers is None:
@@ -295,6 +311,8 @@ class ParallelExecutionRunner:
                         self.context,
                         self.force_rebuild,
                         self.build_id,
+                        self.service_resolver,
+                        self.snapshot_store,
                     )
                     futures[future] = task
 

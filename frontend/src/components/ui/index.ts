@@ -7,3 +7,4 @@ export { Skeleton, SkeletonCard, SkeletonRow, SkeletonGauge, SkeletonGraph, Skel
 export { PageHeader, SectionHeader } from './PageHeader';
 export { AnimatedNumber } from './AnimatedNumber';
 export { SVGDonut } from './SVGDonut';
+export { Sparkline } from './Sparkline';

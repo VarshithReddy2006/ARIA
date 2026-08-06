@@ -8,12 +8,14 @@ instead of the previous Gemini dependency.
 """
 
 import asyncio
+import inspect
 import json
 import logging
 from typing import List, Optional, Any
 
 from models.schemas import EvaluationResult
 from services.llm import ProviderFactory, BaseLLMProvider
+from services.chat.citation_verifier import CitationVerifier, CitationReport
 
 logger = logging.getLogger(__name__)
 
@@ -25,19 +27,48 @@ class EvaluationAgent:
         self,
         client: Any = None,  # accepted but ignored (legacy Gemini client arg)
         provider: Optional[BaseLLMProvider] = None,
+        citation_verifier: Optional[CitationVerifier] = None,
+        *,
+        llm_provider: Optional[Any] = None,
     ) -> None:
         """Initialise the EvaluationAgent.
 
         Args:
-            client:   Ignored — kept for call-site compatibility.
-            provider: Optional pre-built LLM provider.  Defaults to
-                      ProviderFactory.get_provider().
+            client:            Ignored — kept for call-site compatibility.
+            provider:          Optional pre-built provider using the current interface.
+            citation_verifier: Optional deterministic citation verifier.
+            llm_provider:      Legacy provider alias supporting ``generate_json``.
         """
         if client is not None:
             logger.debug(
                 "EvaluationAgent: 'client' parameter is ignored — using LLM provider."
             )
-        self._provider = provider or ProviderFactory.get_provider()
+        self._provider = provider or llm_provider or ProviderFactory.get_provider()
+        self._citation_verifier = citation_verifier or CitationVerifier()
+
+    def evaluate_claim(
+        self,
+        answer: str,
+        retrieved_chunks: List[str],
+        repo_files: List[str],
+    ) -> dict[str, Any]:
+        """Evaluate a legacy claim payload through the current response evaluator."""
+        source_contexts = [
+            {
+                "metadata": {
+                    "file_path": (
+                        repo_files[index] if index < len(repo_files) else "unknown_path"
+                    )
+                },
+                "content": chunk,
+            }
+            for index, chunk in enumerate(retrieved_chunks)
+        ]
+        return self.evaluate_response(
+            prompt="Evaluate the generated claim.",
+            response=answer,
+            source_contexts=source_contexts,
+        ).model_dump()
 
     def evaluate_response(
         self,
@@ -157,31 +188,54 @@ class EvaluationAgent:
             f"}}\n"
         )
 
+        # 1. Deterministic Citation Verification (R-005)
+        citation_report = self._citation_verifier.verify_answer(
+            answer=response,
+            source_contexts=source_contexts,
+        )
+
         try:
-            raw = await self._provider.generate(
-                prompt=eval_prompt,
-                system_instruction=system_instruction,
-                response_mime_type="application/json",
-            )
-            data = json.loads(raw)
+            if hasattr(self._provider, "generate_json"):
+                raw = self._provider.generate_json(
+                    eval_prompt,
+                    system_instruction=system_instruction,
+                )
+                if inspect.isawaitable(raw):
+                    raw = await raw
+            else:
+                raw = await self._provider.generate(
+                    prompt=eval_prompt,
+                    system_instruction=system_instruction,
+                    response_mime_type="application/json",
+                )
+            data = raw if isinstance(raw, dict) else json.loads(raw)
         except Exception as exc:
             logger.error("LLM evaluation call failed: %s", exc, exc_info=True)
-            return _fallback_eval(source_contexts)
+            return _fallback_eval(source_contexts, citation_report)
 
-        citations_valid = bool(data.get("citations_valid", True))
-        hallucination_detected = bool(data.get("hallucination_detected", False))
-        confidence_score = max(0.0, min(1.0, float(data.get("confidence_score", 1.0))))
-        feedback = str(data.get("feedback", ""))
+        # Fail-closed default False for LLM response
+        llm_citations_valid = bool(data.get("citations_valid", False))
+        # Enforce deterministic verifier: citations_valid is True ONLY IF deterministic verifier succeeded
+        citations_valid = citation_report.citations_valid and llm_citations_valid
+
+        hallucination_detected = bool(data.get("hallucination_detected", False)) or (len(citation_report.unresolved) > 0)
+        confidence_score = max(0.0, min(1.0, float(data.get("confidence_score", 0.0 if not citations_valid else 1.0))))
+        feedback = str(data.get("feedback", citation_report.feedback))
         unsupported_claims = list(data.get("unsupported_claims", []))
-        unknown_files = list(data.get("unknown_files", []))
+
+        # Merge unknown files from verifier and LLM
+        unknown_files = list(
+            set([c.file_path for c in citation_report.unresolved] + list(data.get("unknown_files", [])))
+        )
+
         used_chunks_indices = list(data.get("used_chunks_indices", []))
         chunk_citations = [
             {
-                "file_path": c.get("file_path", ""),
-                "chunk_id": c.get("chunk_id", ""),
-                "reason": c.get("reason", ""),
+                "file_path": c.file_path,
+                "chunk_id": "verified" if c.status == "verified" else "unresolved",
+                "reason": c.reason or "verified",
             }
-            for c in data.get("chunk_citations", [])
+            for c in citation_report.verified + citation_report.unresolved
         ]
 
         retrieved_count = len(source_contexts)
@@ -205,7 +259,12 @@ class EvaluationAgent:
         )
 
 
-def _fallback_eval(source_contexts: List[Any]) -> EvaluationResult:
+def _fallback_eval(
+    source_contexts: List[Any],
+    citation_report: Optional[CitationReport] = None,
+) -> EvaluationResult:
+    """Fail closed while retaining deterministic citation findings when available."""
+    unresolved = citation_report.unresolved if citation_report is not None else []
     return EvaluationResult(
         citations_valid=False,
         hallucination_detected=True,
@@ -215,6 +274,13 @@ def _fallback_eval(source_contexts: List[Any]) -> EvaluationResult:
         used_chunks=0,
         coverage_percentage=0.0,
         unsupported_claims=[],
-        unknown_files=[],
-        chunk_citations=[],
+        unknown_files=[citation.file_path for citation in unresolved],
+        chunk_citations=[
+            {
+                "file_path": citation.file_path,
+                "chunk_id": "unresolved",
+                "reason": citation.reason or "unresolved",
+            }
+            for citation in unresolved
+        ],
     )

@@ -19,7 +19,7 @@ def get_cloned_repos_dir() -> Path:
 
     Never returns a path inside the project tree — keeps WatchFiles quiet.
     """
-    from backend.settings import settings
+    from core.config import settings
 
     raw = settings.cloned_repos_path.strip()
     base = (

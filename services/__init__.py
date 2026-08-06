@@ -17,7 +17,6 @@ Phase 2 additions:
 
 from .github_service import GitHubService
 from .embedding_service import EmbeddingService
-from .mcp_service import MCPService
 from .tree_sitter_service import TreeSitterService
 from .graph_service import GraphService
 from .entry_point_service import EntryPointService
@@ -33,7 +32,6 @@ from .dead_code_service import DeadCodeService
 __all__ = [
     "GitHubService",
     "EmbeddingService",
-    "MCPService",
     "TreeSitterService",
     "GraphService",
     "EntryPointService",

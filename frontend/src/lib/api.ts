@@ -17,13 +17,21 @@ export const API_BASE_URL: string = (
 ).replace(/\/$/, '');
 
 /**
- * Build a fully-qualified backend URL from an `/api/...` path.
+ * Build a fully-qualified backend URL from an API path.
  *
- * @param path - A path beginning with `/` (e.g. `/api/analyze`). A leading
+ * Call sites should pass the canonical versioned path (e.g. `/api/v1/analyze`).
+ * Un-versioned `/api/...` paths are still upgraded to `/api/v1/...` here as a
+ * safety net so a stray legacy path never reaches the backend's deprecated
+ * redirect, but new code should not rely on that.
+ *
+ * @param path - A path beginning with `/` (e.g. `/api/v1/analyze`). A leading
  *   slash is added if missing.
  */
 export function apiUrl(path: string): string {
-  const normalized = path.startsWith('/') ? path : `/${path}`;
+  let normalized = path.startsWith('/') ? path : `/${path}`;
+  if (normalized.startsWith('/api/') && !normalized.startsWith('/api/v1/')) {
+    normalized = `/api/v1${normalized.substring(4)}`;
+  }
   return `${API_BASE_URL}${normalized}`;
 }
 

@@ -30,7 +30,7 @@ from backend.dependencies import (
 
 logger = logging.getLogger(__name__)
 
-router = APIRouter(prefix="/api/call-graph", tags=["Call Graph"])
+router = APIRouter(prefix="/call-graph", tags=["Call Graph"])
 
 
 # ---------------------------------------------------------------------------

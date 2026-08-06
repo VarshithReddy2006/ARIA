@@ -17,7 +17,7 @@ from backend.dependencies import graph_serializer, graph_service
 
 logger = logging.getLogger(__name__)
 
-router = APIRouter(prefix="/api/graph", tags=["Graph"])
+router = APIRouter(prefix="/graph", tags=["Graph"])
 
 
 @router.get("/{owner}/{repo}/full")

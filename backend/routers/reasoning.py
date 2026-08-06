@@ -5,15 +5,35 @@ endpoint to perform deterministic engineering reasoning over retrieval evidence.
 """
 
 import logging
+import sys
 from fastapi import APIRouter, HTTPException
 
-from backend.dependencies import engineering_reasoning_engine
+from backend.dependencies import engineering_reasoning_engine as _engineering_reasoning_engine
 from models.retrieval import RepositoryRetrievalContext
 from models.reasoning import ReasoningResult
 from pydantic import BaseModel, Field
 
 logger = logging.getLogger(__name__)
 
+
+class _ReloadSafeDependency:
+    """Resolve a compatibility dependency from the currently loaded router module."""
+
+    def __init__(self, name: str, fallback: object) -> None:
+        self._name = name
+        self._fallback = fallback
+
+    def __getattr__(self, attribute: str) -> object:
+        module = sys.modules.get(__name__)
+        dependency = getattr(module, self._name, self._fallback)
+        if dependency is self:
+            dependency = self._fallback
+        return getattr(dependency, attribute)
+
+
+engineering_reasoning_engine = _ReloadSafeDependency(
+    "engineering_reasoning_engine", _engineering_reasoning_engine
+)
 router = APIRouter(tags=["Engineering Reasoning Engine"])
 
 

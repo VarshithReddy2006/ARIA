@@ -34,7 +34,7 @@ class DeepSeekProvider(BaseLLMProvider):
         max_retries: int = _DEFAULT_MAX_RETRIES,
         timeout: float = _DEFAULT_TIMEOUT,
     ) -> None:
-        from backend.settings import settings
+        from core.config import settings
 
         self.api_key = api_key or settings.deepseek_api_key or ""
         self.base_url = (base_url or settings.deepseek_base_url).rstrip("/")
@@ -288,7 +288,9 @@ class DeepSeekProvider(BaseLLMProvider):
         system_instruction: Optional[str] = None,
         history: Optional[List[Dict[str, Any]]] = None,
     ) -> AsyncIterator[str]:
-        """Stream token-by-token output via SSE."""
+        """Stream token-by-token output via SSE with full lifecycle logging."""
+        from .provider_errors import EmptyCompletionError
+
         messages = self._build_messages(prompt, system_instruction, history)
         payload: Dict[str, Any] = {
             "model": self.model,
@@ -298,8 +300,20 @@ class DeepSeekProvider(BaseLLMProvider):
 
         url = f"{self.base_url}/chat/completions"
         delay = _DEFAULT_INITIAL_DELAY
+        t0 = time.perf_counter()
+
+        logger.info(
+            "STREAM_START provider=deepseek model=%s prompt_size=%d",
+            self.model,
+            len(prompt),
+        )
 
         for attempt in range(self.max_retries):
+            tokens_yielded = 0
+            completion_text = ""
+            finish_reason = None
+            first_token = True
+
             try:
                 async with httpx.AsyncClient(timeout=self.timeout) as client:
                     async with client.stream(
@@ -310,8 +324,10 @@ class DeepSeekProvider(BaseLLMProvider):
                             and attempt < self.max_retries - 1
                         ):
                             logger.warning(
-                                "DeepSeek stream returned %s. Retrying in %.1fs…",
+                                "DeepSeek stream returned %s (attempt %d/%d). Retrying in %.1fs…",
                                 response.status_code,
+                                attempt + 1,
+                                self.max_retries,
                                 delay,
                             )
                             await asyncio.sleep(delay)
@@ -320,22 +336,91 @@ class DeepSeekProvider(BaseLLMProvider):
                         response.raise_for_status()
 
                         async for line in response.aiter_lines():
-                            if not line.startswith("data:"):
+                            if not line or not line.startswith("data:"):
                                 continue
                             raw = line[len("data:") :].strip()
-                            if raw == "[DONE]":
-                                return
+                            if not raw or raw == "[DONE]":
+                                break
                             try:
                                 import json
 
                                 chunk = json.loads(raw)
-                                delta = chunk["choices"][0].get("delta", {})
-                                text = delta.get("content", "")
+                                choices = chunk.get("choices", [])
+                                if not choices:
+                                    continue
+
+                                choice = choices[0]
+                                finish_reason = choice.get("finish_reason") or finish_reason
+                                delta = choice.get("delta", {})
+                                message = choice.get("message", {})
+
+                                # Extract text across all supported payload formats
+                                text = ""
+                                source = ""
+
+                                if isinstance(delta, dict) and delta.get("content"):
+                                    text = delta["content"]
+                                    source = "delta.content"
+                                elif isinstance(delta, dict) and delta.get("reasoning_content"):
+                                    text = delta["reasoning_content"]
+                                    source = "delta.reasoning_content"
+                                elif isinstance(delta, dict) and delta.get("reasoning"):
+                                    text = delta["reasoning"]
+                                    source = "delta.reasoning"
+                                elif choice.get("text"):
+                                    text = choice["text"]
+                                    source = "choices[].text"
+                                elif isinstance(message, dict) and message.get("content"):
+                                    text = message["content"]
+                                    source = "message.content"
+
                                 if text:
+                                    if first_token:
+                                        first_token = False
+                                        elapsed_ms = (time.perf_counter() - t0) * 1000
+                                        logger.info(
+                                            "FIRST_TOKEN provider=deepseek model=%s latency_ms=%.1f source=%s",
+                                            self.model,
+                                            elapsed_ms,
+                                            source,
+                                        )
+
+                                    tokens_yielded += 1
+                                    completion_text += text
+                                    logger.debug(
+                                        "STREAM_CHUNK provider=deepseek source=%s text_len=%d",
+                                        source,
+                                        len(text),
+                                    )
                                     yield text
-                            except Exception:
+
+                            except Exception as parse_exc:
+                                logger.debug("DeepSeek stream parse error on chunk '%s': %s", raw[:50], parse_exc)
                                 continue
+
+                # Stream completed HTTP iteration — validate non-empty completion text
+                if completion_text.strip() == "":
+                    logger.warning(
+                        "DeepSeek returned empty or whitespace-only completion (tokens=%d, len=%d)",
+                        tokens_yielded,
+                        len(completion_text),
+                    )
+                    raise EmptyCompletionError("DeepSeek returned an empty completion.")
+
+                elapsed_ms = (time.perf_counter() - t0) * 1000
+                logger.info(
+                    "STREAM_FINISHED provider=deepseek model=%s tokens=%d completion_len=%d finish_reason=%s elapsed_ms=%.1f",
+                    self.model,
+                    tokens_yielded,
+                    len(completion_text),
+                    finish_reason,
+                    elapsed_ms,
+                )
                 return  # success — exit retry loop
+
+            except EmptyCompletionError:
+                # Do not retry empty completion on same provider — re-raise for failover
+                raise
             except (httpx.TimeoutException, httpx.ConnectError) as exc:
                 if attempt < self.max_retries - 1:
                     logger.warning("DeepSeek stream error: %s. Retrying…", exc)
@@ -351,6 +436,8 @@ class DeepSeekProvider(BaseLLMProvider):
                     exc_info=True,
                 )
                 raise
+            finally:
+                logger.info("STREAM_CLOSED provider=deepseek model=%s", self.model)
 
 
 def _strip_json_fences(text: str) -> str:

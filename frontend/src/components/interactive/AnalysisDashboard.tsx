@@ -11,6 +11,12 @@ import { GitHistoryAnalyzer } from './GitHistoryAnalyzer';
 import { CallGraphAnalyzer } from './CallGraphAnalyzer';
 import { APISurfaceAnalyzer } from './APISurfaceAnalyzer';
 import { ReportPanel } from './ReportPanel';
+import { RepoHero } from './RepoHero';
+import { TechStackPanel } from './TechStackPanel';
+import { DependencyExplorer } from './DependencyExplorer';
+import { RepoCommandPalette, COMMAND_ICONS, type CommandItem } from './RepoCommandPalette';
+import { ExecutiveInsights } from './ExecutiveInsights';
+import { deriveInsights } from '../../lib/repoInsights';
 import { Tabs, type TabItem } from './Tabs';
 import { Badge } from '../ui/Badge';
 import { Button } from '../ui/Button';
@@ -19,10 +25,13 @@ import { EmptyState } from '../ui/EmptyState';
 import { SkeletonCard, SkeletonGroup, SkeletonGraph, Skeleton, SkeletonDashboard } from '../ui/Skeleton';
 import { AnimatedNumber } from '../ui/AnimatedNumber';
 import {
-  Layers, Box, Code2, BookOpen, Cpu, Info, CheckCircle2, Target, HelpCircle,
+  computeComplexity, detectPrimaryLanguage, estimateReadingMinutes,
+  relativeTimeFrom, formatDuration,
+} from '../../lib/repoMetrics';
+import {
+  Layers, Box, Code2, BookOpen, Cpu, Info, Target, HelpCircle,
   MessageSquareCode, GitPullRequest, GitCompare, Trash2, FileText, DoorOpen,
-  Network, AlertCircle, GitCommit, Workflow, Globe, ArrowRight, Sparkles,
-  RefreshCw, BarChart2,
+  Network, AlertCircle, GitCommit, Workflow, Globe, ArrowRight, BarChart2,
 } from 'lucide-react';
 
 // ── Lazy-load graph-heavy components ──────────────────────────────────────────
@@ -134,6 +143,13 @@ export const AnalysisDashboard: React.FC<DashboardProps> = ({ repoParam }) => {
   const [selectedFile, setSelectedFile] = useState<string | null>(null);
   const [activeTab, setActiveTab]     = useState<TabId>(resolveInitialTab);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  /** Epoch ms of the most recent index for this repo — drives "indexed X ago". */
+  const [indexedAt, setIndexedAt]     = useState<number | null>(null);
+  const [paletteOpen, setPaletteOpen] = useState(false);
+  /** Question handed to the Chat tab from another panel. */
+  const [pendingChatPrompt, setPendingChatPrompt] = useState<{ text: string; token: number } | null>(null);
+  /** Node the File Graph tab should focus on. */
+  const [graphFocus, setGraphFocus] = useState<{ path: string; token: number } | null>(null);
 
   // Impact Analysis state
   const [impactData, setImpactData]   = useState<any | null>(null);
@@ -187,6 +203,30 @@ export const AnalysisDashboard: React.FC<DashboardProps> = ({ repoParam }) => {
     return cycles;
   }, [data]);
 
+  /**
+   * Real distribution series for the KPI sparklines. These plot actual indexed
+   * data (largest first), not synthetic trends — a repository has no historical
+   * series available at this point in the flow.
+   */
+  const fileDistribution = useMemo(() => {
+    if (!data?.analysis?.structure) return [];
+    return Object.values(data.analysis.structure)
+      .map((files) => files.length)
+      .sort((a, b) => b - a)
+      .slice(0, 16);
+  }, [data]);
+
+  const componentDistribution = useMemo(() => {
+    const rels = data?.architecture?.relationships;
+    if (!rels || rels.length === 0) return [];
+    const degree: Record<string, number> = {};
+    rels.forEach((r) => {
+      degree[r.source] = (degree[r.source] ?? 0) + 1;
+      degree[r.target] = (degree[r.target] ?? 0) + 1;
+    });
+    return Object.values(degree).sort((a, b) => b - a).slice(0, 16);
+  }, [data]);
+
   const entryPoints = useMemo(() => {
     if (!data || !data.analysis || !data.analysis.structure) return [];
     const entryFiles: string[] = [];
@@ -207,7 +247,8 @@ export const AnalysisDashboard: React.FC<DashboardProps> = ({ repoParam }) => {
         }
       });
     });
-    return entryFiles.slice(0, 4);
+    // Full list — callers slice for display so counts stay accurate.
+    return entryFiles;
   }, [data]);
 
   const handleTabChange = (tab: TabId) => {
@@ -215,6 +256,118 @@ export const AnalysisDashboard: React.FC<DashboardProps> = ({ repoParam }) => {
     setMountedTabs(prev => new Set([...prev, tab]));
     syncTabToUrl(tab);
   };
+
+  /** Sends a file-specific question to the Chat tab and switches to it. */
+  const handleAskAboutFile = (filePath: string) => {
+    setPendingChatPrompt({
+      text: `Explain the file \`${filePath}\`. What is its responsibility, what does it depend on, and what depends on it?`,
+      token: Date.now(),
+    });
+    handleTabChange('chat');
+  };
+
+  /** Focuses the File Graph tab on a file's dependency neighbourhood. */
+  const handleViewInGraph = (filePath: string) => {
+    setSelectedFile(filePath);
+    setGraphFocus({ path: filePath, token: Date.now() });
+    handleTabChange('graph');
+  };
+
+  /**
+   * Searchable index for the command palette, built entirely from data already
+   * fetched for this view — the palette issues no additional requests.
+   */
+  const commandItems = useMemo<CommandItem[]>(() => {
+    const items: CommandItem[] = [];
+
+    // Destinations — every dashboard tab is reachable by name.
+    TABS.forEach((tab) => {
+      items.push({
+        id: `nav:${tab.id}`,
+        label: tab.label,
+        sublabel: `Go to ${tab.group}`,
+        group: 'Destinations',
+        icon: COMMAND_ICONS.navigate,
+        keywords: `${tab.group} ${tab.id} navigate open goto`,
+        run: () => handleTabChange(tab.id),
+      });
+    });
+
+    if (!data) return items;
+
+    // Files — selecting one reveals it in the tree/context panel.
+    Object.entries(data.analysis.structure).forEach(([directory, files]) => {
+      files.forEach((file) => {
+        items.push({
+          id: `file:${file}`,
+          label: file.split('/').pop() || file,
+          sublabel: file,
+          group: 'Files',
+          icon: COMMAND_ICONS.file,
+          keywords: `${directory} ${file}`,
+          run: () => setSelectedFile(file),
+        });
+      });
+    });
+
+    // Reading path steps.
+    data.architecture.reading_order.forEach((step, index) => {
+      items.push({
+        id: `reading:${index}:${step}`,
+        label: step.split('/').pop() || step,
+        sublabel: `Step ${index + 1} · ${step}`,
+        group: 'Reading Path',
+        icon: COMMAND_ICONS.reading,
+        keywords: `reading order onboarding step ${index + 1} ${step}`,
+        run: () => { setSelectedFile(step); handleTabChange('reading_path'); },
+      });
+    });
+
+    // Architecture components.
+    const componentNames = new Set<string>();
+    data.architecture.relationships.forEach((rel) => {
+      componentNames.add(rel.source);
+      componentNames.add(rel.target);
+    });
+    componentNames.forEach((name) => {
+      items.push({
+        id: `component:${name}`,
+        label: name,
+        sublabel: 'Architecture component',
+        group: 'Components',
+        icon: COMMAND_ICONS.component,
+        keywords: `component module architecture ${name}`,
+        run: () => handleTabChange('graph'),
+      });
+    });
+
+    // Dependencies and detected stack.
+    data.analysis.dependencies.forEach((dep) => {
+      items.push({
+        id: `dep:${dep}`,
+        label: dep,
+        sublabel: 'Dependency',
+        group: 'Dependencies',
+        icon: COMMAND_ICONS.dependency,
+        keywords: `package dependency library ${dep}`,
+        run: () => handleTabChange('analysis'),
+      });
+    });
+
+    data.analysis.tech_stack.forEach((tech) => {
+      items.push({
+        id: `tech:${tech}`,
+        label: tech,
+        sublabel: 'Technology',
+        group: 'Tech Stack',
+        icon: COMMAND_ICONS.tech,
+        keywords: `stack technology framework language ${tech}`,
+        run: () => handleTabChange('analysis'),
+      });
+    });
+
+    return items;
+  }, [data]);
 
   // Sync state if repoParam changes from parent
   useEffect(() => {
@@ -236,6 +389,17 @@ export const AnalysisDashboard: React.FC<DashboardProps> = ({ repoParam }) => {
     return () => window.removeEventListener('popstate', handlePopState);
   }, [repoParam]);
 
+  // Global Cmd/Ctrl+K to open the command palette.
+  useEffect(() => {
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key.toLowerCase() !== 'k' || !(event.metaKey || event.ctrlKey)) return;
+      event.preventDefault();
+      setPaletteOpen((prev) => !prev);
+    };
+    window.addEventListener('keydown', onKeyDown);
+    return () => window.removeEventListener('keydown', onKeyDown);
+  }, []);
+
   useEffect(() => {
     const [owner, name] = repoName.split('/');
     if (!owner || !name || owner === 'unknown' || name === 'repo') {
@@ -255,13 +419,15 @@ export const AnalysisDashboard: React.FC<DashboardProps> = ({ repoParam }) => {
     setErrorMessage(null);
 
     if (typeof window !== 'undefined') {
+      const now = Date.now();
       localStorage.setItem('activeRepo', repoName);
-      localStorage.setItem(`lastAnalysed:${repoName}`, String(Date.now()));
+      localStorage.setItem(`lastAnalysed:${repoName}`, String(now));
+      setIndexedAt(now);
       // Dispatch custom event to notify Astro header navigation that activeRepo changed
       window.dispatchEvent(new CustomEvent('active-repo-changed', { detail: repoName }));
     }
 
-    fetch(apiUrl(`/api/analysis/${owner}/${name}`))
+    fetch(apiUrl(`/api/v1/analysis/${owner}/${name}`))
       .then((res) => {
         if (!res.ok) throw new Error('Failed to fetch repository details');
         return res.json();
@@ -277,7 +443,7 @@ export const AnalysisDashboard: React.FC<DashboardProps> = ({ repoParam }) => {
     setImpactLoading(true);
     setImpactError(null);
 
-    fetch(apiUrl('/api/impact-analysis'), {
+    fetch(apiUrl('/api/v1/impact-analysis'), {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ repo: repoName, issue: queryText }),
@@ -360,61 +526,52 @@ export const AnalysisDashboard: React.FC<DashboardProps> = ({ repoParam }) => {
   const readingSteps    = architecture.reading_order.length;
   const [owner, repoSlug] = repoName.split('/');
 
+  // Derived presentation metrics — centralised so hero and cards always agree.
+  const complexity      = computeComplexity({ fileCount, componentCount, dependencyCount });
+  const primaryLanguage = detectPrimaryLanguage(analysis.tech_stack);
+  const readingMinutes  = estimateReadingMinutes(readingSteps);
+  const directoryCount  = Object.keys(analysis.structure).length;
+  const indexedAgo      = relativeTimeFrom(indexedAt);
+
+  const insights = deriveInsights({
+    fileCount,
+    directoryCount,
+    dependencyCount,
+    techStack: analysis.tech_stack,
+    structure: analysis.structure,
+    entryPointCount: entryPoints.length,
+    cycleCount: circularDependencies.length,
+    componentCount,
+    relationshipCount: architecture.relationships.length,
+    readingSteps,
+    readingMinutes,
+  });
+
   return (
     <div className="space-y-6 w-full py-4 fade-up">
-      {/* ── REPO CONTEXT HEADER ──────────────────────────────────────────────── */}
-      <header className="space-y-5">
-        <div className="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-4 border-b border-border pb-5">
-          <div className="min-w-0">
-            <div className="text-[10px] font-mono uppercase tracking-widest text-primary font-bold mb-1.5">
-              Repository Intelligence
-            </div>
-            <h1 className="text-2xl sm:text-3xl font-semibold text-text tracking-tight flex items-center gap-2.5 break-all">
-              <Layers className="h-6 w-6 text-primary shrink-0" aria-hidden="true" />
-              <span className="font-mono">
-                <span className="text-text-muted">{owner}</span>
-                <span className="text-text-subtle">/</span>
-                <span className="text-text">{repoSlug}</span>
-              </span>
-            </h1>
-            <p className="text-sm text-text-muted mt-2 font-sans max-w-2xl leading-relaxed">
-              {architecture.summary.slice(0, 160)}{architecture.summary.length > 160 ? '…' : ''}
-            </p>
-          </div>
+      <RepoCommandPalette
+        open={paletteOpen}
+        onClose={() => setPaletteOpen(false)}
+        items={commandItems}
+        scopeLabel={repoName}
+      />
 
-          <div className="flex flex-wrap items-center gap-2 shrink-0">
-            <Badge tone="success" icon={<CheckCircle2 className="h-3 w-3" />}>
-              Indexed
-            </Badge>
-            <a
-              href={`https://github.com/${owner}/${repoSlug}`}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="btn-ghost text-xs"
-            >
-              <GitPullRequest className="h-3.5 w-3.5" aria-hidden="true" />
-              GitHub
-            </a>
-            <button
-              type="button"
-              className="btn-ghost text-xs"
-              onClick={() => window.location.reload()}
-              aria-label="Refresh analysis"
-            >
-              <RefreshCw className="h-3.5 w-3.5" aria-hidden="true" />
-              Refresh
-            </button>
-            <button
-              type="button"
-              className="btn-ghost text-xs"
-              onClick={() => handleTabChange('report')}
-              aria-label="Export health report"
-            >
-              <FileText className="h-3.5 w-3.5" aria-hidden="true" />
-              Export Report
-            </button>
-          </div>
-        </div>
+      {/* ── REPO CONTEXT HEADER ──────────────────────────────────────────────── */}
+      <header className="space-y-6">
+        <RepoHero
+          onOpenCommandPalette={() => setPaletteOpen(true)}
+          owner={owner}
+          repoSlug={repoSlug}
+          summary={architecture.summary}
+          primaryLanguage={primaryLanguage}
+          readingMinutes={readingMinutes}
+          complexity={complexity}
+          indexedAt={indexedAt}
+          onRefresh={() => window.location.reload()}
+          onExportReport={() => handleTabChange('report')}
+        />
+
+        <ExecutiveInsights insights={insights} />
 
         {/* KPI metric strip */}
         <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3">
@@ -423,7 +580,11 @@ export const AnalysisDashboard: React.FC<DashboardProps> = ({ repoParam }) => {
             icon={<FileText className="h-4 w-4" />}
             label="Files Indexed"
             value={<AnimatedNumber value={fileCount} />}
-            hint={`${Object.keys(analysis.structure).length} directories`}
+            hint={`${directoryCount} ${directoryCount === 1 ? 'directory' : 'directories'}`}
+            subHint={`~${Math.max(1, Math.round(fileCount / Math.max(1, directoryCount)))} files per directory`}
+            footnote={indexedAgo ? `Indexed ${indexedAgo}` : 'Indexed this session'}
+            spark={fileDistribution}
+            sparkLabel="File count per directory, largest first"
           />
           <MetricCard
             tone="info"
@@ -431,6 +592,8 @@ export const AnalysisDashboard: React.FC<DashboardProps> = ({ repoParam }) => {
             label="Languages"
             value={<AnimatedNumber value={languageCount} />}
             hint={analysis.tech_stack.slice(0, 3).join(' · ') || '—'}
+            subHint={primaryLanguage ? `Primary: ${primaryLanguage}` : undefined}
+            footnote={`${languageCount} stack ${languageCount === 1 ? 'signal' : 'signals'} detected`}
           />
           <MetricCard
             tone="success"
@@ -438,20 +601,33 @@ export const AnalysisDashboard: React.FC<DashboardProps> = ({ repoParam }) => {
             label="Components"
             value={<AnimatedNumber value={componentCount} />}
             hint={`${architecture.relationships.length} relationships`}
+            subHint={
+              circularDependencies.length > 0
+                ? `${circularDependencies.length} cycle${circularDependencies.length === 1 ? '' : 's'} detected`
+                : 'No cycles detected'
+            }
+            footnote="From architecture graph"
+            spark={componentDistribution}
+            sparkLabel="Relationships per component, most connected first"
+            onClick={() => handleTabChange('graph')}
           />
           <MetricCard
             tone="warn"
             icon={<Box className="h-4 w-4" />}
             label="Dependencies"
             value={<AnimatedNumber value={dependencyCount} />}
-            hint="primary manifests"
+            hint="Resolved from manifests"
+            subHint={`Complexity ${complexity.label.toLowerCase()} · ${complexity.score}/100`}
+            footnote="External package surface"
           />
           <MetricCard
             tone="primary"
             icon={<DoorOpen className="h-4 w-4" />}
             label="Reading Steps"
             value={<AnimatedNumber value={readingSteps} />}
-            hint="ranked onboarding flow"
+            hint="Ranked onboarding flow"
+            subHint={`~${formatDuration(readingMinutes)} to complete`}
+            footnote="Open reading path →"
             onClick={() => handleTabChange('reading_path')}
           />
         </div>
@@ -459,7 +635,7 @@ export const AnalysisDashboard: React.FC<DashboardProps> = ({ repoParam }) => {
 
       {/* ── WORKSPACE ────────────────────────────────────────────────────────── */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
-        <div className="lg:col-span-4 space-y-4">
+        <div className="lg:col-span-3 xl:col-span-3 space-y-4">
           <FileTree structure={analysis.structure} onFileSelect={setSelectedFile} />
           {selectedFile && (
             <div className="card p-4 space-y-3 fade-up">
@@ -486,7 +662,7 @@ export const AnalysisDashboard: React.FC<DashboardProps> = ({ repoParam }) => {
           )}
         </div>
 
-        <div className="lg:col-span-8 space-y-6 min-w-0">
+        <div className="lg:col-span-9 xl:col-span-9 space-y-6 min-w-0">
           <Tabs items={TABS} active={activeTab} onChange={handleTabChange} />
 
           {/* Tab panels — mount-on-first-visit, stay mounted to preserve state */}
@@ -536,32 +712,9 @@ export const AnalysisDashboard: React.FC<DashboardProps> = ({ repoParam }) => {
                         </p>
                       </div>
 
-                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                        <div className="card p-4 space-y-3">
-                          <h2 className="panel-title">
-                            <Code2 className="h-4 w-4 text-primary" aria-hidden="true" /> Detected Stack
-                          </h2>
-                          <div className="flex flex-wrap gap-2">
-                            {analysis.tech_stack.map((t) => (
-                              <span key={t} className="text-xs font-mono bg-canvas border border-border px-2.5 py-1 rounded-md text-text">
-                                {t}
-                              </span>
-                            ))}
-                          </div>
-                        </div>
-
-                        <div className="card p-4 space-y-3">
-                          <h2 className="panel-title">
-                            <Box className="h-4 w-4 text-primary" aria-hidden="true" /> Primary Dependencies
-                          </h2>
-                          <div className="flex flex-wrap gap-1.5 max-h-44 overflow-y-auto">
-                            {analysis.dependencies.map((dep) => (
-                              <span key={dep} className="text-[10px] font-mono bg-canvas border border-border/60 px-2 py-0.5 rounded text-text-muted">
-                                {dep}
-                              </span>
-                            ))}
-                          </div>
-                        </div>
+                      <div className="grid grid-cols-1 xl:grid-cols-2 gap-4 items-start">
+                        <TechStackPanel techStack={analysis.tech_stack} />
+                        <DependencyExplorer dependencies={analysis.dependencies} />
                       </div>
 
                       {/* Codebase Health & Warnings Grid */}
@@ -573,10 +726,10 @@ export const AnalysisDashboard: React.FC<DashboardProps> = ({ repoParam }) => {
                           </span>
                           <div className="flex items-baseline gap-2">
                             <span className="text-2xl font-extrabold text-text font-mono">
-                              {Math.min(100, (fileCount * 1) + (componentCount * 3) + (dependencyCount * 2))}
+                              {complexity.score}
                             </span>
                             <span className="text-[9px] font-bold text-primary font-mono uppercase">
-                              {fileCount > 100 || componentCount > 12 ? 'High density' : 'Moderate'}
+                              {complexity.label} density
                             </span>
                           </div>
                           <p className="text-[10px] text-text-muted leading-relaxed font-sans">
@@ -592,15 +745,15 @@ export const AnalysisDashboard: React.FC<DashboardProps> = ({ repoParam }) => {
                           <div className="flex items-center gap-2">
                             {circularDependencies.length > 0 ? (
                               <>
-                                <span className="h-2 w-2 rounded-full bg-amber-500 animate-pulse" />
-                                <span className="text-xs font-bold text-amber-500 font-mono uppercase">
+                                <span className="h-2 w-2 rounded-full bg-warn animate-pulse" aria-hidden="true" />
+                                <span className="text-xs font-bold text-warn font-mono uppercase">
                                   {circularDependencies.length} cycle(s) found
                                 </span>
                               </>
                             ) : (
                               <>
-                                <span className="h-2 w-2 rounded-full bg-emerald-500" />
-                                <span className="text-xs font-bold text-emerald-500 font-mono uppercase">
+                                <span className="h-2 w-2 rounded-full bg-success" aria-hidden="true" />
+                                <span className="text-xs font-bold text-success font-mono uppercase">
                                   Acyclic / Stable
                                 </span>
                               </>
@@ -615,20 +768,30 @@ export const AnalysisDashboard: React.FC<DashboardProps> = ({ repoParam }) => {
 
                         {/* Entry Points Card */}
                         <div className="card p-4 space-y-2.5">
-                          <span className="text-[10px] uppercase font-mono tracking-widest text-text-subtle font-semibold block">
-                            Inferred Entry Points
-                          </span>
+                          <div className="flex items-center justify-between gap-2">
+                            <span className="text-[10px] uppercase font-mono tracking-widest text-text-subtle font-semibold">
+                              Inferred Entry Points
+                            </span>
+                            {entryPoints.length > 0 && (
+                              <span className="text-[10px] font-mono text-text-subtle shrink-0">
+                                {entryPoints.length}
+                              </span>
+                            )}
+                          </div>
                           {entryPoints.length > 0 ? (
                             <div className="flex flex-wrap gap-1.5">
-                              {entryPoints.map((ep) => (
-                                <span
+                              {entryPoints.slice(0, 6).map((ep) => (
+                                <button
                                   key={ep}
+                                  type="button"
                                   onClick={() => setSelectedFile(ep)}
-                                  className="text-[9px] font-mono bg-canvas border border-primary/20 hover:border-primary/50 text-primary cursor-pointer px-1.5 py-0.5 rounded truncate max-w-full"
-                                  title={`Click to select: ${ep}`}
+                                  className="text-[9px] font-mono bg-canvas border border-primary/20 hover:border-primary/50
+                                             text-primary px-1.5 py-0.5 rounded truncate max-w-full transition-colors
+                                             focus-visible:outline-none focus-visible:shadow-ring"
+                                  title={`Select ${ep} in the file tree`}
                                 >
                                   {ep.split('/').pop()}
-                                </span>
+                                </button>
                               ))}
                             </div>
                           ) : (
@@ -680,8 +843,43 @@ export const AnalysisDashboard: React.FC<DashboardProps> = ({ repoParam }) => {
                           <EmptyState
                             compact
                             icon={<Network className="h-5 w-5" aria-hidden="true" />}
-                            title="No architectural relationships found"
-                            description="This repository's components run independently."
+                            title="No component relationships detected"
+                            description={
+                              <span>
+                                The architecture agent did not find cross-component links, which usually
+                                means this repository contains largely independent modules or services.
+                                File-level structure is still fully indexed.
+                              </span>
+                            }
+                            secondaryHelp="Component links are inferred from imports between top-level packages, so flat or single-module layouts often produce none."
+                            action={
+                              <div className="flex flex-wrap gap-2 justify-center">
+                                <button
+                                  type="button"
+                                  onClick={() => handleTabChange('graph')}
+                                  className="btn-ghost text-xs"
+                                >
+                                  <Code2 className="h-3.5 w-3.5" aria-hidden="true" />
+                                  Inspect file graph
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => handleTabChange('call_graph')}
+                                  className="btn-ghost text-xs"
+                                >
+                                  <Workflow className="h-3.5 w-3.5" aria-hidden="true" />
+                                  Trace call graph
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => handleTabChange('reading_path')}
+                                  className="btn-ghost text-xs"
+                                >
+                                  <BookOpen className="h-3.5 w-3.5" aria-hidden="true" />
+                                  Follow reading path
+                                </button>
+                              </div>
+                            }
                           />
                         )}
                       </div>
@@ -691,17 +889,27 @@ export const AnalysisDashboard: React.FC<DashboardProps> = ({ repoParam }) => {
                   {/* ── Structure ── */}
                   {id === 'graph' && (
                     <Suspense fallback={<SkeletonGraph />}>
-                      <InteractiveDependencyGraph repoName={repoName} />
+                      <InteractiveDependencyGraph repoName={repoName} focusRequest={graphFocus} />
                     </Suspense>
                   )}
                   {id === 'call_graph'  && <CallGraphAnalyzer  repoName={repoName} />}
                   {id === 'api_surface' && <APISurfaceAnalyzer repoName={repoName} />}
 
                   {/* ── Understand ── */}
-                  {id === 'reading_path' && <ReadingOrderTimeline repoName={repoName} />}
+                  {id === 'reading_path' && (
+                    <ReadingOrderTimeline
+                      repoName={repoName}
+                      onAskAboutFile={handleAskAboutFile}
+                      onViewInGraph={handleViewInGraph}
+                    />
+                  )}
                   {id === 'chat' && (
                     <div className="min-h-[600px] flex flex-col">
-                      <ChatInterface repoName={repoName} />
+                      <ChatInterface
+                        repoName={repoName}
+                        pendingPrompt={pendingChatPrompt}
+                        onPendingPromptConsumed={() => setPendingChatPrompt(null)}
+                      />
                     </div>
                   )}
 

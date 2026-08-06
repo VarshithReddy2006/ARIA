@@ -18,19 +18,12 @@ functions live in dedicated modules:
 
 import sys
 import os
+from typing import Any
 
 # Ensure project root is on sys.path so all local packages are importable
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from backend.settings import settings
-from backend.logging_config import configure_logging
-from storage.migrations import run_migrations
-
-# Initialise logging before imports read it
-configure_logging(log_level=settings.log_level, log_format=settings.log_format)
-
-# Run database migrations on startup
-run_migrations()
 
 from fastapi import FastAPI  # noqa: E402
 from fastapi.middleware.cors import CORSMiddleware  # noqa: E402
@@ -48,9 +41,56 @@ from contextlib import asynccontextmanager  # noqa: E402
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    # Validate LLM providers during startup before serving traffic
+    from backend.settings import settings
+    from backend.logging_config import configure_logging
+    from storage.migrations import run_migrations
+    from ria.container import build_container
+
+    # 1. Configure logging on application startup
+    configure_logging(log_level=settings.log_level, log_format=settings.log_format)
+    # 2. Run database migrations on startup
+    run_migrations()
+    # 3. Hydrate ANALYSIS_STORE from disk
+    from backend.dependencies import _load_analysis_store
+    _load_analysis_store()
+
+    # 4. Initialize RIA Composition Root Container
+    container = build_container(run_migrations=False)
+    app.state.container = container
+    app.state.git = container.git
+    app.state.parser_service = container.parser_service
+    app.state.repository_manager = container.repository_manager
+    app.state.ingestion_service = container.ingestion_service
+
+    # 5. Warm up high-impact services
+    _warmup_services()
+    # 6. Validate LLM providers during startup before serving traffic
     await validate_llm_providers()
-    yield
+
+    # Store singletons on app.state
+    from backend import dependencies as deps
+    app.state.snapshot_store = deps.get_snapshot_store()
+    app.state.analysis_cache = deps.get_analysis_cache()
+    app.state.symbol_service = deps.get_symbol_service()
+    app.state.architecture_service = deps.get_architecture_service()
+    app.state.graph_service = deps.get_graph_service()
+    app.state.github_service = deps.get_github_service()
+    app.state.embedding_service = deps.get_embedding_service()
+    app.state.chroma_store = deps.get_chroma_store()
+    app.state.pr_intelligence_service = deps.get_pr_intelligence_service()
+    app.state.dead_code_service = deps.get_dead_code_service()
+    app.state.architecture_drift_service = deps.get_architecture_drift_service()
+    app.state.workspace_service = deps.get_workspace_service()
+
+    try:
+        yield
+    finally:
+        # Cleanup container and database resources on shutdown
+        if hasattr(app.state, "container") and app.state.container:
+            try:
+                app.state.container.close()
+            except Exception:
+                pass
 
 
 app = FastAPI(
@@ -59,6 +99,10 @@ app = FastAPI(
     version="1.0.0",
     lifespan=lifespan,
 )
+
+# Register global exception handlers (R-019)
+from backend.exception_handlers import register_exception_handlers  # noqa: E402
+register_exception_handlers(app)
 
 # Production Middlewares
 from backend.security_middleware import APIKeyMiddleware  # noqa: E402
@@ -73,12 +117,8 @@ app.add_middleware(RateLimitMiddleware, limit=settings.rate_limit_per_minute)
 app.add_middleware(MetricsMiddleware)
 app.add_middleware(GZipMiddleware, minimum_size=1000)
 app.add_middleware(TrustedHostMiddleware, allowed_hosts=settings.allowed_hosts)
-# Build the CORS origins list from settings.
-# allow_credentials=True is incompatible with allow_origins=["*"] per the
-# CORS spec — browsers reject credentialed responses with a wildcard origin.
-# Use the configured frontend URL instead.
+
 _cors_origins = [settings.frontend_url]
-# In development also permit the default Astro and Vite dev-server ports.
 if "localhost:4321" not in settings.frontend_url:
     _cors_origins.append("http://localhost:4321")
 if "localhost:5173" not in settings.frontend_url:
@@ -92,32 +132,19 @@ app.add_middleware(
     allow_headers=["Content-Type", "Authorization", "X-Request-ID"],
 )
 
-# ---------------------------------------------------------------------------
-# Startup — hydrate ANALYSIS_STORE from disk before the first request
-# ---------------------------------------------------------------------------
-from backend.dependencies import _load_analysis_store  # noqa: E402
 
-_load_analysis_store()
-
-
-# ---------------------------------------------------------------------------
-# Startup Warmup — Eagerly load high-impact services (BGE model, Tokenizer, Python parser)
-# ---------------------------------------------------------------------------
 def _warmup_services() -> None:
     import logging
 
     logger = logging.getLogger("backend.api")
     try:
-        # 1. Warm up embedding model & tokenizer
         from services.embedding_service import _get_model
 
         logger.info("Warming up embedding model and tokenizer...")
         model = _get_model()
-        # Explicitly warm up the tokenizer and model with a dummy text
         model.encode(["Represent this sentence: dummy text"], show_progress_bar=False)
         logger.info("Embedding model and tokenizer warmed up successfully.")
 
-        # 2. Warm up ONLY Python Tree-sitter parser
         from services.tree_sitter_service import TreeSitterService
 
         logger.info("Warming up Python Tree-sitter parser...")
@@ -126,9 +153,6 @@ def _warmup_services() -> None:
         logger.info("Python Tree-sitter parser warmed up successfully.")
     except Exception as exc:
         logger.warning("Startup warm-up failed: %s", exc, exc_info=True)
-
-
-_warmup_services()
 
 # ---------------------------------------------------------------------------
 # Startup Validation — validate LLM providers before serving traffic
@@ -278,8 +302,6 @@ from backend.routers.pr import router as pr_router  # noqa: E402
 from backend.routers.git_history import router as git_history_router  # noqa: E402
 from backend.routers.call_graph import router as call_graph_router  # noqa: E402
 from backend.routers.api_surface import router as api_surface_router  # noqa: E402
-from backend.routers.stability import router as stability_router  # noqa: E402
-from backend.routers.dependency_smells import router as dependency_smells_router  # noqa: E402
 from backend.routers.metrics import router as metrics_router  # noqa: E402
 from backend.routers.report import router as report_router  # noqa: E402
 from backend.routers.twin import router as twin_router  # noqa: E402
@@ -294,46 +316,42 @@ from backend.routers.execution import router as execution_router  # noqa: E402
 from backend.routers.workspace import router as workspace_router  # noqa: E402
 
 
-# 1. Register routes under root (backward compatibility)
+# Add legacy redirection middleware (R-009)
+from fastapi import Request  # noqa: E402
+from fastapi.responses import RedirectResponse  # noqa: E402
+
+
+@app.middleware("http")
+async def legacy_prefix_redirect_middleware(request: Request, call_next):
+    path = request.url.path
+    if path.startswith("/api/") and not path.startswith("/api/v1/"):
+        if request.method == "OPTIONS":
+            request.scope["path"] = "/api/v1" + path[4:]
+            return await call_next(request)
+        target_path = "/api/v1" + path[4:]
+        if request.url.query:
+            target_path += "?" + request.url.query
+        response = RedirectResponse(
+            url=target_path,
+            status_code=308,
+            headers={"Deprecation": "true", "Sunset": "2026-12-31"},
+        )
+        origin = request.headers.get("origin")
+        if origin:
+            response.headers["Access-Control-Allow-Origin"] = origin
+            response.headers["Access-Control-Allow-Credentials"] = "true"
+        return response
+    return await call_next(request)
+
+
+# ---------------------------------------------------------------------------
+# Router registration — Single canonical /api/v1 base prefix (R-009)
+# ---------------------------------------------------------------------------
+# System ops & metrics top-level shortcuts
 app.include_router(health_router)
-app.include_router(repositories_router)
-app.include_router(chat_router)
-app.include_router(architecture_router)
-app.include_router(graph_router)
-app.include_router(symbols_router)
-app.include_router(pr_router)
-app.include_router(git_history_router)
-app.include_router(call_graph_router)
-app.include_router(api_surface_router)
-app.include_router(stability_router)
-app.include_router(dependency_smells_router)
 app.include_router(metrics_router)
-app.include_router(report_router)
-app.include_router(twin_router)
-app.include_router(twin_router, prefix="/api")
-app.include_router(knowledge_graph_router)
-app.include_router(knowledge_graph_router, prefix="/api")
-app.include_router(retrieval_router)
-app.include_router(retrieval_router, prefix="/api")
-app.include_router(reasoning_router)
-app.include_router(reasoning_router, prefix="/api")
-app.include_router(graph_rag_router)
-app.include_router(graph_rag_router, prefix="/api")
-app.include_router(memory_router)
-app.include_router(memory_router, prefix="/api")
-app.include_router(inspection_router)
-app.include_router(inspection_router, prefix="/api")
-app.include_router(monitoring_router)
-app.include_router(monitoring_router, prefix="/api")
-app.include_router(advisor_router)
-app.include_router(advisor_router, prefix="/api")
-app.include_router(execution_router)
-app.include_router(execution_router, prefix="/api")
-app.include_router(workspace_router)
-app.include_router(workspace_router, prefix="/api")
 
-
-# 2. Register versioned routes under /api/v1
+# Versioned API routes under /api/v1
 app.include_router(health_router, prefix="/api/v1")
 app.include_router(repositories_router, prefix="/api/v1")
 app.include_router(chat_router, prefix="/api/v1")
@@ -344,8 +362,6 @@ app.include_router(pr_router, prefix="/api/v1")
 app.include_router(git_history_router, prefix="/api/v1")
 app.include_router(call_graph_router, prefix="/api/v1")
 app.include_router(api_surface_router, prefix="/api/v1")
-app.include_router(stability_router, prefix="/api/v1")
-app.include_router(dependency_smells_router, prefix="/api/v1")
 app.include_router(metrics_router, prefix="/api/v1")
 app.include_router(report_router, prefix="/api/v1")
 app.include_router(twin_router, prefix="/api/v1")
@@ -375,3 +391,9 @@ if __name__ == "__main__":
         reload=settings.app_env == "development",
         reload_dirs=["backend", "services", "agents", "memory", "models"],
     )
+
+
+def __getattr__(name: str) -> Any:
+    """Delegate attribute lookups to backend.dependencies for backward compatibility."""
+    import backend.dependencies as deps
+    return getattr(deps, name)

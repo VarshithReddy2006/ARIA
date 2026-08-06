@@ -1,11 +1,24 @@
-"""Production security middlewares including configurable rate limiting."""
-
+import logging
+import secrets
 import time
 import threading
-from typing import Dict, List, Optional
+from typing import Dict, List, Optional, Set
 from starlette.middleware.base import BaseHTTPMiddleware, RequestResponseEndpoint
 from starlette.requests import Request
 from starlette.responses import Response, JSONResponse
+
+logger = logging.getLogger(__name__)
+
+# Explicit public endpoint path allowlist
+PUBLIC_PATHS: Set[str] = {
+    "/health",
+    "/metrics",
+    "/api/v1/health",
+    "/api/v1/metrics",
+    "/docs",
+    "/redoc",
+    "/openapi.json",
+}
 
 
 class RateLimiter:
@@ -96,7 +109,7 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
 
 
 class APIKeyMiddleware(BaseHTTPMiddleware):
-    """Simple API Key authentication middleware for expensive endpoints."""
+    """Deny-by-default API Key authentication middleware."""
 
     def __init__(
         self, app, api_key: Optional[str] = None, app_env: str = "development"
@@ -105,56 +118,44 @@ class APIKeyMiddleware(BaseHTTPMiddleware):
         self.api_key = api_key
         self.app_env = app_env
 
+        if self.app_env == "production" and not self.api_key:
+            raise RuntimeError(
+                "API_KEY must be configured when running in production mode (APP_ENV=production)"
+            )
+
     async def dispatch(
         self, request: Request, call_next: RequestResponseEndpoint
     ) -> Response:
-        # If API key is not configured, bypass auth
+        # If API key is not configured in non-production environments, bypass auth
         if not self.api_key:
             return await call_next(request)
 
-        # Bypass auth for health, metrics, and options requests
-        if request.method == "OPTIONS" or request.url.path in [
-            "/health",
-            "/metrics",
-            "/api/v1/health",
-            "/api/v1/metrics",
-        ]:
+        # Allow OPTIONS (CORS preflight) and explicit public routes
+        path = request.url.path
+        if (
+            request.method == "OPTIONS"
+            or path in PUBLIC_PATHS
+            or path.startswith("/docs")
+            or path.startswith("/redoc")
+        ):
             return await call_next(request)
 
-        # Protect expensive endpoints
-        expensive_paths = [
-            "/api/analyze",
-            "/api/index",
-            "/api/chat",
-            "/api/retrieve",
-            "/api/issues/map",
-            "/api/v1/analyze",
-            "/api/v1/index",
-            "/api/v1/chat",
-            "/api/v1/retrieve",
-            "/api/v1/issues/map",
-        ]
-        is_expensive = (
-            any(request.url.path.startswith(p) for p in expensive_paths)
-            or "/report" in request.url.path
-        )
+        # Deny-by-default: all other endpoints require valid API key
+        provided_key = request.headers.get("X-API-Key")
 
-        if is_expensive:
-            provided_key = request.headers.get("X-API-Key")
+        # Fallback to Authorization header
+        if not provided_key:
+            auth_header = request.headers.get("Authorization")
+            if auth_header:
+                if auth_header.lower().startswith("bearer "):
+                    provided_key = auth_header[7:]
+                else:
+                    provided_key = auth_header
 
-            # Fallback to Authorization header
-            if not provided_key:
-                auth_header = request.headers.get("Authorization")
-                if auth_header:
-                    if auth_header.lower().startswith("bearer "):
-                        provided_key = auth_header[7:]
-                    else:
-                        provided_key = auth_header
-
-            if not provided_key or provided_key != self.api_key:
-                return JSONResponse(
-                    status_code=401,
-                    content={"detail": "Unauthorized. Invalid or missing API key."},
-                )
+        if not provided_key or not secrets.compare_digest(provided_key, self.api_key):
+            return JSONResponse(
+                status_code=401,
+                content={"detail": "Unauthorized. Invalid or missing API key."},
+            )
 
         return await call_next(request)

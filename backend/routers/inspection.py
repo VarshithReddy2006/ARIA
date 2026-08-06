@@ -5,21 +5,50 @@ engineering findings and reports.
 """
 
 import logging
+import sys
 from typing import Any, Dict, List, Optional
 
 from fastapi import APIRouter, HTTPException, Query
 
 from backend.dependencies import (
-    repository_inspector,
-    repository_twin_builder,
-    repository_knowledge_graph_builder,
-    engineering_memory_service,
+    repository_inspector as _repository_inspector,
+    repository_twin_builder as _repository_twin_builder,
+    repository_knowledge_graph_builder as _repository_knowledge_graph_builder,
+    engineering_memory_service as _engineering_memory_service,
 )
 from models.inspection import Finding, InspectionReport
 from services.memory_service import RecentHistoryPolicy
 
 logger = logging.getLogger(__name__)
 
+
+class _ReloadSafeDependency:
+    """Resolve a compatibility dependency from the currently loaded router module."""
+
+    def __init__(self, name: str, fallback: object) -> None:
+        self._name = name
+        self._fallback = fallback
+
+    def __getattr__(self, attribute: str) -> object:
+        module = sys.modules.get(__name__)
+        dependency = getattr(module, self._name, self._fallback)
+        if dependency is self:
+            dependency = self._fallback
+        return getattr(dependency, attribute)
+
+
+repository_inspector = _ReloadSafeDependency(
+    "repository_inspector", _repository_inspector
+)
+repository_twin_builder = _ReloadSafeDependency(
+    "repository_twin_builder", _repository_twin_builder
+)
+repository_knowledge_graph_builder = _ReloadSafeDependency(
+    "repository_knowledge_graph_builder", _repository_knowledge_graph_builder
+)
+engineering_memory_service = _ReloadSafeDependency(
+    "engineering_memory_service", _engineering_memory_service
+)
 router = APIRouter(tags=["Repository Inspector"])
 
 

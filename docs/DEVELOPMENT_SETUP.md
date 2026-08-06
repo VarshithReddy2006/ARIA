@@ -1,4 +1,4 @@
-# Development Setup & Contributor Guide — Repo Intelligence Agent v1.0.0
+# Development Setup & Contributor Guide — Repo Intelligence Agent v1.5.0
 
 This document covers local environment setup, running backend and frontend services, and testing.
 

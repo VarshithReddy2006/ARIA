@@ -261,17 +261,9 @@ class ChatPipeline:
         self.validator = validator or GroundingValidator()
 
     def get_retrieval_engine(self) -> Any:
-        if self.retrieval_engine is None:
-            from backend.dependencies import structural_retrieval_engine
-
-            self.retrieval_engine = structural_retrieval_engine
         return self.retrieval_engine
 
     def get_reasoning_engine(self) -> Any:
-        if self.reasoning_engine is None:
-            from backend.dependencies import engineering_reasoning_engine
-
-            self.reasoning_engine = engineering_reasoning_engine
         return self.reasoning_engine
 
     async def execute(

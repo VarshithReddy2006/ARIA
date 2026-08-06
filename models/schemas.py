@@ -152,3 +152,15 @@ class IssueMapResponse(BaseModel):
     confidence: int = Field(..., description="Confidence score from 0 to 100.")
     verified: bool = Field(..., description="True if no hallucinations detected.")
     sources: List[str] = Field(..., description="List of cited source files.")
+
+
+class EvidenceItem(BaseModel):
+    """Structured evidence citation model for repository answers."""
+
+    file: str = Field(..., description="Repository file path.")
+    line_start: int = Field(0, description="Starting line number.")
+    line_end: int = Field(0, description="Ending line number.")
+    reason: str = Field("", description="Reason this snippet/file is cited.")
+    confidence: float = Field(0.95, description="Confidence score between 0.0 and 1.0.")
+    snippet: Optional[str] = Field(None, description="Optional concise code excerpt (max 3-10 lines).")
+

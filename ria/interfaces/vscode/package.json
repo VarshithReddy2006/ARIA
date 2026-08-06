@@ -1,0 +1,65 @@
+{
+  "name": "ria-vscode-extension",
+  "displayName": "Repository Intelligence Agent (RIA)",
+  "description": "Deterministic repository intelligence, semantic resolution, context assembly, and grounded answering inside VS Code.",
+  "version": "2.0.0",
+  "publisher": "ria-team",
+  "engines": {
+    "vscode": "^1.80.0"
+  },
+  "categories": [
+    "Other"
+  ],
+  "activationEvents": [
+    "onCommand:ria.askRepository",
+    "onCommand:ria.explainSymbol",
+    "onCommand:ria.findDefinition",
+    "onCommand:ria.findReferences",
+    "onCommand:ria.showCallGraph"
+  ],
+  "main": "./extension/index.js",
+  "contributes": {
+    "commands": [
+      {
+        "command": "ria.askRepository",
+        "title": "RIA: Ask Repository"
+      },
+      {
+        "command": "ria.explainSymbol",
+        "title": "RIA: Explain Symbol"
+      },
+      {
+        "command": "ria.findDefinition",
+        "title": "RIA: Find Definition"
+      },
+      {
+        "command": "ria.findReferences",
+        "title": "RIA: Find References"
+      },
+      {
+        "command": "ria.showCallGraph",
+        "title": "RIA: Show Call Graph"
+      },
+      {
+        "command": "ria.explainModule",
+        "title": "RIA: Explain Module"
+      },
+      {
+        "command": "ria.explainRepository",
+        "title": "RIA: Explain Repository"
+      },
+      {
+        "command": "ria.repositoryChat",
+        "title": "RIA: Repository Chat"
+      },
+      {
+        "command": "ria.contextExplorer",
+        "title": "RIA: Context Explorer"
+      },
+      {
+        "command": "ria.repositoryStatus",
+        "title": "RIA: Repository Status"
+      }
+    ]
+  }
+}

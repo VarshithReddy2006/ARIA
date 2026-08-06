@@ -28,6 +28,7 @@ import asyncio
 import json
 import logging
 import time
+import uuid
 from typing import Any, AsyncIterator, Dict, List, Optional
 
 from services.arch_context_service import ArchContextService
@@ -35,12 +36,14 @@ from services.embedding_service import EmbeddingService
 from memory.chroma_store import ChromaStore
 
 from .conversation_memory import ConversationMemoryStore, conversation_memory
+from .conversation_orchestrator import ConversationOrchestrator
 from .intent_detector import IntentDetector, RuleBasedIntentDetector
 from .intent_router import IntentRouter, RepositoryIntelligence
 from .retrieval import intelligent_retrieve, detect_deterministic_retrieval
 from .context_builder import ContextBuilder
 from .provider_manager import ProviderManager
 from .fallback_renderer import render_fallback, render_mid_stream_termination
+from .citation_verifier import CitationVerifier
 from .observability import ChatObservability, PipelineTrace, chat_observability
 
 logger = logging.getLogger(__name__)
@@ -65,6 +68,8 @@ class RetrievalPipeline:
         memory_store: Optional[ConversationMemoryStore] = None,
         observability: Optional[ChatObservability] = None,
         symbol_service: Optional[Any] = None,
+        orchestrator: Optional[ConversationOrchestrator] = None,
+        citation_verifier: Optional[CitationVerifier] = None,
     ) -> None:
         self.embedding_service = embedding_service
         self.chroma_store = chroma_store
@@ -78,6 +83,24 @@ class RetrievalPipeline:
         self.symbol_service = symbol_service or getattr(
             self.intent_router, "_symbols", None
         )
+        self.orchestrator = orchestrator or ConversationOrchestrator(
+            memory_store=self.memory_store
+        )
+        self.citation_verifier = citation_verifier or CitationVerifier()
+
+    @staticmethod
+    def _session_id(session_id: Optional[str]) -> str:
+        return session_id.strip() if session_id and session_id.strip() else uuid.uuid4().hex
+
+    def _verify_answer(self, answer: str, source_contexts: List[Any]) -> tuple[bool, Dict[str, Any]]:
+        try:
+            report = self.citation_verifier.verify_answer(
+                answer, source_contexts=source_contexts
+            )
+            return report.citations_valid, report.model_dump()
+        except Exception as exc:
+            logger.warning("Citation verification failed: %s", exc)
+            return False, {"citations_valid": False, "feedback": "Citation verification failed."}
 
     # ------------------------------------------------------------------
     # Non-streaming path (for RetrievalService compatibility + tests)
@@ -87,7 +110,7 @@ class RetrievalPipeline:
         self,
         repo_name: str,
         question: str,
-        session_id: str = "default",
+        session_id: Optional[str] = None,
         history: Optional[List[Dict]] = None,
     ) -> Dict[str, Any]:
         """Generate a complete answer (non-streaming).
@@ -104,11 +127,13 @@ class RetrievalPipeline:
                 "fallback_mode": bool,
             }
         """
+        session_id = self._session_id(session_id)
         trace = PipelineTrace(repo_name=repo_name, session_id=session_id)
         session = self.memory_store.get_or_create(repo_name, session_id)
 
-        # 1. Pronoun resolution
-        resolved_question = session.resolve_pronouns(question)
+        # 1. Orchestration & Query Rewriting
+        orch_res = self.orchestrator.process_incoming_query(repo_name, session_id, question)
+        resolved_question = orch_res.rewritten_query
         trace.question_length = len(resolved_question)
 
         # 2. Intent detection
@@ -132,11 +157,13 @@ class RetrievalPipeline:
                 + "\n".join(f"- `{f}`" for f in choices)
                 + "\n\nPlease clarify which file you would like to retrieve."
             )
+            citation_valid, citation_report = self._verify_answer(msg, [])
             return {
                 "answer": msg,
                 "sources": choices,
                 "confidence": 98,
-                "verified": True,
+                "verified": citation_valid,
+                "citation_report": citation_report,
                 "evaluation": {},
                 "intent": intent_result.intent.value,
                 "fallback_mode": False,
@@ -162,6 +189,9 @@ class RetrievalPipeline:
                 embedding_service=self.embedding_service,
                 chroma_store=self.chroma_store,
                 symbol_service=self.symbol_service,
+                conversation_context=orch_res.context,
+                conversation_settings=self.orchestrator.settings,
+                disable_previous_boosts=orch_res.disable_previous_boosts,
             )
             trace.from_retrieval_metrics(ret_metrics)
             trace.from_chunks(chunks)
@@ -235,17 +265,19 @@ class RetrievalPipeline:
 
         trace.fallback_triggered = fallback_triggered
         trace.fallback_reason = fallback_reason
+        citation_valid, citation_report = self._verify_answer(answer, chunks)
 
         # 8. Update conversation memory
         if not fallback_triggered:
-            session.add_turn("user", question)
-            session.add_turn(
-                "assistant", answer[:2000]
-            )  # store summary, not full answer
-            session.update_context(
-                entities=intent_result.entities,
-                files=built.source_files[:5],
-                intent=intent_result.intent.value,
+            self.orchestrator.finalize_turn(
+                repo_name=repo_name,
+                session_id=session_id,
+                raw_question=question,
+                rewritten_query=resolved_question,
+                answer=answer,
+                retrieved_chunks=chunks,
+                retrieval_metrics=ret_metrics,
+                orchestration_result=orch_res,
             )
 
         # 9. Collect sources
@@ -260,7 +292,8 @@ class RetrievalPipeline:
             "confidence": ret_metrics.get("confidence", 85)
             if not fallback_triggered
             else 0,
-            "verified": not fallback_triggered,
+            "verified": citation_valid and not fallback_triggered,
+            "citation_report": citation_report,
             "evaluation": {},
             "intent": intent_result.intent.value,
             "fallback_mode": fallback_triggered,
@@ -274,7 +307,7 @@ class RetrievalPipeline:
         self,
         repo_name: str,
         question: str,
-        session_id: str = "default",
+        session_id: Optional[str] = None,
         history: Optional[List[Dict]] = None,
     ) -> AsyncIterator[str]:
         """Stream answer tokens as SSE-formatted strings.
@@ -285,11 +318,13 @@ class RetrievalPipeline:
 
         This is the ONLY streaming implementation in the codebase.
         """
+        session_id = self._session_id(session_id)
         trace = PipelineTrace(repo_name=repo_name, session_id=session_id)
         session = self.memory_store.get_or_create(repo_name, session_id)
 
-        # ── 1. Pronoun resolution ────────────────────────────────────────
-        resolved_question = session.resolve_pronouns(question)
+        # ── 1. Orchestration & Query Rewriting ────────────────────────────
+        orch_res = self.orchestrator.process_incoming_query(repo_name, session_id, question)
+        resolved_question = orch_res.rewritten_query
         trace.question_length = len(resolved_question)
 
         # ── 2. Intent detection ──────────────────────────────────────────
@@ -313,11 +348,14 @@ class RetrievalPipeline:
                 + "\n".join(f"- `{f}`" for f in choices)
                 + "\n\nPlease clarify which file you would like to retrieve."
             )
+            citation_valid, citation_report = self._verify_answer(msg, [])
             yield self._sse({"text": msg})
             yield self._sse(
                 {
                     "sources": choices,
                     "confidence": 98,
+                    "verified": citation_valid,
+                    "citation_report": citation_report,
                     "fallback_mode": False,
                     "intent": intent_result.intent.value,
                     "status": "done",
@@ -346,6 +384,9 @@ class RetrievalPipeline:
                 embedding_service=self.embedding_service,
                 chroma_store=self.chroma_store,
                 symbol_service=self.symbol_service,
+                conversation_context=orch_res.context,
+                conversation_settings=self.orchestrator.settings,
+                disable_previous_boosts=orch_res.disable_previous_boosts,
             )
             trace.from_retrieval_metrics(ret_metrics)
             trace.from_chunks(chunks)
@@ -422,6 +463,20 @@ class RetrievalPipeline:
                 trace.tokens_streamed = tokens_streamed
                 trace.provider_used = provider_used
 
+                if full_text.strip() == "":
+                    fallback_triggered = True
+                    fallback_reason = "empty_completion"
+                    fallback_text = render_fallback(
+                        question=resolved_question,
+                        structured_intelligence=intelligence.structured_context,
+                        chunks=chunks,
+                        source_files=built.source_files,
+                        fallback_reason="empty_completion",
+                        provider_error="Provider returned an empty completion.",
+                    )
+                    full_text = fallback_text
+                    yield self._sse({"text": fallback_text})
+
             except asyncio.CancelledError:
                 # Client disconnected cleanly
                 trace.llm_latency_ms = (time.perf_counter() - t_llm) * 1000
@@ -447,12 +502,12 @@ class RetrievalPipeline:
                     exc_info=True,
                 )
 
-                if tokens_streamed > 0:
-                    # Phase 9: mid-stream failure — append graceful termination
+                if tokens_streamed > 0 and full_text.strip():
+                    # Phase 9: mid-stream failure with existing text — append graceful termination
                     termination_msg = render_mid_stream_termination(tokens_streamed)
                     yield self._sse({"text": termination_msg})
                 else:
-                    # 0 tokens — render full fallback with actual error
+                    # 0 tokens or whitespace only — render full fallback with actual error
                     fallback_text = render_fallback(
                         question=resolved_question,
                         structured_intelligence=intelligence.structured_context,
@@ -461,10 +516,11 @@ class RetrievalPipeline:
                         fallback_reason="provider_failure",
                         provider_error=str(exc),
                     )
+                    full_text = fallback_text
                     yield self._sse({"text": fallback_text})
 
         # Emit fallback if triggered before LLM started (retrieval failure)
-        if fallback_triggered and tokens_streamed == 0 and trace.fallback_triggered:
+        if fallback_triggered and not full_text.strip():
             fallback_text = render_fallback(
                 question=resolved_question,
                 structured_intelligence=intelligence.structured_context,
@@ -473,16 +529,22 @@ class RetrievalPipeline:
                 fallback_reason=fallback_reason,
                 provider_error=fallback_reason,
             )
+            full_text = fallback_text
             yield self._sse({"text": fallback_text})
 
+        citation_valid, citation_report = self._verify_answer(full_text, chunks)
+
         # ── 8. Update conversation memory ────────────────────────────────
-        if not fallback_triggered and full_text:
-            session.add_turn("user", question)
-            session.add_turn("assistant", full_text[:2000])
-            session.update_context(
-                entities=intent_result.entities,
-                files=built.source_files[:5],
-                intent=intent_result.intent.value,
+        if not fallback_triggered and full_text.strip():
+            self.orchestrator.finalize_turn(
+                repo_name=repo_name,
+                session_id=session_id,
+                raw_question=question,
+                rewritten_query=resolved_question,
+                answer=full_text,
+                retrieved_chunks=chunks,
+                retrieval_metrics=ret_metrics,
+                orchestration_result=orch_res,
             )
 
         # ── 9. Collect sources + terminal done event ─────────────────────
@@ -494,15 +556,20 @@ class RetrievalPipeline:
         trace.finish()
         self.observability.emit(trace)
 
-        yield self._sse(
-            {
-                "sources": all_sources,
-                "confidence": confidence,
-                "fallback_mode": fallback_triggered,
-                "intent": intent_result.intent.value,
-                "status": "done",
-            }
-        )
+        try:
+            yield self._sse(
+                {
+                    "sources": all_sources,
+                    "confidence": confidence,
+                    "verified": citation_valid and not fallback_triggered,
+                    "citation_report": citation_report,
+                    "fallback_mode": fallback_triggered,
+                    "intent": intent_result.intent.value,
+                    "status": "done",
+                }
+            )
+        finally:
+            logger.info("CHAT_STREAM_COMPLETED repo=%s session=%s", repo_name, session_id)
 
     # ------------------------------------------------------------------
     # Helpers

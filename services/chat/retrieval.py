@@ -96,13 +96,16 @@ def get_unique_file_paths(repo_name: str, chroma_store) -> List[str]:
             return paths
 
     try:
-        res = chroma_store.collection.get(
-            where={"repo_name": repo_name}, include=["metadatas"]
-        )
-        metas = res.get("metadatas", []) if res else []
-        paths = sorted(
-            list(set(m["file_path"] for m in metas if m and "file_path" in m))
-        )
+        if callable(getattr(type(chroma_store), "get_repository_file_paths", None)):
+            paths = chroma_store.get_repository_file_paths(repo_name)
+        else:
+            res = chroma_store.collection.get(
+                where={"repo_name": repo_name}, include=["metadatas"]
+            )
+            metas = res.get("metadatas", []) if res else []
+            paths = sorted(
+                {meta["file_path"] for meta in metas if meta and meta.get("file_path")}
+            )
         _FILE_PATHS_CACHE[repo_name] = (now, paths)
         return paths
     except Exception as exc:
@@ -801,8 +804,11 @@ def intelligent_retrieve(
     top_k_initial: int = 15,
     top_k_final: int = 5,
     symbol_service=None,
+    conversation_context=None,
+    conversation_settings=None,
+    disable_previous_boosts: bool = False,
 ) -> tuple[List[Dict[str, Any]], Dict[str, Any]]:
-    """Full retrieval pipeline with File-Aware layer, dynamic confidence, and ranking."""
+    """Full retrieval pipeline with File-Aware layer, dynamic confidence, contextual ranking, and tier tracking."""
     t_total = time.perf_counter()
     metrics: Dict[str, Any] = {
         "initial_retrieved": 0,
@@ -858,12 +864,15 @@ def intelligent_retrieve(
 
         # Retrieve all chunks belonging to that file
         try:
-            res_chunks = chroma_store.collection.get(
-                where={
-                    "$and": [{"repo_name": repo_name}, {"file_path": matched_file_path}]
-                },
-                include=["documents", "metadatas"],
-            )
+            if callable(getattr(type(chroma_store), "get_file_chunks", None)):
+                res_chunks = chroma_store.get_file_chunks(repo_name, matched_file_path)
+            else:
+                res_chunks = chroma_store.collection.get(
+                    where={
+                        "$and": [{"repo_name": repo_name}, {"file_path": matched_file_path}]
+                    },
+                    include=["documents", "metadatas"],
+                )
             chunks = []
             if res_chunks and res_chunks.get("documents"):
                 docs = res_chunks["documents"]
@@ -970,10 +979,13 @@ def intelligent_retrieve(
     direct_chunks = []
     for f in matched_files:
         try:
-            res_chunks = chroma_store.collection.get(
-                where={"$and": [{"repo_name": repo_name}, {"file_path": f}]},
-                include=["documents", "metadatas"],
-            )
+            if callable(getattr(type(chroma_store), "get_file_chunks", None)):
+                res_chunks = chroma_store.get_file_chunks(repo_name, f)
+            else:
+                res_chunks = chroma_store.collection.get(
+                    where={"$and": [{"repo_name": repo_name}, {"file_path": f}]},
+                    include=["documents", "metadatas"],
+                )
             if res_chunks and res_chunks.get("documents"):
                 docs = res_chunks["documents"]
                 metas = res_chunks["metadatas"]
@@ -1050,6 +1062,31 @@ def intelligent_retrieve(
             + (5000.0 * overlap)
             + (1000.0 / (len(path) + 1))
         )
+
+        # Contextual ranking boosts (disabled when explicit entity is present to prevent previous topic stickiness)
+        if not disable_previous_boosts and conversation_context and conversation_context.topic_confidence >= getattr(conversation_settings, "topic_threshold", 0.35):
+            p_clean = path.replace("\\", "/").lower()
+            cur_f = conversation_context.current_file.replace("\\", "/").lower() if conversation_context.current_file else None
+            c_boost = getattr(conversation_settings, "current_file_boost", 50.0)
+            s_boost = getattr(conversation_settings, "current_symbol_boost", 35.0)
+            m_boost = getattr(conversation_settings, "current_module_boost", 20.0)
+            r_boost = getattr(conversation_settings, "recent_file_boost", 10.0)
+
+            if cur_f and (p_clean == cur_f or p_clean.endswith("/" + cur_f) or cur_f.endswith("/" + os.path.basename(p_clean))):
+                total_score += c_boost * 1000.0
+                why_this_file = "Contextual Current File"
+
+            if conversation_context.current_symbol and conversation_context.current_symbol.lower() in chunk.get("content", "").lower():
+                total_score += s_boost * 1000.0
+
+            if conversation_context.current_module and conversation_context.current_module.lower() in p_clean:
+                total_score += m_boost * 1000.0
+
+            for rf in conversation_context.recently_discussed_files:
+                rf_norm = rf.replace("\\", "/").lower()
+                if p_clean == rf_norm or p_clean.endswith("/" + rf_norm):
+                    total_score += r_boost * 1000.0
+                    break
 
         # Penalize test files slightly to break ties
         if is_test_file(path):

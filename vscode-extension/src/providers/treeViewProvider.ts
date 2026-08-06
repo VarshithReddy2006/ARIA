@@ -76,8 +76,8 @@ export class ExplorerNode extends vscode.TreeItem {
   private _applyCommand(): void {
     if (this.kind === 'architecture') {
       this.command = {
-        command: 'repoIntelligence.showArchitectureHealth',
-        title: 'Show Architecture Health',
+        command: 'repoIntelligence.openDashboard',
+        title: 'Open Dashboard',
       };
     } else if (this.kind === 'api-surface') {
       this.command = {
@@ -390,9 +390,7 @@ export class RepositoryExplorerProvider
 
   private async _loadCallGraphStats(owner: string, repo: string): Promise<ExplorerNode[]> {
     try {
-      const stats = await client.fetchJson<Record<string, unknown>>(
-        `/api/call-graph/${owner}/${repo}/stats`
-      );
+      const stats = await client.getCallGraphStats(owner, repo);
       return [
         this._makeStatNode(`Functions: ${String(stats.node_count ?? 'N/A')}`),
         this._makeStatNode(`Call edges: ${String(stats.edge_count ?? 'N/A')}`),

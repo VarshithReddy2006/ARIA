@@ -208,7 +208,7 @@ def version(
     ),
 ) -> None:
     """Prints the CLI version and backend version."""
-    typer.echo("Client Version: 1.0.0")
+    typer.echo("Client Version: 1.5.0")
 
     base_url = get_api_url(url)
     api_endpoint = f"{base_url}/api/v1/health"
@@ -305,7 +305,13 @@ def report(
 
 @app.command()
 def mcp() -> None:
-    """Launches the Model Context Protocol (MCP) Stdio Server."""
+    """Launches the stdio JSON-RPC Model Context Protocol (MCP) server.
+
+    Speaks JSON-RPC on stdin/stdout and logs to stderr, so it can be launched
+    directly by any MCP client. The FastMCP implementation under ``mcp/`` stays
+    importable for direct integrations but is deliberately not constructed here,
+    to keep this entry point free of SDK-version-specific behaviour.
+    """
     from backend.mcp_server import run_mcp_server
 
     run_mcp_server()

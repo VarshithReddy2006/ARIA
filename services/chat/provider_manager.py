@@ -156,7 +156,7 @@ class ProviderManager:
     def _load_from_settings(self) -> List[ProviderEntry]:
         """Build providers from application settings."""
         from services.llm import ProviderFactory
-        from backend.settings import settings
+        from core.config import settings
 
         entries: List[ProviderEntry] = []
         provider_name = settings.llm_provider.lower()
@@ -363,6 +363,7 @@ class ProviderManager:
             classify_gemini_error,
             classify_deepseek_error,
             ProviderErrorType,
+            EmptyCompletionError,
         )
 
         last_exc: Optional[Exception] = None
@@ -394,6 +395,9 @@ class ProviderManager:
             prev_provider = entry.name
             tried.append(entry.name)
             tokens_yielded = 0
+            completion_text = ""
+            buffered_whitespace: List[str] = []
+            has_non_ws = False
             t0 = time.perf_counter()
             first_token_time: Optional[float] = None
 
@@ -403,6 +407,27 @@ class ProviderManager:
                     system_instruction=system_instruction,
                     history=history,
                 ):
+                    completion_text += token
+
+                    if not has_non_ws:
+                        if token.strip() == "":
+                            buffered_whitespace.append(token)
+                            continue
+                        else:
+                            has_non_ws = True
+                            for ws in buffered_whitespace:
+                                if tokens_yielded == 0:
+                                    first_token_time = time.perf_counter()
+                                    first_token_latency = (first_token_time - t0) * 1000
+                                    logger.info(
+                                        "Provider first token received: %s, first token latency: %.1f ms",
+                                        entry.name,
+                                        first_token_latency,
+                                    )
+                                tokens_yielded += 1
+                                yield ws, entry.name
+                            buffered_whitespace.clear()
+
                     if tokens_yielded == 0:
                         first_token_time = time.perf_counter()
                         first_token_latency = (first_token_time - t0) * 1000
@@ -414,14 +439,21 @@ class ProviderManager:
                     tokens_yielded += 1
                     yield token, entry.name
 
-                # Stream completed successfully
+                # Validate completion text non-emptiness (meaningful text required for success)
+                if completion_text.strip() == "":
+                    raise EmptyCompletionError(
+                        f"Provider '{entry.name}' completed HTTP stream but returned an empty completion."
+                    )
+
+                # Stream completed with non-empty completion text -> genuine success
                 latency = (time.perf_counter() - t0) * 1000
                 logger.info(
-                    "Provider succeeded: %s, model: %s, total latency: %.1f ms, tokens: %d, retry count: 0",
+                    "Provider succeeded: %s, model: %s, total latency: %.1f ms, tokens: %d, completion_length: %d, retry count: 0",
                     entry.name,
                     entry.provider.model,
                     latency,
                     tokens_yielded,
+                    len(completion_text),
                 )
                 entry.circuit_breaker.record_success()
                 return  # success — do not try other providers
@@ -431,9 +463,10 @@ class ProviderManager:
                 latency = (time.perf_counter() - t0) * 1000
                 logger.info(
                     "ProviderManager.stream: client disconnected provider=%s "
-                    "tokens_yielded=%d, total latency=%.1f ms",
+                    "tokens_yielded=%d, completion_length=%d, total latency=%.1f ms",
                     entry.name,
                     tokens_yielded,
+                    len(completion_text),
                     latency,
                 )
                 return
@@ -445,7 +478,9 @@ class ProviderManager:
                 # Check for quota exhausted
                 is_quota = False
                 fallback_reason = "exception"
-                if entry.name == "gemini":
+                if isinstance(exc, EmptyCompletionError):
+                    fallback_reason = "empty_completion"
+                elif entry.name == "gemini":
                     err = classify_gemini_error(exc, "gemini")
                     fallback_reason = err.error_type.value
                     if err.error_type in (
@@ -468,7 +503,6 @@ class ProviderManager:
                         entry.name.capitalize(),
                         str(exc),
                     )
-                    # Mark temporarily unavailable
                     entry.circuit_breaker._state = CircuitState.OPEN
                     entry.circuit_breaker._last_failure_time = time.time()
                     entry.circuit_breaker._failure_count = max(
@@ -486,23 +520,23 @@ class ProviderManager:
                 )
 
                 logger.error(
-                    "Provider failed: %s, model: %s, fallback reason: %s, tokens yielded: %d, first token latency: %s, total latency: %.1f ms, retry count: 1, circuit breaker state: %s",
+                    "Provider failed: %s, model: %s, fallback reason: %s, tokens yielded: %d, completion_length: %d, first token latency: %s, total latency: %.1f ms, retry count: 1, circuit breaker state: %s",
                     entry.name,
                     entry.provider.model,
                     fallback_reason,
                     tokens_yielded,
+                    len(completion_text),
                     first_token_lat_str,
                     latency,
                     entry.circuit_breaker.state.value,
                     exc_info=True,
                 )
 
-                if tokens_yielded > 0:
-                    # Phase 9: tokens already streamed — NEVER retry
-                    # Terminate gracefully without duplicate output
+                if len(completion_text.strip()) > 0:
+                    # Meaningful content was already delivered to user — NEVER retry to prevent duplicate text
                     raise exc
 
-                # 0 tokens yielded — safe to try next provider
+                # 0 meaningful content delivered — safe to try next provider
                 continue
 
         # All providers exhausted (with 0 tokens)

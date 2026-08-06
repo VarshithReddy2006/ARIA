@@ -39,16 +39,14 @@ class SubgraphExecutor(RetrievalExecutor):
         self.navigator = navigator
 
     def get_navigator(self) -> Any:
-        if self.navigator is None:
-            from backend.dependencies import repository_knowledge_graph_navigator
-
-            self.navigator = repository_knowledge_graph_navigator
         return self.navigator
 
     async def execute(
         self, repo_name: str, targets: List[str], params: Dict[str, Any]
     ) -> List[ContextReference]:
         navigator = self.get_navigator()
+        if not navigator:
+            return []
         if not targets:
             # Fallback: try to find entrypoints
             entrypoints = navigator.find_entrypoints(repo_name)
@@ -91,16 +89,14 @@ class SymbolExecutor(RetrievalExecutor):
         self.symbol_service = symbol_service
 
     def get_service(self) -> Any:
-        if self.symbol_service is None:
-            from backend.dependencies import symbol_service
-
-            self.symbol_service = symbol_service
         return self.symbol_service
 
     async def execute(
         self, repo_name: str, targets: List[str], params: Dict[str, Any]
     ) -> List[ContextReference]:
         symbol_service = self.get_service()
+        if not symbol_service:
+            return []
         references = []
         for target in targets:
             # target ID might have prefix like repo_name::file_path::name, extract symbol name
@@ -166,16 +162,14 @@ class DependencyExecutor(RetrievalExecutor):
         self.graph_service = graph_service
 
     def get_service(self) -> Any:
-        if self.graph_service is None:
-            from backend.dependencies import graph_service
-
-            self.graph_service = graph_service
         return self.graph_service
 
     async def execute(
         self, repo_name: str, targets: List[str], params: Dict[str, Any]
     ) -> List[ContextReference]:
         graph_service = self.get_service()
+        if not graph_service:
+            return []
         dep_graph = graph_service.load_graph(repo_name)
         if dep_graph is None:
             return []
@@ -224,10 +218,6 @@ class EmbeddingExecutor(RetrievalExecutor):
         self.retrieval_service = retrieval_service
 
     def get_service(self) -> Any:
-        if self.retrieval_service is None:
-            from backend.dependencies import get_retrieval_pipeline
-
-            self.retrieval_service = get_retrieval_pipeline()
         return self.retrieval_service
 
     async def execute(
@@ -241,34 +231,29 @@ class EmbeddingExecutor(RetrievalExecutor):
         try:
             chroma_store = srv.chroma_store
             query_embed = srv.embedding_service.generate_embeddings([query])[0]
-            results = chroma_store.collection.query(
-                query_embeddings=[query_embed],
-                n_results=5,
-                where={"repo_name": repo_name},
+            results = chroma_store.search_repository(
+                repo_name=repo_name,
+                query_embedding=query_embed,
+                limit=5,
             )
         except Exception as e:
             logger.warning("Embedding retrieval failed in executor: %s", e)
             return []
 
         references = []
-        if results and "documents" in results and results["documents"]:
-            docs = results["documents"][0]
-            metadatas = results["metadatas"][0] if "metadatas" in results else []
-            ids = results["ids"][0] if "ids" in results else []
-
-            for idx, doc in enumerate(docs):
-                meta = metadatas[idx] if idx < len(metadatas) else {}
-                file_path = meta.get("file_path", "unknown")
-                chunk_id = ids[idx] if idx < len(ids) else f"chunk_{idx}"
-                references.append(
-                    ContextReference(
-                        id=f"{repo_name}::doc::{chunk_id}",
-                        type="document",
-                        source="embedding",
-                        properties={"file_path": file_path, "metadata": meta},
-                        snippet=doc,
-                    )
+        for result in results:
+            meta = result.get("metadata", {})
+            file_path = meta.get("file_path", "unknown")
+            chunk_id = result.get("id", "chunk")
+            references.append(
+                ContextReference(
+                    id=f"{repo_name}::doc::{chunk_id}",
+                    type="document",
+                    source="embedding",
+                    properties={"file_path": file_path, "metadata": meta},
+                    snippet=result.get("content", ""),
                 )
+            )
         return references
 
 
@@ -282,17 +267,9 @@ class RepositoryContextAssembler:
         self.navigator = navigator
 
     def get_git_history_service(self) -> Any:
-        if self.git_history_service is None:
-            from backend.dependencies import git_history_service
-
-            self.git_history_service = git_history_service
         return self.git_history_service
 
     def get_navigator(self) -> Any:
-        if self.navigator is None:
-            from backend.dependencies import repository_knowledge_graph_navigator
-
-            self.navigator = repository_knowledge_graph_navigator
         return self.navigator
 
     def assemble(
@@ -428,10 +405,6 @@ class StructuralRetrievalEngine:
         self.intent_detector = RuleBasedIntentDetector()
 
     def get_navigator(self) -> Any:
-        if self.navigator is None:
-            from backend.dependencies import repository_knowledge_graph_navigator
-
-            self.navigator = repository_knowledge_graph_navigator
         return self.navigator
 
     def generate_plan(self, question: str, policy: str) -> RetrievalPlan:

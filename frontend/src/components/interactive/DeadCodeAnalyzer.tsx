@@ -89,7 +89,7 @@ export const DeadCodeAnalyzer: React.FC<Props> = ({ repoName }) => {
     setAnalyzerResult(null);
 
     try {
-      const res = await fetch(apiUrl('/api/dead-code/analyze'), {
+      const res = await fetch(apiUrl('/api/v1/dead-code/analyze'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ owner, repo }),

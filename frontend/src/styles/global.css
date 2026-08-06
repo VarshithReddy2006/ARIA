@@ -8,11 +8,11 @@
  * ------------------------------------------------------------------------- */
 
 :root {
-  /* surfaces */
-  --canvas:        #0a0a0c;
-  --surface-1:     #0f1014;
-  --surface-2:     #15161b;
-  --surface-3:     #1c1d23;
+  /* surfaces — deep canvas with layered elevation above it */
+  --canvas:        #010102;
+  --surface-1:     #111114;
+  --surface-2:     #17181c;
+  --surface-3:     #1e1f24;
 
   /* borders */
   --border:        #23252a;
@@ -21,7 +21,7 @@
 
   /* text — --text-subtle raised from #6b6f78 to #80848e for WCAG AA */
   --text:          #f7f8f8;
-  --text-muted:    #9ca0a8;
+  --text-muted:    #9ca3af;
   --text-subtle:   #80848e;
 
   /* brand */
@@ -104,7 +104,7 @@ html.dark, html { color-scheme: dark; }
   .card-padded { @apply card p-5; }
   .card-flat {
     border: 1px solid var(--border);
-    background-color: rgba(15,16,20,0.6);
+    background-color: rgba(17,17,20,0.6);
     border-radius: 0.5rem;
   }
 
@@ -232,6 +232,14 @@ html.dark, html { color-scheme: dark; }
 .fade-up        { animation: fade-up 280ms cubic-bezier(0.16, 1, 0.3, 1) both; }
 .fade-up-delay  { animation: fade-up 320ms cubic-bezier(0.16, 1, 0.3, 1) 60ms both; }
 
+/* Validation / confirmation micro-interaction */
+@keyframes pop-in {
+  0%   { opacity: 0; transform: scale(0.7); }
+  60%  { opacity: 1; transform: scale(1.06); }
+  100% { opacity: 1; transform: scale(1); }
+}
+.animate-pop-in { animation: pop-in 240ms cubic-bezier(0.16, 1, 0.3, 1) both; }
+
 @keyframes typing-bounce {
   0%, 100% { transform: translateY(0); opacity: 0.4; }
   50% { transform: translateY(-4px); opacity: 1; }
@@ -277,7 +285,7 @@ html.dark, html { color-scheme: dark; }
   font-family: ui-monospace, 'JetBrains Mono', monospace;
 }
 .table-base tbody tr:hover { background: rgba(94,106,210,0.04); }
-.table-base tbody tr:nth-child(even) { background: rgba(15,16,20,0.4); }
+.table-base tbody tr:nth-child(even) { background: rgba(17,17,20,0.4); }
 .table-base tbody tr:nth-child(even):hover { background: rgba(94,106,210,0.06); }
 
 .table-scroll {
@@ -285,7 +293,7 @@ html.dark, html { color-scheme: dark; }
   max-height: 520px;
   border: 1px solid var(--border);
   border-radius: 0.5rem;
-  background: rgba(10,10,12,0.5);
+  background: rgba(1,1,2,0.5);
 }
 
 /* ---------------------------------------------------------------------------
@@ -303,13 +311,14 @@ html.dark, html { color-scheme: dark; }
 @media (prefers-reduced-motion: reduce) {
   .skeleton { animation: none; }
   .fade-up, .fade-up-delay { animation: none; }
+  .animate-pop-in { animation: none; }
   .svg-donut-ring { transition: none !important; }
   .animated-number { animation: none !important; }
 }
 
 /* Legacy glass utility kept for back-compat */
 .glass-panel {
-  background: rgba(15, 16, 20, 0.7);
+  background: rgba(17, 17, 20, 0.7);
   backdrop-filter: blur(12px);
   -webkit-backdrop-filter: blur(12px);
   border: 1px solid var(--border);

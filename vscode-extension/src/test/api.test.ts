@@ -211,7 +211,7 @@ describe('RepoIntelligenceClient', () => {
     client = new RepoIntelligenceClient();
 
     await client.generateExecutionPlan('owner', 'repo');
-    assert.strictEqual(requestedUrl, '/api/repositories/owner/repo/execution-plan');
+    assert.strictEqual(requestedUrl, '/api/v1/repositories/owner/repo/execution-plan');
     assert.strictEqual(requestedMethod, 'POST');
   });
 });
@@ -234,5 +234,112 @@ describe('extractErrorMessage', () => {
   it('handles undefined input gracefully', () => {
     const msg = extractErrorMessage(undefined);
     assert.ok(typeof msg === 'string' && msg.length > 0);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Backend contract compatibility mappers
+// ---------------------------------------------------------------------------
+
+describe('Backend response compatibility mapping', () => {
+  let server: http.Server;
+  let client: RepoIntelligenceClient;
+
+  afterEach(async () => {
+    if (server) {
+      await stopServer(server);
+    }
+  });
+
+  async function serve(body: unknown): Promise<RepoIntelligenceClient> {
+    ({ server } = await startMockServer((_req, res) => jsonResponse(res, body)));
+    mockConfig.backendUrl = `http://127.0.0.1:${(server.address() as AddressInfo).port}`;
+    return new RepoIntelligenceClient();
+  }
+
+  it('maps reading order ordered_files/file_path to entries/file', async () => {
+    client = await serve({
+      repo: 'owner/repo',
+      ordered_files: [
+        { rank: 1, file_path: 'backend/api.py', reason: 'entry point', tier: 'entry_point' },
+        { rank: 2, file_path: 'services/chat.py', reason: 'core', tier: 'core' },
+      ],
+    });
+
+    const order = await client.getReadingOrder('owner/repo');
+    assert.strictEqual(order.entries.length, 2);
+    assert.strictEqual(order.entries[0].file, 'backend/api.py');
+    assert.strictEqual(order.entries[1].file, 'services/chat.py');
+    assert.strictEqual(order.entries[0].score, 1);
+  });
+
+  it('maps impact analysis direct and indirect files to affected_files', async () => {
+    client = await serve({
+      repo: 'owner/repo',
+      issue_text: 'Refactor auth',
+      directly_affected_files: ['services/auth.py'],
+      indirectly_affected_files: ['backend/api.py'],
+      estimated_file_count: 2,
+      risk_level: 'medium',
+      confidence: 88,
+    });
+
+    const impact = await client.getImpactAnalysis('owner/repo', 'Refactor auth');
+    assert.deepStrictEqual(impact.affected_files, ['services/auth.py', 'backend/api.py']);
+    assert.strictEqual(impact.issue, 'Refactor auth');
+    assert.strictEqual(impact.risk_level, 'medium');
+    assert.strictEqual(impact.risk_score, 88);
+  });
+
+  it('maps flattened graph nodes into data.label and aliases edge from/to', async () => {
+    client = await serve({
+      nodes: [
+        { id: 'services/auth.py', label: 'auth.py', category: 'core_module', highlighted: true },
+        { id: 'backend/api.py', label: 'api.py', category: 'entry_point', highlighted: false },
+      ],
+      edges: [{ source: 'backend/api.py', target: 'services/auth.py', relationship: 'imports' }],
+    });
+
+    const graph = await client.getDependencyGraph('owner', 'repo');
+    assert.strictEqual(graph.nodes[0].data.label, 'auth.py');
+    assert.strictEqual(graph.nodes[0].data.highlighted, true);
+    assert.ok(graph.nodes[0].position);
+    assert.strictEqual(graph.edges[0].source, 'backend/api.py');
+    assert.strictEqual(graph.edges[0].from, 'backend/api.py');
+    assert.strictEqual(graph.edges[0].to, 'services/auth.py');
+    assert.ok(graph.edges[0].id.length > 0);
+  });
+
+  it('preserves call graph node metadata used by the call graph panel', async () => {
+    client = await serve({
+      nodes: [{ id: 'mod.fn', label: 'fn', is_entry: true, fan_in: 0, fan_out: 3 }],
+      edges: [{ source: 'mod.fn', target: 'mod.other' }],
+    });
+
+    const graph = await client.getCallGraph('owner', 'repo');
+    assert.strictEqual(graph.nodes[0].data.label, 'fn');
+    assert.strictEqual(graph.nodes[0].data.is_entry, true);
+    assert.strictEqual(graph.nodes[0].data.fan_out, 3);
+  });
+
+  it('maps call graph entry_functions to entry_count', async () => {
+    client = await serve({ node_count: 42, edge_count: 61, entry_functions: 7 });
+
+    const stats = await client.getCallGraphStats('owner', 'repo');
+    assert.strictEqual(stats.entry_count, 7);
+    assert.strictEqual(stats.node_count, 42);
+    assert.strictEqual(stats.edge_count, 61);
+  });
+
+  it('passes through responses that already match extension DTOs', async () => {
+    client = await serve({
+      nodes: [{ id: 'a.py', data: { label: 'a.py' }, position: { x: 5, y: 6 } }],
+      edges: [{ id: 'e1', source: 'a.py', target: 'b.py' }],
+    });
+
+    const graph = await client.getDependencyGraph('owner', 'repo');
+    assert.strictEqual(graph.nodes[0].data.label, 'a.py');
+    assert.deepStrictEqual(graph.nodes[0].position, { x: 5, y: 6 });
+    assert.strictEqual(graph.edges[0].id, 'e1');
   });
 });

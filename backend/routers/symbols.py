@@ -9,17 +9,23 @@ Endpoints:
 import asyncio
 import logging
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, Depends, HTTPException
 
-from backend.dependencies import symbol_service
+from backend.dependencies import get_symbol_service
+from services.symbol_service import SymbolService
 
 logger = logging.getLogger(__name__)
 
-router = APIRouter(prefix="/api/symbols", tags=["Symbols"])
+router = APIRouter(prefix="/symbols", tags=["Symbols"])
 
 
 @router.get("/{owner}/{repo}/file/{file_path:path}")
-async def get_symbols_for_file(owner: str, repo: str, file_path: str):
+async def get_symbols_for_file(
+    owner: str,
+    repo: str,
+    file_path: str,
+    service: SymbolService = Depends(get_symbol_service),
+):
     """Return all symbols (functions, classes, methods, etc.) defined in a file.
 
     The symbol index is built automatically during POST /api/architecture/build.
@@ -28,7 +34,7 @@ async def get_symbols_for_file(owner: str, repo: str, file_path: str):
     repo_name = f"{owner}/{repo}"
     try:
         symbols = await asyncio.to_thread(
-            symbol_service.get_file_symbols, repo_name, file_path
+            service.get_file_symbols, repo_name, file_path
         )
         if symbols is None:
             raise HTTPException(
@@ -58,7 +64,12 @@ async def get_symbols_for_file(owner: str, repo: str, file_path: str):
 
 
 @router.get("/{owner}/{repo}/definition/{symbol_name}")
-async def get_symbol_definition(owner: str, repo: str, symbol_name: str):
+async def get_symbol_definition(
+    owner: str,
+    repo: str,
+    symbol_name: str,
+    service: SymbolService = Depends(get_symbol_service),
+):
     """Look up the definition of a named symbol (function, class, method, etc.).
 
     Returns the first match when multiple symbols share a name, preferring
@@ -67,10 +78,10 @@ async def get_symbol_definition(owner: str, repo: str, symbol_name: str):
     repo_name = f"{owner}/{repo}"
     try:
         definition = await asyncio.to_thread(
-            symbol_service.get_definition, repo_name, symbol_name
+            service.get_definition, repo_name, symbol_name
         )
         if definition is None:
-            if not symbol_service.index_exists(repo_name):
+            if not service.index_exists(repo_name):
                 raise HTTPException(
                     status_code=404,
                     detail=(
@@ -101,7 +112,12 @@ async def get_symbol_definition(owner: str, repo: str, symbol_name: str):
 
 
 @router.get("/{owner}/{repo}/references/{symbol_name}")
-async def get_symbol_references(owner: str, repo: str, symbol_name: str):
+async def get_symbol_references(
+    owner: str,
+    repo: str,
+    symbol_name: str,
+    service: SymbolService = Depends(get_symbol_service),
+):
     """Return all symbols in the repository that share the given name.
 
     MVP implementation uses name-based matching across the entire symbol index.
@@ -110,7 +126,7 @@ async def get_symbol_references(owner: str, repo: str, symbol_name: str):
     repo_name = f"{owner}/{repo}"
     try:
         references = await asyncio.to_thread(
-            symbol_service.get_references, repo_name, symbol_name
+            service.get_references, repo_name, symbol_name
         )
         if references is None:
             raise HTTPException(

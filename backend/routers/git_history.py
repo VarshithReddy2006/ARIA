@@ -20,7 +20,7 @@ from backend.dependencies import git_history_service
 
 logger = logging.getLogger(__name__)
 
-router = APIRouter(prefix="/api", tags=["Git History"])
+router = APIRouter(tags=["Git History"])
 
 
 # ---------------------------------------------------------------------------

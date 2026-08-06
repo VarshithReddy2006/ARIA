@@ -305,12 +305,12 @@ export const APISurfaceAnalyzer: React.FC<Props> = ({ repoName }) => {
     setRouteSyms([]);
     try {
       const [statsRes, pubRes, intRes, depRes, breakRes, routeRes] = await Promise.all([
-        fetch(apiUrl(`/api/api-surface/${owner}/${repoSlug}/stats`)),
-        fetch(apiUrl(`/api/api-surface/${owner}/${repoSlug}/public`)),
-        fetch(apiUrl(`/api/api-surface/${owner}/${repoSlug}/internal`)),
-        fetch(apiUrl(`/api/api-surface/${owner}/${repoSlug}/deprecated`)),
-        fetch(apiUrl(`/api/api-surface/${owner}/${repoSlug}/breaking`)),
-        fetch(apiUrl(`/api/api-surface/${owner}/${repoSlug}/public?kind=route&limit=200`)),
+        fetch(apiUrl(`/api/v1/api-surface/${owner}/${repoSlug}/stats`)),
+        fetch(apiUrl(`/api/v1/api-surface/${owner}/${repoSlug}/public`)),
+        fetch(apiUrl(`/api/v1/api-surface/${owner}/${repoSlug}/internal`)),
+        fetch(apiUrl(`/api/v1/api-surface/${owner}/${repoSlug}/deprecated`)),
+        fetch(apiUrl(`/api/v1/api-surface/${owner}/${repoSlug}/breaking`)),
+        fetch(apiUrl(`/api/v1/api-surface/${owner}/${repoSlug}/public?kind=route&limit=200`)),
       ]);
 
       if (statsRes.status === 404) { setLoading(false); return; } // not built yet
@@ -342,7 +342,7 @@ export const APISurfaceAnalyzer: React.FC<Props> = ({ repoName }) => {
     setStats(null);
 
     try {
-      const res = await fetch(apiUrl('/api/api-surface/build'), {
+      const res = await fetch(apiUrl('/api/v1/api-surface/build'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ repo: repoName }),

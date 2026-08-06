@@ -828,7 +828,7 @@ export const CallGraphAnalyzer: React.FC<Props> = ({ repoName }) => {
     setGraphError(null);
     try {
       const url = apiUrl(
-        `/api/call-graph/${owner}/${repoSlug}${q ? `?q=${encodeURIComponent(q)}` : ''}`
+        `/api/v1/call-graph/${owner}/${repoSlug}${q ? `?q=${encodeURIComponent(q)}` : ''}`
       );
       const res = await fetch(url);
       if (!res.ok) {
@@ -847,7 +847,7 @@ export const CallGraphAnalyzer: React.FC<Props> = ({ repoName }) => {
 
   const loadStats = useCallback(async () => {
     try {
-      const res = await fetch(apiUrl(`/api/call-graph/${owner}/${repoSlug}/stats`));
+      const res = await fetch(apiUrl(`/api/v1/call-graph/${owner}/${repoSlug}/stats`));
       if (res.ok) setStats(await res.json());
     } catch { /* optional */ }
   }, [owner, repoSlug]);
@@ -857,7 +857,7 @@ export const CallGraphAnalyzer: React.FC<Props> = ({ repoName }) => {
     setGraphError(null);
     try {
       const res = await fetch(
-        apiUrl(`/api/call-graph/${owner}/${repoSlug}/neighbors/${encodeURIComponent(functionId)}`)
+        apiUrl(`/api/v1/call-graph/${owner}/${repoSlug}/neighbors/${encodeURIComponent(functionId)}`)
       );
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       const data: GraphResponse = await res.json();
@@ -874,7 +874,7 @@ export const CallGraphAnalyzer: React.FC<Props> = ({ repoName }) => {
     setGraphError(null);
     try {
       const res = await fetch(
-        apiUrl(`/api/call-graph/${owner}/${repoSlug}/trace/${encodeURIComponent(functionId)}?direction=${dir}&depth=6`)
+        apiUrl(`/api/v1/call-graph/${owner}/${repoSlug}/trace/${encodeURIComponent(functionId)}?direction=${dir}&depth=6`)
       );
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       const data: GraphResponse = await res.json();
@@ -891,7 +891,7 @@ export const CallGraphAnalyzer: React.FC<Props> = ({ repoName }) => {
     setBlastRadius(null);
     try {
       const res = await fetch(
-        apiUrl(`/api/call-graph/${owner}/${repoSlug}/blast-radius/${encodeURIComponent(functionId)}`)
+        apiUrl(`/api/v1/call-graph/${owner}/${repoSlug}/blast-radius/${encodeURIComponent(functionId)}`)
       );
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       setBlastRadius(await res.json());
@@ -941,7 +941,7 @@ export const CallGraphAnalyzer: React.FC<Props> = ({ repoName }) => {
     setStats(null);
 
     try {
-      const res = await fetch(apiUrl('/api/call-graph/build'), {
+      const res = await fetch(apiUrl('/api/v1/call-graph/build'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ repo: repoName }),

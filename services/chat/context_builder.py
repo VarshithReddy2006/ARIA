@@ -308,7 +308,7 @@ class ContextBuilder:
             "Structure your response with these sections (use only what is relevant):\n"
             "1. **Summary** — 1–2 sentence direct answer\n"
             "2. **Explanation** — technical detail with file/function references. Always cite the exact file, line numbers, chunk ID, and exact symbols when discussing code parts.\n"
-            "3. **Evidence** — relevant code excerpts (only if present in context above, with exact file path and line numbers)\n"
+            "3. **Evidence** — structured file citations (**File:** `path`, **Lines:** X–Y, **Reason:** ..., **Confidence:** N%). Never dump large raw code blocks; show at most 3–10 lines if excerpting.\n"
             "4. **Repository Insights** — patterns, risks, or architecture notes\n"
             "5. **Relevant Files** — bullet list of key files with line ranges and symbols defined\n"
             "6. **Suggested Next Questions** — 2–3 natural follow-ups\n\n"

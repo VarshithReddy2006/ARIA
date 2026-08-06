@@ -5,12 +5,13 @@ and traverse node neighbors, paths, cycles, blast radius, and entrypoints.
 """
 
 import logging
+import sys
 from typing import List, Optional
 from fastapi import APIRouter, HTTPException, Query
 
 from backend.dependencies import (
-    repository_knowledge_graph_builder,
-    repository_knowledge_graph_navigator,
+    repository_knowledge_graph_builder as _repository_knowledge_graph_builder,
+    repository_knowledge_graph_navigator as _repository_knowledge_graph_navigator,
 )
 from models.knowledge_graph import (
     KnowledgeGraph,
@@ -20,6 +21,28 @@ from models.knowledge_graph import (
 
 logger = logging.getLogger(__name__)
 
+
+class _ReloadSafeDependency:
+    """Resolve a compatibility dependency from the currently loaded router module."""
+
+    def __init__(self, name: str, fallback: object) -> None:
+        self._name = name
+        self._fallback = fallback
+
+    def __getattr__(self, attribute: str) -> object:
+        module = sys.modules.get(__name__)
+        dependency = getattr(module, self._name, self._fallback)
+        if dependency is self:
+            dependency = self._fallback
+        return getattr(dependency, attribute)
+
+
+repository_knowledge_graph_builder = _ReloadSafeDependency(
+    "repository_knowledge_graph_builder", _repository_knowledge_graph_builder
+)
+repository_knowledge_graph_navigator = _ReloadSafeDependency(
+    "repository_knowledge_graph_navigator", _repository_knowledge_graph_navigator
+)
 router = APIRouter(tags=["Repository Knowledge Graph"])
 
 

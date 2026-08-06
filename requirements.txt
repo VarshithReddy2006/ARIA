@@ -7,8 +7,9 @@ sentence-transformers>=3.0.0
 # Vector store
 chromadb>=0.4.0
 
-# Data validation and serialization
-pydantic>=2.0.0
+# Data validation and serialization.
+# FastMCP SDK 1.x is incompatible with Pydantic >=2.7 due to dynamic create_model() behavior.
+pydantic>=2.0.0,<2.7.0
 
 # Environment variable loading
 python-dotenv>=1.0.0
@@ -38,3 +39,9 @@ typer>=0.9.0
 
 # Google GenAI SDK
 google-genai>=0.1.1
+
+# Model Context Protocol (MCP) server SDK.
+# Upper bound is deliberate: SDK 2.x removed mcp.server.fastmcp and the FastMCP
+# class entirely (replaced by mcp.server.mcpserver), so 2.x cannot import this
+# codebase's MCP layer. See docs/MCP_RELEASE_READINESS.md for the migration path.
+mcp[cli]>=1.0.0,<2

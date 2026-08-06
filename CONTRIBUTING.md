@@ -1,4 +1,4 @@
-# Contributing to Repo Intelligence Agent v1.0.0
+# Contributing to Repo Intelligence Agent v1.5.0
 
 Thank you for contributing! This guide covers the repository structure, coding standards, branch naming, commit conventions, testing, and the pull request checklist.
 

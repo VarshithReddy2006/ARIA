@@ -1,6 +1,6 @@
-# API Reference Guide — Repo Intelligence Agent v1.0.0
+# API Reference Guide — Repo Intelligence Agent v1.5.0
 
-This document details the REST endpoints and Server-Sent Event (SSE) streams exposed by the FastAPI backend server.
+This document details the REST endpoints and Server-Sent Event (SSE) streams exposed by the FastAPI backend server. The API Layer is part of the **Repository Intelligence Architecture (RIA)**, the platform's modular production architecture.
 
 All endpoints are versioned under the `/api/v1` prefix. Legacy root paths (e.g. `/api/...`) are supported as backward-compatible shims.
 

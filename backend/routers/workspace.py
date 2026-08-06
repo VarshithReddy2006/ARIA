@@ -5,11 +5,16 @@ All endpoints are read-only; no analysis or modification is performed.
 """
 
 import logging
+import sys
 from typing import Optional
 
 from fastapi import APIRouter, HTTPException, Query
 
-from backend.dependencies import workspace_service, repository_twin_builder
+from backend.dependencies import (
+    get_workspace_service,
+    repository_twin_builder as _repository_twin_builder,
+)
+from services.workspace import WorkspaceService
 from models.workspace import (
     AdvisorPanel,
     ChatSessionMeta,
@@ -25,7 +30,29 @@ from models.workspace import (
 
 logger = logging.getLogger(__name__)
 
+
+class _ReloadSafeDependency:
+    """Resolve a compatibility dependency from the currently loaded router module."""
+
+    def __init__(self, name: str, fallback: object) -> None:
+        self._name = name
+        self._fallback = fallback
+
+    def __getattr__(self, attribute: str) -> object:
+        module = sys.modules.get(__name__)
+        dependency = getattr(module, self._name, self._fallback)
+        if dependency is self:
+            dependency = self._fallback
+        return getattr(dependency, attribute)
+
+
 router = APIRouter(tags=["Intelligent IDE Workspace"])
+
+# Stable module-level seams retained for existing router consumers and tests.
+workspace_service = _ReloadSafeDependency("workspace_service", get_workspace_service())
+repository_twin_builder = _ReloadSafeDependency(
+    "repository_twin_builder", _repository_twin_builder
+)
 
 
 def _require_indexed(repo_name: str) -> None:
@@ -51,11 +78,7 @@ async def get_workspace(
     symbol: Optional[str] = Query(None, description="Currently selected symbol."),
     panel: str = Query("overview", description="Active workspace panel."),
 ):
-    """Returns the complete IDE workspace snapshot for a repository.
-
-    Composes all panel data from existing platform layers in a single call.
-    Missing data (e.g. no advisor report yet) gracefully produces empty panels.
-    """
+    """Returns the complete IDE workspace snapshot for a repository."""
     repo_name = f"{username}/{repository}"
     _require_indexed(repo_name)
 

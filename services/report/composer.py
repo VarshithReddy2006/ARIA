@@ -35,21 +35,12 @@ class ReportComposer:
         git_history_service: Optional[Any] = None,
         graph_service: Optional[Any] = None,
     ) -> None:
-        """Initializes the composer. Lazy-loads dependencies if not provided."""
-        # Note: Imports are resolved dynamically to prevent circular dependencies
-        from backend.dependencies import ANALYSIS_STORE
-        from backend.dependencies import symbol_service as ss
-        from backend.dependencies import call_graph_service as cgs
-        from backend.dependencies import dead_code_service as dcs
-        from backend.dependencies import git_history_service as ghs
-        from backend.dependencies import graph_service as gs
-
-        self.store = store if store is not None else ANALYSIS_STORE
-        self.symbol_service = symbol_service or ss
-        self.call_graph_service = call_graph_service or cgs
-        self.dead_code_service = dead_code_service or dcs
-        self.git_history_service = git_history_service or ghs
-        self.graph_service = graph_service or gs
+        self.store = store if store is not None else {}
+        self.symbol_service = symbol_service
+        self.call_graph_service = call_graph_service
+        self.dead_code_service = dead_code_service
+        self.git_history_service = git_history_service
+        self.graph_service = graph_service
 
     def compose_report(self, repo_name: str) -> ReportDataModel:
         """Assembles unified metrics, calculates scores, and returns ReportDataModel."""

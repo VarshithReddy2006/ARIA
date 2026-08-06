@@ -13,6 +13,10 @@ import { GraphCanvas } from './GraphCanvas';
 import { GraphToolbar } from './GraphToolbar';
 import { SearchBar } from './SearchBar';
 import { NodeDetailsPanel } from './NodeDetailsPanel';
+import { GraphFilterBar } from './GraphFilterBar';
+import { GraphBreadcrumbNav } from './GraphBreadcrumbNav';
+import { ArchitectureDiagramModal } from './ArchitectureDiagramModal';
+import { GraphWorkspaceProvider } from './workspaceStore';
 import { computeGraphStats } from './graphStats';
 import { CATEGORY_COLORS, CATEGORY_LABELS } from './types';
 import type { GraphNode, GraphEdge, GraphMode, GraphResponse } from './types';
@@ -32,7 +36,7 @@ function buildUrl(
   searchQuery: string,
   traceDir: 'forward' | 'backward' | 'both',
 ): string {
-  const base = `/api/graph/${owner}/${repo}`;
+  const base = `/api/v1/graph/${owner}/${repo}`;
   switch (mode) {
     case 'neighbors':
       return apiUrl(`${base}/neighbors/${focusNode}`);
@@ -56,6 +60,12 @@ function buildUrl(
 
 interface InteractiveDependencyGraphProps {
   repoName: string;
+  /**
+   * Externally requested focus target (e.g. "View in graph" from the reading
+   * path). The `token` lets the same path be re-requested; bumping it re-runs
+   * the focus even when the path is unchanged.
+   */
+  focusRequest?: { path: string; token: number } | null;
 }
 
 /**
@@ -70,7 +80,7 @@ interface InteractiveDependencyGraphProps {
  */
 const InteractiveDependencyGraphInner: React.FC<
   InteractiveDependencyGraphProps
-> = ({ repoName }) => {
+> = ({ repoName, focusRequest }) => {
   const { zoomIn, zoomOut, setViewport, getViewport, setCenter, fitView, getNodes } = useReactFlow();
   // ── Repo split ──────────────────────────────────────────────────────────
   const [owner, repo] = useMemo(() => {
@@ -181,6 +191,21 @@ const InteractiveDependencyGraphInner: React.FC<
     fetchGraph('full', null, '', 'both');
     return () => abortRef.current?.abort();
   }, [fetchGraph]);
+
+  // ── External focus request ───────────────────────────────────────────────
+  // Declared after the initial load so it wins on mount; fetchGraph aborts the
+  // in-flight full-graph request.
+  useEffect(() => {
+    const path = focusRequest?.path;
+    if (!path) return;
+    setSearchQuery('');
+    setMatchCount(null);
+    setSelectedNode(null);
+    setFocusNode(path);
+    setMode('neighbors');
+    setTraceDir('both');
+    fetchGraph('neighbors', path, '', 'both');
+  }, [focusRequest?.path, focusRequest?.token, fetchGraph]);
 
   // ── Search debounce ──────────────────────────────────────────────────────
   const handleSearchChange = useCallback(
@@ -331,9 +356,12 @@ const InteractiveDependencyGraphInner: React.FC<
   // Compute lightweight stats client-side over current view
   const stats = useMemo(() => computeGraphStats(apiNodes, apiEdges), [apiNodes, apiEdges]);
 
+  // Diagram Modal state
+  const [diagramModalNodeId, setDiagramModalNodeId] = useState<string | null>(null);
+
   // ── Render ────────────────────────────────────────────────────────────────
   return (
-    <div className="card overflow-hidden flex flex-col h-[640px] relative">
+    <div className="card overflow-hidden flex flex-col h-[700px] relative">
       {/* Statistics + search header */}
       <div className="px-3 py-2.5 border-b border-border bg-surface-2 flex items-center gap-3 z-10 flex-wrap">
         <SearchBar
@@ -376,6 +404,10 @@ const InteractiveDependencyGraphInner: React.FC<
           </span>
         </div>
       </div>
+
+      {/* Filter Bar & Breadcrumb Navigation */}
+      <GraphFilterBar />
+      <GraphBreadcrumbNav />
 
       {/* ── Toolbar ─────────────────────────────────────────────────── */}
       <GraphToolbar
@@ -443,7 +475,7 @@ const InteractiveDependencyGraphInner: React.FC<
           </div>
         )}
 
-        {/* React Flow canvas — always mounted so hooks stay stable */}
+        {/* React Flow canvas */}
         <div className="flex-grow h-full bg-canvas/10">
           <GraphCanvas
             apiNodes={apiNodes}
@@ -457,6 +489,7 @@ const InteractiveDependencyGraphInner: React.FC<
         {selectedNode && (
           <NodeDetailsPanel
             node={selectedNode}
+            repoName={repoName}
             onClose={() => setSelectedNode(null)}
             onExpand={(id) => {
               setFocusNode(id);
@@ -466,6 +499,21 @@ const InteractiveDependencyGraphInner: React.FC<
             onTraceForward={handleTraceForward}
             onTraceBackward={handleTraceBackward}
             onTraceBoth={handleTraceBoth}
+            onOpenDiagramModal={(id) => setDiagramModalNodeId(id)}
+            onSelectNode={(id) => {
+              const match = apiNodes.find((n) => n.id === id) || { id, label: id.split('/').pop() || id, category: 'regular', degree: 1, centrality: 0.1, language: 'typescript', highlighted: false, is_focus: true };
+              setSelectedNode(match);
+              setFocusNode(id);
+            }}
+          />
+        )}
+
+        {/* Diagram exporter modal */}
+        {diagramModalNodeId && (
+          <ArchitectureDiagramModal
+            repoName={repoName}
+            nodeId={diagramModalNodeId}
+            onClose={() => setDiagramModalNodeId(null)}
           />
         )}
       </div>
@@ -477,9 +525,11 @@ export const InteractiveDependencyGraph: React.FC<
   InteractiveDependencyGraphProps
 > = (props) => {
   return (
-    <ReactFlowProvider>
-      <InteractiveDependencyGraphInner {...props} />
-    </ReactFlowProvider>
+    <GraphWorkspaceProvider>
+      <ReactFlowProvider>
+        <InteractiveDependencyGraphInner {...props} />
+      </ReactFlowProvider>
+    </GraphWorkspaceProvider>
   );
 };
 

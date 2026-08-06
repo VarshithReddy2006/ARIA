@@ -31,11 +31,35 @@ interface ReadingOrder {
   total_files_ranked: number;
 }
 
-interface TimelineProps {
-  repoName: string;
+interface FileSymbol {
+  name: string;
+  type: string;
+  file_path: string;
+  line_number: number;
+  language: string;
+  parent_class?: string | null;
 }
 
-export const ReadingOrderTimeline: React.FC<TimelineProps> = ({ repoName }) => {
+interface FileDependencies {
+  imports: string[];
+  importedBy: string[];
+}
+
+type PanelDataState = 'idle' | 'loading' | 'ready' | 'unavailable';
+
+interface TimelineProps {
+  repoName: string;
+  /** Sends a file-specific question to the Chat tab. */
+  onAskAboutFile?: (filePath: string) => void;
+  /** Focuses the File Graph tab on this file's neighbourhood. */
+  onViewInGraph?: (filePath: string) => void;
+}
+
+export const ReadingOrderTimeline: React.FC<TimelineProps> = ({
+  repoName,
+  onAskAboutFile,
+  onViewInGraph,
+}) => {
   const [readingPath, setReadingPath] = useState<ReadingOrder | null>(null);
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
@@ -43,6 +67,12 @@ export const ReadingOrderTimeline: React.FC<TimelineProps> = ({ repoName }) => {
   // Progress tracking states
   const [completedFiles, setCompletedFiles] = useState<Record<string, boolean>>({});
   const [selectedFile, setSelectedFile] = useState<ReadingOrderEntry | null>(null);
+
+  // File Intelligence panel enrichment
+  const [symbols, setSymbols] = useState<FileSymbol[]>([]);
+  const [symbolState, setSymbolState] = useState<PanelDataState>('idle');
+  const [deps, setDeps] = useState<FileDependencies>({ imports: [], importedBy: [] });
+  const [depsState, setDepsState] = useState<PanelDataState>('idle');
 
   // 1. Fetch reading order data (lazy loaded on mount)
   useEffect(() => {
@@ -52,7 +82,7 @@ export const ReadingOrderTimeline: React.FC<TimelineProps> = ({ repoName }) => {
       setLoading(true);
       setError(null);
       try {
-        const response = await fetch(apiUrl('/api/reading-order'), {
+        const response = await fetch(apiUrl('/api/v1/reading-order'), {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ repo: repoName })
@@ -89,6 +119,69 @@ export const ReadingOrderTimeline: React.FC<TimelineProps> = ({ repoName }) => {
       fetchReadingOrder();
     }
   }, [repoName]);
+
+  /**
+   * Enriches the File Intelligence panel for the selected file using existing
+   * read-only endpoints: the symbol index and the dependency graph
+   * neighbourhood. Both are optional — a 404 simply hides that section.
+   */
+  useEffect(() => {
+    const filePath = selectedFile?.file_path;
+    const [owner, repo] = repoName.split('/');
+
+    if (!filePath || !owner || !repo) {
+      setSymbols([]);
+      setSymbolState('idle');
+      setDeps({ imports: [], importedBy: [] });
+      setDepsState('idle');
+      return;
+    }
+
+    const controller = new AbortController();
+    const encodedPath = filePath.split('/').map(encodeURIComponent).join('/');
+
+    setSymbolState('loading');
+    setDepsState('loading');
+
+    fetch(apiUrl(`/api/v1/symbols/${owner}/${repo}/file/${encodedPath}`), { signal: controller.signal })
+      .then((res) => {
+        if (!res.ok) throw new Error('unavailable');
+        return res.json();
+      })
+      .then((data) => {
+        setSymbols(Array.isArray(data?.symbols) ? data.symbols : []);
+        setSymbolState('ready');
+      })
+      .catch((err) => {
+        if (err?.name === 'AbortError') return;
+        setSymbols([]);
+        setSymbolState('unavailable');
+      });
+
+    fetch(apiUrl(`/api/v1/graph/${owner}/${repo}/neighbors/${encodedPath}`), { signal: controller.signal })
+      .then((res) => {
+        if (!res.ok) throw new Error('unavailable');
+        return res.json();
+      })
+      .then((data) => {
+        const edges: { source: string; target: string }[] = Array.isArray(data?.edges) ? data.edges : [];
+        // Outgoing edges are this file's imports; incoming edges are its consumers.
+        const imports = edges.filter((e) => e.source === filePath).map((e) => e.target);
+        const importedBy = edges.filter((e) => e.target === filePath).map((e) => e.source);
+        setDeps({
+          imports: Array.from(new Set(imports)).sort(),
+          importedBy: Array.from(new Set(importedBy)).sort(),
+        });
+        setDepsState('ready');
+      })
+      .catch((err) => {
+        if (err?.name === 'AbortError') return;
+        setDeps({ imports: [], importedBy: [] });
+        setDepsState('unavailable');
+      });
+
+    return () => controller.abort();
+  }, [selectedFile?.file_path, repoName]);
 
   // Handle step completion toggle
   const handleToggleComplete = (filePath: string) => {
@@ -170,7 +263,7 @@ export const ReadingOrderTimeline: React.FC<TimelineProps> = ({ repoName }) => {
 
   return (
     <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 relative">
-      <div className={`${selectedFile ? 'lg:col-span-8' : 'lg:col-span-12'} space-y-6 transition-all duration-300`}>
+      <div className={`${selectedFile ? 'lg:col-span-7 xl:col-span-7' : 'lg:col-span-12'} space-y-6 transition-all duration-300`}>
         {/* Onboarding Guide Summary Panel */}
         <div className="border border-border bg-card/10 rounded-lg p-5 space-y-4">
           <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 border-b border-border/40 pb-3">
@@ -333,14 +426,14 @@ export const ReadingOrderTimeline: React.FC<TimelineProps> = ({ repoName }) => {
 
       {/* File Intelligence Drawer Panel */}
       {selectedFile && (
-        <div className="lg:col-span-4 bg-zinc-950 border border-border rounded-lg p-5 flex flex-col justify-between shadow-2xl h-fit sticky top-6 animate-in slide-in-from-right duration-200">
+        <div className="lg:col-span-5 xl:col-span-5 bg-surface-1 border border-border-strong rounded-xl p-5 md:p-6 flex flex-col justify-between shadow-float h-fit sticky top-6 fade-up">
           <div className="space-y-5">
             <div className="flex justify-between items-start border-b border-border/40 pb-3">
-              <div className="space-y-0.5">
+              <div className="space-y-0.5 min-w-0 pr-2">
                 <span className="text-[10px] font-bold text-primary uppercase tracking-wider font-mono">
                   File Intelligence
                 </span>
-                <h3 className="text-xs font-mono font-semibold text-text truncate break-all block max-w-[200px]">
+                <h3 className="text-sm font-mono font-semibold text-text truncate break-all block">
                   {selectedFile.file_path.split('/').pop()}
                 </h3>
               </div>
@@ -371,11 +464,11 @@ export const ReadingOrderTimeline: React.FC<TimelineProps> = ({ repoName }) => {
               <div>
                 <span className="text-text-muted block text-[10px] uppercase">Category Tier</span>
                 <span className={`inline-block text-[9px] font-bold uppercase px-2 py-0.5 rounded border mt-1.5 ${
-                  selectedFile.tier === 'entry_point' ? 'bg-emerald-500/10 border-emerald-500/20 text-emerald-400' :
-                  selectedFile.tier === 'core' ? 'bg-blue-500/10 border-blue-500/20 text-blue-400' :
-                  selectedFile.tier === 'service' ? 'bg-indigo-500/10 border-indigo-500/20 text-indigo-400' :
-                  selectedFile.tier === 'utility' ? 'bg-teal-500/10 border-teal-500/20 text-teal-400' :
-                  'bg-zinc-800 border-zinc-700 text-zinc-300'
+                  selectedFile.tier === 'entry_point' ? 'bg-success/10 border-success/30 text-success' :
+                  selectedFile.tier === 'core' ? 'bg-info/10 border-info/30 text-info' :
+                  selectedFile.tier === 'service' ? 'bg-primary/10 border-primary/30 text-primary' :
+                  selectedFile.tier === 'utility' ? 'bg-warn/10 border-warn/30 text-warn' :
+                  'bg-surface-2 border-border text-text-muted'
                 }`}>
                   {selectedFile.tier.replace('_', ' ')}
                 </span>
@@ -387,40 +480,178 @@ export const ReadingOrderTimeline: React.FC<TimelineProps> = ({ repoName }) => {
                   {selectedFile.reason}
                 </p>
               </div>
+
+              {/* Symbols defined in this file — from the AST symbol index */}
+              <div>
+                <div className="flex items-center justify-between gap-2">
+                  <span className="text-text-muted block text-[10px] uppercase">Defined Symbols</span>
+                  {symbolState === 'ready' && symbols.length > 0 && (
+                    <span className="text-[10px] text-text-subtle">{symbols.length}</span>
+                  )}
+                </div>
+
+                {symbolState === 'loading' && (
+                  <div className="mt-1.5 space-y-1.5" aria-hidden="true">
+                    <div className="skeleton h-3 w-full rounded" />
+                    <div className="skeleton h-3 w-2/3 rounded" />
+                  </div>
+                )}
+
+                {symbolState === 'ready' && symbols.length > 0 && (
+                  <ul className="mt-1.5 space-y-1 max-h-40 overflow-y-auto pr-1 list-none">
+                    {symbols.slice(0, 40).map((symbol) => (
+                      <li
+                        key={`${symbol.type}-${symbol.name}-${symbol.line_number}`}
+                        className="flex items-center gap-2 min-w-0"
+                      >
+                        <span
+                          className={`text-[8px] font-bold uppercase px-1 py-0.5 rounded border shrink-0 ${
+                            symbol.type === 'class' || symbol.type === 'interface'
+                              ? 'border-info/30 bg-info/10 text-info'
+                              : symbol.type === 'method'
+                                ? 'border-primary/30 bg-primary/10 text-primary'
+                                : 'border-border bg-surface-2 text-text-muted'
+                          }`}
+                        >
+                          {symbol.type.slice(0, 4)}
+                        </span>
+                        <span className="text-text truncate" title={symbol.parent_class ? `${symbol.parent_class}.${symbol.name}` : symbol.name}>
+                          {symbol.name}
+                        </span>
+                        <span className="text-text-subtle text-[10px] shrink-0 ml-auto">
+                          L{symbol.line_number}
+                        </span>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+
+                {symbolState === 'ready' && symbols.length === 0 && (
+                  <p className="text-text-subtle text-[10px] font-sans mt-1.5 leading-relaxed">
+                    No named symbols indexed — often a config, asset, or data file.
+                  </p>
+                )}
+
+                {symbolState === 'unavailable' && (
+                  <p className="text-text-subtle text-[10px] font-sans mt-1.5 leading-relaxed">
+                    Symbol index unavailable for this repository.
+                  </p>
+                )}
+              </div>
+
+              {/* Dependency neighbourhood — from the dependency graph */}
+              <div>
+                <span className="text-text-muted block text-[10px] uppercase">Dependencies</span>
+
+                {depsState === 'loading' && (
+                  <div className="mt-1.5 space-y-1.5" aria-hidden="true">
+                    <div className="skeleton h-3 w-full rounded" />
+                    <div className="skeleton h-3 w-1/2 rounded" />
+                  </div>
+                )}
+
+                {depsState === 'ready' && (deps.imports.length > 0 || deps.importedBy.length > 0) && (
+                  <div className="mt-1.5 space-y-2.5">
+                    <div>
+                      <span className="text-[10px] text-text-subtle">
+                        Imports ({deps.imports.length})
+                      </span>
+                      {deps.imports.length > 0 ? (
+                        <ul className="mt-1 space-y-0.5 max-h-24 overflow-y-auto pr-1 list-none">
+                          {deps.imports.map((path) => (
+                            <li key={`out-${path}`} className="text-text truncate text-[11px]" title={path}>
+                              → {path.split('/').pop()}
+                            </li>
+                          ))}
+                        </ul>
+                      ) : (
+                        <p className="text-text-subtle text-[10px] font-sans mt-0.5">None</p>
+                      )}
+                    </div>
+
+                    <div>
+                      <span className="text-[10px] text-text-subtle">
+                        Imported by ({deps.importedBy.length})
+                      </span>
+                      {deps.importedBy.length > 0 ? (
+                        <ul className="mt-1 space-y-0.5 max-h-24 overflow-y-auto pr-1 list-none">
+                          {deps.importedBy.map((path) => (
+                            <li key={`in-${path}`} className="text-text truncate text-[11px]" title={path}>
+                              ← {path.split('/').pop()}
+                            </li>
+                          ))}
+                        </ul>
+                      ) : (
+                        <p className="text-text-subtle text-[10px] font-sans mt-0.5">
+                          Nothing imports this file
+                        </p>
+                      )}
+                    </div>
+                  </div>
+                )}
+
+                {depsState === 'ready' && deps.imports.length === 0 && deps.importedBy.length === 0 && (
+                  <p className="text-text-subtle text-[10px] font-sans mt-1.5 leading-relaxed">
+                    Isolated in the dependency graph — no import edges either direction.
+                  </p>
+                )}
+
+                {depsState === 'unavailable' && (
+                  <p className="text-text-subtle text-[10px] font-sans mt-1.5 leading-relaxed">
+                    This file is not present in the dependency graph.
+                  </p>
+                )}
+              </div>
             </div>
           </div>
 
-          {/* Action Buttons for Future Compatibility */}
+          {/* File actions */}
           <div className="border-t border-border/40 pt-4 mt-6 space-y-2">
-            <button
-              disabled
-              className="w-full flex items-center justify-between bg-zinc-900 border border-border text-zinc-500 px-3 py-2 rounded text-xs font-mono opacity-60 cursor-not-allowed"
+            <a
+              href={`https://github.com/${repoName}/blob/HEAD/${selectedFile.file_path}`}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="w-full flex items-center justify-between bg-surface-2 border border-border text-text
+                         hover:border-primary/40 hover:bg-surface-3 px-3 py-2 rounded text-xs font-mono
+                         transition-colors focus-visible:outline-none focus-visible:shadow-ring"
             >
               <span className="flex items-center gap-1.5">
-                <ExternalLink className="h-3.5 w-3.5" />
-                <span>Open File</span>
+                <ExternalLink className="h-3.5 w-3.5 text-primary" aria-hidden="true" />
+                <span>Open on GitHub</span>
               </span>
-              <span className="text-[8px] bg-zinc-800 px-1 py-0.5 rounded">Future</span>
-            </button>
+              <ChevronRight className="h-3.5 w-3.5 text-text-subtle" aria-hidden="true" />
+            </a>
+
             <button
-              disabled
-              className="w-full flex items-center justify-between bg-zinc-900 border border-border text-zinc-500 px-3 py-2 rounded text-xs font-mono opacity-60 cursor-not-allowed"
+              type="button"
+              onClick={() => onAskAboutFile?.(selectedFile.file_path)}
+              disabled={!onAskAboutFile}
+              className="w-full flex items-center justify-between bg-surface-2 border border-border text-text
+                         hover:border-primary/40 hover:bg-surface-3 px-3 py-2 rounded text-xs font-mono
+                         transition-colors focus-visible:outline-none focus-visible:shadow-ring
+                         disabled:opacity-50 disabled:cursor-not-allowed"
             >
               <span className="flex items-center gap-1.5">
-                <MessageSquare className="h-3.5 w-3.5" />
+                <MessageSquare className="h-3.5 w-3.5 text-primary" aria-hidden="true" />
                 <span>Ask About File</span>
               </span>
-              <span className="text-[8px] bg-zinc-800 px-1 py-0.5 rounded">Future</span>
+              <ChevronRight className="h-3.5 w-3.5 text-text-subtle" aria-hidden="true" />
             </button>
+
             <button
-              disabled
-              className="w-full flex items-center justify-between bg-zinc-900 border border-border text-zinc-500 px-3 py-2 rounded text-xs font-mono opacity-60 cursor-not-allowed"
+              type="button"
+              onClick={() => onViewInGraph?.(selectedFile.file_path)}
+              disabled={!onViewInGraph}
+              className="w-full flex items-center justify-between bg-surface-2 border border-border text-text
+                         hover:border-primary/40 hover:bg-surface-3 px-3 py-2 rounded text-xs font-mono
+                         transition-colors focus-visible:outline-none focus-visible:shadow-ring
+                         disabled:opacity-50 disabled:cursor-not-allowed"
             >
               <span className="flex items-center gap-1.5">
-                <GitMerge className="h-3.5 w-3.5" />
-                <span>View Dependencies</span>
+                <GitMerge className="h-3.5 w-3.5 text-primary" aria-hidden="true" />
+                <span>View in Graph</span>
               </span>
-              <span className="text-[8px] bg-zinc-800 px-1 py-0.5 rounded">Future</span>
+              <ChevronRight className="h-3.5 w-3.5 text-text-subtle" aria-hidden="true" />
             </button>
           </div>
         </div>

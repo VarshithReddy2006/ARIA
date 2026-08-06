@@ -18,6 +18,9 @@ import {
   StopCircle,
 } from 'lucide-react';
 
+import { tokenizeCode, type Token } from '../../lib/tokenizer';
+import { sanitizeMarkdown } from '../../lib/sanitizer';
+
 // ---------------------------------------------------------------------------
 // Types
 // ---------------------------------------------------------------------------
@@ -39,7 +42,19 @@ interface Message {
 
 interface ChatInterfaceProps {
   repoName: string;
+  /**
+   * A question pushed in from elsewhere in the dashboard (e.g. "Ask about this
+   * file" in the reading path). The `token` allows the same text to be sent
+   * again. Consumed once, then reported back via `onPendingPromptConsumed`.
+   */
+  pendingPrompt?: { text: string; token: number } | null;
+  onPendingPromptConsumed?: () => void;
 }
+
+const createChatSessionId = (): string =>
+  typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function'
+    ? crypto.randomUUID()
+    : `${Date.now()}-${Math.random().toString(36).slice(2)}`;
 
 // ---------------------------------------------------------------------------
 // Custom Sub-components for Markdown & Layout
@@ -61,9 +76,45 @@ const renderChildrenWithCursor = (children: React.ReactNode): React.ReactNode =>
     return React.Children.map(children, (child) => renderChildrenWithCursor(child));
   }
   return children;
-}
+};
 
-/** Premium CodeBlock with syntax highlighting, copy button, and wrap options */
+/** Safe Token Syntax Renderer - Converts AST tokens into native React elements */
+const SafeSyntaxHighlighter: React.FC<{ codeText: string }> = ({ codeText }) => {
+  const cleanText = codeText.includes('%%CURSOR%%') ? codeText.split('%%CURSOR%%')[0] : codeText;
+  const hasCursor = codeText.includes('%%CURSOR%%');
+
+  const tokens = tokenizeCode(cleanText);
+
+  const getTokenClassName = (type: Token['type']): string => {
+    switch (type) {
+      case 'comment':
+        return 'text-text-subtle italic';
+      case 'keyword':
+        return 'text-indigo-400 font-semibold';
+      case 'string':
+        return 'text-emerald-400';
+      case 'number':
+        return 'text-amber-400';
+      case 'operator':
+        return 'text-primary/80';
+      default:
+        return '';
+    }
+  };
+
+  return (
+    <>
+      {tokens.map((t, idx) => (
+        <span key={idx} className={getTokenClassName(t.type)}>
+          {t.text}
+        </span>
+      ))}
+      {hasCursor && <span className="inline-block h-3.5 w-1.5 ml-1 bg-primary animate-blink align-middle" />}
+    </>
+  );
+};
+
+/** Premium CodeBlock with safe syntax highlighting, copy button, and wrap options */
 const CodeBlock: React.FC<{ inline?: boolean; className?: string; children: React.ReactNode }> = ({
   inline,
   className,
@@ -87,34 +138,6 @@ const CodeBlock: React.FC<{ inline?: boolean; className?: string; children: Reac
     navigator.clipboard.writeText(codeText.includes('%%CURSOR%%') ? codeText.split('%%CURSOR%%')[0] : codeText);
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
-  };
-
-  const highlightCode = (txt: string) => {
-    const cleanText = txt.includes('%%CURSOR%%') ? txt.split('%%CURSOR%%')[0] : txt;
-    const hasCursor = txt.includes('%%CURSOR%%');
-
-    // High-performance token/keyword syntax highlighting via regex
-    let escaped = cleanText
-      .replace(/&/g, '&amp;')
-      .replace(/</g, '&lt;')
-      .replace(/>/g, '&gt;');
-
-    // 1. Comments
-    escaped = escaped.replace(/(\/\/.*|#.*)/g, '<span class="text-text-subtle italic">$1</span>');
-    // 2. Keywords
-    const keywords = /\b(class|def|return|const|let|function|import|from|export|default|interface|extends|as|async|await|if|else|for|while|try|catch|finally|raise|throw|new|typeof|instanceof|public|private|protected|readonly|type|void|any|string|number|boolean|symbol|list|dict|tuple|set|import_statement|import_from_statement|class_definition|function_definition|decorator)\b/g;
-    escaped = escaped.replace(keywords, '<span class="text-indigo-400 font-semibold">$1</span>');
-    // 3. Strings
-    escaped = escaped.replace(/(['"`])(.*?)\1/g, '<span class="text-emerald-400">$1$2$1</span>');
-    // 4. Numbers
-    escaped = escaped.replace(/\b(\d+)\b/g, '<span class="text-amber-400">$1</span>');
-
-    return (
-      <>
-        <span dangerouslySetInnerHTML={{ __html: escaped }} />
-        {hasCursor && <span className="inline-block h-3.5 w-1.5 ml-1 bg-primary animate-blink align-middle" />}
-      </>
-    );
   };
 
   return (
@@ -152,7 +175,9 @@ const CodeBlock: React.FC<{ inline?: boolean; className?: string; children: Reac
         </div>
       </div>
       <pre className={`p-4 overflow-x-auto text-xs font-mono leading-relaxed bg-surface-1/40 ${wrapLines ? 'whitespace-pre-wrap break-all' : 'whitespace-pre'}`}>
-        <code>{highlightCode(codeText)}</code>
+        <code>
+          <SafeSyntaxHighlighter codeText={codeText} />
+        </code>
       </pre>
     </div>
   );
@@ -160,7 +185,13 @@ const CodeBlock: React.FC<{ inline?: boolean; className?: string; children: Reac
 
 /** Markdown Component mapping GFM styles to Tailwind classes */
 const Markdown: React.FC<{ content: string; isStreaming: boolean }> = ({ content, isStreaming }) => {
-  const textWithCursor = isStreaming ? content + ' %%CURSOR%%' : content;
+  const sanitized = sanitizeMarkdown(content);
+  const textWithCursor = isStreaming ? sanitized + ' %%CURSOR%%' : sanitized;
+
+  // Debug logging when DEBUG_RENDERING is set
+  if (typeof window !== 'undefined' && (window as any).DEBUG_RENDERING) {
+    console.log('[DEBUG_RENDERING]', { raw: content, sanitized, textWithCursor });
+  }
 
   return (
     <ReactMarkdown
@@ -266,7 +297,11 @@ const SourcesPanel: React.FC<{ sources: string[]; confidence: number; fallbackMo
 // Main Component
 // ---------------------------------------------------------------------------
 
-export const ChatInterface: React.FC<ChatInterfaceProps> = ({ repoName }) => {
+export const ChatInterface: React.FC<ChatInterfaceProps> = ({
+  repoName,
+  pendingPrompt,
+  onPendingPromptConsumed,
+}) => {
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState('');
   const [isStreaming, setIsStreaming] = useState(false);
@@ -276,6 +311,7 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({ repoName }) => {
 
   const bottomRef = useRef<HTMLDivElement>(null);
   const abortControllerRef = useRef<AbortController | null>(null);
+  const sessionIdRef = useRef<string>(createChatSessionId());
 
   const suggestedQuestions = [
     'What does this codebase do, and what are its main entry points?',
@@ -346,14 +382,16 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({ repoName }) => {
 
     const controller = new AbortController();
     abortControllerRef.current = controller;
+    let accumulatedText = '';
 
     try {
-      const response = await fetch(apiUrl('/api/chat'), {
+      const response = await fetch(apiUrl('/api/v1/chat'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           repo: activeRepo,
           message: userPrompt,
+          session_id: sessionIdRef.current,
           history: updatedHistory.map((m) => ({
             role: m.sender === 'user' ? 'user' : 'model',
             parts: [m.text],
@@ -415,6 +453,7 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({ repoName }) => {
             }
 
             if (data.text) {
+              accumulatedText += data.text;
               setMessages((prev) =>
                 prev.map((msg) =>
                   msg.id === assistantId
@@ -426,25 +465,37 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({ repoName }) => {
 
             if (data.status === 'done') {
               setMessages((prev) =>
-                prev.map((msg) =>
-                  msg.id === assistantId
-                    ? {
-                        ...msg,
-                        sources: data.sources ?? [],
-                        confidence: data.confidence ?? 0,
-                        fallbackMode: data.fallback_mode ?? false,
-                      }
-                    : msg,
-                ),
+                prev.map((msg) => {
+                  if (msg.id !== assistantId) return msg;
+                  const finalTxt = msg.text.trim() || accumulatedText.trim() || '⚠️ The AI provider returned an empty response. Repository intelligence fallback applied.';
+                  return {
+                    ...msg,
+                    text: finalTxt,
+                    sources: data.sources ?? [],
+                    confidence: data.confidence ?? 0,
+                    fallbackMode: data.fallback_mode ?? false,
+                  };
+                }),
               );
             }
           } catch {
-            /* ignore partial lines */
+            /* ignore JSON parse errors */
           }
         }
       }
-    } catch (error: any) {
-      if (error.name === 'AbortError') {
+
+      // Final check: if stream finished cleanly but accumulatedText is empty
+      if (!accumulatedText.trim()) {
+        setMessages((prev) =>
+          prev.map((msg) =>
+            msg.id === assistantId && !msg.text.trim()
+              ? { ...msg, text: '⚠️ The AI provider returned an empty response. Repository intelligence fallback applied.', isError: true }
+              : msg,
+          ),
+        );
+      }
+    } catch (err: any) {
+      if (err.name === 'AbortError') {
         setMessages((prev) =>
           prev.map((msg) =>
             msg.id === assistantId
@@ -453,7 +504,7 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({ repoName }) => {
           ),
         );
       } else {
-        console.error('Chat stream error:', error);
+        console.error('Chat stream error:', err);
         setMessages((prev) =>
           prev.map((msg) =>
             msg.id === assistantId
@@ -489,6 +540,24 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({ repoName }) => {
 
     await triggerStreamResponse(textToSend, nextHistory);
   };
+
+  /**
+   * Dispatches a question handed in from another panel. Kept as a thin trigger
+   * around the existing send path so request/streaming behaviour is unchanged.
+   */
+  const consumedPromptTokenRef = useRef<number | null>(null);
+  useEffect(() => {
+    if (!pendingPrompt?.text) return;
+    if (consumedPromptTokenRef.current === pendingPrompt.token) return;
+    if (isStreaming) return;
+
+    consumedPromptTokenRef.current = pendingPrompt.token;
+    onPendingPromptConsumed?.();
+    void handleSend(pendingPrompt.text);
+    // handleSend is recreated each render; depending on it would re-fire the
+    // effect, so the token guard above is what makes this run exactly once.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pendingPrompt?.text, pendingPrompt?.token, isStreaming]);
 
   const handleStop = () => {
     if (abortControllerRef.current) {

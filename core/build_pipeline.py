@@ -18,8 +18,15 @@ logger = logging.getLogger(__name__)
 class BuildPipeline:
     """Pipeline orchestrating builder steps based on incremental ChangeSet tasks."""
 
-    def __init__(self, registry: AnalysisRegistry) -> None:
+    def __init__(
+        self,
+        registry: AnalysisRegistry,
+        snapshot_store: Optional[Any] = None,
+        graph_service: Optional[Any] = None,
+    ) -> None:
         self.registry = registry
+        self._snapshot_store = snapshot_store
+        self._graph_service = graph_service
 
     def build(
         self,
@@ -31,7 +38,7 @@ class BuildPipeline:
     ) -> Generator[Dict[str, Any], None, None]:
         """Execute build tasks (FULL, PARTIAL, SKIP) and yield process events."""
         import uuid
-        from backend.logging_config import build_id_var, repository_var
+        from core.logging_context import build_id_var, repository_var
 
         build_id = str(uuid.uuid4())
         token_build = build_id_var.set(build_id)
@@ -54,7 +61,14 @@ class BuildPipeline:
                 file_list = []
 
             # 2. Ingest snapshot store & graph service dependencies
-            from backend.dependencies import snapshot_store, graph_service
+            if self._snapshot_store is not None:
+                snapshot_store = self._snapshot_store
+            else:
+                from storage.snapshot_store import JsonSnapshotStore
+
+                snapshot_store = JsonSnapshotStore()
+                
+            graph_service = self._graph_service
 
             # 3. Load previous manifest
             old_manifest_data = snapshot_store.load(repo_name, "build_manifest")

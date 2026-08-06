@@ -22,11 +22,17 @@ from __future__ import annotations
 
 import logging
 import os
-import subprocess
 import time
 from collections import Counter, defaultdict
 from datetime import datetime, timedelta, timezone
 from typing import Any, Dict, Generator, List, Optional, Tuple
+
+from utils.subprocess_runner import (
+    run_safe_command,
+    SafeSubprocessError,
+    SHORT_GIT_TIMEOUT,
+    HISTORY_ANALYSIS_TIMEOUT,
+)
 
 import networkx as nx
 
@@ -102,9 +108,9 @@ class GitHistoryService:
                     base_dir=parent_dir, key_map={"churn": dir_name}
                 )
             else:
-                from backend.dependencies import snapshot_store as default_store
+                from storage.snapshot_store import JsonSnapshotStore
 
-                self.snapshot_store = default_store
+                self.snapshot_store = JsonSnapshotStore()
         else:
             self.snapshot_store = snapshot_store
 
@@ -319,16 +325,19 @@ class GitHistoryService:
         ]
 
         try:
-            result = subprocess.run(
+            result = run_safe_command(
                 cmd,
-                capture_output=True,
-                text=True,
-                check=False,
-                timeout=120,
+                timeout=HISTORY_ANALYSIS_TIMEOUT,
             )
-        except subprocess.TimeoutExpired:
-            logger.warning("git log timed out for %s", repo_path)
-            return [], "git log timed out — history may be incomplete."
+        except SafeSubprocessError as err:
+            if err.timed_out:
+                logger.warning("git log timed out for %s", repo_path)
+                return [], "git log timed out — history may be incomplete."
+            logger.warning("git log error: %s", err.stderr[:200])
+            return [], f"git log error: {err.stderr[:200]}"
+        except Exception as exc:
+            logger.warning("git log exception: %s", str(exc)[:200])
+            return [], f"git log error: {str(exc)[:200]}"
 
         if result.returncode != 0:
             logger.warning("git log error: %s", result.stderr[:200])
@@ -427,12 +436,9 @@ class GitHistoryService:
     def _count_all_commits(repo_path: str) -> int:
         """Count total commits regardless of date window."""
         try:
-            res = subprocess.run(
+            res = run_safe_command(
                 ["git", "-C", repo_path, "rev-list", "--count", "HEAD"],
-                capture_output=True,
-                text=True,
-                check=False,
-                timeout=15,
+                timeout=SHORT_GIT_TIMEOUT,
             )
             return int(res.stdout.strip()) if res.returncode == 0 else 0
         except Exception:

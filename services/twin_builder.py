@@ -6,10 +6,10 @@ providers to compose the read-only RepositoryTwin and RepositoryTwinSummary view
 
 import os
 import logging
-import subprocess
 import networkx as nx
 from typing import Any, Dict, Optional
 
+from utils.subprocess_runner import run_safe_command, SHORT_GIT_TIMEOUT
 from models.twin import RepositorySnapshot, RepositoryTwin, RepositoryTwinSummary
 
 logger = logging.getLogger(__name__)
@@ -29,26 +29,14 @@ class RepositoryTwinBuilder:
         github_service: Optional[Any] = None,
         snapshot_store: Optional[Any] = None,
     ) -> None:
-        """Initialise the twin builder. Resolves dependencies lazily if not provided."""
-        from backend.dependencies import (
-            ANALYSIS_STORE as default_store,
-            symbol_service as ss,
-            graph_service as gs,
-            architecture_service as as_srv,
-            report_composer as rc,
-            dead_code_service as dcs,
-            github_service as gh,
-            snapshot_store as snap_store,
-        )
-
-        self.store = store if store is not None else default_store
-        self.symbol_service = symbol_service or ss
-        self.graph_service = graph_service or gs
-        self.architecture_service = architecture_service or as_srv
-        self.report_composer = report_composer or rc
-        self.dead_code_service = dead_code_service or dcs
-        self.github_service = github_service or gh
-        self.snapshot_store = snapshot_store or snap_store
+        self.store = store
+        self.symbol_service = symbol_service
+        self.graph_service = graph_service
+        self.architecture_service = architecture_service
+        self.report_composer = report_composer
+        self.dead_code_service = dead_code_service
+        self.github_service = github_service
+        self.snapshot_store = snapshot_store
 
     def build_snapshot(
         self,
@@ -62,11 +50,10 @@ class RepositoryTwinBuilder:
             commit_sha = manifest["repository_hash"]
         elif local_path and os.path.exists(os.path.join(local_path, ".git")):
             try:
-                res = subprocess.run(
+                res = run_safe_command(
                     ["git", "rev-parse", "HEAD"],
                     cwd=local_path,
-                    capture_output=True,
-                    text=True,
+                    timeout=SHORT_GIT_TIMEOUT,
                     check=True,
                 )
                 commit_sha = res.stdout.strip()
@@ -76,11 +63,10 @@ class RepositoryTwinBuilder:
         branch = "main"
         if local_path and os.path.exists(os.path.join(local_path, ".git")):
             try:
-                res = subprocess.run(
+                res = run_safe_command(
                     ["git", "rev-parse", "--abbrev-ref", "HEAD"],
                     cwd=local_path,
-                    capture_output=True,
-                    text=True,
+                    timeout=SHORT_GIT_TIMEOUT,
                     check=True,
                 )
                 branch = res.stdout.strip()
@@ -169,16 +155,16 @@ class RepositoryTwinBuilder:
         }
 
         # 5. Retrieve Architecture summary
-        cycles_count = 0
-        strongly_connected_components = 0
-        if dep_graph is not None and dep_graph.number_of_nodes() > 0:
-            strongly_connected_components = nx.number_strongly_connected_components(
-                dep_graph
-            )
-            try:
-                cycles_count = len(list(nx.simple_cycles(dep_graph)))
-            except Exception:
-                pass
+        strongly_connected_components = (
+            self.graph_service.get_strongly_connected_components_count(repo_name)
+            if self.graph_service
+            else 0
+        )
+        cycles_count = (
+            len(self.graph_service.get_cycles(repo_name))
+            if self.graph_service
+            else 0
+        )
 
         entry_points = []
         if hasattr(architecture_data, "entry_points"):
@@ -192,24 +178,60 @@ class RepositoryTwinBuilder:
             "strongly_connected_components": strongly_connected_components,
             "entry_points": entry_points,
             "reading_order": getattr(architecture_data, "reading_order", []) or [],
+            # Kept here as well for consumers of the original Twin summary shape.
+            "import_relationships_count": dependencies_summary[
+                "import_relationships_count"
+            ],
+            "dependency_nodes_count": dependencies_summary["dependency_nodes_count"],
         }
 
-        # 6. Retrieve Health summary
-        report = self.report_composer.compose_report(repo_name)
-        health_summary = {
-            "overall_score": report.scores.overall,
-            "grade": report.scores.grade,
-            "breakdown": {
-                "architecture": report.scores.architecture,
-                "api": report.scores.api,
-                "hygiene": report.scores.hygiene,
-                "churn": report.scores.churn,
-                "readability": report.scores.readability,
-            },
-        }
+        # 6. Retrieve Health summary. A graph-only index does not yet have all
+        # report inputs (notably a persisted architecture summary); it remains a
+        # valid partial repository view, so expose neutral scores until enrichment
+        # becomes available rather than rejecting the twin.
+        try:
+            report = self.report_composer.compose_report(repo_name)
+        except ValueError as exc:
+            logger.info(
+                "Repository health enrichment unavailable for partially indexed %s: %s",
+                repo_name,
+                exc,
+            )
+            health_summary = {
+                "overall_score": 0.0,
+                "grade": "F",
+                "breakdown": {
+                    "architecture": 0.0,
+                    "api": 0.0,
+                    "hygiene": 0.0,
+                    "churn": 0.0,
+                    "readability": 0.0,
+                },
+            }
+        else:
+            health_summary = {
+                "overall_score": report.scores.overall,
+                "grade": report.scores.grade,
+                "breakdown": {
+                    "architecture": report.scores.architecture,
+                    "api": report.scores.api,
+                    "hygiene": report.scores.hygiene,
+                    "churn": report.scores.churn,
+                    "readability": report.scores.readability,
+                },
+            }
 
-        # 7. Compute lightweight Compliance summary
-        dead_code_result = self.dead_code_service.analyze(repo_name)
+        # 7. Compute lightweight Compliance summary. Dead-code analysis has the
+        # same full-architecture prerequisite as report composition.
+        try:
+            dead_code_result = self.dead_code_service.analyze(repo_name)
+        except ValueError as exc:
+            logger.info(
+                "Repository dead-code enrichment unavailable for partially indexed %s: %s",
+                repo_name,
+                exc,
+            )
+            dead_code_result = None
         dead_code_ratio = 0.0
         if dead_code_result and symbol_index and symbol_index.symbol_count > 0:
             dead_code_ratio = (

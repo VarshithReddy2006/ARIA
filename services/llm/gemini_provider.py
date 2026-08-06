@@ -44,7 +44,7 @@ class GeminiProvider(BaseLLMProvider):
         api_key: Optional[str] = None,
         model: Optional[str] = None,
     ) -> None:
-        from backend.settings import settings
+        from core.config import settings
 
         self.api_key = api_key or settings.gemini_api_key or ""
         self.model = model or settings.gemini_model or "gemini-2.5-flash"

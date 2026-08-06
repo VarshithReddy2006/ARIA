@@ -5,10 +5,11 @@ dependency graphs, dead code, PR analysis, and retrieval) as standard MCP tools.
 """
 
 import json
+import os
 import sys
 import traceback
 import logging
-from typing import Dict, Any
+from typing import Dict, Any, List
 
 # Redirect all root logging to stderr. Stdout MUST be preserved exclusively for JSON-RPC.
 logger = logging.getLogger()
@@ -22,7 +23,7 @@ logger.addHandler(stderr_handler)
 logger.setLevel(logging.INFO)
 
 # Expose tools definition list
-TOOLS = [
+TOOLS: List[Dict[str, Any]] = [
     {
         "name": "list_repositories",
         "description": "Lists all repositories currently analyzed and persisted in the system.",
@@ -131,10 +132,98 @@ TOOLS = [
 ]
 
 
+# Schema lookup derived from TOOLS so validation and advertised contract cannot drift.
+_TOOL_SCHEMAS: Dict[str, Dict[str, Any]] = {t["name"]: t["inputSchema"] for t in TOOLS}
+
+
+class InvalidParams(Exception):
+    """Arguments failed contract validation; maps to JSON-RPC -32602."""
+
+
+def validate_tool_arguments(tool_name: str, arguments: Any) -> Dict[str, Any]:
+    """Validate ``arguments`` against the tool's advertised inputSchema.
+
+    Runs before any service call so malformed input can never reach the
+    business layer. Returns the normalised argument dict (strings trimmed).
+    Raises :class:`InvalidParams` on any violation.
+
+    Unknown properties are ignored rather than rejected, matching JSON Schema's
+    default ``additionalProperties`` behaviour, so a newer client sending an
+    extra hint field is not broken by an older server.
+    """
+    schema = _TOOL_SCHEMAS.get(tool_name)
+    if schema is None:
+        raise InvalidParams(f"Unknown tool '{tool_name}'.")
+    if not isinstance(arguments, dict):
+        raise InvalidParams(
+            f"'arguments' must be a JSON object, got {type(arguments).__name__}."
+        )
+
+    properties: Dict[str, Any] = schema.get("properties", {})
+    missing = [f for f in schema.get("required", []) if f not in arguments]
+    if missing:
+        raise InvalidParams(
+            "Missing required argument(s): " + ", ".join(sorted(missing)) + "."
+        )
+
+    validated: Dict[str, Any] = {}
+    for key, value in arguments.items():
+        spec = properties.get(key)
+        if spec is None:
+            continue
+        if spec.get("type") == "string":
+            if not isinstance(value, str):
+                raise InvalidParams(
+                    f"Argument '{key}' must be a string, got {type(value).__name__}."
+                )
+            trimmed = value.strip()
+            if not trimmed:
+                raise InvalidParams(f"Argument '{key}' must not be empty.")
+            validated[key] = trimmed
+        else:
+            validated[key] = value
+    return validated
+
+
 def send_response(response: Dict[str, Any]) -> None:
     """Helper to dump response JSON to standard output."""
     sys.stdout.write(json.dumps(response) + "\n")
     sys.stdout.flush()
+
+
+_TRUTHY = {"1", "true", "yes", "on"}
+
+
+def _debug_errors_enabled() -> bool:
+    """True when the operator has opted in to verbose client-visible errors.
+
+    Read per-call rather than cached at import so the flag can be toggled in
+    tests and by wrappers without reloading the module.
+    """
+    return os.environ.get("MCP_DEBUG_ERRORS", "").strip().lower() in _TRUTHY
+
+
+def _client_safe_message(tool_name: str, exc: Exception) -> str:
+    """Return a concise, non-revealing message for a failed tool call.
+
+    ``ValueError`` is the deliberate signal for domain conditions ("repository
+    not indexed", "symbol not found"); its text is curated and safe to forward.
+    Every other exception type is unplanned and may embed paths, SQL, or
+    internal identifiers, so it is redacted to a fixed string. The full detail
+    always reaches the server log.
+    """
+    if isinstance(exc, ValueError):
+        message = str(exc).strip()
+        if message:
+            return message
+    return f"Tool '{tool_name}' failed due to an internal error."
+
+
+def _error_data(exc: Exception) -> Dict[str, Any]:
+    """Optional ``data`` member; carries a traceback only in explicit debug mode."""
+    if _debug_errors_enabled():
+        return {"data": traceback.format_exc()}
+    return {}
 
 
 def run_mcp_server() -> None:
@@ -144,11 +233,20 @@ def run_mcp_server() -> None:
     # Lazy-load back-end singletons on start
     from backend.dependencies import (
         ANALYSIS_STORE,
+        _load_analysis_store,
         symbol_service,
         call_graph_service,
         dead_code_service,
         retrieval_service,
     )
+
+    # Hydrate persisted repositories from disk. The FastAPI app does this in its
+    # startup path; the stdio server has no lifespan hook, so without this every
+    # repository-scoped tool reports "not indexed". Guarded on emptiness so the
+    # call is idempotent and never re-validates an already-populated store.
+    if not ANALYSIS_STORE:
+        _load_analysis_store()
+    logger.info("Analysis store ready: %d repositories available.", len(ANALYSIS_STORE))
 
     while True:
         try:
@@ -172,7 +270,7 @@ def run_mcp_server() -> None:
                             "capabilities": {"tools": {}},
                             "serverInfo": {
                                 "name": "repo-intelligence-mcp",
-                                "version": "1.0.0",
+                                "version": "1.5.0",
                             },
                         },
                     }
@@ -188,6 +286,26 @@ def run_mcp_server() -> None:
             elif method == "tools/call":
                 tool_name = params.get("name")
                 arguments = params.get("arguments", {})
+
+                # Contract validation runs before any service call, so invalid
+                # input is rejected as -32602 and never reaches business logic.
+                try:
+                    arguments = validate_tool_arguments(tool_name, arguments)
+                except InvalidParams as bad_params:
+                    logger.warning(
+                        "Rejected tools/call for %r: %s", tool_name, bad_params
+                    )
+                    send_response(
+                        {
+                            "jsonrpc": "2.0",
+                            "id": req_id,
+                            "error": {
+                                "code": -32602,
+                                "message": f"Invalid params: {bad_params}",
+                            },
+                        }
+                    )
+                    continue
 
                 result_content = []
                 try:
@@ -211,20 +329,42 @@ def run_mcp_server() -> None:
                         }
                     )
                 except Exception as tool_err:
-                    logger.error(f"Tool {tool_name} failed: {tool_err}")
+                    # Full traceback to the server log (stderr), never to the client
+                    # unless MCP_DEBUG_ERRORS is explicitly set.
+                    logger.error(
+                        "Tool %s failed: %s", tool_name, tool_err, exc_info=True
+                    )
+                    # A failing tool is an execution outcome, not a transport
+                    # fault, so MCP requires it be reported as a successful
+                    # result carrying isError. JSON-RPC error codes stay
+                    # reserved for protocol-level problems.
+                    message = _client_safe_message(tool_name, tool_err)
+                    if _debug_errors_enabled():
+                        message = f"{message}\n\n{traceback.format_exc()}"
                     send_response(
                         {
                             "jsonrpc": "2.0",
                             "id": req_id,
-                            "error": {
-                                "code": -32603,
-                                "message": f"Tool execution failed: {str(tool_err)}",
-                                "data": traceback.format_exc(),
+                            "result": {
+                                "content": [{"type": "text", "text": message}],
+                                "isError": True,
                             },
                         }
                     )
 
-            # 4. Unknown/unsupported JSON-RPC method
+            # 4. Shutdown request
+            elif method in ("shutdown", "exit"):
+                if req_id is not None:
+                    send_response(
+                        {
+                            "jsonrpc": "2.0",
+                            "id": req_id,
+                            "result": {"status": "shutdown"},
+                        }
+                    )
+                break
+
+            # 5. Unknown/unsupported JSON-RPC method
             else:
                 if req_id is not None:
                     send_response(
@@ -238,15 +378,18 @@ def run_mcp_server() -> None:
                         }
                     )
         except Exception as exc:
-            logger.error(f"Error handling MCP request: {exc}")
-            # If request could not be parsed, send generic error
+            logger.error("Error handling MCP request: %s", exc, exc_info=True)
+            # If the request could not be parsed, send a generic error.
             send_response(
                 {
                     "jsonrpc": "2.0",
+                    # JSON-RPC 2.0: when the request id cannot be determined,
+                    # the response id MUST be null rather than omitted.
+                    "id": None,
                     "error": {
                         "code": -32700,
                         "message": "Parse error",
-                        "data": str(exc),
+                        **_error_data(exc),
                     },
                 }
             )
@@ -302,11 +445,16 @@ def execute_tool(
 
     elif name == "get_symbol_references":
         sym_name = args.get("symbol_name", "").strip()
+        # get_references is typed Optional[List[Symbol]] and returns None when the
+        # repository has no symbol index. "No references" is a valid answer, so
+        # normalise to an empty list rather than raising.
         res = symbols.get_references(repo_name, sym_name)
-        return [s.model_dump() for s in res]
+        return [s.model_dump() for s in (res or [])]
 
     elif name == "get_call_graph":
-        res = call_graph.get_graph_summary(repo_name)
+        # CallGraphService exposes the persisted summary as load_summary(); the
+        # previous get_graph_summary() name does not exist on the service.
+        res = call_graph.load_summary(repo_name)
         if res is None:
             raise ValueError(f"No call graph indexed for '{repo_name}'.")
         return res.model_dump()
@@ -336,8 +484,9 @@ def execute_tool(
 
     elif name == "query_codebase":
         query = args.get("query", "").strip()
-        # Perform retrieval Q&A
-        res = retrieval.retrieve_and_evaluate(repo_name, query)
+        # RetrievalService's public entry point is retrieve_and_answer(); it
+        # returns the same answer/sources/confidence/verified shape used below.
+        res = retrieval.retrieve_and_answer(repo_name, query)
         return {
             "answer": res.get("answer", ""),
             "sources": [

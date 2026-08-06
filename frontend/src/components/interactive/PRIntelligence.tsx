@@ -144,7 +144,7 @@ export const PRIntelligence: React.FC<PRIntelligenceProps> = ({ repoName }) => {
     }
 
     try {
-      const res = await fetch(apiUrl('/api/pr/analyze'), {
+      const res = await fetch(apiUrl('/api/v1/pr/analyze'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload),

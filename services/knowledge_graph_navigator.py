@@ -21,11 +21,11 @@ class RepositoryKnowledgeGraphNavigator:
         self.builder = builder
 
     def get_builder(self) -> Any:
-        """Lazily resolve the builder to prevent process-startup circular dependency issues."""
+        """Return the injected knowledge graph builder."""
         if self.builder is None:
-            from backend.dependencies import repository_knowledge_graph_builder
-
-            self.builder = repository_knowledge_graph_builder
+            raise ValueError(
+                "RepositoryKnowledgeGraphNavigator was not provided with a builder."
+            )
         return self.builder
 
     def _get_node_as_dto(

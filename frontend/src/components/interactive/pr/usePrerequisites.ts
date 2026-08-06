@@ -33,7 +33,7 @@ export function usePrerequisites(activeRepo: string): UsePrerequisitesResult {
     const [owner, repo] = activeRepo.split('/');
     if (!owner || !repo) return;
     try {
-      const res = await fetch(apiUrl(`/api/pr/health?owner=${owner}&repo=${repo}`));
+      const res = await fetch(apiUrl(`/api/v1/pr/health?owner=${owner}&repo=${repo}`));
       const data = await res.json();
       setHealthStatus(data);
     } catch (err) {
@@ -54,7 +54,7 @@ export function usePrerequisites(activeRepo: string): UsePrerequisitesResult {
     setIsRepairing(true);
     setRepairError(null);
     try {
-      const res = await fetch(apiUrl('/api/repos/repair'), {
+      const res = await fetch(apiUrl('/api/v1/repos/repair'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ owner, repo }),

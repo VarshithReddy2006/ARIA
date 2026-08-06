@@ -56,32 +56,43 @@ def render_fallback(
         sections.append(structured_intelligence.strip())
         sections.append("\n")
 
-    # Relevant files (from chunks, deduplicated)
-    if source_files:
+    # Evidence citations (from chunks, structured)
+    if chunks:
         sections.append("---\n")
-        sections.append("**Relevant Files**\n")
+        sections.append("### Evidence\n")
+        seen_files: set = set()
+        citations_shown = 0
+        for chunk in chunks:
+            meta = chunk.get("metadata", {})
+            file_path = meta.get("file_path", "")
+            if not file_path or file_path in seen_files:
+                continue
+            seen_files.add(file_path)
+
+            start_line = meta.get("start_line", 1)
+            end_line = meta.get("end_line", start_line + 15)
+            reason = meta.get("why_this_file", "Matched repository intelligence query")
+            conf = meta.get("confidence")
+
+            sections.append(f"**File:** `{file_path}`")
+            sections.append(f"- **Lines:** {start_line}–{end_line}")
+            sections.append(f"- **Reason:** {reason}")
+            if conf is not None:
+                sections.append(f"- **Confidence:** {conf}%\n")
+            else:
+                sections.append("")
+
+            citations_shown += 1
+            if citations_shown >= 5:
+                break
+    elif source_files:
+        sections.append("---\n")
+        sections.append("### Evidence\n")
         seen: set = set()
         for f in source_files:
             if f and f not in seen:
                 seen.add(f)
-                sections.append(f"- `{f}`")
-        sections.append("\n")
-
-    elif chunks:
-        sections.append("---\n")
-        sections.append("**Relevant Files**\n")
-        seen2: set = set()
-        previews_shown = 0
-        for chunk in chunks:
-            file_path = chunk.get("metadata", {}).get("file_path", "")
-            if not file_path or file_path in seen2:
-                continue
-            seen2.add(file_path)
-            sections.append(f"- `{file_path}`")
-            previews_shown += 1
-            if previews_shown >= 5:
-                break
-        sections.append("\n")
+                sections.append(f"**File:** `{f}`\n")
 
     # Suggested retry with actionable advice
     sections.append("---\n")

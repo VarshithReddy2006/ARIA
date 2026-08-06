@@ -82,7 +82,7 @@ export const IssueMapper: React.FC<IssueMapperProps> = ({ repoName }) => {
   // Fetch recent repositories if no repoName is locked
   useEffect(() => {
     if (!repoName) {
-      fetch(apiUrl('/api/repos/recent'))
+      fetch(apiUrl('/api/v1/repos/recent'))
         .then(res => res.json())
         .then(data => {
           if (Array.isArray(data)) {
@@ -102,7 +102,7 @@ export const IssueMapper: React.FC<IssueMapperProps> = ({ repoName }) => {
 
     setIsLoading(true);
     try {
-      const response = await fetch(apiUrl('/api/issues/map'), {
+      const response = await fetch(apiUrl('/api/v1/issues/map'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({

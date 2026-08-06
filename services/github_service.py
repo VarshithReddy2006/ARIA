@@ -5,16 +5,52 @@ issue lists, and pull request information, or clones repositories locally.
 """
 
 import os
+import re
 import shutil
-import subprocess
+import stat
 import urllib.parse
 import logging
 from typing import Dict, List, Any, Optional
 import requests
 
 from services.storage_paths import get_cloned_repos_dir
+from utils.subprocess_runner import (
+    run_safe_command,
+    SafeSubprocessError,
+    SHORT_GIT_TIMEOUT,
+    INSPECTION_TIMEOUT,
+    CLONE_TIMEOUT,
+)
 
 logger = logging.getLogger(__name__)
+
+# Client-safe failure messages. These must never disclose whether a repository
+# exists, whether credentials are configured, or whether credentials are valid,
+# and must never carry git stderr, git commands, or exception text.
+ACCESS_DENIED_MESSAGE = "Repository not found or access denied."
+NETWORK_FAILURE_MESSAGE = (
+    "Network failure: unable to reach the repository host. Please try again."
+)
+GIT_FAILURE_MESSAGE = (
+    "Connection failure: unable to complete the repository operation."
+)
+
+# Internal diagnostic categories. Every category is logged distinctly for
+# operators; several intentionally collapse to one public message.
+_CATEGORY_INVALID_CREDENTIALS = "invalid_credentials"
+_CATEGORY_PERMISSION_DENIED = "permission_denied"
+_CATEGORY_NOT_FOUND = "not_found"
+_CATEGORY_NETWORK = "network"
+_CATEGORY_GIT_FAILURE = "git_failure"
+_CATEGORY_UNEXPECTED = "unexpected"
+
+_NON_DISCLOSING_CATEGORIES = frozenset(
+    {
+        _CATEGORY_INVALID_CREDENTIALS,
+        _CATEGORY_PERMISSION_DENIED,
+        _CATEGORY_NOT_FOUND,
+    }
+)
 
 
 class InvalidGitHubRepoURLError(ValueError):
@@ -22,11 +58,87 @@ class InvalidGitHubRepoURLError(ValueError):
 
 
 class RepositoryNotFoundError(RuntimeError):
-    """Raised when the target repository cannot be found (404-like git clone failure)."""
+    """Raised when the target repository cannot be accessed (404-like git failure)."""
+
+
+class GitOperationError(RuntimeError):
+    """Raised when a git operation fails for network or execution reasons."""
 
 
 class BranchNotFoundError(ValueError):
     """Raised when the requested branch/ref does not exist in the repository."""
+
+
+def classify_git_failure(
+    stderr: str, returncode: int = 0, timed_out: bool = False
+) -> str:
+    """Classify a git failure into an internal diagnostic category.
+
+    Args:
+        stderr: Redacted git stderr output.
+        returncode: Process exit code.
+        timed_out: Whether the command exceeded its timeout.
+
+    Returns:
+        One of the internal ``_CATEGORY_*`` values.
+    """
+    if timed_out:
+        return _CATEGORY_NETWORK
+
+    text = (stderr or "").lower()
+
+    # Local execution problems must not be mistaken for repository access
+    # results, because their stderr also contains "not found".
+    if any(
+        kw in text
+        for kw in ("executable not found", "no such file or directory", "cannot run program")
+    ):
+        return _CATEGORY_GIT_FAILURE
+
+    if any(
+        kw in text
+        for kw in (
+            "could not resolve host",
+            "temporary failure",
+            "network is unreachable",
+            "connection refused",
+            "connection timed out",
+            "timed out",
+            "operation timed out",
+            "failed to connect",
+        )
+    ):
+        return _CATEGORY_NETWORK
+
+    if any(
+        kw in text
+        for kw in (
+            "401",
+            "invalid username or password",
+            "bad credentials",
+            "authentication failed",
+            "could not read username",
+            "terminal prompts disabled",
+        )
+    ):
+        return _CATEGORY_INVALID_CREDENTIALS
+
+    if any(
+        kw in text
+        for kw in ("403", "forbidden", "permission denied", "write access", "authorization")
+    ):
+        return _CATEGORY_PERMISSION_DENIED
+
+    if any(
+        kw in text
+        for kw in ("404", "not found", "repository not found", "fatal: repository")
+    ):
+        return _CATEGORY_NOT_FOUND
+
+    if returncode != 0:
+        return _CATEGORY_GIT_FAILURE
+
+    return _CATEGORY_UNEXPECTED
 
 
 class GitHubConfig:
@@ -35,7 +147,7 @@ class GitHubConfig:
     @classmethod
     def load_token(cls) -> Optional[str]:
         if cls.token is None:
-            from backend.settings import settings
+            from core.config import settings
 
             cls.token = settings.github_token
         return cls.token
@@ -43,6 +155,75 @@ class GitHubConfig:
 
 class GitHubService:
     """Wrapper class containing helpers to query GitHub repositories or clone them locally."""
+
+    _APPROVED_HOST = "github.com"
+    _MAX_SOURCE_FILE_SIZE_BYTES = 2 * 1024 * 1024
+    _REPOSITORY_PART = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._-]*$")
+
+    def _raise_safe_git_error(
+        self,
+        category: str,
+        *,
+        repo_fullName: str,
+        cmd: Optional[List[str]] = None,
+        stderr: str = "",
+        returncode: int = 0,
+        exc: Optional[BaseException] = None,
+    ) -> None:
+        """Log full git diagnostics for operators, then raise a client-safe error.
+
+        Diagnostics (category, git command, repository, exit code, stderr and the
+        underlying exception) are written to the server log only. The raised
+        exception message is generic and never reveals repository existence or
+        credential state.
+
+        Raises:
+            RepositoryNotFoundError: For credential, permission and not-found cases.
+            GitOperationError: For network, git-execution and unexpected cases.
+        """
+        logger.error(
+            "GitHub operation failed | category=%s repository=%s exit_code=%s "
+            "credentials_configured=%s command=%s stderr=%s",
+            category,
+            repo_fullName,
+            returncode,
+            bool(self.token),
+            " ".join(cmd) if cmd else "n/a",
+            (stderr or "").strip() or "n/a",
+            exc_info=exc if exc is not None else False,
+        )
+
+        if category in _NON_DISCLOSING_CATEGORIES:
+            raise RepositoryNotFoundError(ACCESS_DENIED_MESSAGE)
+        if category == _CATEGORY_NETWORK:
+            raise GitOperationError(NETWORK_FAILURE_MESSAGE)
+        raise GitOperationError(GIT_FAILURE_MESSAGE)
+
+    def _run_git(
+        self,
+        cmd: List[str],
+        *,
+        timeout: float,
+        repo_fullName: str,
+        env: Optional[Dict[str, str]] = None,
+        secrets: Optional[List[str]] = None,
+    ) -> Any:
+        """Run a git command, converting execution failures into client-safe errors."""
+        try:
+            return run_safe_command(
+                cmd, timeout=timeout, env=env, secrets=secrets or []
+            )
+        except SafeSubprocessError as sub_exc:
+            self._raise_safe_git_error(
+                classify_git_failure(
+                    sub_exc.stderr, sub_exc.returncode, sub_exc.timed_out
+                ),
+                repo_fullName=repo_fullName,
+                cmd=cmd,
+                stderr=sub_exc.stderr,
+                returncode=sub_exc.returncode,
+                exc=sub_exc,
+            )
 
     def __init__(self, token: Optional[str] = None) -> None:
         """Initializes the GitHub client with an optional authentication token.
@@ -63,33 +244,47 @@ class GitHubService:
         )
 
     def parse_repo_url(self, repo_url: str) -> Dict[str, str]:
-        """Parses repository URL into owner and repo name.
+        """Parse a supported GitHub URL or ``owner/repo`` identifier safely."""
+        raw_url = repo_url.strip()
+        if not raw_url:
+            raise ValueError("Invalid GitHub repository URL.")
 
-        Args:
-            repo_url: Repository URL or owner/repo identifier.
+        owner: Optional[str] = None
+        repo: Optional[str] = None
+        parsed = urllib.parse.urlparse(raw_url)
 
-        Returns:
-            A dictionary containing "owner" and "repo".
-        """
-        url = repo_url.strip()
-        if url.endswith(".git"):
-            url = url[:-4]
+        if parsed.scheme or parsed.netloc:
+            if (
+                parsed.scheme not in {"http", "https"}
+                or parsed.hostname != self._APPROVED_HOST
+                or parsed.port is not None
+                or parsed.username is not None
+                or parsed.password is not None
+                or parsed.params
+                or parsed.query
+                or parsed.fragment
+            ):
+                raise ValueError("Invalid GitHub repository URL.")
+            path_parts = [part for part in parsed.path.split("/") if part]
+        else:
+            path_parts = [part for part in raw_url.split("/") if part]
+            if len(path_parts) == 3 and path_parts[0] == self._APPROVED_HOST:
+                path_parts = path_parts[1:]
 
-        # Strip trailing slash if present
-        if url.endswith("/"):
-            url = url[:-1]
+        if len(path_parts) == 2:
+            owner, repo = path_parts
+            if repo.endswith(".git"):
+                repo = repo[:-4]
 
-        if "github.com/" in url:
-            parts = url.split("github.com/")[-1].split("/")
-            if len(parts) >= 2:
-                return {"owner": parts[0], "repo": parts[1]}
+        if (
+            not owner
+            or not repo
+            or not self._REPOSITORY_PART.fullmatch(owner)
+            or not self._REPOSITORY_PART.fullmatch(repo)
+        ):
+            raise ValueError("Invalid GitHub repository URL.")
 
-        # If it's already in owner/repo format
-        parts = url.split("/")
-        if len(parts) == 2:
-            return {"owner": parts[0], "repo": parts[1]}
-
-        raise ValueError(f"Invalid GitHub repository URL: {repo_url}")
+        return {"owner": owner, "repo": repo}
 
     def get_local_repo_path(self, repo_fullName: str) -> str:
         """Returns the local path where a repository is or should be cloned.
@@ -126,115 +321,72 @@ class GitHubService:
         repo_fullName = f"{parsed['owner']}/{parsed['repo']}"
         dest_dir = self.get_local_repo_path(repo_fullName)
 
-        # 1. Determine clone URL for anonymous cloning
-        parsed_url = urllib.parse.urlparse(repo_url)
-        if parsed_url.scheme:
-            public_url = repo_url
-        else:
-            public_url = f"https://github.com/{repo_fullName}.git"
+        # Always use the canonical approved host. Credentials are never attached
+        # to a caller-provided remote URL.
+        public_url = f"https://{self._APPROVED_HOST}/{repo_fullName}.git"
+
+        # Prepare authorization environment & secret redaction list
+        extra_env: Dict[str, str] = {}
+        secrets_list: List[str] = []
+        if self.token:
+            import base64
+            auth_str = base64.b64encode(f"x-access-token:{self.token}".encode("utf-8")).decode("utf-8")
+            extra_env = {
+                "GIT_CONFIG_KEY_0": "http.extraHeader",
+                "GIT_CONFIG_VALUE_0": f"Authorization: Basic {auth_str}",
+            }
+            secrets_list = [self.token, auth_str]
 
         # 2. Check if repository is publicly accessible (anonymous check)
         is_public = False
         try:
             cmd_check = ["git", "ls-remote", public_url, "HEAD"]
-            res = subprocess.run(cmd_check, capture_output=True, text=True, check=False)
+            res = run_safe_command(cmd_check, timeout=SHORT_GIT_TIMEOUT, secrets=secrets_list)
             if res.returncode == 0:
                 is_public = True
         except Exception:
             pass
 
         # 3. Determine actual URL to use
+        clone_url = public_url
         if is_public:
-            clone_url = public_url
             logger.info("Cloning public repository anonymously: %s", repo_fullName)
         elif self.token:
-            # Private repo, use token
-            if parsed_url.scheme == "https":
-                netloc = f"{self.token}@{parsed_url.netloc}"
-                clone_url = urllib.parse.urlunparse(parsed_url._replace(netloc=netloc))
-            else:
-                clone_url = f"https://{self.token}@github.com/{repo_fullName}.git"
             logger.info("Cloning private repository using PAT: %s", repo_fullName)
         else:
-            clone_url = public_url
             logger.info(
                 "Cloning repository anonymously (no token available): %s", repo_fullName
             )
 
         # 4. Perform ls-remote connection diagnostics
-        try:
-            cmd_check = ["git", "ls-remote", clone_url, "HEAD"]
-            res = subprocess.run(cmd_check, capture_output=True, text=True, check=False)
-            if res.returncode != 0:
-                err_stderr = (
-                    res.stderr.replace(self.token, "********")
-                    if self.token
-                    else res.stderr
-                )
-                err_lower = err_stderr.lower()
-
-                # Check for Network Failure
-                if any(
-                    kw in err_lower
-                    for kw in [
-                        "could not resolve host",
-                        "temporary failure",
-                        "network is unreachable",
-                        "timed out",
-                    ]
-                ):
-                    raise RuntimeError(
-                        f"Network failure: Check your internet connection. Detail: {err_stderr.strip()}"
-                    )
-                # Check for Auth / Access Failures
-                elif any(
-                    kw in err_lower
-                    for kw in [
-                        "permission denied",
-                        "authorization",
-                        "terminal",
-                        "write access",
-                        "403",
-                        "401",
-                    ]
-                ):
-                    if not self.token:
-                        raise RuntimeError(
-                            "Repository private: The repository requires authentication but no GITHUB_TOKEN (PAT) is set in your environment."
-                        )
-                    else:
-                        raise RuntimeError(
-                            f"Authentication failure: The provided GITHUB_TOKEN (PAT) is invalid, expired, or does not have read access to {repo_fullName}."
-                        )
-                # Check for Not Found
-                elif any(
-                    kw in err_lower
-                    for kw in ["not found", "repository not found", "fatal: repository"]
-                ):
-                    if not is_public and not self.token:
-                        raise RuntimeError(
-                            f"Repository private: Repository {repo_fullName} was not found anonymously. It might be private; please provide a valid GITHUB_TOKEN (PAT)."
-                        )
-                    else:
-                        raise RepositoryNotFoundError(
-                            f"Repository not found: Repository {repo_fullName} does not exist. Detail: {err_stderr.strip()}"
-                        )
-                else:
-                    raise RuntimeError(
-                        f"Connection failure: Failed to connect to repository {repo_fullName}. Detail: {err_stderr.strip()}"
-                    )
-        except Exception as e:
-            if isinstance(e, (RepositoryNotFoundError, RuntimeError)):
-                raise e
-            raise RuntimeError(f"Connection failure: {e}")
+        cmd_check = ["git", "ls-remote", clone_url, "HEAD"]
+        res = self._run_git(
+            cmd_check,
+            timeout=SHORT_GIT_TIMEOUT,
+            repo_fullName=repo_fullName,
+            env=extra_env,
+            secrets=secrets_list,
+        )
+        if res.returncode != 0:
+            self._raise_safe_git_error(
+                classify_git_failure(res.stderr, res.returncode),
+                repo_fullName=repo_fullName,
+                cmd=cmd_check,
+                stderr=res.stderr,
+                returncode=res.returncode,
+            )
 
         # 5. Resolve Branch name (and auto-discover if requested branch is default 'main' but not present)
         actual_branch = branch
         if branch:
             # Check if requested branch exists
             cmd_check = ["git", "ls-remote", "--heads", clone_url, branch]
-            res_check = subprocess.run(
-                cmd_check, capture_output=True, text=True, check=False
+            res_check = self._run_git(
+                cmd_check,
+                timeout=INSPECTION_TIMEOUT,
+                repo_fullName=repo_fullName,
+                env=extra_env,
+                secrets=secrets_list,
             )
             branch_exists = res_check.returncode == 0 and bool(res_check.stdout.strip())
 
@@ -243,8 +395,12 @@ class GitHubService:
                     # Try to auto-discover default branch
                     try:
                         cmd_sym = ["git", "ls-remote", "--symref", clone_url, "HEAD"]
-                        res_sym = subprocess.run(
-                            cmd_sym, capture_output=True, text=True, check=False
+                        res_sym = self._run_git(
+                            cmd_sym,
+                            timeout=INSPECTION_TIMEOUT,
+                            repo_fullName=repo_fullName,
+                            env=extra_env,
+                            secrets=secrets_list,
                         )
                         discovered = None
                         if res_sym.returncode == 0:
@@ -266,7 +422,14 @@ class GitHubService:
                                 "Branch 'main' not found, and failed to auto-discover default branch."
                             )
                     except Exception as e:
-                        if isinstance(e, BranchNotFoundError):
+                        if isinstance(
+                            e,
+                            (
+                                BranchNotFoundError,
+                                RepositoryNotFoundError,
+                                GitOperationError,
+                            ),
+                        ):
                             raise e
                         raise BranchNotFoundError(
                             f"Branch 'main' not found for repository {repo_fullName}."
@@ -279,12 +442,15 @@ class GitHubService:
         # 6. Clear target directory
         if os.path.exists(dest_dir):
             try:
-                if os.name == "nt":
-                    subprocess.run(
-                        ["cmd", "/c", "rmdir", "/s", "/q", dest_dir], check=False
-                    )
-                else:
-                    shutil.rmtree(dest_dir, ignore_errors=True)
+                def _remove_readonly(func, path, exc_info):
+                    import stat
+                    try:
+                        os.chmod(path, stat.S_IWRITE)
+                        func(path)
+                    except Exception:
+                        pass
+
+                shutil.rmtree(dest_dir, onerror=_remove_readonly)
             except Exception as e:
                 logger.warning(
                     f"Failed to completely remove existing directory {dest_dir}: {e}."
@@ -301,26 +467,42 @@ class GitHubService:
             cmd.extend(["--branch", actual_branch])
         cmd.extend([clone_url, dest_dir])
 
-        result = subprocess.run(cmd, capture_output=True, text=True, check=False)
+        result = self._run_git(
+            cmd,
+            timeout=CLONE_TIMEOUT,
+            repo_fullName=repo_fullName,
+            env=extra_env,
+            secrets=secrets_list,
+        )
         if result.returncode != 0:
-            err_msg = (
-                result.stderr.replace(self.token, "********")
-                if self.token
-                else result.stderr
+            self._raise_safe_git_error(
+                classify_git_failure(result.stderr, result.returncode),
+                repo_fullName=repo_fullName,
+                cmd=cmd,
+                stderr=result.stderr,
+                returncode=result.returncode,
             )
-            raise RuntimeError(f"Failed to clone repository: {err_msg}")
 
         return dest_dir
 
+    def _safe_source_file(self, file_path: str, repository_path: str) -> bool:
+        """Return whether a file can be read without escaping the checkout."""
+        try:
+            if os.path.islink(file_path):
+                return False
+            file_stat = os.lstat(file_path)
+            if not stat.S_ISREG(file_stat.st_mode):
+                return False
+            if file_stat.st_size > self._MAX_SOURCE_FILE_SIZE_BYTES:
+                return False
+            resolved_repository = os.path.realpath(repository_path)
+            resolved_file = os.path.realpath(file_path)
+            return os.path.commonpath([resolved_repository, resolved_file]) == resolved_repository
+        except (OSError, ValueError):
+            return False
+
     def extract_source_files(self, local_path: str) -> List[Dict[str, Any]]:
-        """Walks the cloned repository and extracts files, skipping ignored ones.
-
-        Args:
-            local_path: Local path to the repository.
-
-        Returns:
-            A list of dictionary records containing file paths and contents.
-        """
+        """Walks the cloned repository and extracts safe, bounded text files."""
         ignored_names = {
             "node_modules",
             ".git",
@@ -337,59 +519,37 @@ class GitHubService:
         extracted_files = []
 
         for root, dirs, files in os.walk(local_path):
-            # Prune ignored directories in-place
-            dirs[:] = [d for d in dirs if d not in ignored_names]
+            dirs[:] = [d for d in dirs if d not in ignored_names and not os.path.islink(os.path.join(root, d))]
 
             for file in files:
                 file_path = os.path.join(root, file)
                 rel_path = os.path.relpath(file_path, local_path)
 
-                # Check if file path parts contain ignored directory names
                 parts = rel_path.split(os.sep)
                 if any(part in ignored_names for part in parts):
                     continue
 
-                # Skip binary and media formats
                 ext = os.path.splitext(file)[1].lower()
                 if ext in {
-                    ".png",
-                    ".jpg",
-                    ".jpeg",
-                    ".gif",
-                    ".ico",
-                    ".pdf",
-                    ".zip",
-                    ".tar",
-                    ".gz",
-                    ".mp3",
-                    ".mp4",
-                    ".woff",
-                    ".woff2",
-                    ".ttf",
-                    ".eot",
-                    ".svg",
-                    ".pyc",
-                    ".db",
-                    ".sqlite",
-                    ".exe",
-                    ".bin",
-                    ".dll",
-                    ".so",
-                    ".dylib",
-                    ".pkl",
-                    ".h5",
+                    ".png", ".jpg", ".jpeg", ".gif", ".ico", ".pdf", ".zip", ".tar",
+                    ".gz", ".mp3", ".mp4", ".woff", ".woff2", ".ttf", ".eot", ".svg",
+                    ".pyc", ".db", ".sqlite", ".exe", ".bin", ".dll", ".so", ".dylib",
+                    ".pkl", ".h5",
                 }:
                     continue
 
-                # Read content as text
+                if not self._safe_source_file(file_path, local_path):
+                    logger.debug("Skipping unsafe or oversized source file: %s", rel_path)
+                    continue
+
                 try:
                     with open(file_path, "r", encoding="utf-8", errors="ignore") as f:
                         content = f.read()
                     extracted_files.append(
                         {"path": rel_path.replace(os.sep, "/"), "content": content}
                     )
-                except Exception as e:
-                    logger.debug(f"Skipping file {rel_path} due to read error: {e}")
+                except OSError as exc:
+                    logger.debug("Skipping file %s due to read error: %s", rel_path, exc)
 
         return extracted_files
 
@@ -432,11 +592,13 @@ class GitHubService:
         }
 
         for root, dirs, files in os.walk(dest_dir):
-            dirs[:] = [d for d in dirs if d not in ignored_names]
+            dirs[:] = [d for d in dirs if d not in ignored_names and not os.path.islink(os.path.join(root, d))]
             for file in files:
                 file_path = os.path.join(root, file)
                 rel_path = os.path.relpath(file_path, dest_dir).replace(os.sep, "/")
                 if any(part in ignored_names for part in rel_path.split("/")):
+                    continue
+                if not self._safe_source_file(file_path, dest_dir):
                     continue
                 size = os.path.getsize(file_path)
                 files_meta.append(
@@ -474,7 +636,7 @@ class GitHubService:
 
         # If not found locally, try to fetch via GitHub API
         if not self.token:
-            raise RuntimeError("GITHUB_TOKEN is not loaded.")
+            raise RuntimeError("GitHub credentials are not configured.")
         url = f"https://api.github.com/repos/{repo_fullName}/contents/{file_path}?ref={ref}"
         try:
             resp = self.session.get(url)
@@ -510,7 +672,7 @@ class GitHubService:
             A list of dictionary records containing issue numbers, titles, bodies, and URLs.
         """
         if not self.token:
-            raise RuntimeError("GITHUB_TOKEN is not loaded.")
+            raise RuntimeError("GitHub credentials are not configured.")
         url = f"https://api.github.com/repos/{repo_fullName}/issues"
         params = {"state": state, "per_page": 100}
 
@@ -553,7 +715,7 @@ class GitHubService:
             Dict containing title, state, html_url, additions, deletions, etc.
         """
         if not self.token:
-            raise RuntimeError("GITHUB_TOKEN is not loaded.")
+            raise RuntimeError("GitHub credentials are not configured.")
         url = f"https://api.github.com/repos/{owner}/{repo}/pulls/{pr_number}"
         try:
             resp = self.session.get(url)
@@ -587,7 +749,7 @@ class GitHubService:
             List of dict records for each changed file.
         """
         if not self.token:
-            raise RuntimeError("GITHUB_TOKEN is not loaded.")
+            raise RuntimeError("GitHub credentials are not configured.")
         url = f"https://api.github.com/repos/{owner}/{repo}/pulls/{pr_number}/files"
         result = []
         page = 1
@@ -630,7 +792,7 @@ class GitHubService:
             Dict containing remaining rate limit, reset time, etc.
         """
         if not self.token:
-            raise RuntimeError("GITHUB_TOKEN is not loaded.")
+            raise RuntimeError("GitHub credentials are not configured.")
         url = "https://api.github.com/rate_limit"
         try:
             resp = self.session.get(url)

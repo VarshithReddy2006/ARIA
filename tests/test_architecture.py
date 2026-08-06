@@ -445,8 +445,8 @@ class TestArchitectureService:
 
     def test_graph_persisted_to_disk(self, arch_service, python_files, tmp_path):
         arch_service.build(repo_name="test/myrepo", files=python_files)
-        # Graph pickle must exist
-        graph_path = os.path.join(str(tmp_path / "graphs"), "test_myrepo.pkl")
+        # Graph JSON file must exist
+        graph_path = os.path.join(str(tmp_path / "graphs"), "test_myrepo.json")
         assert os.path.exists(graph_path)
 
     def test_summary_persisted_to_disk(self, arch_service, python_files, tmp_path):

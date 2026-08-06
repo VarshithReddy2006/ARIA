@@ -94,9 +94,9 @@ class SymbolService:
                     base_dir=parent_dir, key_map={"symbols": dir_name}
                 )
             else:
-                from backend.dependencies import snapshot_store as default_store
+                from storage.snapshot_store import JsonSnapshotStore
 
-                self.snapshot_store = default_store
+                self.snapshot_store = JsonSnapshotStore()
         else:
             self.snapshot_store = snapshot_store
 

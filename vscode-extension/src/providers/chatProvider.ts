@@ -6,6 +6,7 @@
  */
 
 import * as vscode from 'vscode';
+import { randomUUID } from 'crypto';
 import { RepoIntelligenceClient, extractErrorMessage } from '../api';
 import { getNonce } from '../utils/webview';
 
@@ -16,6 +17,7 @@ export class ChatProvider {
   private readonly _repo: string;
   private readonly _client: RepoIntelligenceClient;
   private readonly _history: Array<{ role: string; content: string }> = [];
+  private readonly _sessionId = randomUUID();
   private _cancelStream?: () => void;
 
   static createOrShow(
@@ -115,7 +117,8 @@ export class ChatProvider {
           message: extractErrorMessage(err),
         });
         this._cancelStream = undefined;
-      }
+      },
+      this._sessionId
     );
   }
 

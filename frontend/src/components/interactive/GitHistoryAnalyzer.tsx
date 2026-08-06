@@ -222,7 +222,7 @@ export const GitHistoryAnalyzer: React.FC<Props> = ({ repoName }) => {
   React.useEffect(() => {
     setSummary(null);
     setError(null);
-    fetch(apiUrl(`/api/churn/${owner}/${repo}?since_days=${sinceDays}`))
+    fetch(apiUrl(`/api/v1/churn/${owner}/${repo}?since_days=${sinceDays}`))
       .then((r) => (r.ok ? r.json() : null))
       .then((d) => { if (d) setSummary(d); })
       .catch(() => { /* no cached data — show empty state */ });
@@ -235,7 +235,7 @@ export const GitHistoryAnalyzer: React.FC<Props> = ({ repoName }) => {
     setSummary(null);
 
     try {
-      const res = await fetch(apiUrl('/api/churn/analyze'), {
+      const res = await fetch(apiUrl('/api/v1/churn/analyze'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ repo: repoName, since_days: sinceDays }),

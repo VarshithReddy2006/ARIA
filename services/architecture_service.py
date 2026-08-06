@@ -66,7 +66,7 @@ class ArchitectureService:
 
         Args:
             arch_dir:   Directory where architecture JSON summaries are saved.
-            graphs_dir: Directory where graph pickle files are saved.
+            graphs_dir: Directory where graph JSON files are saved.
                         Defaults to GraphService's default when None.
             snapshot_store: Shared snapshot store instance.
             analysis_cache: Shared analysis cache instance.
@@ -84,9 +84,9 @@ class ArchitectureService:
                     base_dir=parent_dir, key_map={"architecture": dir_name}
                 )
             else:
-                from backend.dependencies import snapshot_store as default_store
+                from storage.snapshot_store import JsonSnapshotStore
 
-                self.snapshot_store = default_store
+                self.snapshot_store = JsonSnapshotStore()
         else:
             self.snapshot_store = snapshot_store
 

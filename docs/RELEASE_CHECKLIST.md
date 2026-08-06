@@ -1,6 +1,6 @@
-# Release Readiness Checklist — v1.0.0
+# Release Readiness Checklist — v1.5.0
 
-Use this checklist to verify that all components are verified and release-ready before promoting the release candidate to a production version.
+Use this checklist to verify that all components are verified and release-ready before promoting to a production release.
 
 ---
 
@@ -44,7 +44,7 @@ Use this checklist to verify that all components are verified and release-ready 
 
 - [ ] **README**: Verify the root `README.md` includes correct quickstart commands.
 - [ ] **Execution Guide**: Verify that `docs/EXECUTION_GUIDE.md` is complete and clear.
-- [ ] **Changelog**: Confirm `CHANGELOG.md` lists the current release (`[1.0.0]`).
+- [ ] **Changelog**: Confirm `CHANGELOG.md` lists the current release (`[1.5.0]`).
 
 ---
 
@@ -79,8 +79,8 @@ Use this checklist to verify that all components are verified and release-ready 
 
 - [ ] **Version Tagging**: Create a git tag for the release:
   ```bash
-  git tag -a v1.0.0 -m "Release v1.0.0 - Production Launch"
-  git push origin v1.0.0
+  git tag -a v1.5.0 -m "Release v1.5.0 - Production Release"
+  git push origin v1.5.0
   ```
 - [ ] **GitHub Release**: Draft a new release on GitHub, attaching `repo-intelligence-agent-0.1.0.vsix` as a binary asset.
 - [ ] **Marketplace Publication**: Publish the VSIX to the VS Code Marketplace:

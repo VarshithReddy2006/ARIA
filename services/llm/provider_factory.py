@@ -18,7 +18,7 @@ from typing import Dict, Optional
 from .base_provider import BaseLLMProvider, ProviderHealth
 from .gemini_provider import GeminiProvider
 from .deepseek_provider import DeepSeekProvider
-from backend.settings import Settings
+from core.config import Settings
 
 logger = logging.getLogger(__name__)
 

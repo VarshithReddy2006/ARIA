@@ -7,11 +7,11 @@ export default {
   theme: {
     extend: {
       colors: {
-        canvas: '#0a0a0c',
+        canvas: '#010102',
         surface: {
-          1: '#0f1014',
-          2: '#15161b',
-          3: '#1c1d23',
+          1: '#111114',
+          2: '#17181c',
+          3: '#1e1f24',
         },
         border: {
           DEFAULT: '#23252a',
@@ -20,8 +20,8 @@ export default {
         },
         text: {
           DEFAULT: '#f7f8f8',
-          muted: '#9ca0a8',
-          subtle: '#6b6f78',
+          muted: '#9ca3af',
+          subtle: '#80848e',
         },
         primary: {
           DEFAULT: '#5e6ad2',
@@ -31,12 +31,12 @@ export default {
           foreground: '#f7f8f8',
         },
         card: {
-          DEFAULT: '#0f1014',
-          hover: '#15161b',
+          DEFAULT: '#111114',
+          hover: '#17181c',
           foreground: '#f7f8f8',
         },
         popover: {
-          DEFAULT: '#15161b',
+          DEFAULT: '#17181c',
           foreground: '#f7f8f8',
         },
         // semantic tokens — use these instead of raw emerald/red/orange/blue

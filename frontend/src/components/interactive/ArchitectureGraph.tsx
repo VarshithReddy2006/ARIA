@@ -77,7 +77,7 @@ const ArchitectureGraphInner: React.FC<GraphProps> = ({ repoName }) => {
     setError(null);
     const [owner, name] = repoName.split('/');
     try {
-      const url = apiUrl(`/api/architecture/${owner}/${name}/graph` + (query ? `?q=${encodeURIComponent(query)}` : ''));
+      const url = apiUrl(`/api/v1/architecture/${owner}/${name}/graph` + (query ? `?q=${encodeURIComponent(query)}` : ''));
       const response = await fetch(url);
       if (!response.ok) {
         throw new Error(await response.text() || 'Failed to fetch graph data');

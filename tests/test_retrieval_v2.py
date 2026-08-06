@@ -1265,3 +1265,66 @@ class TestDeterministicFileRetrievalSpec:
         assert len(chunks) == 3
         assert chunks[0]["metadata"]["file_path"] == "services/architecture_service.py"
         assert metrics["confidence"] == 96
+
+
+class TestPipelineCitationVerification:
+    def _pipeline(self, answer: str):
+        from services.chat.provider_manager import ProviderEntry, ProviderManager
+
+        provider = MagicMock()
+        provider.generate = AsyncMock(return_value=answer)
+
+        async def stream(*_args, **_kwargs):
+            for token in answer.split():
+                yield token + " "
+
+        provider.stream = stream
+        return RetrievalPipeline(
+            embedding_service=_make_mock_embedding_service(),
+            chroma_store=_make_mock_chroma(),
+            provider_manager=ProviderManager(
+                providers=[ProviderEntry(name="citation", provider=provider, priority=1)]
+            ),
+            memory_store=ConversationMemoryStore(),
+        )
+
+    def test_grounded_answer_is_verified_after_citation_check(self):
+        pipeline = self._pipeline("See backend/api.py:1-10.")
+        result = asyncio.run(pipeline.retrieve("owner/repo", "Where is the API?", session_id="grounded"))
+        assert result["verified"] is True
+        assert result["citation_report"]["citations_valid"] is True
+
+    def test_hallucinated_citation_is_not_verified(self):
+        pipeline = self._pipeline("See nonexistent/file.py:1-5.")
+        result = asyncio.run(pipeline.retrieve("owner/repo", "Where is the API?", session_id="hallucinated"))
+        assert result["verified"] is False
+        assert result["citation_report"]["citations_valid"] is False
+
+    def test_stream_terminal_event_includes_verification_state(self):
+        pipeline = self._pipeline("See nonexistent/file.py:1-5.")
+
+        async def collect():
+            return [json.loads(event[6:].strip()) async for event in pipeline.retrieve_stream("owner/repo", "Where?", session_id="stream")]
+
+        done_event = next(event for event in asyncio.run(collect()) if event.get("status") == "done")
+        assert done_event["verified"] is False
+        assert done_event["citation_report"]["citations_valid"] is False
+
+
+class TestGeneratedChatSessions:
+    def test_requests_without_session_ids_receive_distinct_sessions(self):
+        from backend.routers.chat import ChatRequest
+
+        first = ChatRequest(repo="owner/repo", message="first")
+        second = ChatRequest(repo="owner/repo", message="second")
+        assert first.session_id != second.session_id
+        assert first.session_id != "default"
+
+    def test_unspecified_memory_sessions_are_isolated(self):
+        memory = ConversationMemoryStore()
+        first = memory.get_or_create("owner/repo")
+        second = memory.get_or_create("owner/repo")
+        first.update_context(["OnlyFirst"], [], "SYMBOL")
+
+        assert first.session_id != second.session_id
+        assert "OnlyFirst" not in second.last_entities

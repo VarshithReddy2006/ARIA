@@ -172,7 +172,11 @@ def test_analyze_repository_failure() -> None:
 
         assert any(e.get("status") == "error" for e in events)
         error_event = next(e for e in events if e.get("status") == "error")
-        assert "Mock clone error" in error_event["message"]
+        # Raw exception text stays in server logs only; clients receive the
+        # structured, sanitized error envelope.
+        assert "Mock clone error" not in error_event["message"]
+        assert "An unexpected internal error occurred." in error_event["message"]
+        assert "Stage:" in error_event["message"]
 
         done_event = next(e for e in events if e.get("status") == "done")
         assert "repo" not in done_event

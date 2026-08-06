@@ -23,7 +23,7 @@ services:
       - LOG_LEVEL=DEBUG
       - GITHUB_TOKEN=${GITHUB_TOKEN}
       - DEEPSEEK_API_KEY=${DEEPSEEK_API_KEY}
-    command: python -m backend.main
+    command: uvicorn backend.api:app --host 0.0.0.0 --port 8001 --reload
 
   frontend:
     image: node:20-alpine

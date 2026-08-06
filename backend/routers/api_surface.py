@@ -30,7 +30,7 @@ from backend.dependencies import (
 
 logger = logging.getLogger(__name__)
 
-router = APIRouter(prefix="/api/api-surface", tags=["API Surface"])
+router = APIRouter(prefix="/api-surface", tags=["API Surface"])
 
 
 # ---------------------------------------------------------------------------

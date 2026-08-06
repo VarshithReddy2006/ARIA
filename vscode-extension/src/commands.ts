@@ -266,38 +266,6 @@ export function registerCommands(
     })
   );
 
-  // ── Show Architecture Health ───────────────────────────────────────────
-  context.subscriptions.push(
-    vscode.commands.registerCommand('repoIntelligence.showArchitectureHealth', async () => {
-      const repo = await pickOrGetActiveRepo('Select a repository for architecture health');
-      if (!repo) {
-        return;
-      }
-      try {
-        const [owner, repoName] = splitRepo(repo);
-        ArchitectureHealthPanel.createOrShow(context.extensionUri, owner, repoName, client);
-      } catch (err) {
-        void vscode.window.showErrorMessage(extractErrorMessage(err));
-      }
-    })
-  );
-
-  // ── Show Module Stability (re-uses dashboard) ──────────────────────────
-  context.subscriptions.push(
-    vscode.commands.registerCommand('repoIntelligence.showModuleStability', async () => {
-      const repo = await pickOrGetActiveRepo('Select a repository');
-      if (!repo) {
-        return;
-      }
-      try {
-        const [owner, repoName] = splitRepo(repo);
-        RepositoryDashboardPanel.createOrShow(context.extensionUri, owner, repoName, client);
-      } catch (err) {
-        void vscode.window.showErrorMessage(extractErrorMessage(err));
-      }
-    })
-  );
-
   // ── Show API Surface ───────────────────────────────────────────────────
   context.subscriptions.push(
     vscode.commands.registerCommand('repoIntelligence.showAPISurface', async () => {

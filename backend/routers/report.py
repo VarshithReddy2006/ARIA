@@ -1,15 +1,38 @@
 """Router exposing report endpoints versioned under /api/v1/report."""
 
+import sys
+
 from fastapi import APIRouter, HTTPException, Query, Response
 
 from backend.dependencies import (
-    report_composer,
-    html_renderer,
-    markdown_renderer,
-    pdf_renderer,
+    report_composer as _report_composer,
+    html_renderer as _html_renderer,
+    markdown_renderer as _markdown_renderer,
+    pdf_renderer as _pdf_renderer,
 )
 from models.report import ReportDataModel
 from storage.migrations import get_db_connection
+
+
+class _ReloadSafeDependency:
+    """Resolve a compatibility dependency from the currently loaded router module."""
+
+    def __init__(self, name: str, fallback: object) -> None:
+        self._name = name
+        self._fallback = fallback
+
+    def __getattr__(self, attribute: str) -> object:
+        module = sys.modules.get(__name__)
+        dependency = getattr(module, self._name, self._fallback)
+        if dependency is self:
+            dependency = self._fallback
+        return getattr(dependency, attribute)
+
+
+report_composer = _ReloadSafeDependency("report_composer", _report_composer)
+html_renderer = _ReloadSafeDependency("html_renderer", _html_renderer)
+markdown_renderer = _ReloadSafeDependency("markdown_renderer", _markdown_renderer)
+pdf_renderer = _ReloadSafeDependency("pdf_renderer", _pdf_renderer)
 
 router = APIRouter(prefix="/report", tags=["report"])
 

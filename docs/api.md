@@ -1,6 +1,6 @@
-# API Guide — Repo Intelligence Agent v1.0.0
+# API Guide — Repo Intelligence Agent v1.5.0
 
-The Repo Intelligence Agent API is built on FastAPI. It exposes HTTP REST endpoints, server-sent events (SSE) progress streams, and Prometheus metrics.
+The Repo Intelligence Agent API is built on FastAPI and operates within the **API Layer** of the Repository Intelligence Architecture (RIA). It exposes HTTP REST endpoints, server-sent events (SSE) progress streams, and Prometheus metrics.
 
 All endpoints are versioned under `/api/v1/` while maintaining legacy root paths (`/api/...`) for 100% backward compatibility.
 

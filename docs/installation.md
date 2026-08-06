@@ -1,4 +1,4 @@
-# Installation Guide — Repo Intelligence Agent v1.0.0
+# Installation Guide — Repo Intelligence Agent v1.5.0
 
 This guide walks you through installing the Repo Intelligence Agent locally.
 

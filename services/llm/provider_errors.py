@@ -60,6 +60,14 @@ class ProviderErrorType(str, Enum):
 # ---------------------------------------------------------------------------
 
 
+class EmptyCompletionError(Exception):
+    """Raised when an LLM provider returns an empty or whitespace-only completion."""
+
+    def __init__(self, message: str = "Provider returned an empty completion."):
+        super().__init__(message)
+        self.message = message
+
+
 @dataclass
 class ProviderError:
     """Classified provider error with actionable diagnostics."""

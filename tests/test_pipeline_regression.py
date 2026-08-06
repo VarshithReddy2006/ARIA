@@ -1,4 +1,4 @@
-"""Regression tests for the Repository Intelligence Pipeline (v1.0.0-rc1).
+"""Regression tests for the Repository Intelligence Pipeline (v1.5.0).
 
 Verifies the fixes to all 7 inspection packs, advisor roadmap, execution planner,
 and associated FastAPI routes.

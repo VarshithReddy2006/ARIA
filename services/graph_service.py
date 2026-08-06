@@ -12,9 +12,9 @@ Graphs are serialised to disk as pickle files under data/graphs/ so they can
 be reloaded without rebuilding.
 """
 
+import json
 import logging
 import os
-import pickle
 from typing import Any, Dict, List, Optional
 
 import networkx as nx
@@ -38,7 +38,7 @@ class GraphService:
         """Initialise the service.
 
         Args:
-            graphs_dir: Directory where graph pickle files are persisted.
+            graphs_dir: Directory where graph persistence files are saved.
         """
         self.graphs_dir = graphs_dir
         os.makedirs(self.graphs_dir, exist_ok=True)
@@ -137,26 +137,49 @@ class GraphService:
             "is_dag": nx.is_directed_acyclic_graph(graph),
         }
 
+    def get_cycles(self, repo_name: str) -> List[List[str]]:
+        """Return elementary cycles in the repository dependency graph."""
+        graph = self.load_graph(repo_name)
+        if graph is None or graph.number_of_nodes() == 0:
+            return []
+        try:
+            return list(nx.simple_cycles(graph))
+        except Exception as exc:
+            logger.warning("Failed to compute cycles for %s: %s", repo_name, exc)
+            return []
+
+    def get_strongly_connected_components_count(self, repo_name: str) -> int:
+        """Return count of strongly connected components in the repository graph."""
+        graph = self.load_graph(repo_name)
+        if graph is None or graph.number_of_nodes() == 0:
+            return 0
+        return nx.number_strongly_connected_components(graph)
+
     # ------------------------------------------------------------------
     # Persistence
     # ------------------------------------------------------------------
 
     def save_graph(self, graph: nx.DiGraph, repo_name: str) -> str:
-        """Persist a graph to disk as a pickle file.
+        """Persist a graph to disk as a safe schema-versioned JSON file.
 
         Args:
-            graph: The graph to serialise.
-            repo_name: Repository identifier (owner/repo).  Slashes are
+            graph: The NetworkX graph to serialise.
+            repo_name: Repository identifier (owner/repo). Slashes are
                        replaced with underscores in the filename.
 
         Returns:
-            Absolute path to the saved pickle file.
+            Absolute path to the saved JSON file.
         """
         safe_name = repo_name.replace("/", "_")
-        path = os.path.join(self.graphs_dir, f"{safe_name}.pkl")
+        path = os.path.join(self.graphs_dir, f"{safe_name}.json")
+        payload = {
+            "schema_version": 1,
+            "repo_name": repo_name,
+            "graph_data": nx.node_link_data(graph),
+        }
         with self._lock:
-            with open(path, "wb") as fh:
-                pickle.dump(graph, fh, protocol=pickle.HIGHEST_PROTOCOL)
+            with open(path, "w", encoding="utf-8") as fh:
+                json.dump(payload, fh, indent=2)
         logger.info("Graph saved to %s", path)
         return path
 
@@ -170,24 +193,37 @@ class GraphService:
             The loaded DiGraph, or None if no file exists.
         """
         safe_name = repo_name.replace("/", "_")
-        path = os.path.join(self.graphs_dir, f"{safe_name}.pkl")
+        json_path = os.path.join(self.graphs_dir, f"{safe_name}.json")
+        pkl_path = os.path.join(self.graphs_dir, f"{safe_name}.pkl")
+
         with self._lock:
-            if not os.path.exists(path):
+            # Safely purge legacy .pkl file if present
+            if os.path.exists(pkl_path):
+                logger.warning("Purging legacy pickle graph file %s for security reasons.", pkl_path)
+                try:
+                    os.remove(pkl_path)
+                except Exception as exc:
+                    logger.warning("Could not remove legacy pickle file %s: %s", pkl_path, exc)
+
+            if not os.path.exists(json_path):
                 return None
+
             try:
-                with open(path, "rb") as fh:
-                    graph = pickle.load(fh)
-                logger.info("Graph loaded from %s", path)
+                with open(json_path, "r", encoding="utf-8") as fh:
+                    payload = json.load(fh)
+                graph_data = payload.get("graph_data", payload) if isinstance(payload, dict) else payload
+                graph = nx.node_link_graph(graph_data)
+                logger.info("Graph loaded from %s", json_path)
                 return graph
             except Exception as exc:
-                logger.error("Failed to load graph from %s: %s", path, exc)
+                logger.error("Failed to load graph from %s: %s", json_path, exc)
                 return None
 
     def graph_exists(self, repo_name: str) -> bool:
         """Return True if a persisted graph file exists for the given repo."""
         safe_name = repo_name.replace("/", "_")
-        path = os.path.join(self.graphs_dir, f"{safe_name}.pkl")
-        return os.path.exists(path)
+        json_path = os.path.join(self.graphs_dir, f"{safe_name}.json")
+        return os.path.exists(json_path)
 
     def get_visualization_graph(
         self,

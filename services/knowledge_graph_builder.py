@@ -126,11 +126,18 @@ class HierarchyProvider(KnowledgeGraphProvider):
 class SymbolProvider(KnowledgeGraphProvider):
     """Provides Symbol nodes and DECLARES relationships."""
 
+    def __init__(self, symbol_service: Optional[Any] = None) -> None:
+        self.symbol_service = symbol_service
+
     def populate(self, repo_name: str, twin: Any, graph: nx.DiGraph) -> None:
         repo_id = repo_name
-        from backend.dependencies import symbol_service
+        ss = self.symbol_service
+        if ss is None:
+            from services.symbol_service import SymbolService
 
-        symbol_index = symbol_service.load(repo_name)
+            ss = SymbolService()
+
+        symbol_index = ss.load(repo_name)
         if not symbol_index:
             return
 
@@ -165,11 +172,18 @@ class SymbolProvider(KnowledgeGraphProvider):
 class DependencyProvider(KnowledgeGraphProvider):
     """Provides IMPORTS edges between File nodes based on imports dependency graph."""
 
+    def __init__(self, graph_service: Optional[Any] = None) -> None:
+        self.graph_service = graph_service
+
     def populate(self, repo_name: str, twin: Any, graph: nx.DiGraph) -> None:
         repo_id = repo_name
-        from backend.dependencies import graph_service
+        gs = self.graph_service
+        if gs is None:
+            from services.graph_service import GraphService
 
-        dep_graph = graph_service.load_graph(repo_name)
+            gs = GraphService()
+
+        dep_graph = gs.load_graph(repo_name)
         if dep_graph is None:
             return
 
@@ -187,11 +201,18 @@ class DependencyProvider(KnowledgeGraphProvider):
 class CallGraphProvider(KnowledgeGraphProvider):
     """Provides CALLS edges between Symbol nodes based on call graph edges."""
 
+    def __init__(self, graph_service: Optional[Any] = None) -> None:
+        self.graph_service = graph_service
+
     def populate(self, repo_name: str, twin: Any, graph: nx.DiGraph) -> None:
         repo_id = repo_name
-        from backend.dependencies import graph_service
+        gs = self.graph_service
+        if gs is None:
+            from services.graph_service import GraphService
 
-        call_graph = graph_service.load_graph(f"{repo_name}_call_graph")
+            gs = GraphService()
+
+        call_graph = gs.load_graph(f"{repo_name}_call_graph")
         if call_graph is None:
             return
 
@@ -218,15 +239,21 @@ class RepositoryKnowledgeGraphBuilder:
         twin_builder: Optional[Any] = None,
         cache: Optional[Any] = None,
         providers: Optional[List[KnowledgeGraphProvider]] = None,
+        symbol_service: Optional[Any] = None,
+        graph_service: Optional[Any] = None,
     ) -> None:
         """Initialise the Knowledge Graph composer service."""
-        from backend.dependencies import (
-            repository_twin_builder as default_tb,
-            analysis_cache as default_cache,
-        )
+        import sys
 
-        self.twin_builder = twin_builder or default_tb
-        self.cache = cache or default_cache
+        backend_deps = sys.modules.get("backend.dependencies")
+        if backend_deps:
+            symbol_service = symbol_service or getattr(backend_deps, "symbol_service", None)
+            graph_service = graph_service or getattr(backend_deps, "graph_service", None)
+            twin_builder = twin_builder or getattr(backend_deps, "repository_twin_builder", None)
+            cache = cache or getattr(backend_deps, "analysis_cache", None)
+
+        self.twin_builder = twin_builder
+        self.cache = cache
 
         # Set default providers
         self.providers = (
@@ -235,9 +262,9 @@ class RepositoryKnowledgeGraphBuilder:
             else [
                 MetadataProvider(),
                 HierarchyProvider(),
-                SymbolProvider(),
-                DependencyProvider(),
-                CallGraphProvider(),
+                SymbolProvider(symbol_service),
+                DependencyProvider(graph_service),
+                CallGraphProvider(graph_service),
             ]
         )
 

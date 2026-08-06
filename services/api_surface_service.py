@@ -92,9 +92,9 @@ class APISurfaceService:
                     base_dir=parent_dir, key_map={"api_surface": dir_name}
                 )
             else:
-                from backend.dependencies import snapshot_store as default_store
+                from storage.snapshot_store import JsonSnapshotStore
 
-                self.snapshot_store = default_store
+                self.snapshot_store = JsonSnapshotStore()
         else:
             self.snapshot_store = snapshot_store
 
@@ -432,10 +432,8 @@ class APISurfaceService:
                 cached = self.analysis_cache.get(repo_name, "graphs", 1, subkey="call")
                 if cached is not None:
                     G = cached
-            if G is None:
-                from backend.dependencies import graph_service
-
-                G = graph_service.load_graph(f"{repo_name}_call_graph")
+            if G is None and getattr(self, "graph_service", None) is not None:
+                G = self.graph_service.load_graph(f"{repo_name}_call_graph")
 
             if G is None:
                 return {}

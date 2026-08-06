@@ -1,4 +1,4 @@
-# Installation & Setup Guide — Repo Intelligence Agent v1.0.0
+# Installation & Setup Guide — Repo Intelligence Agent v1.5.0
 
 This guide walks you through setting up and running the Repo Intelligence Agent backend, frontend, VS Code extension, and Docker containers.
 

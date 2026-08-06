@@ -7,6 +7,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [1.5.0] — 2026-08-06
+
+Production release featuring the **Repository Intelligence Architecture (RIA v1)** and the **Production MCP Integration Layer**.
+
+### Added
+- **Repository Intelligence Architecture (RIA v1)**: Modular, multi-layered production architecture organizing the platform into Agent, Application, Domain, Infrastructure, MCP Integration, API, Extension, and Dashboard layers.
+- **Production MCP Integration Layer**: Dual MCP server architecture introducing Legacy stdio (JSON-RPC 2.0) and FastMCP SDK implementations for AI coding assistants (Cursor, Claude Desktop, VS Code MCP, MCP Inspector).
+- **Graph-Based Repository Intelligence**: Structural codebase understanding combining Tree-sitter AST parsing, NetworkX import/call graph topology, symbol indexing, and AST-weighted retrieval.
+- **Cross-Platform Validation**: 2505 automated tests passing cleanly across Windows, Linux, and macOS environments.
+
+---
+
 ## [1.0.0] — 2026-07-04
 
 This is the initial production-ready release of the Repo Intelligence Platform, incorporating all core implementations and subsequent stabilization passes.

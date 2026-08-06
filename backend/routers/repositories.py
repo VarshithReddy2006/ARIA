@@ -14,9 +14,10 @@ import asyncio
 import json
 import logging
 import os
-import subprocess
 import time
 from typing import Dict, List
+
+from utils.subprocess_runner import run_safe_command, SHORT_GIT_TIMEOUT
 
 from fastapi import APIRouter, HTTPException
 from fastapi.responses import StreamingResponse
@@ -39,6 +40,7 @@ from models.schemas import RepositoryAnalysis
 from services.architecture_summary_service import generate_architecture_summary
 from services.github_service import (
     BranchNotFoundError,
+    GitOperationError,
     InvalidGitHubRepoURLError,
     RepositoryNotFoundError,
 )
@@ -84,7 +86,9 @@ class PipelineTimer:
 def format_analysis_error(e: Exception) -> str:
     err_str = str(e)
     stage = "Analysis Pipeline"
-    reason = f"An unexpected internal error occurred: {err_str}"
+    # Raw exception text is never returned to clients; full diagnostics are logged
+    # by the caller before this formatter runs.
+    reason = "An unexpected internal error occurred."
     suggested_fix = "Please check the server logs or retry later."
     recoverable = "Yes"
     retryable = "Yes"
@@ -104,18 +108,34 @@ def format_analysis_error(e: Exception) -> str:
         retryable = "No"
     elif isinstance(e, RepositoryNotFoundError):
         stage = "Cloning"
-        reason = f"Repository not found or is private: '{err_str}'."
-        suggested_fix = "Please verify the repository exists and is public. If it is private, make sure a valid GITHUB_TOKEN (PAT) is set in your environment settings."
+        reason = "Repository not found or access denied."
+        suggested_fix = (
+            "Please verify the repository identifier. If the repository is private, "
+            "ensure the server is configured with credentials that can read it."
+        )
         recoverable = "No"
         retryable = "No"
+    elif isinstance(e, GitOperationError):
+        stage = "Cloning"
+        if "network" in err_str.lower():
+            reason = "Unable to connect to GitHub (network error)."
+            suggested_fix = "Please check the server's network connection and try again."
+        else:
+            reason = "Unable to complete the repository operation."
+            suggested_fix = "Please check the server logs or retry later."
+        recoverable = "Yes"
+        retryable = "Yes"
     elif (
         "permission" in err_str.lower()
         or "authorization" in err_str.lower()
         or "write access" in err_str.lower()
     ):
         stage = "Cloning"
-        reason = "GitHub authentication or permission error."
-        suggested_fix = "Please check if your GITHUB_TOKEN is correct and has the required read scopes."
+        reason = "Repository not found or access denied."
+        suggested_fix = (
+            "Please verify the repository identifier and that the server is "
+            "configured with credentials that can read it."
+        )
         recoverable = "No"
         retryable = "No"
     elif (
@@ -148,7 +168,7 @@ def format_analysis_error(e: Exception) -> str:
     )
 
 
-router = APIRouter(prefix="/api", tags=["Repositories"])
+router = APIRouter(tags=["Repositories"])
 
 
 # ---------------------------------------------------------------------------
@@ -280,8 +300,16 @@ async def index_repository(request: IndexRequest):
         if isinstance(e, RuntimeError) and (
             "was not found anonymously" in error_message
             or "repository not found" in error_message
+            or "authentication failure" in error_message
+            or "does not have read access" in error_message
         ):
-            raise HTTPException(status_code=404, detail=str(e))
+            # Git hosts intentionally do not distinguish an inaccessible private
+            # repository from a nonexistent one; preserve that non-disclosure
+            # contract and never reflect provider authentication details.
+            raise HTTPException(
+                status_code=404,
+                detail="Repository not found or inaccessible.",
+            )
         if isinstance(e, ValueError) and "Invalid GitHub repository URL" in str(e):
             raise HTTPException(status_code=400, detail=str(e))
         logger.error("Failed to index repository: %s", e, exc_info=True)
@@ -370,61 +398,50 @@ async def analyze_repository(request: AnalyzeRequest):
                 and not request.force_rebuild
                 and not schema_mismatch
             )
-            changed_files = change_set.added | change_set.modified | change_set.deleted
+            renamed_old_paths = set(change_set.renamed.keys())
+            renamed_new_paths = set(change_set.renamed.values())
+            changed_files = (
+                change_set.added
+                | change_set.modified
+                | change_set.deleted
+                | renamed_old_paths
+                | renamed_new_paths
+            )
 
             # ── 4. Granular Chunking & Embedding ──────────────────────────────
             yield f"data: {json.dumps({'status': 'parsing', 'message': f'Parsing Source Files: {len(files)} files'})}\n\n"
 
             all_chunks = []
             if is_incremental:
-                # Incremental Mode: delete chunks of modified/deleted files in bulk with fallback
-                files_to_delete = list(change_set.modified | change_set.deleted)
+                # Rename sources are deleted before their unchanged-content targets are ingested.
+                files_to_delete = list(
+                    change_set.modified | change_set.deleted | renamed_old_paths
+                )
                 if files_to_delete:
                     timer.start("Chroma")
                     try:
-                        # Try bulk delete with $in operator
-                        where_filter = {
-                            "$and": [
-                                {"repo_name": {"$eq": repo_name}},
-                                {"file_path": {"$in": files_to_delete}},
-                            ]
-                        }
                         await asyncio.to_thread(
-                            chroma_store.collection.delete, where=where_filter
+                            chroma_store.delete_files, repo_name, files_to_delete
                         )
                         logger.info(
-                            "Successfully deleted chunks for %d files in bulk.",
+                            "Successfully deleted chunks for %d files.",
                             len(files_to_delete),
                         )
                     except Exception as exc:
-                        logger.warning(
-                            "Bulk delete with $in failed, falling back to individual file deletion: %s",
+                        logger.error(
+                            "Failed to delete chunks for %d files: %s",
+                            len(files_to_delete),
                             exc,
                         )
-                        for file_path in files_to_delete:
-                            try:
-                                await asyncio.to_thread(
-                                    chroma_store.collection.delete,
-                                    where={
-                                        "$and": [
-                                            {"repo_name": repo_name},
-                                            {"file_path": file_path},
-                                        ]
-                                    },
-                                )
-                            except Exception as e:
-                                logger.warning(
-                                    "Failed to delete chunks for %s from Chroma: %s",
-                                    file_path,
-                                    e,
-                                )
+                        raise
                     timer.stop("Chroma")
 
-                # Chunk only added and modified files
+                # Chunk added/modified files and rename targets.
                 files_to_chunk = [
                     f
                     for f in files
-                    if f["path"] in (change_set.added | change_set.modified)
+                    if f["path"]
+                    in (change_set.added | change_set.modified | renamed_new_paths)
                 ]
                 new_chunks = []
                 timer.start("Chunk")
@@ -484,11 +501,7 @@ async def analyze_repository(request: AnalyzeRequest):
                             len(bulk_ids),
                         )
             else:
-                # Full Mode: delete the entire repository index from Chroma
-                timer.start("Chroma")
-                await asyncio.to_thread(chroma_store.delete_repository, repo_name)
-                timer.stop("Chroma")
-
+                # Full Mode: retain the active vectors until index_repository publishes the replacement.
                 # Chunk all files
                 timer.start("Chunk")
                 for file in files:
@@ -645,11 +658,10 @@ async def analyze_repository(request: AnalyzeRequest):
             commit_sha = "unknown"
             if local_path and os.path.exists(os.path.join(local_path, ".git")):
                 try:
-                    res_sha = subprocess.run(
+                    res_sha = run_safe_command(
                         ["git", "rev-parse", "HEAD"],
                         cwd=local_path,
-                        capture_output=True,
-                        text=True,
+                        timeout=SHORT_GIT_TIMEOUT,
                         check=True,
                     )
                     commit_sha = res_sha.stdout.strip()

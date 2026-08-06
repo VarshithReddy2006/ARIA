@@ -160,4 +160,4 @@ Confirm all components function correctly by completing the following checklist.
 ### Issue 6.5: API Endpoint mismatch (404 Not Found)
 - **Symptoms**: Generating an execution plan returns a 404 error from the server.
 - **Probable Cause**: VS Code extension client calls the wrong API path (e.g. `/execution` instead of `/execution-plan`).
-- **Resolution**: Ensure you are using v1.0.0 where the client path has been mapped to `/execution-plan`.
+- **Resolution**: Ensure you are using v1.5.0 where the client path has been mapped to `/execution-plan`.

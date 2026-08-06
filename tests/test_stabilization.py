@@ -7,7 +7,7 @@ from services.architecture_service import ArchitectureService
 from services.call_graph_service import CallGraphService
 from services.git_history_service import GitHistoryService
 from services.api_surface_service import APISurfaceService
-from services.github_service import GitHubService
+from services.github_service import GitHubService, RepositoryNotFoundError
 from services.embedding_service import EmbeddingService
 from services.llm.gemini_provider import GeminiProvider
 
@@ -32,28 +32,30 @@ def test_schema_versions_public():
         assert inst.schema_version == s_cls.get_schema_version()
 
 
-def test_clone_fallback_authentication_failure():
-    """Verify GitHubService clone fallback behavior under authentication failure."""
+def test_clone_inaccessible_repository_returns_generic_error():
+    """Verify GitHubService raises a non-disclosing error when access fails."""
     service = GitHubService(token="test_token")
 
-    with patch("subprocess.run") as mock_run:
+    with patch("services.github_service.run_safe_command") as mock_run:
         # Scenario: public check returns 1 (not public), check with PAT fails with permission denied
         mock_run.return_value = MagicMock(
             returncode=1, stderr="permission denied", stdout=""
         )
 
-        with pytest.raises(RuntimeError) as exc_info:
+        with pytest.raises(RepositoryNotFoundError) as exc_info:
             service.clone_repository("https://github.com/owner/repo.git", branch="main")
-        assert "Authentication failure" in str(
-            exc_info.value
-        ) or "Repository private" in str(exc_info.value)
+
+        message = str(exc_info.value)
+        assert message == "Repository not found or access denied."
+        for leaked in ("PAT", "GITHUB_TOKEN", "Authentication failure", "permission denied"):
+            assert leaked not in message
 
 
 def test_clone_branch_auto_discovery():
     """Verify GitHubService branch auto-discovery."""
     service = GitHubService(token="test_token")
 
-    with patch("subprocess.run") as mock_run:
+    with patch("services.github_service.run_safe_command") as mock_run:
         # Scenario: branch auto-discovery
         # 1. ls-remote public: returncode=0 (public)
         # 2. ls-remote diagnostics: returncode=0 (connected)

@@ -1,4 +1,4 @@
-# Troubleshooting Guide — Repo Intelligence Agent v1.0.0
+# Troubleshooting Guide — Repo Intelligence Agent v1.5.0
 
 This guide lists common problems, root causes, and solutions for the Repo Intelligence Agent backend, frontend, and VS Code extension.
 
