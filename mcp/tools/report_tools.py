@@ -53,7 +53,9 @@ def register(server: Any) -> None:
                 repo_name = require_repo(owner, repo)
                 composer = get_report_composer()
                 report = composer.compose_report(repo_name)
-                serialized = report.model_dump() if hasattr(report, "model_dump") else report
+                serialized = (
+                    report.model_dump() if hasattr(report, "model_dump") else report
+                )
                 return json.dumps(serialized, indent=2, default=str)
 
     @server.tool()
@@ -66,9 +68,15 @@ def register(server: Any) -> None:
             format: Output format ('markdown' or 'html').
         """
         from mcp.observability import mcp_request_context
-        from mcp.dependencies import get_report_composer, get_markdown_renderer, get_html_renderer
+        from mcp.dependencies import (
+            get_report_composer,
+            get_markdown_renderer,
+            get_html_renderer,
+        )
 
-        with mcp_request_context("export_report", {"owner": owner, "repo": repo, "format": format}):
+        with mcp_request_context(
+            "export_report", {"owner": owner, "repo": repo, "format": format}
+        ):
             with tool_boundary("export_report"):
                 repo_name = require_repo(owner, repo)
                 fmt = require_text("format", format).lower()
@@ -80,7 +88,11 @@ def register(server: Any) -> None:
                 composer = get_report_composer()
                 report = composer.compose_report(repo_name)
 
-                renderer = get_html_renderer() if fmt == "html" else get_markdown_renderer()
+                renderer = (
+                    get_html_renderer() if fmt == "html" else get_markdown_renderer()
+                )
 
                 exported = renderer.render(report)
-                return json.dumps({"format": fmt, "content": exported}, indent=2, default=str)
+                return json.dumps(
+                    {"format": fmt, "content": exported}, indent=2, default=str
+                )

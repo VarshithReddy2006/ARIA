@@ -45,13 +45,21 @@ def test_content_hash_validation() -> None:
 def test_index_batch_immutability() -> None:
     fp = FilePath(relative_path="main.py")
     ch = ContentHash(sha256_hex="f" * 64)
-    file_unit = FileUnit(path=fp, language=Language.PYTHON, content_hash=ch, size_bytes=100)
+    file_unit = FileUnit(
+        path=fp, language=Language.PYTHON, content_hash=ch, size_bytes=100
+    )
 
     ast_node = ASTNode(type="module", start_line=1, start_col=0, end_line=10, end_col=0)
-    ast_unit = ASTUnit(path=fp, language=Language.PYTHON, root_node=ast_node, total_nodes=1)
-    parse_unit = ParseUnit(file_unit=file_unit, ast_unit=ast_unit, parse_duration_ms=1.5)
+    ast_unit = ASTUnit(
+        path=fp, language=Language.PYTHON, root_node=ast_node, total_nodes=1
+    )
+    parse_unit = ParseUnit(
+        file_unit=file_unit, ast_unit=ast_unit, parse_duration_ms=1.5
+    )
 
-    repo_id = RepositoryIdentity(repo_id=UUIDv4.generate(), remote_url="https://github.com/a/b.git", name="b")
+    repo_id = RepositoryIdentity(
+        repo_id=UUIDv4.generate(), remote_url="https://github.com/a/b.git", name="b"
+    )
     commit = CommitReference(sha="e" * 40, committed_at=Timestamp.now())
 
     batch = IndexBatch(

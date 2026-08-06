@@ -52,20 +52,34 @@ class ContextExpander(ContextExpanderPort):
             content = f"Definition of {sym.kind.value} '{sym.name}' ({sym.qualified_name.dotted_path}) in {sym.path.relative_path}:L{sym.location.start_line}"
             est_tokens = max(len(content) // 4, 1)
             score = RankingScore(priority=1, score_value=1.0, category="Definition")
-            snippets.append(ContextSnippet(snippet_id=f"def_{idx}", content=content, citation=cit, score=score, estimated_tokens=est_tokens))
+            snippets.append(
+                ContextSnippet(
+                    snippet_id=f"def_{idx}",
+                    content=content,
+                    citation=cit,
+                    score=score,
+                    estimated_tokens=est_tokens,
+                )
+            )
 
         # 2. Reference Expansion (Priority 2)
-        ref_snips = self._ref.expand_references(seed_symbols, query_engine, fact_store, repo_id, commit)
+        ref_snips = self._ref.expand_references(
+            seed_symbols, query_engine, fact_store, repo_id, commit
+        )
         snippets.extend(ref_snips)
 
         # 3. Call Graph Expansion (Priority 3)
         if rule.include_callers or rule.include_callees:
-            call_snips = self._call.expand_calls(seed_symbols, query_engine, fact_store, repo_id, commit)
+            call_snips = self._call.expand_calls(
+                seed_symbols, query_engine, fact_store, repo_id, commit
+            )
             snippets.extend(call_snips)
 
         # 4. Dependency Expansion (Priority 4)
         if rule.include_dependencies:
-            dep_snips = self._dep.expand_dependencies(seed_symbols, query_engine, fact_store, repo_id, commit)
+            dep_snips = self._dep.expand_dependencies(
+                seed_symbols, query_engine, fact_store, repo_id, commit
+            )
             snippets.extend(dep_snips)
 
         return tuple(snippets)

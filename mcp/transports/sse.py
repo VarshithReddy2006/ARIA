@@ -15,4 +15,6 @@ def run_sse_transport(server: Any, host: str = "0.0.0.0", port: int = 8000) -> N
     if hasattr(server, "run") and callable(server.run):
         server.run(transport="sse")
     else:
-        raise NotImplementedError("SSE transport is not supported by the current server instance")
+        raise NotImplementedError(
+            "SSE transport is not supported by the current server instance"
+        )

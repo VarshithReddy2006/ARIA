@@ -1,6 +1,5 @@
 """Common Value Objects for the RIA Domain."""
 
-import re
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from uuid import UUID
@@ -43,11 +42,14 @@ class UUIDv4(ValueObject):
         try:
             val = UUID(self.value, version=4)
             if str(val) != self.value.lower():
-                raise ValueError(f"UUID string '{self.value}' is not normalized lower-case.")
+                raise ValueError(
+                    f"UUID string '{self.value}' is not normalized lower-case."
+                )
         except Exception as err:
             raise ValueError(f"Invalid UUIDv4 value '{self.value}': {err}") from err
 
     @classmethod
     def generate(cls) -> "UUIDv4":
         import uuid
+
         return cls(value=str(uuid.uuid4()))

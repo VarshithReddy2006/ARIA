@@ -9,7 +9,9 @@ import sys
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel, Field
 
-from backend.dependencies import structural_retrieval_engine as _structural_retrieval_engine
+from backend.dependencies import (
+    structural_retrieval_engine as _structural_retrieval_engine,
+)
 from models.retrieval import RepositoryRetrievalContext
 
 logger = logging.getLogger(__name__)

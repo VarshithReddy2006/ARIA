@@ -24,7 +24,10 @@ class RegressionSuite:
         """Verify that benchmark result meets or exceeds all performance baseline thresholds."""
         violations: list[str] = []
 
-        if result.overall_throughput_files_per_sec < self._baseline.min_throughput_files_per_sec:
+        if (
+            result.overall_throughput_files_per_sec
+            < self._baseline.min_throughput_files_per_sec
+        ):
             violations.append(
                 f"Throughput regression: {result.overall_throughput_files_per_sec:.2f} files/sec "
                 f"is below threshold of {self._baseline.min_throughput_files_per_sec:.2f} files/sec."

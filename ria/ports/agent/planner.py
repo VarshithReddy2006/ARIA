@@ -19,9 +19,11 @@ class PlannerPort(Protocol):
 
 class ExecutionPlannerPort(Protocol):
     """Protocol for execution planning."""
+
     ...
 
 
 class TaskPlannerPort(Protocol):
     """Protocol for task planning."""
+
     ...

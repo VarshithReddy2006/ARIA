@@ -36,10 +36,18 @@ def compute_quality_score(
             },
         }
 
-    avg_mi = sum(m.get("maintainability_index", 80) for m in node_metrics_list) / len(node_metrics_list)
-    avg_instability = sum(m.get("instability", 0.5) for m in node_metrics_list) / len(node_metrics_list)
-    avg_complexity = sum(m.get("cyclomatic_complexity", 5) for m in node_metrics_list) / len(node_metrics_list)
-    avg_ca_ce = sum(m.get("fan_in", 0) + m.get("fan_out", 0) for m in node_metrics_list) / len(node_metrics_list)
+    avg_mi = sum(m.get("maintainability_index", 80) for m in node_metrics_list) / len(
+        node_metrics_list
+    )
+    avg_instability = sum(m.get("instability", 0.5) for m in node_metrics_list) / len(
+        node_metrics_list
+    )
+    avg_complexity = sum(
+        m.get("cyclomatic_complexity", 5) for m in node_metrics_list
+    ) / len(node_metrics_list)
+    avg_ca_ce = sum(
+        m.get("fan_in", 0) + m.get("fan_out", 0) for m in node_metrics_list
+    ) / len(node_metrics_list)
 
     # Subscore calculations
     layering = max(0, min(100, int(95 - (violation_count * 5))))

@@ -65,21 +65,25 @@ def detect_cycles(graph_edges: List[Dict[str, str]]) -> Dict[str, Any]:
     breakpoint_suggestions = []
 
     for idx, scc in enumerate(sccs, 1):
-        cycle_groups.append({
-            "cycle_id": f"cycle-{idx}",
-            "nodes": scc,
-            "size": len(scc),
-        })
+        cycle_groups.append(
+            {
+                "cycle_id": f"cycle-{idx}",
+                "nodes": scc,
+                "size": len(scc),
+            }
+        )
 
         # Suggest breaking feedback edge
         src_mod = scc[0]
         tgt_mod = scc[1] if len(scc) > 1 else scc[0]
-        breakpoint_suggestions.append({
-            "cycle_id": f"cycle-{idx}",
-            "break_edge": f"{src_mod} -> {tgt_mod}",
-            "reason": "Circular import chain detected.",
-            "suggestion": f"Introduce an Interface or Event Publisher between '{os.path.basename(src_mod)}' and '{os.path.basename(tgt_mod)}'."
-        })
+        breakpoint_suggestions.append(
+            {
+                "cycle_id": f"cycle-{idx}",
+                "break_edge": f"{src_mod} -> {tgt_mod}",
+                "reason": "Circular import chain detected.",
+                "suggestion": f"Introduce an Interface or Event Publisher between '{os.path.basename(src_mod)}' and '{os.path.basename(tgt_mod)}'.",
+            }
+        )
 
     return {
         "cycle_count": len(cycle_groups),

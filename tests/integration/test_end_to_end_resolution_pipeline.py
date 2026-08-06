@@ -20,7 +20,13 @@ from ria.application.sync import (
 )
 from ria.config import Container, Settings
 from ria.domain.index.value_objects import Language
-from ria.plugins import PluginLoader, PluginRegistry, JavaScriptTreeSitterPlugin, PythonTreeSitterPlugin, TypeScriptTreeSitterPlugin
+from ria.plugins import (
+    PluginLoader,
+    PluginRegistry,
+    JavaScriptTreeSitterPlugin,
+    PythonTreeSitterPlugin,
+    TypeScriptTreeSitterPlugin,
+)
 from ria.resolution import (
     JavaScriptLanguageResolver,
     LanguageResolverRegistry,
@@ -36,23 +42,34 @@ def test_full_semantic_resolution_pipeline(tmp_path: Path) -> None:
     origin_dir = tmp_path / "resolution_origin"
     origin_dir.mkdir()
     subprocess.run(["git", "init"], cwd=origin_dir, check=True)
-    subprocess.run(["git", "config", "user.name", "TestRunner"], cwd=origin_dir, check=True)
-    subprocess.run(["git", "config", "user.email", "runner@test.com"], cwd=origin_dir, check=True)
+    subprocess.run(
+        ["git", "config", "user.name", "TestRunner"], cwd=origin_dir, check=True
+    )
+    subprocess.run(
+        ["git", "config", "user.email", "runner@test.com"], cwd=origin_dir, check=True
+    )
 
     py_file = origin_dir / "auth.py"
-    py_file.write_text("class Authenticator:\n    def validate(self, token: str) -> bool:\n        return True\n")
+    py_file.write_text(
+        "class Authenticator:\n    def validate(self, token: str) -> bool:\n        return True\n"
+    )
 
     ts_file = origin_dir / "app.ts"
-    ts_file.write_text("import { Authenticator } from './auth';\nfunction main() {\n  console.log('running');\n}\n")
+    ts_file.write_text(
+        "import { Authenticator } from './auth';\nfunction main() {\n  console.log('running');\n}\n"
+    )
 
     subprocess.run(["git", "add", "."], cwd=origin_dir, check=True)
-    subprocess.run(["git", "commit", "-m", "Resolution test commit"], cwd=origin_dir, check=True)
+    subprocess.run(
+        ["git", "commit", "-m", "Resolution test commit"], cwd=origin_dir, check=True
+    )
 
     # 2. DI Setup
     settings = Settings.create_testing(tmp_path)
     container = Container.create(settings)
 
     from ria.application.sync import RepositorySyncService
+
     sync_service = RepositorySyncService(
         git_client=container.git_client,
         registry=container.repository_registry,
@@ -65,14 +82,20 @@ def test_full_semantic_resolution_pipeline(tmp_path: Path) -> None:
     reg_use_case = RegisterRepositoryUseCase(sync_service)
     sync_use_case = SynchronizeRepositoryUseCase(sync_service)
 
-    status_dto = reg_use_case.execute(RegisterRepositoryCommand(remote_url=str(origin_dir), name="resolution_origin"))
-    sync_dto = sync_use_case.execute(SynchronizeRepositoryCommand(repo_id=status_dto.repo_id))
+    status_dto = reg_use_case.execute(
+        RegisterRepositoryCommand(remote_url=str(origin_dir), name="resolution_origin")
+    )
+    sync_dto = sync_use_case.execute(
+        SynchronizeRepositoryCommand(repo_id=status_dto.repo_id)
+    )
     assert sync_dto.is_success
 
     # 3. Execute IndexPipeline
     discovery = FileDiscovery(filesystem=container.filesystem)
     lang_detect = LanguageDetection(filesystem=container.filesystem)
-    scanner = RepositoryScanner(discovery, lang_detect, container.filesystem, container.hashing)
+    scanner = RepositoryScanner(
+        discovery, lang_detect, container.filesystem, container.hashing
+    )
 
     plugin_registry = PluginRegistry()
     loader = PluginLoader(plugin_registry)
@@ -96,21 +119,29 @@ def test_full_semantic_resolution_pipeline(tmp_path: Path) -> None:
         metrics=container.metrics,
     )
 
-    index_batch, pipe_dto = pipeline.execute(ExecutePipelineCommand(repo_id=status_dto.repo_id))
+    index_batch, pipe_dto = pipeline.execute(
+        ExecutePipelineCommand(repo_id=status_dto.repo_id)
+    )
     assert pipe_dto.is_success
     assert len(index_batch.parse_units) == 2
 
     # 4. Execute ResolutionEngine
     resolver_registry = LanguageResolverRegistry()
     resolver_registry.register_resolver(Language.PYTHON, PythonLanguageResolver())
-    resolver_registry.register_resolver(Language.TYPESCRIPT, TypeScriptLanguageResolver())
-    resolver_registry.register_resolver(Language.JAVASCRIPT, JavaScriptLanguageResolver())
+    resolver_registry.register_resolver(
+        Language.TYPESCRIPT, TypeScriptLanguageResolver()
+    )
+    resolver_registry.register_resolver(
+        Language.JAVASCRIPT, JavaScriptLanguageResolver()
+    )
 
     engine = ResolutionEngine(resolver_registry=resolver_registry)
     fact_set = engine.resolve_batch(index_batch)
 
     # 5. Assertions on ResolvedFactSet
-    assert len(fact_set.symbols) >= 3  # Class Authenticator, validate method, main function
+    assert (
+        len(fact_set.symbols) >= 3
+    )  # Class Authenticator, validate method, main function
     assert len(fact_set.definitions) >= 3
     assert fact_set.total_facts > 0
 

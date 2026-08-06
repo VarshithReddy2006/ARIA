@@ -47,7 +47,12 @@ def test_clone_inaccessible_repository_returns_generic_error():
 
         message = str(exc_info.value)
         assert message == "Repository not found or access denied."
-        for leaked in ("PAT", "GITHUB_TOKEN", "Authentication failure", "permission denied"):
+        for leaked in (
+            "PAT",
+            "GITHUB_TOKEN",
+            "Authentication failure",
+            "permission denied",
+        ):
             assert leaked not in message
 
 

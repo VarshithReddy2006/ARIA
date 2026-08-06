@@ -15,6 +15,7 @@ from pathlib import Path
 
 import pytest
 
+
 # Helper to read a newline-delimited JSON‑RPC message from the stream.
 def read_message(stream, proc=None) -> dict:
     line = stream.readline()
@@ -25,11 +26,16 @@ def read_message(stream, proc=None) -> dict:
                 err_msg = proc.stderr.read()
             except Exception:
                 pass
-        raise RuntimeError(f"Unexpected EOF while reading message. Server stderr: {err_msg}")
+        raise RuntimeError(
+            f"Unexpected EOF while reading message. Server stderr: {err_msg}"
+        )
     return json.loads(line)
 
+
 # Helper to write a newline-delimited JSON‑RPC message to the stream.
-def write_message(stream, method: str, params: dict | None = None, request_id: int | None = 1):
+def write_message(
+    stream, method: str, params: dict | None = None, request_id: int | None = 1
+):
     payload = {"jsonrpc": "2.0", "method": method}
     if request_id is not None:
         payload["id"] = request_id
@@ -41,6 +47,7 @@ def write_message(stream, method: str, params: dict | None = None, request_id: i
         stream.flush()
     except (OSError, BrokenPipeError):
         pass
+
 
 @pytest.fixture(scope="module")
 def mcp_process():
@@ -79,13 +86,18 @@ def mcp_process():
     else:
         proc.kill()
 
+
 def test_stdio_transport(mcp_process):
     proc = mcp_process
     assert proc.stdin and proc.stdout
 
     # 1. initialize
     start = time.time()
-    write_message(proc.stdin, "initialize", {"processId": None, "rootUri": None, "capabilities": {}})
+    write_message(
+        proc.stdin,
+        "initialize",
+        {"processId": None, "rootUri": None, "capabilities": {}},
+    )
     init_resp = read_message(proc.stdout, proc)
     latency_initialize = time.time() - start
     assert init_resp.get("id") == 1
@@ -114,9 +126,14 @@ def test_stdio_transport(mcp_process):
     assert tool_resp.get("result") is not None
 
     # 5. invalid request (unknown tool)
-    write_message(proc.stdin, "tools/call", {"name": "nonexistent", "arguments": {}}, request_id=5)
+    write_message(
+        proc.stdin, "tools/call", {"name": "nonexistent", "arguments": {}}, request_id=5
+    )
     err_resp = read_message(proc.stdout, proc)
-    assert err_resp.get("error") is not None or err_resp.get("result", {}).get("isError") is True
+    assert (
+        err_resp.get("error") is not None
+        or err_resp.get("result", {}).get("isError") is True
+    )
 
     # 6. graceful shutdown
     write_message(proc.stdin, "shutdown", None, request_id=6)

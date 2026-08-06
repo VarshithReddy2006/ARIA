@@ -1,6 +1,6 @@
 """Tool Registry Port Protocol."""
 
-from typing import Any, Callable, Dict, Protocol, runtime_checkable
+from typing import Any, Dict, Protocol, runtime_checkable
 
 from ria.domain.agent.entities import ToolExecution
 

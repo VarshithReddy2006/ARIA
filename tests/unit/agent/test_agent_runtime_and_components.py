@@ -18,7 +18,6 @@ from ria.agent import (
     VerificationEngine,
 )
 from ria.domain.agent import (
-    CheckpointId,
     Goal,
     GoalType,
     InvalidGoalError,
@@ -28,32 +27,82 @@ from ria.domain.agent import (
 
 
 def test_agent_domain_value_objects() -> None:
-    goal = Goal(goal_id="g1", description="Explain auth", goal_type=GoalType.REPOSITORY_EXPLANATION, repo_id="r1")
+    goal = Goal(
+        goal_id="g1",
+        description="Explain auth",
+        goal_type=GoalType.REPOSITORY_EXPLANATION,
+        repo_id="r1",
+    )
     assert goal.goal_id == "g1"
 
     with pytest.raises(InvalidGoalError):
-        Goal(goal_id="g1", description="", goal_type=GoalType.REPOSITORY_EXPLANATION, repo_id="r1")
+        Goal(
+            goal_id="g1",
+            description="",
+            goal_type=GoalType.REPOSITORY_EXPLANATION,
+            repo_id="r1",
+        )
 
     with pytest.raises(InvalidGoalError):
-        Goal(goal_id="g1", description="desc", goal_type=GoalType.REPOSITORY_EXPLANATION, repo_id="")
+        Goal(
+            goal_id="g1",
+            description="desc",
+            goal_type=GoalType.REPOSITORY_EXPLANATION,
+            repo_id="",
+        )
 
 
 def test_goal_interpreter_all_types() -> None:
     interpreter = GoalInterpreter()
-    assert interpreter.interpret_goal("Explain the architecture", "r1").goal_type == GoalType.ARCHITECTURE_ANALYSIS
-    assert interpreter.interpret_goal("Show call sequence", "r1").goal_type == GoalType.CALL_FLOW_ANALYSIS
-    assert interpreter.interpret_goal("Analyze module imports", "r1").goal_type == GoalType.DEPENDENCY_INVESTIGATION
-    assert interpreter.interpret_goal("Investigate bug in login", "r1").goal_type == GoalType.BUG_INVESTIGATION
-    assert interpreter.interpret_goal("Generate docstring for auth", "r1").goal_type == GoalType.DOCUMENTATION_GENERATION
-    assert interpreter.interpret_goal("Refactor user module", "r1").goal_type == GoalType.REFACTORING_ANALYSIS
-    assert interpreter.interpret_goal("Check impact of user_id change", "r1").goal_type == GoalType.IMPACT_ANALYSIS
-    assert interpreter.interpret_goal("Find symbol definition", "r1").goal_type == GoalType.CODE_NAVIGATION
-    assert interpreter.interpret_goal("Check repository health status", "r1").goal_type == GoalType.REPOSITORY_HEALTH
-    assert interpreter.interpret_goal("General repository explanation", "r1").goal_type == GoalType.REPOSITORY_EXPLANATION
+    assert (
+        interpreter.interpret_goal("Explain the architecture", "r1").goal_type
+        == GoalType.ARCHITECTURE_ANALYSIS
+    )
+    assert (
+        interpreter.interpret_goal("Show call sequence", "r1").goal_type
+        == GoalType.CALL_FLOW_ANALYSIS
+    )
+    assert (
+        interpreter.interpret_goal("Analyze module imports", "r1").goal_type
+        == GoalType.DEPENDENCY_INVESTIGATION
+    )
+    assert (
+        interpreter.interpret_goal("Investigate bug in login", "r1").goal_type
+        == GoalType.BUG_INVESTIGATION
+    )
+    assert (
+        interpreter.interpret_goal("Generate docstring for auth", "r1").goal_type
+        == GoalType.DOCUMENTATION_GENERATION
+    )
+    assert (
+        interpreter.interpret_goal("Refactor user module", "r1").goal_type
+        == GoalType.REFACTORING_ANALYSIS
+    )
+    assert (
+        interpreter.interpret_goal("Check impact of user_id change", "r1").goal_type
+        == GoalType.IMPACT_ANALYSIS
+    )
+    assert (
+        interpreter.interpret_goal("Find symbol definition", "r1").goal_type
+        == GoalType.CODE_NAVIGATION
+    )
+    assert (
+        interpreter.interpret_goal("Check repository health status", "r1").goal_type
+        == GoalType.REPOSITORY_HEALTH
+    )
+    assert (
+        interpreter.interpret_goal("General repository explanation", "r1").goal_type
+        == GoalType.REPOSITORY_EXPLANATION
+    )
 
 
 def test_planner_and_task_graph() -> None:
-    goal = Goal(goal_id="g1", description="Explain auth", goal_type=GoalType.REPOSITORY_EXPLANATION, repo_id="r1")
+    goal = Goal(
+        goal_id="g1",
+        description="Explain auth",
+        goal_type=GoalType.REPOSITORY_EXPLANATION,
+        repo_id="r1",
+    )
     planner = Planner()
     plan = planner.create_plan(goal)
 
@@ -84,7 +133,12 @@ def test_tool_registry_and_selector() -> None:
 
 
 def test_reflection_verification_and_checkpoints() -> None:
-    goal = Goal(goal_id="g1", description="Explain auth", goal_type=GoalType.REPOSITORY_EXPLANATION, repo_id="r1")
+    goal = Goal(
+        goal_id="g1",
+        description="Explain auth",
+        goal_type=GoalType.REPOSITORY_EXPLANATION,
+        repo_id="r1",
+    )
     ctx_mgr = ExecutionContextManager()
     ctx = ctx_mgr.create_context(goal)
 
@@ -123,7 +177,12 @@ def test_event_publisher() -> None:
 
 
 def test_agent_runtime_end_to_end() -> None:
-    goal = Goal(goal_id="g1", description="Explain auth", goal_type=GoalType.REPOSITORY_EXPLANATION, repo_id="r1")
+    goal = Goal(
+        goal_id="g1",
+        description="Explain auth",
+        goal_type=GoalType.REPOSITORY_EXPLANATION,
+        repo_id="r1",
+    )
 
     planner = Planner()
     graph_engine = TaskGraphEngine()

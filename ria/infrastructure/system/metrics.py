@@ -16,14 +16,22 @@ class InMemoryMetricsAdapter(MetricsPort):
         self.histograms: Dict[str, List[float]] = defaultdict(list)
         self.durations: Dict[str, List[float]] = defaultdict(list)
 
-    def increment_counter(self, metric_name: str, value: int = 1, **tags: LogContextValue) -> None:
+    def increment_counter(
+        self, metric_name: str, value: int = 1, **tags: LogContextValue
+    ) -> None:
         self.counters[metric_name] += value
 
-    def record_gauge(self, metric_name: str, value: float, **tags: LogContextValue) -> None:
+    def record_gauge(
+        self, metric_name: str, value: float, **tags: LogContextValue
+    ) -> None:
         self.gauges[metric_name] = value
 
-    def record_histogram(self, metric_name: str, value: float, **tags: LogContextValue) -> None:
+    def record_histogram(
+        self, metric_name: str, value: float, **tags: LogContextValue
+    ) -> None:
         self.histograms[metric_name].append(value)
 
-    def record_duration(self, metric_name: str, seconds: float, **tags: LogContextValue) -> None:
+    def record_duration(
+        self, metric_name: str, seconds: float, **tags: LogContextValue
+    ) -> None:
         self.durations[metric_name].append(seconds)

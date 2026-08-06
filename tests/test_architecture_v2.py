@@ -11,14 +11,13 @@ Verifies:
 
 from __future__ import annotations
 
-import pytest
 from fastapi.testclient import TestClient
 
 from services.architecture.metrics_engine import compute_metrics
 from services.architecture.quality_engine import compute_quality_score
 from services.architecture.cycle_detector import detect_cycles
 from services.architecture.rules import evaluate_rules
-from services.architecture.impact_engine import compute_blast_radius, find_shortest_path
+from services.architecture.impact_engine import find_shortest_path
 from backend.api import app
 
 client = TestClient(app)
@@ -53,8 +52,20 @@ def test_metrics_engine():
 def test_quality_engine():
     """Verify Architecture Quality score (0-100) and subscores."""
     node_metrics = [
-        {"maintainability_index": 90, "instability": 0.3, "cyclomatic_complexity": 3, "fan_in": 5, "fan_out": 2},
-        {"maintainability_index": 85, "instability": 0.4, "cyclomatic_complexity": 4, "fan_in": 2, "fan_out": 3},
+        {
+            "maintainability_index": 90,
+            "instability": 0.3,
+            "cyclomatic_complexity": 3,
+            "fan_in": 5,
+            "fan_out": 2,
+        },
+        {
+            "maintainability_index": 85,
+            "instability": 0.4,
+            "cyclomatic_complexity": 4,
+            "fan_in": 2,
+            "fan_out": 3,
+        },
     ]
 
     res = compute_quality_score(node_metrics, cycle_count=0, violation_count=0)
@@ -84,8 +95,14 @@ def test_tarjan_cycle_detector():
 def test_archunit_rule_engine():
     """Verify ArchUnit-style layer boundary rule evaluation."""
     edges = [
-        {"source": "models/domain_entity.py", "target": "frontend/views/page.tsx"},  # Domain -> Presentation (Violation)
-        {"source": "frontend/views/page.tsx", "target": "services/db/repository.py"},  # Presentation -> Data (Violation)
+        {
+            "source": "models/domain_entity.py",
+            "target": "frontend/views/page.tsx",
+        },  # Domain -> Presentation (Violation)
+        {
+            "source": "frontend/views/page.tsx",
+            "target": "services/db/repository.py",
+        },  # Presentation -> Data (Violation)
     ]
 
     res = evaluate_rules(edges)
@@ -110,7 +127,9 @@ def test_shortest_path_explorer():
 
 def test_api_quality_endpoint():
     """Verify GET /api/architecture/{owner}/{repo}/quality."""
-    resp = client.get("/api/architecture/VarshithReddy2006/Repo-Intelligence-Agent/quality")
+    resp = client.get(
+        "/api/architecture/VarshithReddy2006/Repo-Intelligence-Agent/quality"
+    )
     assert resp.status_code == 200
     data = resp.json()
     assert "overall_score" in data
@@ -120,7 +139,9 @@ def test_api_quality_endpoint():
 
 def test_api_cycles_endpoint():
     """Verify GET /api/architecture/{owner}/{repo}/cycles."""
-    resp = client.get("/api/architecture/VarshithReddy2006/Repo-Intelligence-Agent/cycles")
+    resp = client.get(
+        "/api/architecture/VarshithReddy2006/Repo-Intelligence-Agent/cycles"
+    )
     assert resp.status_code == 200
     data = resp.json()
     assert "cycle_count" in data
@@ -128,7 +149,9 @@ def test_api_cycles_endpoint():
 
 def test_api_rules_violations_endpoint():
     """Verify GET /api/architecture/{owner}/{repo}/rules/violations."""
-    resp = client.get("/api/architecture/VarshithReddy2006/Repo-Intelligence-Agent/rules/violations")
+    resp = client.get(
+        "/api/architecture/VarshithReddy2006/Repo-Intelligence-Agent/rules/violations"
+    )
     assert resp.status_code == 200
     data = resp.json()
     assert "violation_count" in data
@@ -136,7 +159,9 @@ def test_api_rules_violations_endpoint():
 
 def test_api_dependency_path_endpoint():
     """Verify GET /api/architecture/{owner}/{repo}/path."""
-    resp = client.get("/api/architecture/VarshithReddy2006/Repo-Intelligence-Agent/path?source=services/chat/api.py&target=services/chat/retrieval.py")
+    resp = client.get(
+        "/api/architecture/VarshithReddy2006/Repo-Intelligence-Agent/path?source=services/chat/api.py&target=services/chat/retrieval.py"
+    )
     assert resp.status_code == 200
     data = resp.json()
     assert "distance" in data

@@ -43,6 +43,7 @@ class RepositoryContext:
             self._cache = cache
         else:
             from core.cache import AnalysisCache
+
             self._cache = AnalysisCache()
 
         if store is not None:

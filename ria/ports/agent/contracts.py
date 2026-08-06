@@ -44,7 +44,9 @@ class CommunicationBusPort(Protocol):
 
 @runtime_checkable
 class ResultAggregatorPort(Protocol):
-    def aggregate_results(self, session_id: str, task_results: tuple[Any, ...]) -> Any: ...
+    def aggregate_results(
+        self, session_id: str, task_results: tuple[Any, ...]
+    ) -> Any: ...
 
 
 @runtime_checkable

@@ -83,7 +83,9 @@ class SQLiteFactStoreAdapter(FactStorePort):
             with conn:
                 conn.executescript(schema)
         except sqlite3.Error as err:
-            raise DatabaseError(f"Failed to initialize SQLite FactStore schema: {err}") from err
+            raise DatabaseError(
+                f"Failed to initialize SQLite FactStore schema: {err}"
+            ) from err
         finally:
             if self._persistent_conn is None:
                 conn.close()
@@ -101,18 +103,26 @@ class SQLiteFactStoreAdapter(FactStorePort):
         try:
             with conn:
                 # 1. Clear existing facts for this commit partition
-                conn.execute("DELETE FROM facts WHERE repo_id = ? AND commit_sha = ?", (repo_val, sha_val))
-                conn.execute("DELETE FROM derived_relations WHERE repo_id = ? AND commit_sha = ?", (repo_val, sha_val))
+                conn.execute(
+                    "DELETE FROM facts WHERE repo_id = ? AND commit_sha = ?",
+                    (repo_val, sha_val),
+                )
+                conn.execute(
+                    "DELETE FROM derived_relations WHERE repo_id = ? AND commit_sha = ?",
+                    (repo_val, sha_val),
+                )
 
                 # 2. Insert symbols
                 for sym in fact_set.symbols:
-                    mods_json = json.dumps({
-                        "is_static": sym.modifiers.is_static,
-                        "is_async": sym.modifiers.is_async,
-                        "is_abstract": sym.modifiers.is_abstract,
-                        "is_readonly": sym.modifiers.is_readonly,
-                        "is_exported": sym.modifiers.is_exported,
-                    })
+                    mods_json = json.dumps(
+                        {
+                            "is_static": sym.modifiers.is_static,
+                            "is_async": sym.modifiers.is_async,
+                            "is_abstract": sym.modifiers.is_abstract,
+                            "is_readonly": sym.modifiers.is_readonly,
+                            "is_exported": sym.modifiers.is_exported,
+                        }
+                    )
                     conn.execute(
                         """
                         INSERT INTO facts (
@@ -181,7 +191,9 @@ class SQLiteFactStoreAdapter(FactStorePort):
                     )
 
         except sqlite3.Error as err:
-            raise DatabaseError(f"Failed to save ResolvedFactSet to FactStore: {err}") from err
+            raise DatabaseError(
+                f"Failed to save ResolvedFactSet to FactStore: {err}"
+            ) from err
         finally:
             if self._persistent_conn is None:
                 conn.close()
@@ -210,7 +222,9 @@ class SQLiteFactStoreAdapter(FactStorePort):
 
             symbols: list[SemanticSymbol] = []
             for row in cursor.fetchall():
-                mods_data = json.loads(row["modifiers_json"]) if row["modifiers_json"] else {}
+                mods_data = (
+                    json.loads(row["modifiers_json"]) if row["modifiers_json"] else {}
+                )
                 mods = SymbolModifiers(
                     is_static=mods_data.get("is_static", False),
                     is_async=mods_data.get("is_async", False),
@@ -238,7 +252,9 @@ class SQLiteFactStoreAdapter(FactStorePort):
 
             return tuple(symbols)
         except sqlite3.Error as err:
-            raise DatabaseError(f"Failed to query symbols from FactStore: {err}") from err
+            raise DatabaseError(
+                f"Failed to query symbols from FactStore: {err}"
+            ) from err
         finally:
             if self._persistent_conn is None:
                 conn.close()
@@ -282,7 +298,9 @@ class SQLiteFactStoreAdapter(FactStorePort):
 
             return tuple(relations)
         except sqlite3.Error as err:
-            raise DatabaseError(f"Failed to query relations from FactStore: {err}") from err
+            raise DatabaseError(
+                f"Failed to query relations from FactStore: {err}"
+            ) from err
         finally:
             if self._persistent_conn is None:
                 conn.close()
@@ -298,11 +316,19 @@ class SQLiteFactStoreAdapter(FactStorePort):
 
         try:
             with conn:
-                c1 = conn.execute("DELETE FROM facts WHERE repo_id = ? AND commit_sha = ?", (repo_val, sha_val))
-                c2 = conn.execute("DELETE FROM derived_relations WHERE repo_id = ? AND commit_sha = ?", (repo_val, sha_val))
+                c1 = conn.execute(
+                    "DELETE FROM facts WHERE repo_id = ? AND commit_sha = ?",
+                    (repo_val, sha_val),
+                )
+                c2 = conn.execute(
+                    "DELETE FROM derived_relations WHERE repo_id = ? AND commit_sha = ?",
+                    (repo_val, sha_val),
+                )
                 return (c1.rowcount + c2.rowcount) > 0
         except sqlite3.Error as err:
-            raise DatabaseError(f"Failed to delete facts from FactStore: {err}") from err
+            raise DatabaseError(
+                f"Failed to delete facts from FactStore: {err}"
+            ) from err
         finally:
             if self._persistent_conn is None:
                 conn.close()

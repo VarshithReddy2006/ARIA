@@ -24,7 +24,6 @@ Design principles:
 from __future__ import annotations
 
 import logging
-import os
 from typing import Any, Dict, Generator, List, Optional, Set, Tuple
 
 import networkx as nx
@@ -279,9 +278,7 @@ class CallGraphService:
         all_nodes: Dict[str, CallNode],
         language_name: str,
     ) -> List[Tuple[int, int, str]]:
-        return self.extractor.build_scope_map(
-            root, file_path, all_nodes, language_name
-        )
+        return self.extractor.build_scope_map(root, file_path, all_nodes, language_name)
 
     def _find_call_sites(self, root, language_name: str) -> List[Tuple[str, int, int]]:
         return self.extractor.find_call_sites(root, language_name)

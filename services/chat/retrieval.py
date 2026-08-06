@@ -869,7 +869,10 @@ def intelligent_retrieve(
             else:
                 res_chunks = chroma_store.collection.get(
                     where={
-                        "$and": [{"repo_name": repo_name}, {"file_path": matched_file_path}]
+                        "$and": [
+                            {"repo_name": repo_name},
+                            {"file_path": matched_file_path},
+                        ]
                     },
                     include=["documents", "metadatas"],
                 )
@@ -1064,22 +1067,42 @@ def intelligent_retrieve(
         )
 
         # Contextual ranking boosts (disabled when explicit entity is present to prevent previous topic stickiness)
-        if not disable_previous_boosts and conversation_context and conversation_context.topic_confidence >= getattr(conversation_settings, "topic_threshold", 0.35):
+        if (
+            not disable_previous_boosts
+            and conversation_context
+            and conversation_context.topic_confidence
+            >= getattr(conversation_settings, "topic_threshold", 0.35)
+        ):
             p_clean = path.replace("\\", "/").lower()
-            cur_f = conversation_context.current_file.replace("\\", "/").lower() if conversation_context.current_file else None
+            cur_f = (
+                conversation_context.current_file.replace("\\", "/").lower()
+                if conversation_context.current_file
+                else None
+            )
             c_boost = getattr(conversation_settings, "current_file_boost", 50.0)
             s_boost = getattr(conversation_settings, "current_symbol_boost", 35.0)
             m_boost = getattr(conversation_settings, "current_module_boost", 20.0)
             r_boost = getattr(conversation_settings, "recent_file_boost", 10.0)
 
-            if cur_f and (p_clean == cur_f or p_clean.endswith("/" + cur_f) or cur_f.endswith("/" + os.path.basename(p_clean))):
+            if cur_f and (
+                p_clean == cur_f
+                or p_clean.endswith("/" + cur_f)
+                or cur_f.endswith("/" + os.path.basename(p_clean))
+            ):
                 total_score += c_boost * 1000.0
                 why_this_file = "Contextual Current File"
 
-            if conversation_context.current_symbol and conversation_context.current_symbol.lower() in chunk.get("content", "").lower():
+            if (
+                conversation_context.current_symbol
+                and conversation_context.current_symbol.lower()
+                in chunk.get("content", "").lower()
+            ):
                 total_score += s_boost * 1000.0
 
-            if conversation_context.current_module and conversation_context.current_module.lower() in p_clean:
+            if (
+                conversation_context.current_module
+                and conversation_context.current_module.lower() in p_clean
+            ):
                 total_score += m_boost * 1000.0
 
             for rf in conversation_context.recently_discussed_files:

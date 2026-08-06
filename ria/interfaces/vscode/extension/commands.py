@@ -3,7 +3,10 @@
 from typing import Any, Dict
 
 from ria.application.context import BuildContextCommandDTO, ContextApplicationService
-from ria.application.knowledge import AnswerQuestionCommandDTO, KnowledgeApplicationService
+from ria.application.knowledge import (
+    AnswerQuestionCommandDTO,
+    KnowledgeApplicationService,
+)
 from ria.application.query import QueryApplicationService
 from ria.application.search import SearchApplicationService
 
@@ -27,20 +30,42 @@ class VSCodeCommandDispatcher:
         repo_id = args.get("repo_id", "")
 
         if command_id == "ria.askRepository":
-            know_dto = self._knowledge.answer_question(AnswerQuestionCommandDTO(repo_id=repo_id, question=args.get("question", "")))
+            know_dto = self._knowledge.answer_question(
+                AnswerQuestionCommandDTO(
+                    repo_id=repo_id, question=args.get("question", "")
+                )
+            )
             return {"is_success": know_dto.is_success, "answer": know_dto.answer_text}
 
         if command_id == "ria.explainSymbol":
             s_resp = self._search.search_symbol(repo_id, args.get("symbol_name", ""))
-            matches_cnt = len(s_resp.results.payload) if s_resp.results and isinstance(s_resp.results.payload, tuple) else 0
+            matches_cnt = (
+                len(s_resp.results.payload)
+                if s_resp.results and isinstance(s_resp.results.payload, tuple)
+                else 0
+            )
             return {"is_success": s_resp.is_success, "matches": matches_cnt}
 
-        if command_id in ("ria.findDefinition", "ria.findReferences", "ria.showCallGraph"):
-            q_res = self._query.find_definition(repo_id, symbol_moniker=args.get("symbol_moniker"))
+        if command_id in (
+            "ria.findDefinition",
+            "ria.findReferences",
+            "ria.showCallGraph",
+        ):
+            q_res = self._query.find_definition(
+                repo_id, symbol_moniker=args.get("symbol_moniker")
+            )
             return {"is_success": q_res.is_success, "query_id": q_res.query_id}
 
         if command_id == "ria.contextExplorer":
-            ctx_dto = self._context.build_context(BuildContextCommandDTO(repo_id=repo_id, question=args.get("question", "")))
-            return {"is_success": ctx_dto.is_success, "package_id": ctx_dto.package_id, "tokens": ctx_dto.total_tokens}
+            ctx_dto = self._context.build_context(
+                BuildContextCommandDTO(
+                    repo_id=repo_id, question=args.get("question", "")
+                )
+            )
+            return {
+                "is_success": ctx_dto.is_success,
+                "package_id": ctx_dto.package_id,
+                "tokens": ctx_dto.total_tokens,
+            }
 
         return {"is_success": True, "command": command_id, "status": "executed"}

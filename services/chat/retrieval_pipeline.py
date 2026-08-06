@@ -90,9 +90,15 @@ class RetrievalPipeline:
 
     @staticmethod
     def _session_id(session_id: Optional[str]) -> str:
-        return session_id.strip() if session_id and session_id.strip() else uuid.uuid4().hex
+        return (
+            session_id.strip()
+            if session_id and session_id.strip()
+            else uuid.uuid4().hex
+        )
 
-    def _verify_answer(self, answer: str, source_contexts: List[Any]) -> tuple[bool, Dict[str, Any]]:
+    def _verify_answer(
+        self, answer: str, source_contexts: List[Any]
+    ) -> tuple[bool, Dict[str, Any]]:
         try:
             report = self.citation_verifier.verify_answer(
                 answer, source_contexts=source_contexts
@@ -100,7 +106,10 @@ class RetrievalPipeline:
             return report.citations_valid, report.model_dump()
         except Exception as exc:
             logger.warning("Citation verification failed: %s", exc)
-            return False, {"citations_valid": False, "feedback": "Citation verification failed."}
+            return False, {
+                "citations_valid": False,
+                "feedback": "Citation verification failed.",
+            }
 
     # ------------------------------------------------------------------
     # Non-streaming path (for RetrievalService compatibility + tests)
@@ -129,10 +138,14 @@ class RetrievalPipeline:
         """
         session_id = self._session_id(session_id)
         trace = PipelineTrace(repo_name=repo_name, session_id=session_id)
-        session = self.memory_store.get_or_create(repo_name, session_id)
+        # Called for its side effect: ensures the session row exists before the
+        # orchestrator reads conversation history below.
+        self.memory_store.get_or_create(repo_name, session_id)
 
         # 1. Orchestration & Query Rewriting
-        orch_res = self.orchestrator.process_incoming_query(repo_name, session_id, question)
+        orch_res = self.orchestrator.process_incoming_query(
+            repo_name, session_id, question
+        )
         resolved_question = orch_res.rewritten_query
         trace.question_length = len(resolved_question)
 
@@ -320,10 +333,14 @@ class RetrievalPipeline:
         """
         session_id = self._session_id(session_id)
         trace = PipelineTrace(repo_name=repo_name, session_id=session_id)
-        session = self.memory_store.get_or_create(repo_name, session_id)
+        # Called for its side effect: ensures the session row exists before the
+        # orchestrator reads conversation history below.
+        self.memory_store.get_or_create(repo_name, session_id)
 
         # ── 1. Orchestration & Query Rewriting ────────────────────────────
-        orch_res = self.orchestrator.process_incoming_query(repo_name, session_id, question)
+        orch_res = self.orchestrator.process_incoming_query(
+            repo_name, session_id, question
+        )
         resolved_question = orch_res.rewritten_query
         trace.question_length = len(resolved_question)
 
@@ -569,7 +586,9 @@ class RetrievalPipeline:
                 }
             )
         finally:
-            logger.info("CHAT_STREAM_COMPLETED repo=%s session=%s", repo_name, session_id)
+            logger.info(
+                "CHAT_STREAM_COMPLETED repo=%s session=%s", repo_name, session_id
+            )
 
     # ------------------------------------------------------------------
     # Helpers

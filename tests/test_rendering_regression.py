@@ -10,10 +10,9 @@ Verifies:
 from __future__ import annotations
 
 import re
-import pytest
 
 from services.chat.fallback_renderer import render_fallback
-from services.chat.context_builder import ContextBuilder, _CHARS_PER_TOKEN
+from services.chat.context_builder import ContextBuilder
 from models.schemas import EvidenceItem
 
 
@@ -27,14 +26,14 @@ class TestRenderingArtifactLeakage:
 
     LEAKAGE_PATTERNS = [
         r'400">',
-        r'class=',
-        r'text-indigo-400',
-        r'font-semibold',
-        r'text-text-subtle',
-        r'style=',
-        r'dangerouslySetInnerHTML',
-        r'<span class=',
-        r'<astro-island',
+        r"class=",
+        r"text-indigo-400",
+        r"font-semibold",
+        r"text-text-subtle",
+        r"style=",
+        r"dangerouslySetInnerHTML",
+        r"<span class=",
+        r"<astro-island",
     ]
 
     def test_fallback_renderer_has_no_leakage(self):
@@ -57,7 +56,9 @@ class TestRenderingArtifactLeakage:
         )
 
         for pat in self.LEAKAGE_PATTERNS:
-            assert not re.search(pat, fallback), f"Leaked pattern '{pat}' found in fallback response"
+            assert not re.search(pat, fallback), (
+                f"Leaked pattern '{pat}' found in fallback response"
+            )
 
     def test_structured_evidence_item_model(self):
         item = EvidenceItem(
@@ -136,7 +137,12 @@ class TestContextBuilderGuidelines:
         ctx = builder.build(
             repo_name="owner/repo",
             question="Explain backend/api.py",
-            code_chunks=[{"content": "def main(): pass", "metadata": {"file_path": "backend/api.py"}}],
+            code_chunks=[
+                {
+                    "content": "def main(): pass",
+                    "metadata": {"file_path": "backend/api.py"},
+                }
+            ],
         )
 
         assert "Evidence" in ctx.prompt
@@ -158,9 +164,24 @@ class TestCompletionGateRendering:
         r1 = render_fallback("Q", "Intel", [], ["file.py"])
         # 2. Context builder
         cb = ContextBuilder()
-        r2 = cb.build("repo", "Q", "Arch", "Intel", [{"content": "code", "metadata": {"file_path": "file.py"}}]).prompt
+        r2 = cb.build(
+            "repo",
+            "Q",
+            "Arch",
+            "Intel",
+            [{"content": "code", "metadata": {"file_path": "file.py"}}],
+        ).prompt
 
         combined = r1 + "\n" + r2
-        prohibited = ["400\">", "class=", "text-indigo-", "font-semibold", "style=", "dangerouslySetInnerHTML"]
+        prohibited = [
+            '400">',
+            "class=",
+            "text-indigo-",
+            "font-semibold",
+            "style=",
+            "dangerouslySetInnerHTML",
+        ]
         for p in prohibited:
-            assert p not in combined, f"Prohibited string '{p}' detected in rendering output"
+            assert p not in combined, (
+                f"Prohibited string '{p}' detected in rendering output"
+            )

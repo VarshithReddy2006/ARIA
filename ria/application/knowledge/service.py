@@ -1,12 +1,15 @@
 """Application Service for Knowledge Layer."""
 
-import typing
-from typing import Any, Optional
+from typing import Any
 
 from ria.application.context import BuildContextCommandDTO, ContextApplicationService
 from ria.application.knowledge.dto import AnswerQuestionCommandDTO
 from ria.domain.common.value_objects import UUIDv4
-from ria.domain.knowledge.value_objects import ConversationId, KnowledgeRequest, ProviderConfiguration
+from ria.domain.knowledge.value_objects import (
+    ConversationId,
+    KnowledgeRequest,
+    ProviderConfiguration,
+)
 from ria.knowledge.dto import KnowledgeResultDTO
 from ria.knowledge.engine import KnowledgeEngine
 from ria.ports.common.clock import ClockPort
@@ -36,9 +39,18 @@ class KnowledgeApplicationService:
 
     def answer_question(self, dto: AnswerQuestionCommandDTO) -> KnowledgeResultDTO:
         start_t = self._clock.monotonic_seconds()
-        self._logger.info("Executing KnowledgeApplicationService.answer_question", repo_id=dto.repo_id)
+        self._logger.info(
+            "Executing KnowledgeApplicationService.answer_question", repo_id=dto.repo_id
+        )
 
-        st = next((s for s in self._registry.list_all() if s.identity.repo_id.value == dto.repo_id), None)
+        st = next(
+            (
+                s
+                for s in self._registry.list_all()
+                if s.identity.repo_id.value == dto.repo_id
+            ),
+            None,
+        )
         if st is None or st.current_commit is None:
             return KnowledgeResultDTO(
                 request_id="none",
@@ -55,14 +67,20 @@ class KnowledgeApplicationService:
         try:
             # 1. Build Context Package
             ctx_dto = self._context_service.build_context(
-                BuildContextCommandDTO(repo_id=dto.repo_id, question=dto.question, max_tokens=4000, format="json")
+                BuildContextCommandDTO(
+                    repo_id=dto.repo_id,
+                    question=dto.question,
+                    max_tokens=4000,
+                    format="json",
+                )
             )
             if not ctx_dto.is_success:
                 raise ValueError(f"Context building failed: {ctx_dto.error_message}")
 
             # Re-assemble package for engine
             context_pkg = self._context_service._engine._builder.build_context(
-                self._context_service._engine._builder._expander._ref.__class__ and None  # type: ignore
+                self._context_service._engine._builder._expander._ref.__class__
+                and None  # type: ignore
                 or self._create_request(dto.question),
                 self._context_service._search,
                 self._context_service._query,
@@ -111,5 +129,13 @@ class KnowledgeApplicationService:
             )
 
     def _create_request(self, question: str) -> Any:
-        from ria.domain.context.value_objects import ContextOptions, ContextRequest, TokenBudget
-        return ContextRequest(question=question, options=ContextOptions(token_budget=TokenBudget(max_tokens=4000)))
+        from ria.domain.context.value_objects import (
+            ContextOptions,
+            ContextRequest,
+            TokenBudget,
+        )
+
+        return ContextRequest(
+            question=question,
+            options=ContextOptions(token_budget=TokenBudget(max_tokens=4000)),
+        )

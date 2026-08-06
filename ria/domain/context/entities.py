@@ -54,5 +54,9 @@ class ContextPackage(ValueObject):
     question: str
     sections: Tuple[ContextSection, ...] = field(default_factory=tuple)
     references: Tuple[ContextReference, ...] = field(default_factory=tuple)
-    metadata: ContextMetadata = field(default_factory=lambda: ContextMetadata(0, 0, 0, 4000))
-    statistics: ContextStatistics = field(default_factory=lambda: ContextStatistics(0.0, 0.0, 0.0, 0.0, 0, 0))
+    metadata: ContextMetadata = field(
+        default_factory=lambda: ContextMetadata(0, 0, 0, 4000)
+    )
+    statistics: ContextStatistics = field(
+        default_factory=lambda: ContextStatistics(0.0, 0.0, 0.0, 0.0, 0, 0)
+    )

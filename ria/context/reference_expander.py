@@ -24,7 +24,11 @@ class ReferenceExpander:
     ) -> Sequence[ContextSnippet]:
         snippets: list[ContextSnippet] = []
         for sym in symbols:
-            q = Query(query_id="ref_q", query_type=QueryType.FIND_REFERENCES, criteria=QueryCriteria(symbol_moniker=sym.moniker))
+            q = Query(
+                query_id="ref_q",
+                query_type=QueryType.FIND_REFERENCES,
+                criteria=QueryCriteria(symbol_moniker=sym.moniker),
+            )
             res = query_engine.execute_query(q, fact_store, repo_id, commit)
             if res.is_success and isinstance(res.payload, ReferenceResult):
                 for idx, ref in enumerate(res.payload.references):
@@ -39,6 +43,16 @@ class ReferenceExpander:
                     )
                     content = f"Reference in {ref.path.relative_path} (L{ref.location.start_line}): {ref.source_moniker.value} -> {ref.target_moniker.value}"
                     est_tokens = max(len(content) // 4, 1)
-                    score = RankingScore(priority=2, score_value=0.9, category="Reference")
-                    snippets.append(ContextSnippet(snippet_id=f"ref_{idx}", content=content, citation=cit, score=score, estimated_tokens=est_tokens))
+                    score = RankingScore(
+                        priority=2, score_value=0.9, category="Reference"
+                    )
+                    snippets.append(
+                        ContextSnippet(
+                            snippet_id=f"ref_{idx}",
+                            content=content,
+                            citation=cit,
+                            score=score,
+                            estimated_tokens=est_tokens,
+                        )
+                    )
         return tuple(snippets)

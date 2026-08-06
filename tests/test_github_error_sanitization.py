@@ -60,7 +60,10 @@ def _service(token=None) -> GitHubService:
     "stderr,expected",
     [
         ("remote: Invalid username or password", "invalid_credentials"),
-        ("fatal: Authentication failed for 'https://github.com/o/r'", "invalid_credentials"),
+        (
+            "fatal: Authentication failed for 'https://github.com/o/r'",
+            "invalid_credentials",
+        ),
         ("remote: Bad credentials", "invalid_credentials"),
         ("The requested URL returned error: 401", "invalid_credentials"),
         ("remote: Permission denied to user", "permission_denied"),
@@ -107,16 +110,20 @@ def _clone_with_stderr(stderr: str, token=None):
 
 def test_valid_public_repository_clones_successfully(tmp_path) -> None:
     service = _service()
-    with patch("services.github_service.run_safe_command") as mock_run, patch(
-        "os.path.exists", return_value=False
-    ), patch("os.makedirs"):
+    with (
+        patch("services.github_service.run_safe_command") as mock_run,
+        patch("os.path.exists", return_value=False),
+        patch("os.makedirs"),
+    ):
         mock_run.side_effect = [
             MagicMock(returncode=0, stdout="HEAD", stderr=""),
             MagicMock(returncode=0, stdout="HEAD", stderr=""),
             MagicMock(returncode=0, stdout="refs/heads/main", stderr=""),
             MagicMock(returncode=0, stdout="", stderr=""),
         ]
-        dest = service.clone_repository("https://github.com/owner/repo.git", branch="main")
+        dest = service.clone_repository(
+            "https://github.com/owner/repo.git", branch="main"
+        )
     assert "owner_repo" in dest.replace("\\", "/")
 
 
@@ -219,9 +226,11 @@ def test_unexpected_git_error_returns_generic_message() -> None:
 
 def test_clone_step_failure_is_sanitized() -> None:
     service = _service(token="ghp_secret")
-    with patch("services.github_service.run_safe_command") as mock_run, patch(
-        "os.path.exists", return_value=False
-    ), patch("os.makedirs"):
+    with (
+        patch("services.github_service.run_safe_command") as mock_run,
+        patch("os.path.exists", return_value=False),
+        patch("os.makedirs"),
+    ):
         mock_run.side_effect = [
             MagicMock(returncode=0, stdout="HEAD", stderr=""),
             MagicMock(returncode=0, stdout="HEAD", stderr=""),
@@ -330,7 +339,14 @@ def test_analyze_stream_error_payload_is_sanitized() -> None:
         for line in response.text.splitlines()
         if line.startswith("data: ")
     )
-    for forbidden in ("PAT", "GITHUB_TOKEN", "Authentication failure", "Bearer", "Traceback", "fatal:"):
+    for forbidden in (
+        "PAT",
+        "GITHUB_TOKEN",
+        "Authentication failure",
+        "Bearer",
+        "Traceback",
+        "fatal:",
+    ):
         assert forbidden not in payload
     assert "Repository not found or access denied." in payload
 
@@ -341,7 +357,10 @@ def test_pr_health_response_never_exposes_token_material() -> None:
     from backend.api import app
 
     client = TestClient(app)
-    with patch("services.github_service.GitHubConfig.load_token", return_value="ghp_secret_value"):
+    with patch(
+        "services.github_service.GitHubConfig.load_token",
+        return_value="ghp_secret_value",
+    ):
         response = client.get("/api/pr/health")
 
     assert response.status_code == 200

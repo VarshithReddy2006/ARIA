@@ -23,4 +23,6 @@ class HashlibHashingAdapter(HashingPort):
             content = fs.read_bytes(path)
             return self.hash_bytes(content)
         except Exception as err:
-            raise FilesystemError(f"Failed to read file '{path}' for hashing: {err}") from err
+            raise FilesystemError(
+                f"Failed to read file '{path}' for hashing: {err}"
+            ) from err

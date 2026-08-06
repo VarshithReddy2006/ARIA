@@ -14,6 +14,7 @@ import sys
 import time
 from typing import Any, Dict
 
+
 # ---------------------------------------------------------------------------
 # Pydantic 2.6+ compatibility patch for FastMCP 1.x:
 # FastMCP 1.x passes raw annotations (e.g. `owner=Annotated[...]` or `result=str`)
@@ -81,6 +82,7 @@ def _import_fastmcp():
 
     # Also temporarily remove local mcp path from sys.path
     import os
+
     local_mcp_dir = os.path.dirname(os.path.abspath(__file__))
     project_root = os.path.dirname(local_mcp_dir)
 
@@ -164,7 +166,9 @@ def _warm_dependency_imports() -> None:
         import mcp.dependencies  # noqa: F401
         from backend.dependencies import ANALYSIS_STORE, _load_analysis_store
     except Exception as exc:  # pragma: no cover - environment dependent
-        logger.warning("Dependency pre-import failed (%s); tools will retry lazily", exc)
+        logger.warning(
+            "Dependency pre-import failed (%s); tools will retry lazily", exc
+        )
         return
 
     # Hydrate persisted repositories, as the FastAPI startup path and the legacy
@@ -194,12 +198,14 @@ def _register_tools(server: Any) -> None:
 def _register_resources(server: Any) -> None:
     """Register all MCP resources on the server."""
     from mcp.resources.resource_providers import register as register_resources
+
     register_resources(server)
 
 
 def _register_prompts(server: Any) -> None:
     """Register all MCP prompts on the server."""
     from mcp.prompts.prompt_templates import register as register_prompts
+
     register_prompts(server)
 
 
@@ -211,7 +217,9 @@ def run_mcp_server(transport: str = "stdio") -> None:
     server = create_server()
     if transport == "sse":
         from mcp.transports.sse import run_sse_transport
+
         run_sse_transport(server)
     else:
         from mcp.transports.stdio import run_stdio_transport
+
         run_stdio_transport(server)

@@ -69,13 +69,22 @@ def generate_journey(
 
     for path in all_files:
         layer = classify_layer(path)
-        if layer in ("Presentation", "Configuration") or "main" in path or "app" in path:
+        if (
+            layer in ("Presentation", "Configuration")
+            or "main" in path
+            or "app" in path
+        ):
             phases["1. Foundation & Entry"].append(path)
         elif "router" in path or "api" in path or "endpoint" in path:
             phases["2. Routing & APIs"].append(path)
         elif layer == "Application" or "service" in path:
             phases["3. Core Application Services"].append(path)
-        elif layer in ("Domain", "Data") or "db" in path or "repo" in path or "model" in path:
+        elif (
+            layer in ("Domain", "Data")
+            or "db" in path
+            or "repo" in path
+            or "model" in path
+        ):
             phases["4. Domain & Data Layer"].append(path)
         elif layer in ("Infrastructure", "Integration") or "client" in path:
             phases["5. Infrastructure & External"].append(path)
@@ -89,7 +98,9 @@ def generate_journey(
         if not files:
             continue
 
-        selected_files = files[:3] if level in ("Student", "Junior Developer") else files[:5]
+        selected_files = (
+            files[:3] if level in ("Student", "Junior Developer") else files[:5]
+        )
 
         for file_path in selected_files:
             layer = classify_layer(file_path)

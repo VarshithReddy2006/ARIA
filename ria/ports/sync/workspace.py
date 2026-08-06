@@ -26,6 +26,8 @@ class WorkspacePort(Protocol):
         """Remove repository working directory and content from disk."""
         ...
 
-    def create_ephemeral_workspace(self, repo_id: RepositoryIdentity, suffix: str) -> Path:
+    def create_ephemeral_workspace(
+        self, repo_id: RepositoryIdentity, suffix: str
+    ) -> Path:
         """Create temporary isolated workspace directory for branch/session comparison."""
         ...

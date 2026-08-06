@@ -4,8 +4,6 @@ import subprocess
 from dataclasses import dataclass
 from pathlib import Path
 
-from ria.domain.common.value_objects import Timestamp
-
 
 @dataclass(frozen=True, slots=True)
 class BenchmarkDatasetSpec:
@@ -25,14 +23,20 @@ class DatasetGenerator:
     """Generates synthetic multi-language benchmark repositories for performance validation."""
 
     @classmethod
-    def create_small_mixed_repo(cls, root_dir: Path, py_files: int = 50, ts_files: int = 50, js_files: int = 50) -> BenchmarkDatasetSpec:
+    def create_small_mixed_repo(
+        cls, root_dir: Path, py_files: int = 50, ts_files: int = 50, js_files: int = 50
+    ) -> BenchmarkDatasetSpec:
         """Create a small (~150 files) mixed Python/TypeScript/JavaScript repository fixture."""
         repo_dir = root_dir / "benchmark_small_mixed"
         repo_dir.mkdir(parents=True, exist_ok=True)
 
         subprocess.run(["git", "init"], cwd=repo_dir, check=True, capture_output=True)
-        subprocess.run(["git", "config", "user.name", "Benchmarker"], cwd=repo_dir, check=True)
-        subprocess.run(["git", "config", "user.email", "bench@test.com"], cwd=repo_dir, check=True)
+        subprocess.run(
+            ["git", "config", "user.name", "Benchmarker"], cwd=repo_dir, check=True
+        )
+        subprocess.run(
+            ["git", "config", "user.email", "bench@test.com"], cwd=repo_dir, check=True
+        )
 
         total_bytes = 0
         total_files = 0
@@ -68,10 +72,23 @@ class DatasetGenerator:
             total_files += 1
 
         # Commit repository
-        subprocess.run(["git", "add", "."], cwd=repo_dir, check=True, capture_output=True)
-        subprocess.run(["git", "commit", "-m", "Benchmark dataset commit"], cwd=repo_dir, check=True, capture_output=True)
+        subprocess.run(
+            ["git", "add", "."], cwd=repo_dir, check=True, capture_output=True
+        )
+        subprocess.run(
+            ["git", "commit", "-m", "Benchmark dataset commit"],
+            cwd=repo_dir,
+            check=True,
+            capture_output=True,
+        )
 
-        res = subprocess.run(["git", "rev-parse", "HEAD"], cwd=repo_dir, check=True, capture_output=True, text=True)
+        res = subprocess.run(
+            ["git", "rev-parse", "HEAD"],
+            cwd=repo_dir,
+            check=True,
+            capture_output=True,
+            text=True,
+        )
         commit_sha = res.stdout.strip()
 
         return BenchmarkDatasetSpec(
@@ -86,14 +103,20 @@ class DatasetGenerator:
         )
 
     @classmethod
-    def create_deep_nested_repo(cls, root_dir: Path, depth: int = 5) -> BenchmarkDatasetSpec:
+    def create_deep_nested_repo(
+        cls, root_dir: Path, depth: int = 5
+    ) -> BenchmarkDatasetSpec:
         """Create a deep nested directory structure repository fixture for stress testing."""
         repo_dir = root_dir / "benchmark_deep_nested"
         repo_dir.mkdir(parents=True, exist_ok=True)
 
         subprocess.run(["git", "init"], cwd=repo_dir, check=True, capture_output=True)
-        subprocess.run(["git", "config", "user.name", "Benchmarker"], cwd=repo_dir, check=True)
-        subprocess.run(["git", "config", "user.email", "bench@test.com"], cwd=repo_dir, check=True)
+        subprocess.run(
+            ["git", "config", "user.name", "Benchmarker"], cwd=repo_dir, check=True
+        )
+        subprocess.run(
+            ["git", "config", "user.email", "bench@test.com"], cwd=repo_dir, check=True
+        )
 
         curr = repo_dir
         total_files = 0
@@ -108,10 +131,23 @@ class DatasetGenerator:
             total_bytes += len(code)
             total_files += 1
 
-        subprocess.run(["git", "add", "."], cwd=repo_dir, check=True, capture_output=True)
-        subprocess.run(["git", "commit", "-m", "Deep nested commit"], cwd=repo_dir, check=True, capture_output=True)
+        subprocess.run(
+            ["git", "add", "."], cwd=repo_dir, check=True, capture_output=True
+        )
+        subprocess.run(
+            ["git", "commit", "-m", "Deep nested commit"],
+            cwd=repo_dir,
+            check=True,
+            capture_output=True,
+        )
 
-        res = subprocess.run(["git", "rev-parse", "HEAD"], cwd=repo_dir, check=True, capture_output=True, text=True)
+        res = subprocess.run(
+            ["git", "rev-parse", "HEAD"],
+            cwd=repo_dir,
+            check=True,
+            capture_output=True,
+            text=True,
+        )
         commit_sha = res.stdout.strip()
 
         return BenchmarkDatasetSpec(

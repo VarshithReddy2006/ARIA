@@ -11,7 +11,9 @@ from ria.ports.resolution.language_resolver import LanguageResolverPort
 class LanguageResolverRegistryPort(Protocol):
     """Protocol for discovering, registering, and retrieving LanguageResolverPort instances."""
 
-    def register_resolver(self, language: Language, resolver: LanguageResolverPort) -> None:
+    def register_resolver(
+        self, language: Language, resolver: LanguageResolverPort
+    ) -> None:
         """Register a language resolver instance for a specific language."""
         ...
 

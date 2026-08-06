@@ -119,7 +119,9 @@ def format_analysis_error(e: Exception) -> str:
         stage = "Cloning"
         if "network" in err_str.lower():
             reason = "Unable to connect to GitHub (network error)."
-            suggested_fix = "Please check the server's network connection and try again."
+            suggested_fix = (
+                "Please check the server's network connection and try again."
+            )
         else:
             reason = "Unable to complete the repository operation."
             suggested_fix = "Please check the server logs or retry later."

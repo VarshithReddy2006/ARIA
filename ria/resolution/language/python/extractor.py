@@ -6,13 +6,10 @@ from ria.domain.resolution.value_objects import (
     CallRelation,
     ImportRelation,
     InheritanceRelation,
-    RelationKind,
     SemanticDefinition,
     SemanticReference,
     SemanticRelation,
     SymbolKind,
-    SymbolModifiers,
-    SymbolMoniker,
     Visibility,
 )
 from ria.resolution.context import ResolutionContext
@@ -27,7 +24,9 @@ class PythonExtractor:
         self._symbol_extractor = ASTSymbolExtractor()
         self._rel_resolver = RelationshipResolver()
 
-    def extract_unit(self, root_ast: ASTNode, context: ResolutionContext) -> ResolvedFactSet:
+    def extract_unit(
+        self, root_ast: ASTNode, context: ResolutionContext
+    ) -> ResolvedFactSet:
         symbols: list[SemanticSymbol] = []
         definitions: list[SemanticDefinition] = []
         references: list[SemanticReference] = []
@@ -37,7 +36,14 @@ class PythonExtractor:
         relations: list[SemanticRelation] = []
 
         def _walk(node: ASTNode, curr_ctx: ResolutionContext) -> None:
-            nonlocal symbols, definitions, references, calls, imports, inheritance, relations
+            nonlocal \
+                symbols, \
+                definitions, \
+                references, \
+                calls, \
+                imports, \
+                inheritance, \
+                relations
 
             ntype = node.type
 
@@ -51,9 +57,15 @@ class PythonExtractor:
 
                 is_method = len(curr_ctx.scope_chain) > 0
                 kind = SymbolKind.METHOD if is_method else SymbolKind.FUNCTION
-                vis = Visibility.PRIVATE if fn_name.startswith("_") and not fn_name.startswith("__") else Visibility.PUBLIC
+                vis = (
+                    Visibility.PRIVATE
+                    if fn_name.startswith("_") and not fn_name.startswith("__")
+                    else Visibility.PUBLIC
+                )
 
-                sym, defn = self._symbol_extractor.extract_symbol(node, fn_name, kind, curr_ctx, visibility=vis)
+                sym, defn = self._symbol_extractor.extract_symbol(
+                    node, fn_name, kind, curr_ctx, visibility=vis
+                )
                 symbols.append(sym)
                 definitions.append(defn)
 
@@ -66,10 +78,14 @@ class PythonExtractor:
                 class_name = "Class"
                 for child in node.children:
                     if child.type == "identifier":
-                        class_name = child.attributes[0][1] if child.attributes else "Class"
+                        class_name = (
+                            child.attributes[0][1] if child.attributes else "Class"
+                        )
                         break
 
-                sym, defn = self._symbol_extractor.extract_symbol(node, class_name, SymbolKind.CLASS, curr_ctx)
+                sym, defn = self._symbol_extractor.extract_symbol(
+                    node, class_name, SymbolKind.CLASS, curr_ctx
+                )
                 symbols.append(sym)
                 definitions.append(defn)
 
@@ -82,23 +98,35 @@ class PythonExtractor:
                 imp_name = "module"
                 for child in node.children:
                     if child.type in ("dotted_name", "identifier", "aliased_import"):
-                        imp_name = child.attributes[0][1] if child.attributes else "module"
+                        imp_name = (
+                            child.attributes[0][1] if child.attributes else "module"
+                        )
                         break
                 imp_moniker = curr_ctx.build_moniker(imp_name)
-                imp_rel = self._rel_resolver.build_import_relation(curr_ctx, imp_moniker)
+                imp_rel = self._rel_resolver.build_import_relation(
+                    curr_ctx, imp_moniker
+                )
                 imports.append(imp_rel)
 
             elif ntype == "call":
                 callee_name = "callee"
                 for child in node.children:
                     if child.type in ("identifier", "attribute"):
-                        callee_name = child.attributes[0][1] if child.attributes else "callee"
+                        callee_name = (
+                            child.attributes[0][1] if child.attributes else "callee"
+                        )
                         break
 
-                caller_moniker = curr_ctx.build_moniker(curr_ctx.scope_chain[-1] if curr_ctx.scope_chain else "global")
+                caller_moniker = curr_ctx.build_moniker(
+                    curr_ctx.scope_chain[-1] if curr_ctx.scope_chain else "global"
+                )
                 callee_moniker = curr_ctx.build_moniker(callee_name)
-                loc = Location(node.start_line, node.start_col, node.end_line, node.end_col)
-                call_rel = self._rel_resolver.build_call_relation(caller_moniker, callee_moniker, loc)
+                loc = Location(
+                    node.start_line, node.start_col, node.end_line, node.end_col
+                )
+                call_rel = self._rel_resolver.build_call_relation(
+                    caller_moniker, callee_moniker, loc
+                )
                 calls.append(call_rel)
 
             for child in node.children:

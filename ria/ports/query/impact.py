@@ -6,5 +6,4 @@ from typing import Protocol, Any
 class ImpactAnalysisPort(Protocol):
     """Port interface for impact analysis."""
 
-    def analyze_impact(self, change: Any) -> Any:
-        ...
+    def analyze_impact(self, change: Any) -> Any: ...

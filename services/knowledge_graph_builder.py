@@ -247,9 +247,15 @@ class RepositoryKnowledgeGraphBuilder:
 
         backend_deps = sys.modules.get("backend.dependencies")
         if backend_deps:
-            symbol_service = symbol_service or getattr(backend_deps, "symbol_service", None)
-            graph_service = graph_service or getattr(backend_deps, "graph_service", None)
-            twin_builder = twin_builder or getattr(backend_deps, "repository_twin_builder", None)
+            symbol_service = symbol_service or getattr(
+                backend_deps, "symbol_service", None
+            )
+            graph_service = graph_service or getattr(
+                backend_deps, "graph_service", None
+            )
+            twin_builder = twin_builder or getattr(
+                backend_deps, "repository_twin_builder", None
+            )
             cache = cache or getattr(backend_deps, "analysis_cache", None)
 
         self.twin_builder = twin_builder

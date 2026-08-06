@@ -9,7 +9,9 @@ import os
 from typing import Dict, List, Any
 
 
-def generate_dependency_story(file_path: str, depends_on: List[str], imported_by: List[str]) -> Dict[str, Any]:
+def generate_dependency_story(
+    file_path: str, depends_on: List[str], imported_by: List[str]
+) -> Dict[str, Any]:
     """Generate human-readable narrative explaining file dependencies."""
     file_name = os.path.basename(file_path)
 
@@ -42,11 +44,36 @@ def generate_execution_scenarios(owner_repo: str) -> List[Dict[str, Any]]:
             "title": "Authentication Lifecycle (POST /api/login)",
             "description": "Simulates request flow from client browser through FastAPI router, JWT validation service, user repository, to database query.",
             "flow": [
-                {"step": 1, "component": "Client Browser", "layer": "Client", "action": "Sends POST /login payload with credentials"},
-                {"step": 2, "component": "backend/api.py", "layer": "Presentation", "action": "Parses HTTP JSON request & validates Pydantic schema"},
-                {"step": 3, "component": "services/auth/service.py", "layer": "Application", "action": "Verifies bcrypt password hash & generates JWT token"},
-                {"step": 4, "component": "services/db/repository.py", "layer": "Data", "action": "Executes SELECT user query on Database"},
-                {"step": 5, "component": "HTTP 200 Response", "layer": "Client", "action": "Returns bearer token & set-cookie header to browser"},
+                {
+                    "step": 1,
+                    "component": "Client Browser",
+                    "layer": "Client",
+                    "action": "Sends POST /login payload with credentials",
+                },
+                {
+                    "step": 2,
+                    "component": "backend/api.py",
+                    "layer": "Presentation",
+                    "action": "Parses HTTP JSON request & validates Pydantic schema",
+                },
+                {
+                    "step": 3,
+                    "component": "services/auth/service.py",
+                    "layer": "Application",
+                    "action": "Verifies bcrypt password hash & generates JWT token",
+                },
+                {
+                    "step": 4,
+                    "component": "services/db/repository.py",
+                    "layer": "Data",
+                    "action": "Executes SELECT user query on Database",
+                },
+                {
+                    "step": 5,
+                    "component": "HTTP 200 Response",
+                    "layer": "Client",
+                    "action": "Returns bearer token & set-cookie header to browser",
+                },
             ],
             "recommended_reason": "Authentication concepts remain incomplete. Recommended to master auth security lifecycle.",
         },
@@ -55,9 +82,24 @@ def generate_execution_scenarios(owner_repo: str) -> List[Dict[str, Any]]:
             "title": "Repository Chat Retrieval Pipeline",
             "description": "Traces query flow from chat UI through retrieval pipeline, vector embedding search, and DeepSeek provider fallback.",
             "flow": [
-                {"step": 1, "component": "ChatInterface.tsx", "layer": "Presentation", "action": "Sends user query message over SSE stream"},
-                {"step": 2, "component": "services/chat/retrieval_pipeline.py", "layer": "Application", "action": "Runs hybrid RAG search & explicit entity extraction"},
-                {"step": 3, "component": "services/llm/deepseek_provider.py", "layer": "Infrastructure", "action": "Streams completion tokens back to client"},
+                {
+                    "step": 1,
+                    "component": "ChatInterface.tsx",
+                    "layer": "Presentation",
+                    "action": "Sends user query message over SSE stream",
+                },
+                {
+                    "step": 2,
+                    "component": "services/chat/retrieval_pipeline.py",
+                    "layer": "Application",
+                    "action": "Runs hybrid RAG search & explicit entity extraction",
+                },
+                {
+                    "step": 3,
+                    "component": "services/llm/deepseek_provider.py",
+                    "layer": "Infrastructure",
+                    "action": "Streams completion tokens back to client",
+                },
             ],
             "recommended_reason": "Explore core AI retrieval pipeline execution path.",
         },

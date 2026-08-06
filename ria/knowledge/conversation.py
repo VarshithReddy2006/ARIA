@@ -31,7 +31,9 @@ class ConversationManager(ConversationManagerPort):
         if cid_val not in self._conversations:
             self._conversations[cid_val] = []
         self._conversations[cid_val].append(turn)
-        return ConversationContext(conversation_id=conversation_id, turns=tuple(self._conversations[cid_val]))
+        return ConversationContext(
+            conversation_id=conversation_id, turns=tuple(self._conversations[cid_val])
+        )
 
     def clear_conversation(
         self,

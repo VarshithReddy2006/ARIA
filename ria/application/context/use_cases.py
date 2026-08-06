@@ -1,6 +1,10 @@
 """Single-responsibility use cases for Context Builder."""
 
-from ria.application.context.dto import BuildContextCommandDTO, ExpandContextCommandDTO, SerializeContextCommandDTO
+from ria.application.context.dto import (
+    BuildContextCommandDTO,
+    ExpandContextCommandDTO,
+    SerializeContextCommandDTO,
+)
 from ria.application.context.service import ContextApplicationService
 from ria.context.dto import ContextResponseDTO
 

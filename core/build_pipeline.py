@@ -67,7 +67,7 @@ class BuildPipeline:
                 from storage.snapshot_store import JsonSnapshotStore
 
                 snapshot_store = JsonSnapshotStore()
-                
+
             graph_service = self._graph_service
 
             # 3. Load previous manifest

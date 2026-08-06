@@ -19,7 +19,9 @@ class PluginLoader:
             for lang in plugin.capabilities.supported_languages:
                 self._registry.register_parser(lang, plugin)
         except Exception as err:
-            raise PluginLoadError(f"Failed to load plugin '{plugin.metadata.name}': {err}") from err
+            raise PluginLoadError(
+                f"Failed to load plugin '{plugin.metadata.name}': {err}"
+            ) from err
 
     def load_plugin_class(self, plugin_cls: Type[AbstractParser]) -> AbstractParser:
         """Instantiate and register a parser plugin class."""
@@ -28,4 +30,6 @@ class PluginLoader:
             self.load_plugin_instance(instance)
             return instance
         except Exception as err:
-            raise PluginLoadError(f"Failed to instantiate plugin class '{plugin_cls.__name__}': {err}") from err
+            raise PluginLoadError(
+                f"Failed to instantiate plugin class '{plugin_cls.__name__}': {err}"
+            ) from err

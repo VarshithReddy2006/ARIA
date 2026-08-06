@@ -75,11 +75,12 @@ def test_architecture_service_incremental_updates(temp_store_and_service):
     assert not graph_updated.has_edge("main.py", "utils.py")
 
 
-
 def test_architecture_partial_build_replaces_renamed_path(temp_store_and_service):
     service, store, _ = temp_store_and_service
     repo_name = "test/renamed_repo"
-    service.build_full(repo_name, files=[{"path": "old_name.py", "content": "def run(): pass"}])
+    service.build_full(
+        repo_name, files=[{"path": "old_name.py", "content": "def run(): pass"}]
+    )
 
     result = service.build_partial(
         repo_name,
@@ -88,5 +89,7 @@ def test_architecture_partial_build_replaces_renamed_path(temp_store_and_service
     )
 
     assert result["status"] == "success"
-    parsed_paths = {item["file_path"] for item in store.load(repo_name, "parsed_files")["parsed"]}
+    parsed_paths = {
+        item["file_path"] for item in store.load(repo_name, "parsed_files")["parsed"]
+    }
     assert parsed_paths == {"new_name.py"}

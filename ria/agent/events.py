@@ -1,7 +1,7 @@
 """Agent Runtime Event Publisher and Event Dataclasses."""
 
 from dataclasses import dataclass
-from typing import Callable, Dict, List
+from typing import Callable, List
 
 
 @dataclass(frozen=True, slots=True)

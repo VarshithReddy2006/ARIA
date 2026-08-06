@@ -3,7 +3,7 @@
 import re
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import Any, Dict, Tuple
+from typing import Tuple
 
 from ria.domain.common.base import ValueObject
 
@@ -59,7 +59,9 @@ class ContentHash(ValueObject):
 
     def _validate_invariants(self) -> None:
         if not re.match(r"^[0-9a-fA-F]{64}$", self.sha256_hex):
-            raise ValueError(f"ContentHash must be a 64-character hex string, got '{self.sha256_hex}'.")
+            raise ValueError(
+                f"ContentHash must be a 64-character hex string, got '{self.sha256_hex}'."
+            )
 
 
 @dataclass(frozen=True, slots=True)

@@ -73,7 +73,9 @@ def register(server: Any) -> None:
         from mcp.observability import mcp_request_context
         from mcp.dependencies import ANALYSIS_STORE
 
-        with mcp_request_context("get_repository_summary", {"owner": owner, "repo": repo}):
+        with mcp_request_context(
+            "get_repository_summary", {"owner": owner, "repo": repo}
+        ):
             with tool_boundary("get_repository_summary"):
                 repo_name = require_repo(owner, repo)
                 if repo_name not in ANALYSIS_STORE:
@@ -113,10 +115,15 @@ def register(server: Any) -> None:
             get_github_service,
             _persist_analysis_store,
         )
-        from services.ingestion_service import detect_tech_stack_and_deps, parse_repo_name
+        from services.ingestion_service import (
+            detect_tech_stack_and_deps,
+            parse_repo_name,
+        )
         from services.architecture_summary_service import generate_architecture_summary
 
-        with mcp_request_context("analyze_repository", {"repo_url": repo_url, "branch": branch}):
+        with mcp_request_context(
+            "analyze_repository", {"repo_url": repo_url, "branch": branch}
+        ):
             with tool_boundary("analyze_repository"):
                 require_text("repo_url", repo_url)
                 github_service = get_github_service()
@@ -140,6 +147,7 @@ def register(server: Any) -> None:
 
                 # Persist asynchronously (best-effort in sync context)
                 import asyncio
+
                 try:
                     loop = asyncio.get_event_loop()
                     if loop.is_running():
@@ -149,8 +157,11 @@ def register(server: Any) -> None:
                 except RuntimeError:
                     pass  # No event loop available in stdio context
 
-                return json.dumps({
-                    "status": "success",
-                    "repository": repo_name,
-                    "message": f"Repository '{repo_name}' analyzed successfully.",
-                }, indent=2)
+                return json.dumps(
+                    {
+                        "status": "success",
+                        "repository": repo_name,
+                        "message": f"Repository '{repo_name}' analyzed successfully.",
+                    },
+                    indent=2,
+                )

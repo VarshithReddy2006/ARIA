@@ -13,7 +13,9 @@ class TaskGraphEngine:
 
         for idx, step in enumerate(plan.steps):
             tid = TaskId(value=f"task_{idx + 1}")
-            t = Task(task_id=tid, step=step, dependencies=prev_tid, status=TaskStatus.PENDING)
+            t = Task(
+                task_id=tid, step=step, dependencies=prev_tid, status=TaskStatus.PENDING
+            )
             tasks.append(t)
             prev_tid = (tid,)
 

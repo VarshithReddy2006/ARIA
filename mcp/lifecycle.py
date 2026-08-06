@@ -60,7 +60,9 @@ class TaskTracker:
         self._tasks: Dict[str, ProgressUpdate] = {}
         self._start_times: Dict[str, float] = {}
 
-    def start_task(self, task_id: str, description: str = "Initialized") -> ProgressUpdate:
+    def start_task(
+        self, task_id: str, description: str = "Initialized"
+    ) -> ProgressUpdate:
         """Register and mark a task as RUNNING."""
         now = time.time()
         self._start_times[task_id] = now
@@ -93,7 +95,9 @@ class TaskTracker:
         self._tasks[task_id] = update
         return update
 
-    def complete_task(self, task_id: str, description: str = "Completed successfully") -> ProgressUpdate:
+    def complete_task(
+        self, task_id: str, description: str = "Completed successfully"
+    ) -> ProgressUpdate:
         """Mark a task as COMPLETED."""
         elapsed = time.time() - self._start_times.get(task_id, time.time())
         update = ProgressUpdate(
@@ -112,7 +116,9 @@ class TaskTracker:
         update = ProgressUpdate(
             task_id=task_id,
             state=TaskState.FAILED,
-            progress_percentage=self._tasks.get(task_id, ProgressUpdate(task_id, TaskState.FAILED)).progress_percentage,
+            progress_percentage=self._tasks.get(
+                task_id, ProgressUpdate(task_id, TaskState.FAILED)
+            ).progress_percentage,
             step_description="Failed",
             elapsed_seconds=elapsed,
             error=error_message,

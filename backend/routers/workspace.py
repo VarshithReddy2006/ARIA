@@ -14,7 +14,6 @@ from backend.dependencies import (
     get_workspace_service,
     repository_twin_builder as _repository_twin_builder,
 )
-from services.workspace import WorkspaceService
 from models.workspace import (
     AdvisorPanel,
     ChatSessionMeta,

@@ -8,7 +8,9 @@ from __future__ import annotations
 from typing import Dict, List, Any
 
 
-def generate_milestone_quiz(milestone_id: str, file_paths: List[str] | None = None) -> Dict[str, Any]:
+def generate_milestone_quiz(
+    milestone_id: str, file_paths: List[str] | None = None
+) -> Dict[str, Any]:
     """Generate 5 multiple-choice questions grounded in repository analysis."""
     file_paths = file_paths or ["backend/api.py", "services/chat/retrieval_pipeline.py"]
 

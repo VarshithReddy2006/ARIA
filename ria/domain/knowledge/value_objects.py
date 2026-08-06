@@ -101,8 +101,12 @@ class KnowledgeRequest(ValueObject):
 
     conversation_id: ConversationId
     question: str
-    provider_config: ProviderConfiguration = field(default_factory=ProviderConfiguration)
+    provider_config: ProviderConfiguration = field(
+        default_factory=ProviderConfiguration
+    )
 
     def _validate_invariants(self) -> None:
         if not self.question or not self.question.strip():
-            raise InvalidKnowledgeRequestError("KnowledgeRequest question cannot be empty.")
+            raise InvalidKnowledgeRequestError(
+                "KnowledgeRequest question cannot be empty."
+            )

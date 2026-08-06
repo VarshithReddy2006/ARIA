@@ -1,18 +1,21 @@
 """Unit tests for C6 Search Engine domain models, index, ranking, filters, highlight, cache, and engine."""
 
-from pathlib import Path
-
 import pytest
 from ria.domain.common.value_objects import Timestamp, UUIDv4
 from ria.domain.index.value_objects import FilePath, Location
-from ria.domain.resolution import QualifiedName, ResolvedFactSet, SemanticSymbol, SymbolKind, SymbolMoniker, Visibility
+from ria.domain.resolution import (
+    QualifiedName,
+    ResolvedFactSet,
+    SemanticSymbol,
+    SymbolKind,
+    SymbolMoniker,
+    Visibility,
+)
 from ria.domain.search import (
     AutocompleteResult,
     FileResult,
     InvalidSearchQueryError,
     ModuleResult,
-    SearchFilter,
-    SearchOptions,
     SearchQuery,
     SearchQueryType,
     SymbolResult,
@@ -47,7 +50,11 @@ def test_highlight_engine() -> None:
 
 def test_search_engine_all_types() -> None:
     fact_store = SQLiteFactStoreAdapter(db_path=":memory:")
-    repo_id = RepositoryIdentity(repo_id=UUIDv4.generate(), remote_url="https://github.com/org/repo.git", name="repo")
+    repo_id = RepositoryIdentity(
+        repo_id=UUIDv4.generate(),
+        remote_url="https://github.com/org/repo.git",
+        name="repo",
+    )
     commit = CommitReference(sha="a" * 40, committed_at=Timestamp.now())
 
     fp = FilePath(relative_path="services/auth_service.py")
@@ -55,9 +62,35 @@ def test_search_engine_all_types() -> None:
     moniker = SymbolMoniker(value="repo:services/auth_service.py:global:AuthService")
     qname = QualifiedName(dotted_path="services.auth_service.AuthService")
 
-    sym1 = SemanticSymbol(moniker=moniker, name="AuthService", qualified_name=qname, kind=SymbolKind.CLASS, visibility=Visibility.PUBLIC, path=fp, location=loc)
-    sym2 = SemanticSymbol(moniker=SymbolMoniker(value="repo:services/auth_service.py:global:login"), name="login", qualified_name=QualifiedName(dotted_path="services.auth_service.login"), kind=SymbolKind.FUNCTION, visibility=Visibility.PUBLIC, path=fp, location=loc)
-    sym_mod = SemanticSymbol(moniker=SymbolMoniker(value="repo:services/auth_service.py:global:auth_service"), name="auth_service", qualified_name=QualifiedName(dotted_path="services.auth_service"), kind=SymbolKind.MODULE, visibility=Visibility.PUBLIC, path=fp, location=loc)
+    sym1 = SemanticSymbol(
+        moniker=moniker,
+        name="AuthService",
+        qualified_name=qname,
+        kind=SymbolKind.CLASS,
+        visibility=Visibility.PUBLIC,
+        path=fp,
+        location=loc,
+    )
+    sym2 = SemanticSymbol(
+        moniker=SymbolMoniker(value="repo:services/auth_service.py:global:login"),
+        name="login",
+        qualified_name=QualifiedName(dotted_path="services.auth_service.login"),
+        kind=SymbolKind.FUNCTION,
+        visibility=Visibility.PUBLIC,
+        path=fp,
+        location=loc,
+    )
+    sym_mod = SemanticSymbol(
+        moniker=SymbolMoniker(
+            value="repo:services/auth_service.py:global:auth_service"
+        ),
+        name="auth_service",
+        qualified_name=QualifiedName(dotted_path="services.auth_service"),
+        kind=SymbolKind.MODULE,
+        visibility=Visibility.PUBLIC,
+        path=fp,
+        location=loc,
+    )
 
     fact_set = ResolvedFactSet(symbols=(sym1, sym2, sym_mod))
     fact_store.save_fact_set(repo_id, commit, fact_set)
@@ -70,7 +103,9 @@ def test_search_engine_all_types() -> None:
     autocomplete = AutocompleteEngine()
     cache = SearchCache()
 
-    engine = SearchEngine(planner, index, ranking, filters, highlight, autocomplete, cache)
+    engine = SearchEngine(
+        planner, index, ranking, filters, highlight, autocomplete, cache
+    )
 
     # 1. Exact Symbol Search
     q1 = SearchQuery(query_text="AuthService", query_type=SearchQueryType.EXACT)

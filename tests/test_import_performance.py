@@ -35,15 +35,15 @@ def test_import_backend_api_speed_and_no_ml_model_side_effect(
 ):
     """Verify that importing backend.api takes < 1.0s and does not instantiate SentenceTransformer."""
     # Ensure backend.api and backend.dependencies are un-imported to measure clean import time
-    modules_to_unload = [
-        m for m in list(sys.modules.keys()) if m.startswith("backend")
-    ]
+    modules_to_unload = [m for m in list(sys.modules.keys()) if m.startswith("backend")]
     for m in modules_to_unload:
         sys.modules.pop(m, None)
 
     # Mock SentenceTransformer to raise error if called during import
     def mock_sentence_transformer_error(*args, **kwargs):
-        raise AssertionError("SentenceTransformer model was instantiated during module import!")
+        raise AssertionError(
+            "SentenceTransformer model was instantiated during module import!"
+        )
 
     monkeypatch.setattr(
         "services.embedding_service._get_model",
@@ -52,7 +52,10 @@ def test_import_backend_api_speed_and_no_ml_model_side_effect(
 
     t0 = time.perf_counter()
     import backend.api  # noqa: F401
+
     t1 = time.perf_counter()
 
     elapsed = t1 - t0
-    assert elapsed < 1.0, f"Importing backend.api took too long: {elapsed:.3f}s (expected < 1.0s)"
+    assert elapsed < 1.0, (
+        f"Importing backend.api took too long: {elapsed:.3f}s (expected < 1.0s)"
+    )

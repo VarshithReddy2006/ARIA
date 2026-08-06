@@ -1,7 +1,5 @@
 """Application Service for Context Builder."""
 
-from typing import Optional
-
 from ria.application.context.dto import BuildContextCommandDTO
 from ria.context.dto import ContextResponseDTO
 from ria.context.engine import ContextEngine
@@ -40,9 +38,18 @@ class ContextApplicationService:
 
     def build_context(self, dto: BuildContextCommandDTO) -> ContextResponseDTO:
         start_t = self._clock.monotonic_seconds()
-        self._logger.info("Executing ContextApplicationService.build_context", repo_id=dto.repo_id)
+        self._logger.info(
+            "Executing ContextApplicationService.build_context", repo_id=dto.repo_id
+        )
 
-        st = next((s for s in self._registry.list_all() if s.identity.repo_id.value == dto.repo_id), None)
+        st = next(
+            (
+                s
+                for s in self._registry.list_all()
+                if s.identity.repo_id.value == dto.repo_id
+            ),
+            None,
+        )
         if st is None or st.current_commit is None:
             return ContextResponseDTO(
                 package_id="none",
@@ -58,7 +65,9 @@ class ContextApplicationService:
         try:
             req = ContextRequest(
                 question=dto.question,
-                options=ContextOptions(token_budget=TokenBudget(max_tokens=dto.max_tokens)),
+                options=ContextOptions(
+                    token_budget=TokenBudget(max_tokens=dto.max_tokens)
+                ),
             )
 
             package, formatted = self._engine.assemble_and_serialize(

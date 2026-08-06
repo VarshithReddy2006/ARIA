@@ -5,7 +5,6 @@ Automatically detects architectural design patterns present in a file or module 
 
 from __future__ import annotations
 
-import re
 from typing import List
 
 
@@ -31,7 +30,9 @@ PATTERNS = [
 ]
 
 
-def detect_patterns(path: str, content: str = "", imports: List[str] | None = None) -> List[str]:
+def detect_patterns(
+    path: str, content: str = "", imports: List[str] | None = None
+) -> List[str]:
     """Detect matching design patterns for a specified file or module."""
     clean_path = path.replace("\\", "/").lower()
     text = (content + " " + " ".join(imports or [])).lower()
@@ -70,7 +71,12 @@ def detect_patterns(path: str, content: str = "", imports: List[str] | None = No
         detected.add("Strategy")
 
     # Observer / Event Driven
-    if "event" in clean_path or "listener" in text or "subscriber" in text or "emitter" in text:
+    if (
+        "event" in clean_path
+        or "listener" in text
+        or "subscriber" in text
+        or "emitter" in text
+    ):
         detected.add("Event Driven")
         detected.add("Observer")
 

@@ -7,7 +7,6 @@ Integrates with ExplicitEntityResolver to ensure explicit entity mentions trigge
 
 from __future__ import annotations
 
-import os
 import re
 from dataclasses import dataclass
 from typing import Optional
@@ -66,7 +65,9 @@ class TopicSwitchDetector:
         q_lower = q_clean.lower()
 
         current_file = context.current_file if context else None
-        current_file_norm = current_file.replace("\\", "/").lower() if current_file else None
+        current_file_norm = (
+            current_file.replace("\\", "/").lower() if current_file else None
+        )
         current_symbol = context.current_symbol if context else None
         current_symbol_norm = current_symbol.lower() if current_symbol else None
 
@@ -75,8 +76,16 @@ class TopicSwitchDetector:
             target_f = explicit_res.target_file
             target_s = explicit_res.target_symbol
 
-            is_diff_file = target_f and (not current_file_norm or (target_f.lower() != current_file_norm and not current_file_norm.endswith("/" + target_f.lower())))
-            is_diff_sym = target_s and (not current_symbol_norm or target_s.lower() != current_symbol_norm)
+            is_diff_file = target_f and (
+                not current_file_norm
+                or (
+                    target_f.lower() != current_file_norm
+                    and not current_file_norm.endswith("/" + target_f.lower())
+                )
+            )
+            is_diff_sym = target_s and (
+                not current_symbol_norm or target_s.lower() != current_symbol_norm
+            )
 
             if is_diff_file or is_diff_sym or not current_file_norm:
                 return TopicSwitchResult(
@@ -92,8 +101,17 @@ class TopicSwitchDetector:
         extracted_file = matches[0].replace("\\", "/") if matches else None
 
         # Comparison transition ("How does that compare to backend/dependencies.py?")
-        if ("compare to" in q_lower or "differs from" in q_lower or "versus" in q_lower or "vs" in q_lower) and extracted_file:
-            if current_file_norm and extracted_file.lower() != current_file_norm and not current_file_norm.endswith("/" + extracted_file.lower()):
+        if (
+            "compare to" in q_lower
+            or "differs from" in q_lower
+            or "versus" in q_lower
+            or "vs" in q_lower
+        ) and extracted_file:
+            if (
+                current_file_norm
+                and extracted_file.lower() != current_file_norm
+                and not current_file_norm.endswith("/" + extracted_file.lower())
+            ):
                 return TopicSwitchResult(
                     is_topic_switch=True,
                     switch_kind="COMPARISON_TRANSITION",
@@ -106,7 +124,10 @@ class TopicSwitchDetector:
         for prefix in self._SWITCH_PREFIXES:
             if q_lower.startswith(prefix) or f" {prefix} " in q_lower:
                 if extracted_file:
-                    if not current_file_norm or (extracted_file.lower() != current_file_norm and not current_file_norm.endswith("/" + extracted_file.lower())):
+                    if not current_file_norm or (
+                        extracted_file.lower() != current_file_norm
+                        and not current_file_norm.endswith("/" + extracted_file.lower())
+                    ):
                         return TopicSwitchResult(
                             is_topic_switch=True,
                             switch_kind="EXPLICIT_COMMAND",
@@ -125,7 +146,10 @@ class TopicSwitchDetector:
                     target_symbol=None,
                     confidence=0.95,
                 )
-            elif extracted_file.lower() != current_file_norm and not current_file_norm.endswith("/" + extracted_file.lower()):
+            elif (
+                extracted_file.lower() != current_file_norm
+                and not current_file_norm.endswith("/" + extracted_file.lower())
+            ):
                 return TopicSwitchResult(
                     is_topic_switch=True,
                     switch_kind="FILE_TRANSITION",

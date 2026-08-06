@@ -31,12 +31,12 @@ MCP_ROOT = Path(__file__).resolve().parents[1] / "mcp"
 # Tools that clone, index, call an LLM, or load an embedding model. Excluded
 # from the runtime sweep only; the static guard still covers their call sites.
 EXPENSIVE_TOOLS = {
-    "analyze_repository",   # clones a repository over the network
-    "get_dead_code",        # builds dependency + call graphs
-    "query_codebase",       # LLM round trip
-    "semantic_search",      # loads the embedding model
-    "generate_report",      # composes every analysis
-    "export_report",        # composes then renders
+    "analyze_repository",  # clones a repository over the network
+    "get_dead_code",  # builds dependency + call graphs
+    "query_codebase",  # LLM round trip
+    "semantic_search",  # loads the embedding model
+    "generate_report",  # composes every analysis
+    "export_report",  # composes then renders
     "get_impact_analysis",  # LLM-assisted change prediction
 }
 
@@ -52,21 +52,27 @@ class RecordingServer:
         self.resources: dict[str, Callable[..., Any]] = {}
         self.prompts: dict[str, Callable[..., Any]] = {}
 
-    def tool(self, *a: Any, **k: Any) -> Callable[[Callable[..., Any]], Callable[..., Any]]:
+    def tool(
+        self, *a: Any, **k: Any
+    ) -> Callable[[Callable[..., Any]], Callable[..., Any]]:
         def deco(fn: Callable[..., Any]) -> Callable[..., Any]:
             self.tools[fn.__name__] = fn
             return fn
 
         return deco
 
-    def resource(self, uri: str, *a: Any, **k: Any) -> Callable[[Callable[..., Any]], Callable[..., Any]]:
+    def resource(
+        self, uri: str, *a: Any, **k: Any
+    ) -> Callable[[Callable[..., Any]], Callable[..., Any]]:
         def deco(fn: Callable[..., Any]) -> Callable[..., Any]:
             self.resources[uri] = fn
             return fn
 
         return deco
 
-    def prompt(self, *a: Any, **k: Any) -> Callable[[Callable[..., Any]], Callable[..., Any]]:
+    def prompt(
+        self, *a: Any, **k: Any
+    ) -> Callable[[Callable[..., Any]], Callable[..., Any]]:
         def deco(fn: Callable[..., Any]) -> Callable[..., Any]:
             self.prompts[fn.__name__] = fn
             return fn
@@ -142,7 +148,9 @@ def _collect_calls() -> list[tuple[str, str, str, int]]:
                 ):
                     var_to_getter[node.targets[0].id] = node.value.func.id
             for node in ast.walk(fn):
-                if not (isinstance(node, ast.Call) and isinstance(node.func, ast.Attribute)):
+                if not (
+                    isinstance(node, ast.Call) and isinstance(node.func, ast.Attribute)
+                ):
                     continue
                 target, method = node.func.value, node.func.attr
                 # svc.method(...)
@@ -163,7 +171,9 @@ def _collect_calls() -> list[tuple[str, str, str, int]]:
 def test_static_guard_finds_service_calls() -> None:
     """Guard the guard: if extraction silently breaks, everything below passes."""
     calls = _collect_calls()
-    assert len(calls) >= 10, f"AST extraction found only {len(calls)} calls; it is broken"
+    assert len(calls) >= 10, (
+        f"AST extraction found only {len(calls)} calls; it is broken"
+    )
 
 
 def test_every_service_method_called_by_fastmcp_exists() -> None:
@@ -179,7 +189,9 @@ def test_every_service_method_called_by_fastmcp_exists() -> None:
         if cls is None:
             continue  # getter has no resolvable annotation; nothing to assert
         if not hasattr(cls, method):
-            broken.append(f"{filename}:{lineno} {cls.__name__}.{method}() does not exist")
+            broken.append(
+                f"{filename}:{lineno} {cls.__name__}.{method}() does not exist"
+            )
     assert not broken, "obsolete service calls in FastMCP:\n  " + "\n  ".join(broken)
 
 
@@ -196,7 +208,9 @@ def test_every_service_method_called_by_fastmcp_exists() -> None:
         ("services.retrieval_engine", "StructuralRetrievalEngine", "search"),
     ],
 )
-def test_removed_methods_stay_removed(module_path: str, cls_name: str, removed: str) -> None:
+def test_removed_methods_stay_removed(
+    module_path: str, cls_name: str, removed: str
+) -> None:
     """Pins the removals. If one is reintroduced, revisit the call site instead."""
     mod = __import__(module_path, fromlist=[cls_name])
     assert not hasattr(getattr(mod, cls_name), removed), (
@@ -210,7 +224,9 @@ def test_removed_methods_stay_removed(module_path: str, cls_name: str, removed: 
 def test_all_tool_modules_register_without_error(registered: RecordingServer) -> None:
     """Discovery is fault-isolated, so a broken module would silently vanish."""
     assert len(registered.tools) >= 15, sorted(registered.tools)
-    assert SHARED_TOOLS <= set(registered.tools), sorted(SHARED_TOOLS - set(registered.tools))
+    assert SHARED_TOOLS <= set(registered.tools), sorted(
+        SHARED_TOOLS - set(registered.tools)
+    )
 
 
 @pytest.mark.parametrize("owner, repo", [("zz-no-such-owner", "zz-no-such-repo")])
@@ -248,9 +264,7 @@ def test_read_only_tools_never_raise_attributeerror(
                 failures.append(f"{name} leaked an AttributeError: {expected}")
             continue
         except Exception as exc:
-            failures.append(
-                f"{name} raised un-normalised {type(exc).__name__}: {exc}"
-            )
+            failures.append(f"{name} raised un-normalised {type(exc).__name__}: {exc}")
             continue
         try:
             payload = json.loads(raw)
@@ -293,9 +307,7 @@ def test_shared_tool_parameters_match_legacy(
     """Identical parameter names, so a client can swap implementations."""
     legacy = next(t for t in LEGACY_TOOLS if t["name"] == tool_name)
     legacy_params = set(legacy["inputSchema"].get("properties", {}))
-    fast_params = {
-        p for p in inspect.signature(registered.tools[tool_name]).parameters
-    }
+    fast_params = {p for p in inspect.signature(registered.tools[tool_name]).parameters}
     assert fast_params == legacy_params, (
         f"{tool_name}: legacy={sorted(legacy_params)} fastmcp={sorted(fast_params)}"
     )
@@ -309,7 +321,9 @@ def test_shared_tool_required_arguments_match_legacy(
     legacy = next(t for t in LEGACY_TOOLS if t["name"] == tool_name)
     required = set(legacy["inputSchema"].get("required", []))
     params = inspect.signature(registered.tools[tool_name]).parameters
-    optional = {n for n, p in params.items() if p.default is not inspect.Parameter.empty}
+    optional = {
+        n for n, p in params.items() if p.default is not inspect.Parameter.empty
+    }
     assert not (required & optional), (
         f"{tool_name}: {sorted(required & optional)} required by legacy but optional here"
     )
@@ -318,7 +332,9 @@ def test_shared_tool_required_arguments_match_legacy(
 # ---------------------------------------------------------------------------
 # 4. Metadata drift
 # ---------------------------------------------------------------------------
-def test_declared_metadata_matches_registered_tools(registered: RecordingServer) -> None:
+def test_declared_metadata_matches_registered_tools(
+    registered: RecordingServer,
+) -> None:
     """Every METADATA entry must name a real tool, and vice versa."""
     import importlib
     import pkgutil

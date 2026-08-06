@@ -39,6 +39,7 @@ Thank you for contributing! This guide covers the repository structure, coding s
 - **Logging**: Use standard module-level logger:
   ```python
   import logging
+
   logger = logging.getLogger(__name__)
   ```
 

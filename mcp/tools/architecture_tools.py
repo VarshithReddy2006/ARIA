@@ -67,7 +67,9 @@ def register(server: Any) -> None:
                 if summary is None:
                     # Wording matches the legacy server verbatim.
                     raise ToolFailure(f"No call graph indexed for '{repo_name}'.")
-                result = summary.model_dump() if hasattr(summary, "model_dump") else summary
+                result = (
+                    summary.model_dump() if hasattr(summary, "model_dump") else summary
+                )
                 return json.dumps(result, indent=2, default=str)
 
     @server.tool()
@@ -81,7 +83,9 @@ def register(server: Any) -> None:
         from mcp.observability import mcp_request_context
         from mcp.dependencies import get_graph_serializer
 
-        with mcp_request_context("get_dependency_graph", {"owner": owner, "repo": repo}):
+        with mcp_request_context(
+            "get_dependency_graph", {"owner": owner, "repo": repo}
+        ):
             with tool_boundary("get_dependency_graph"):
                 repo_name = require_repo(owner, repo)
                 serializer = get_graph_serializer()
@@ -101,7 +105,9 @@ def register(server: Any) -> None:
         from mcp.observability import mcp_request_context
         from mcp.dependencies import get_architecture_service, ANALYSIS_STORE
 
-        with mcp_request_context("get_architecture_summary", {"owner": owner, "repo": repo}):
+        with mcp_request_context(
+            "get_architecture_summary", {"owner": owner, "repo": repo}
+        ):
             with tool_boundary("get_architecture_summary"):
                 repo_name = require_repo(owner, repo)
                 service = get_architecture_service()
@@ -118,5 +124,7 @@ def register(server: Any) -> None:
                         f"No architecture summary indexed for '{repo_name}'."
                     )
 
-                result = summary.model_dump() if hasattr(summary, "model_dump") else summary
+                result = (
+                    summary.model_dump() if hasattr(summary, "model_dump") else summary
+                )
                 return json.dumps(result, indent=2, default=str)

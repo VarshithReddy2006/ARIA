@@ -1,24 +1,21 @@
 """Unit tests for C2 Resolution Engine domain models, language resolvers, and engine."""
 
-from pathlib import Path
-
 import pytest
 from ria.domain.common.value_objects import Timestamp, UUIDv4
 from ria.domain.index.units import ASTUnit, FileUnit, ParseUnit
-from ria.domain.index.value_objects import ASTNode, ContentHash, FilePath, Language, Location
+from ria.domain.index.value_objects import (
+    ASTNode,
+    ContentHash,
+    FilePath,
+    Language,
+    Location,
+)
 from ria.domain.resolution import (
-    CallRelation,
-    ImportRelation,
-    InheritanceRelation,
     InvalidMonikerError,
     InvalidQualifiedNameError,
     QualifiedName,
     RelationKind,
-    ResolvedFactSet,
-    SemanticRelation,
-    SymbolKind,
     SymbolMoniker,
-    Visibility,
 )
 from ria.domain.sync import CommitReference, RepositoryIdentity
 from ria.resolution import (
@@ -26,8 +23,6 @@ from ria.resolution import (
     LanguageResolverRegistry,
     PythonLanguageResolver,
     ResolutionContext,
-    ResolutionEngine,
-    TypeScriptLanguageResolver,
 )
 from ria.resolution.extractors.relationship_resolver import RelationshipResolver
 
@@ -47,30 +42,98 @@ def test_resolution_domain_value_objects() -> None:
 
 
 def test_python_language_resolver_extraction() -> None:
-    fn_ident = ASTNode(type="identifier", start_line=1, start_col=4, end_line=1, end_col=12, attributes=(("text", "multiply"),))
-    fn_node = ASTNode(type="function_definition", start_line=1, start_col=0, end_line=2, end_col=18, children=(fn_ident,))
-    cls_ident = ASTNode(type="identifier", start_line=3, start_col=6, end_line=3, end_col=17, attributes=(("text", "Calculator"),))
-    cls_node = ASTNode(type="class_definition", start_line=3, start_col=0, end_line=5, end_col=20, children=(cls_ident,))
+    fn_ident = ASTNode(
+        type="identifier",
+        start_line=1,
+        start_col=4,
+        end_line=1,
+        end_col=12,
+        attributes=(("text", "multiply"),),
+    )
+    fn_node = ASTNode(
+        type="function_definition",
+        start_line=1,
+        start_col=0,
+        end_line=2,
+        end_col=18,
+        children=(fn_ident,),
+    )
+    cls_ident = ASTNode(
+        type="identifier",
+        start_line=3,
+        start_col=6,
+        end_line=3,
+        end_col=17,
+        attributes=(("text", "Calculator"),),
+    )
+    cls_node = ASTNode(
+        type="class_definition",
+        start_line=3,
+        start_col=0,
+        end_line=5,
+        end_col=20,
+        children=(cls_ident,),
+    )
     imp_node = ASTNode(
         type="import_statement",
         start_line=6,
         start_col=0,
         end_line=6,
         end_col=15,
-        children=(ASTNode(type="dotted_name", start_line=6, start_col=7, end_line=6, end_col=15, attributes=(("text", "math"),)),),
+        children=(
+            ASTNode(
+                type="dotted_name",
+                start_line=6,
+                start_col=7,
+                end_line=6,
+                end_col=15,
+                attributes=(("text", "math"),),
+            ),
+        ),
     )
-    call_ident = ASTNode(type="identifier", start_line=7, start_col=0, end_line=7, end_col=8, attributes=(("text", "multiply"),))
-    call_node = ASTNode(type="call", start_line=7, start_col=0, end_line=7, end_col=12, children=(call_ident,))
+    call_ident = ASTNode(
+        type="identifier",
+        start_line=7,
+        start_col=0,
+        end_line=7,
+        end_col=8,
+        attributes=(("text", "multiply"),),
+    )
+    call_node = ASTNode(
+        type="call",
+        start_line=7,
+        start_col=0,
+        end_line=7,
+        end_col=12,
+        children=(call_ident,),
+    )
 
-    root_node = ASTNode(type="module", start_line=1, start_col=0, end_line=7, end_col=12, children=(fn_node, cls_node, imp_node, call_node))
+    root_node = ASTNode(
+        type="module",
+        start_line=1,
+        start_col=0,
+        end_line=7,
+        end_col=12,
+        children=(fn_node, cls_node, imp_node, call_node),
+    )
 
     fp = FilePath(relative_path="math_utils.py")
     ch = ContentHash(sha256_hex="a" * 64)
-    file_unit = FileUnit(path=fp, language=Language.PYTHON, content_hash=ch, size_bytes=100)
-    ast_unit = ASTUnit(path=fp, language=Language.PYTHON, root_node=root_node, total_nodes=10)
-    parse_unit = ParseUnit(file_unit=file_unit, ast_unit=ast_unit, parse_duration_ms=1.0)
+    file_unit = FileUnit(
+        path=fp, language=Language.PYTHON, content_hash=ch, size_bytes=100
+    )
+    ast_unit = ASTUnit(
+        path=fp, language=Language.PYTHON, root_node=root_node, total_nodes=10
+    )
+    parse_unit = ParseUnit(
+        file_unit=file_unit, ast_unit=ast_unit, parse_duration_ms=1.0
+    )
 
-    repo_identity = RepositoryIdentity(repo_id=UUIDv4.generate(), remote_url="https://github.com/org/repo.git", name="repo")
+    repo_identity = RepositoryIdentity(
+        repo_id=UUIDv4.generate(),
+        remote_url="https://github.com/org/repo.git",
+        name="repo",
+    )
     commit = CommitReference(sha="b" * 40, committed_at=Timestamp.now())
 
     ctx = ResolutionContext(
@@ -94,19 +157,64 @@ def test_python_language_resolver_extraction() -> None:
 
 
 def test_javascript_language_resolver_extraction() -> None:
-    fn_ident = ASTNode(type="identifier", start_line=1, start_col=9, end_line=1, end_col=15, attributes=(("text", "render"),))
-    fn_node = ASTNode(type="function_declaration", start_line=1, start_col=0, end_line=3, end_col=1, children=(fn_ident,))
-    cls_ident = ASTNode(type="identifier", start_line=4, start_col=6, end_line=4, end_col=15, attributes=(("text", "Component"),))
-    cls_node = ASTNode(type="class_declaration", start_line=4, start_col=0, end_line=6, end_col=1, children=(cls_ident,))
-    root_node = ASTNode(type="program", start_line=1, start_col=0, end_line=6, end_col=1, children=(fn_node, cls_node))
+    fn_ident = ASTNode(
+        type="identifier",
+        start_line=1,
+        start_col=9,
+        end_line=1,
+        end_col=15,
+        attributes=(("text", "render"),),
+    )
+    fn_node = ASTNode(
+        type="function_declaration",
+        start_line=1,
+        start_col=0,
+        end_line=3,
+        end_col=1,
+        children=(fn_ident,),
+    )
+    cls_ident = ASTNode(
+        type="identifier",
+        start_line=4,
+        start_col=6,
+        end_line=4,
+        end_col=15,
+        attributes=(("text", "Component"),),
+    )
+    cls_node = ASTNode(
+        type="class_declaration",
+        start_line=4,
+        start_col=0,
+        end_line=6,
+        end_col=1,
+        children=(cls_ident,),
+    )
+    root_node = ASTNode(
+        type="program",
+        start_line=1,
+        start_col=0,
+        end_line=6,
+        end_col=1,
+        children=(fn_node, cls_node),
+    )
 
     fp = FilePath(relative_path="view.js")
     ch = ContentHash(sha256_hex="c" * 64)
-    file_unit = FileUnit(path=fp, language=Language.JAVASCRIPT, content_hash=ch, size_bytes=80)
-    ast_unit = ASTUnit(path=fp, language=Language.JAVASCRIPT, root_node=root_node, total_nodes=5)
-    parse_unit = ParseUnit(file_unit=file_unit, ast_unit=ast_unit, parse_duration_ms=1.0)
+    file_unit = FileUnit(
+        path=fp, language=Language.JAVASCRIPT, content_hash=ch, size_bytes=80
+    )
+    ast_unit = ASTUnit(
+        path=fp, language=Language.JAVASCRIPT, root_node=root_node, total_nodes=5
+    )
+    parse_unit = ParseUnit(
+        file_unit=file_unit, ast_unit=ast_unit, parse_duration_ms=1.0
+    )
 
-    repo_identity = RepositoryIdentity(repo_id=UUIDv4.generate(), remote_url="https://github.com/org/repo.git", name="repo")
+    repo_identity = RepositoryIdentity(
+        repo_id=UUIDv4.generate(),
+        remote_url="https://github.com/org/repo.git",
+        name="repo",
+    )
     commit = CommitReference(sha="d" * 40, committed_at=Timestamp.now())
 
     ctx = ResolutionContext(
@@ -157,11 +265,22 @@ def test_resolution_registry_and_empty_units() -> None:
 
     # Empty parse unit (no AST)
     fp = FilePath(relative_path="empty.py")
-    fu = FileUnit(path=fp, language=Language.PYTHON, content_hash=ContentHash(sha256_hex="e" * 64), size_bytes=0)
+    fu = FileUnit(
+        path=fp,
+        language=Language.PYTHON,
+        content_hash=ContentHash(sha256_hex="e" * 64),
+        size_bytes=0,
+    )
     empty_pu = ParseUnit(file_unit=fu, ast_unit=None, parse_duration_ms=0.0)
 
-    repo_identity = RepositoryIdentity(repo_id=UUIDv4.generate(), remote_url="https://github.com/org/repo.git", name="repo")
+    repo_identity = RepositoryIdentity(
+        repo_id=UUIDv4.generate(),
+        remote_url="https://github.com/org/repo.git",
+        name="repo",
+    )
     commit = CommitReference(sha="f" * 40, committed_at=Timestamp.now())
 
-    res_set = py_res.resolve_unit(empty_pu, ResolutionContext(repo_identity, commit, fp, Language.PYTHON))
+    res_set = py_res.resolve_unit(
+        empty_pu, ResolutionContext(repo_identity, commit, fp, Language.PYTHON)
+    )
     assert res_set.total_facts == 0

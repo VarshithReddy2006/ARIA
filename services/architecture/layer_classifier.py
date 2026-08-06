@@ -30,7 +30,9 @@ ArchitectureLayer = Literal[
 ]
 
 
-def classify_layer(path: str, category: str = "", content_snippet: str = "") -> ArchitectureLayer:
+def classify_layer(
+    path: str, category: str = "", content_snippet: str = ""
+) -> ArchitectureLayer:
     """Determine the architectural layer of a file or module based on path rules and content."""
     clean_path = path.replace("\\", "/").lower()
     base_name = os.path.basename(clean_path)
@@ -50,7 +52,8 @@ def classify_layer(path: str, category: str = "", content_snippet: str = "") -> 
     if (
         "config" in clean_path
         or "setting" in clean_path
-        or base_name in ("pyproject.toml", "package.json", "tsconfig.json", "dockerfile", ".env")
+        or base_name
+        in ("pyproject.toml", "package.json", "tsconfig.json", "dockerfile", ".env")
         or base_name.endswith(".config.js")
         or base_name.endswith(".config.ts")
     ):
@@ -59,13 +62,13 @@ def classify_layer(path: str, category: str = "", content_snippet: str = "") -> 
     # Presentation layer (UI components, React, views, routes)
     if (
         "component" in clean_path
-         or "view" in clean_path
-         or "page" in clean_path
-         or "ui" in clean_path
-         or clean_path.endswith(".tsx")
-         or clean_path.endswith(".jsx")
-         or clean_path.endswith(".astro")
-         or "frontend/" in clean_path
+        or "view" in clean_path
+        or "page" in clean_path
+        or "ui" in clean_path
+        or clean_path.endswith(".tsx")
+        or clean_path.endswith(".jsx")
+        or clean_path.endswith(".astro")
+        or "frontend/" in clean_path
     ):
         return "Presentation"
 
@@ -117,7 +120,12 @@ def classify_layer(path: str, category: str = "", content_snippet: str = "") -> 
         return "Application"
 
     # Shared layer
-    if "util" in clean_path or "helper" in clean_path or "common" in clean_path or "shared" in clean_path:
+    if (
+        "util" in clean_path
+        or "helper" in clean_path
+        or "common" in clean_path
+        or "shared" in clean_path
+    ):
         return "Shared"
 
     # Fallback by category label if available

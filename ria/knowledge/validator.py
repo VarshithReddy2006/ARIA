@@ -1,7 +1,12 @@
 """Response Validator implementing ResponseValidatorPort."""
 
 from ria.domain.context.entities import ContextPackage
-from ria.domain.knowledge.entities import CitationGroup, GroundedAnswer, ProviderResponse, ValidationReport
+from ria.domain.knowledge.entities import (
+    CitationGroup,
+    GroundedAnswer,
+    ProviderResponse,
+    ValidationReport,
+)
 from ria.domain.knowledge.value_objects import GroundingScore, ValidationResult
 from ria.ports.knowledge.validator import ResponseValidatorPort
 

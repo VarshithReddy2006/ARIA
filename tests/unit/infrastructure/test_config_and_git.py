@@ -3,8 +3,6 @@
 from pathlib import Path
 
 from ria.config import Container, Settings
-from ria.domain.common.value_objects import UUIDv4
-from ria.domain.sync import RepositoryIdentity
 from ria.infrastructure.git import SubprocessGitAdapter
 
 
@@ -30,7 +28,9 @@ def test_subprocess_git_adapter_local_repo(tmp_path: Path) -> None:
     repo_dir.mkdir()
     subprocess.run(["git", "init"], cwd=repo_dir, check=True)
     subprocess.run(["git", "config", "user.name", "Test"], cwd=repo_dir, check=True)
-    subprocess.run(["git", "config", "user.email", "test@test.com"], cwd=repo_dir, check=True)
+    subprocess.run(
+        ["git", "config", "user.email", "test@test.com"], cwd=repo_dir, check=True
+    )
 
     dummy_file = repo_dir / "README.md"
     dummy_file.write_text("hello git")

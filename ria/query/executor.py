@@ -1,7 +1,6 @@
 """Query Executor implementing QueryExecutorPort."""
 
 import time
-from typing import Sequence
 
 from ria.domain.index.value_objects import FilePath
 from ria.domain.query.entities import (
@@ -24,7 +23,6 @@ from ria.domain.resolution.value_objects import (
     RelationKind,
     SemanticDefinition,
     SemanticReference,
-    SemanticRelation,
     SymbolKind,
 )
 from ria.domain.sync.value_objects import CommitReference, RepositoryIdentity
@@ -49,7 +47,9 @@ class QueryExecutor(QueryExecutorPort):
 
         try:
             symbols = fact_store.get_symbols(repo_id, commit, path=criteria.file_path)
-            relations = fact_store.get_relations(repo_id, commit, source_moniker=criteria.symbol_moniker)
+            relations = fact_store.get_relations(
+                repo_id, commit, source_moniker=criteria.symbol_moniker
+            )
             scanned_records = len(symbols) + len(relations)
 
             payload: QueryResultPayload
@@ -58,9 +58,10 @@ class QueryExecutor(QueryExecutorPort):
                 matched_symbols: list[SemanticSymbol] = []
                 matched_defs: list[SemanticDefinition] = []
                 for sym in symbols:
-                    if (criteria.symbol_moniker and sym.moniker == criteria.symbol_moniker) or (
-                        criteria.symbol_name and sym.name == criteria.symbol_name
-                    ):
+                    if (
+                        criteria.symbol_moniker
+                        and sym.moniker == criteria.symbol_moniker
+                    ) or (criteria.symbol_name and sym.name == criteria.symbol_name):
                         matched_symbols.append(sym)
                         matched_defs.append(
                             SemanticDefinition(
@@ -80,7 +81,9 @@ class QueryExecutor(QueryExecutorPort):
 
             elif qtype == QueryType.FIND_REFERENCES:
                 matched_refs: list[SemanticReference] = []
-                fallback_path = criteria.file_path or (symbols[0].path if symbols else FilePath(relative_path="unknown"))
+                fallback_path = criteria.file_path or (
+                    symbols[0].path if symbols else FilePath(relative_path="unknown")
+                )
                 for rel in relations:
                     if rel.kind == RelationKind.REFERENCES:
                         matched_refs.append(
@@ -103,13 +106,27 @@ class QueryExecutor(QueryExecutorPort):
                 for rel in all_rels:
                     if rel.kind == RelationKind.CALLS:
                         if qtype == QueryType.FIND_CALLERS and (
-                            criteria.symbol_moniker is None or rel.target == criteria.symbol_moniker
+                            criteria.symbol_moniker is None
+                            or rel.target == criteria.symbol_moniker
                         ):
-                            matched_calls.append(CallRelation(caller_moniker=rel.source, callee_moniker=rel.target, location=rel.location))
+                            matched_calls.append(
+                                CallRelation(
+                                    caller_moniker=rel.source,
+                                    callee_moniker=rel.target,
+                                    location=rel.location,
+                                )
+                            )
                         elif qtype == QueryType.FIND_CALLEES and (
-                            criteria.symbol_moniker is None or rel.source == criteria.symbol_moniker
+                            criteria.symbol_moniker is None
+                            or rel.source == criteria.symbol_moniker
                         ):
-                            matched_calls.append(CallRelation(caller_moniker=rel.source, callee_moniker=rel.target, location=rel.location))
+                            matched_calls.append(
+                                CallRelation(
+                                    caller_moniker=rel.source,
+                                    callee_moniker=rel.target,
+                                    location=rel.location,
+                                )
+                            )
 
                         if len(matched_calls) >= criteria.max_results:
                             break
@@ -117,7 +134,9 @@ class QueryExecutor(QueryExecutorPort):
 
             elif qtype == QueryType.FIND_IMPORTS:
                 matched_imps: list[ImportRelation] = []
-                fallback_path = criteria.file_path or (symbols[0].path if symbols else FilePath(relative_path="unknown"))
+                fallback_path = criteria.file_path or (
+                    symbols[0].path if symbols else FilePath(relative_path="unknown")
+                )
                 for rel in relations:
                     if rel.kind == RelationKind.IMPORTS:
                         matched_imps.append(
@@ -140,7 +159,9 @@ class QueryExecutor(QueryExecutorPort):
                 payload = ExportResult(exports=tuple(matched_exp))
 
             elif qtype == QueryType.DEPENDENCY_ANALYSIS:
-                payload = DependencyResult(relations=tuple(relations[: criteria.max_results]))
+                payload = DependencyResult(
+                    relations=tuple(relations[: criteria.max_results])
+                )
 
             elif qtype == QueryType.SYMBOL_SEARCH:
                 matched_syms: list[SemanticSymbol] = []
@@ -156,7 +177,9 @@ class QueryExecutor(QueryExecutorPort):
                 matched_mods: list[SemanticSymbol] = []
                 query_name = (criteria.symbol_name or "").lower()
                 for sym in symbols:
-                    if sym.kind == SymbolKind.MODULE and (not query_name or query_name in sym.name.lower()):
+                    if sym.kind == SymbolKind.MODULE and (
+                        not query_name or query_name in sym.name.lower()
+                    ):
                         matched_mods.append(sym)
                         if len(matched_mods) >= criteria.max_results:
                             break
@@ -182,7 +205,11 @@ class QueryExecutor(QueryExecutorPort):
             )
         except Exception as err:
             elapsed_ms = (time.perf_counter() - start_t) * 1000.0
-            stats = QueryStatistics(planning_duration_ms=0.5, execution_duration_ms=elapsed_ms, total_records_scanned=0)
+            stats = QueryStatistics(
+                planning_duration_ms=0.5,
+                execution_duration_ms=elapsed_ms,
+                total_records_scanned=0,
+            )
             return QueryResult(
                 query_id=plan.query_id,
                 query_type=qtype,

@@ -25,8 +25,18 @@ from ria.domain.sync import (
 )
 from ria.infrastructure.filesystem import OSFilesystemAdapter, WorkspaceManager
 from ria.infrastructure.storage import SQLiteRepositoryRegistryAdapter
-from ria.infrastructure.system import HashlibHashingAdapter, InMemoryMetricsAdapter, StandardLoggerAdapter, SystemClockAdapter
-from ria.plugins import PluginLoader, PluginRegistry, PythonTreeSitterPlugin, TypeScriptTreeSitterPlugin
+from ria.infrastructure.system import (
+    HashlibHashingAdapter,
+    InMemoryMetricsAdapter,
+    StandardLoggerAdapter,
+    SystemClockAdapter,
+)
+from ria.plugins import (
+    PluginLoader,
+    PluginRegistry,
+    PythonTreeSitterPlugin,
+    TypeScriptTreeSitterPlugin,
+)
 
 
 def test_file_discovery_and_language_detection(tmp_path: Path) -> None:
@@ -64,8 +74,14 @@ def test_file_discovery_and_language_detection(tmp_path: Path) -> None:
     assert "big.txt" not in disc_names
     assert "script_py" in disc_names
 
-    assert lang_detect.detect_language(sh_file, FilePath(relative_path="script_py")) == Language.PYTHON
-    assert lang_detect.detect_language(sh_js, FilePath(relative_path="script_js")) == Language.JAVASCRIPT
+    assert (
+        lang_detect.detect_language(sh_file, FilePath(relative_path="script_py"))
+        == Language.PYTHON
+    )
+    assert (
+        lang_detect.detect_language(sh_js, FilePath(relative_path="script_js"))
+        == Language.JAVASCRIPT
+    )
 
 
 def test_index_pipeline_execution(tmp_path: Path) -> None:
@@ -103,9 +119,16 @@ def test_index_pipeline_execution(tmp_path: Path) -> None:
     )
     commit = CommitReference(sha="f" * 40, committed_at=Timestamp.now())
     branch = BranchReference(name="main", head_commit=commit)
-    metadata = RepositoryMetadata(file_count=1, total_bytes=100, default_branch="main", registered_at=Timestamp.now())
+    metadata = RepositoryMetadata(
+        file_count=1,
+        total_bytes=100,
+        default_branch="main",
+        registered_at=Timestamp.now(),
+    )
 
-    state = RepositoryState(identity=repo_identity, status=SyncStatus.UNINITIALIZED, metadata=metadata)
+    state = RepositoryState(
+        identity=repo_identity, status=SyncStatus.UNINITIALIZED, metadata=metadata
+    )
     state.mark_synchronized(branch=branch, commit=commit, synced_at=Timestamp.now())
     db_registry.save_state(state)
 
@@ -123,7 +146,9 @@ def test_index_pipeline_execution(tmp_path: Path) -> None:
     )
 
     # Test incremental scan
-    inc_units = scanner.scan_incremental(ws_dir, [FilePath(relative_path="calculator.py")])
+    inc_units = scanner.scan_incremental(
+        ws_dir, [FilePath(relative_path="calculator.py")]
+    )
     assert len(inc_units) == 1
 
     cmd = ExecutePipelineCommand(repo_id=repo_id_val)

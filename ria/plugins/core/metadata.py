@@ -1,10 +1,8 @@
 """Metadata, capabilities, and health status for RIA plugins."""
 
-from collections.abc import Sequence
 from dataclasses import dataclass
 from enum import Enum
 
-from ria.domain.index.value_objects import Language
 from ria.plugins.core.exceptions import InvalidPluginError
 from ria.ports.index.parser_registry import PluginCapabilities, PluginMetadata
 

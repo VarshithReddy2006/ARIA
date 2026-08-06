@@ -20,12 +20,18 @@ import json
 import logging
 import time
 from dataclasses import dataclass
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Optional
 
 from services.chat.conversation_context import ConversationContext
-from services.chat.conversation_memory import ConversationMemoryStore, conversation_memory
+from services.chat.conversation_memory import (
+    ConversationMemoryStore,
+    conversation_memory,
+)
 from services.chat.conversation_settings import ConversationSettings
-from services.chat.explicit_entity_resolver import ExplicitEntityResolver, ExplicitEntityResult
+from services.chat.explicit_entity_resolver import (
+    ExplicitEntityResolver,
+    ExplicitEntityResult,
+)
 from services.chat.followup_detector import FollowUpDetector, FollowUpResult
 from services.chat.query_rewriter import QueryRewriter
 from services.chat.topic_switch_detector import TopicSwitchDetector, TopicSwitchResult
@@ -95,7 +101,9 @@ class ConversationOrchestrator:
         t_f = time.perf_counter()
         if explicit_res.has_explicit_entity:
             # Explicit entity introduced -> not a follow-up query on previous topic
-            followup_res = FollowUpResult(is_followup=False, confidence=0.0, followup_kind="NONE")
+            followup_res = FollowUpResult(
+                is_followup=False, confidence=0.0, followup_kind="NONE"
+            )
         else:
             followup_res = self.followup_detector.detect(question, context)
         latencies["followup_detection"] = (time.perf_counter() - t_f) * 1000.0
@@ -105,7 +113,11 @@ class ConversationOrchestrator:
         # 5. Manage Topic Confidence & State Transition
         if switch_res.is_topic_switch or explicit_res.has_explicit_entity:
             target_f = switch_res.target_file or explicit_res.target_file
-            target_s = switch_res.target_symbol or explicit_res.target_symbol or explicit_res.entity_name
+            target_s = (
+                switch_res.target_symbol
+                or explicit_res.target_symbol
+                or explicit_res.entity_name
+            )
             context = context.with_topic_switch(
                 new_file=target_f,
                 new_symbol=target_s,
@@ -120,7 +132,9 @@ class ConversationOrchestrator:
 
         # 6. Execute QueryRewriter
         t_rw = time.perf_counter()
-        rewritten_q = self.query_rewriter.rewrite(question, context, followup_res, switch_res, explicit_res)
+        rewritten_q = self.query_rewriter.rewrite(
+            question, context, followup_res, switch_res, explicit_res
+        )
         latencies["query_rewriting"] = (time.perf_counter() - t_rw) * 1000.0
 
         # Save active context back to session
@@ -206,8 +220,16 @@ class ConversationOrchestrator:
         retrieval_metrics: Dict[str, Any],
     ) -> None:
         """Emit machine-readable JSON debug logs."""
-        top_files = [c.get("metadata", {}).get("file_path") for c in retrieved_chunks if c.get("metadata", {}).get("file_path")]
-        top_symbols = [c.get("metadata", {}).get("matched_symbols") for c in retrieved_chunks if c.get("metadata", {}).get("matched_symbols")]
+        top_files = [
+            c.get("metadata", {}).get("file_path")
+            for c in retrieved_chunks
+            if c.get("metadata", {}).get("file_path")
+        ]
+        top_symbols = [
+            c.get("metadata", {}).get("matched_symbols")
+            for c in retrieved_chunks
+            if c.get("metadata", {}).get("matched_symbols")
+        ]
 
         debug_payload = {
             "conversation_id": session_id,
@@ -235,16 +257,26 @@ class ConversationOrchestrator:
                 "current_file": updated_context.current_file,
                 "current_symbol": updated_context.current_symbol,
                 "current_module": updated_context.current_module,
-                "recently_discussed_files": updated_context.recently_discussed_files[:5],
+                "recently_discussed_files": updated_context.recently_discussed_files[
+                    :5
+                ],
             },
             "ranking_boosts": {
-                "current_file": self.settings.current_file_boost if not orchestration_result.disable_previous_boosts else 0.0,
-                "current_symbol": self.settings.current_symbol_boost if not orchestration_result.disable_previous_boosts else 0.0,
-                "current_module": self.settings.current_module_boost if not orchestration_result.disable_previous_boosts else 0.0,
+                "current_file": self.settings.current_file_boost
+                if not orchestration_result.disable_previous_boosts
+                else 0.0,
+                "current_symbol": self.settings.current_symbol_boost
+                if not orchestration_result.disable_previous_boosts
+                else 0.0,
+                "current_module": self.settings.current_module_boost
+                if not orchestration_result.disable_previous_boosts
+                else 0.0,
                 "repository": self.settings.repository_boost,
                 "recent_file": self.settings.recent_file_boost,
             },
-            "retrieval_tier": retrieval_metrics.get("retrieval_tier", "ENTIRE_REPOSITORY"),
+            "retrieval_tier": retrieval_metrics.get(
+                "retrieval_tier", "ENTIRE_REPOSITORY"
+            ),
             "retrieved_files": top_files[:5],
             "retrieved_symbols": top_symbols[:5],
             "latency": orchestration_result.stage_latencies_ms,

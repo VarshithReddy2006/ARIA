@@ -1,11 +1,10 @@
 """Unit tests for FastAPI Dependency Injection and RIA Container Integration (Task 5 / R-017)."""
 
-import pytest
 from unittest.mock import MagicMock
-from fastapi import FastAPI, Depends, Request
+from fastapi import FastAPI, Depends
 from fastapi.testclient import TestClient
 
-from ria.container import Container, build_container
+from ria.container import Container
 from backend.dependencies import (
     get_container,
     get_git_client,
@@ -14,7 +13,6 @@ from backend.dependencies import (
     get_ingestion_service,
     get_commit_resolver,
     get_symbol_service,
-    get_workspace_service,
 )
 from services.symbol_service import SymbolService
 
@@ -74,7 +72,9 @@ class TestContainerDI:
         res = client.get("/test-symbols/testowner/testrepo")
         assert res.status_code == 200
         assert res.json()["count"] == 0
-        mock_symbols.get_file_symbols.assert_called_once_with("testowner/testrepo", "main.py")
+        mock_symbols.get_file_symbols.assert_called_once_with(
+            "testowner/testrepo", "main.py"
+        )
 
     def test_api_lifespan_container_initialization_and_shutdown(self) -> None:
         """Verify backend.api app lifespan initializes app.state.container and shuts down cleanly."""

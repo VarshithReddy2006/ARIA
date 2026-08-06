@@ -12,9 +12,13 @@ class ExecutionContextManager:
 
     def create_context(self, goal: Goal) -> ExecutionContext:
         cid = UUIDv4.generate().value
-        return ExecutionContext(context_id=cid, goal=goal, completed_tasks=(), intermediate_outputs={})
+        return ExecutionContext(
+            context_id=cid, goal=goal, completed_tasks=(), intermediate_outputs={}
+        )
 
-    def update_context(self, context: ExecutionContext, completed_task: TaskId, output: Dict[str, Any]) -> ExecutionContext:
+    def update_context(
+        self, context: ExecutionContext, completed_task: TaskId, output: Dict[str, Any]
+    ) -> ExecutionContext:
         new_completed = tuple(list(context.completed_tasks) + [completed_task])
         new_outputs = dict(context.intermediate_outputs)
         new_outputs[completed_task.value] = output

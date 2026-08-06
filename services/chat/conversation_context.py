@@ -6,12 +6,11 @@ and bounded discussion history across turns.
 
 from __future__ import annotations
 
-import os
 from dataclasses import dataclass, field
 from typing import Optional, Tuple
 
 from services.chat.conversation_settings import ConversationSettings
-from services.chat.navigation_graph import NavigationGraph, NavigationStep
+from services.chat.navigation_graph import NavigationGraph
 
 
 def _module_from_file_path(file_path: str) -> Optional[str]:
@@ -48,25 +47,33 @@ class ConversationContext:
     canonical_resolved_queries: Tuple[str, ...] = ()
 
     @classmethod
-    def create(cls, repo_name: str, settings: Optional[ConversationSettings] = None) -> ConversationContext:
+    def create(
+        cls, repo_name: str, settings: Optional[ConversationSettings] = None
+    ) -> ConversationContext:
         s = settings or ConversationSettings.default()
         return cls(
             current_repo=repo_name,
             topic_confidence=s.topic_initial_confidence,
         )
 
-    def with_same_topic_boost(self, settings: Optional[ConversationSettings] = None) -> ConversationContext:
+    def with_same_topic_boost(
+        self, settings: Optional[ConversationSettings] = None
+    ) -> ConversationContext:
         """Increase topic confidence toward 1.0 when follow-up stays on same topic."""
         new_conf = min(1.0, self.topic_confidence + 0.05)
         return self._copy_with(topic_confidence=new_conf)
 
-    def with_related_decay(self, settings: Optional[ConversationSettings] = None) -> ConversationContext:
+    def with_related_decay(
+        self, settings: Optional[ConversationSettings] = None
+    ) -> ConversationContext:
         """Apply small decay when topic is related."""
         s = settings or ConversationSettings.default()
         new_conf = self.topic_confidence * (1.0 - s.topic_decay_rate * 0.5)
         return self._copy_with(topic_confidence=max(0.0, new_conf))
 
-    def with_unrelated_decay(self, settings: Optional[ConversationSettings] = None) -> ConversationContext:
+    def with_unrelated_decay(
+        self, settings: Optional[ConversationSettings] = None
+    ) -> ConversationContext:
         """Apply larger decay when query is unrelated."""
         s = settings or ConversationSettings.default()
         new_conf = self.topic_confidence * (1.0 - s.topic_decay_rate)
@@ -102,16 +109,24 @@ class ConversationContext:
 
         # Update navigation graph
         target_entity = new_file or new_symbol or self.current_file or "unknown"
-        nav = self.navigation_graph.add_step(to_entity=target_entity, transition_type="TOPIC_SWITCH")
+        nav = self.navigation_graph.add_step(
+            to_entity=target_entity, transition_type="TOPIC_SWITCH"
+        )
 
-        derived_module = new_module or (_module_from_file_path(new_file) if new_file else None)
+        derived_module = new_module or (
+            _module_from_file_path(new_file) if new_file else None
+        )
 
         return self._copy_with(
             current_file=new_file if new_file is not None else self.current_file,
-            current_symbol=new_symbol if new_symbol is not None else self.current_symbol,
+            current_symbol=new_symbol
+            if new_symbol is not None
+            else self.current_symbol,
             current_class=new_class,
             current_function=new_function,
-            current_module=derived_module if derived_module is not None else self.current_module,
+            current_module=derived_module
+            if derived_module is not None
+            else self.current_module,
             topic_confidence=s.topic_switch_confidence,
             navigation_graph=nav,
             recently_discussed_files=tuple(recent_files),
@@ -133,7 +148,9 @@ class ConversationContext:
         # Bounded questions & answers
         prev_q = (list(self.previous_questions) + [question])[-s.max_history :]
         prev_a = (list(self.previous_answers) + [answer])[-s.max_history :]
-        prev_rq = (list(self.canonical_resolved_queries) + [resolved_query])[-s.max_history :]
+        prev_rq = (list(self.canonical_resolved_queries) + [resolved_query])[
+            -s.max_history :
+        ]
 
         # Update files
         recent_files = list(self.recently_discussed_files)

@@ -16,7 +16,9 @@ class WorkspaceManager(WorkspacePort):
         try:
             self._base_dir.mkdir(parents=True, exist_ok=True)
         except OSError as err:
-            raise WorkspaceError(f"Failed to initialize base workspace dir '{self._base_dir}': {err}") from err
+            raise WorkspaceError(
+                f"Failed to initialize base workspace dir '{self._base_dir}': {err}"
+            ) from err
 
     def _validate_workspace_path(self, path: Path) -> Path:
         """Ensure path does not escape base workspace root."""
@@ -24,7 +26,9 @@ class WorkspaceManager(WorkspacePort):
         try:
             resolved.relative_to(self._base_dir)
         except ValueError as err:
-            raise WorkspaceError(f"Path traversal security violation: '{resolved}' escapes base directory '{self._base_dir}'.") from err
+            raise WorkspaceError(
+                f"Path traversal security violation: '{resolved}' escapes base directory '{self._base_dir}'."
+            ) from err
         return resolved
 
     def get_workspace_path(self, repo_id: RepositoryIdentity) -> Path:
@@ -39,7 +43,9 @@ class WorkspaceManager(WorkspacePort):
             target.mkdir(parents=True, exist_ok=True)
             return target
         except OSError as err:
-            raise WorkspaceError(f"Failed to create workspace '{target}': {err}") from err
+            raise WorkspaceError(
+                f"Failed to create workspace '{target}': {err}"
+            ) from err
 
     def delete_workspace(self, repo_id: RepositoryIdentity) -> bool:
         """Remove repository working directory and content from disk."""
@@ -50,14 +56,22 @@ class WorkspaceManager(WorkspacePort):
             shutil.rmtree(target)
             return True
         except OSError as err:
-            raise WorkspaceError(f"Failed to delete workspace '{target}': {err}") from err
+            raise WorkspaceError(
+                f"Failed to delete workspace '{target}': {err}"
+            ) from err
 
-    def create_ephemeral_workspace(self, repo_id: RepositoryIdentity, suffix: str) -> Path:
+    def create_ephemeral_workspace(
+        self, repo_id: RepositoryIdentity, suffix: str
+    ) -> Path:
         """Create temporary isolated workspace directory for branch/session comparison."""
-        ephemeral_dir = self._base_dir / f"repo_{repo_id.repo_id.value}_ephemeral_{suffix}"
+        ephemeral_dir = (
+            self._base_dir / f"repo_{repo_id.repo_id.value}_ephemeral_{suffix}"
+        )
         target = self._validate_workspace_path(ephemeral_dir)
         try:
             target.mkdir(parents=True, exist_ok=True)
             return target
         except OSError as err:
-            raise WorkspaceError(f"Failed to create ephemeral workspace '{target}': {err}") from err
+            raise WorkspaceError(
+                f"Failed to create ephemeral workspace '{target}': {err}"
+            ) from err

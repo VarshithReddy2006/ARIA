@@ -1,7 +1,5 @@
 """Unit tests for C7 Context Builder domain models, expanders, ranker, deduplicator, optimizer, serializer, and engine."""
 
-from pathlib import Path
-
 import pytest
 from ria.context import (
     CallExpander,
@@ -18,22 +16,41 @@ from ria.context import (
 from ria.domain.common.value_objects import Timestamp, UUIDv4
 from ria.domain.context import (
     Citation,
-    ContextOptions,
     ContextPackage,
     ContextRequest,
     ContextSnippet,
-    ExpansionRule,
     InvalidContextRequestError,
     RankingScore,
     TokenBudget,
 )
 from ria.domain.index.value_objects import FilePath, Location
-from ria.domain.resolution import QualifiedName, ResolvedFactSet, SemanticSymbol, SymbolKind, SymbolMoniker, Visibility
-from ria.domain.search import SearchQueryType
+from ria.domain.resolution import (
+    QualifiedName,
+    ResolvedFactSet,
+    SemanticSymbol,
+    SymbolKind,
+    SymbolMoniker,
+    Visibility,
+)
 from ria.domain.sync import CommitReference, RepositoryIdentity
 from ria.infrastructure.storage import SQLiteFactStoreAdapter
-from ria.query import QueryCache, QueryEngine, QueryExecutor, QueryOptimizer, QueryPlanner
-from ria.search import AutocompleteEngine, HighlightEngine, RankingEngine as SearchRankingEngine, SearchCache, SearchEngine, SearchFilterEngine, SearchIndex, SearchPlanner
+from ria.query import (
+    QueryCache,
+    QueryEngine,
+    QueryExecutor,
+    QueryOptimizer,
+    QueryPlanner,
+)
+from ria.search import (
+    AutocompleteEngine,
+    HighlightEngine,
+    RankingEngine as SearchRankingEngine,
+    SearchCache,
+    SearchEngine,
+    SearchFilterEngine,
+    SearchIndex,
+    SearchPlanner,
+)
 
 
 def test_context_domain_value_objects() -> None:
@@ -53,12 +70,38 @@ def test_context_domain_value_objects() -> None:
 def test_deduplicator_and_budget_optimizer() -> None:
     fp = FilePath(relative_path="auth.py")
     moniker = SymbolMoniker(value="repo:auth.py:global:login")
-    cit = Citation(repo_name="repo", commit_sha="a" * 40, file_path=fp, module_name="auth", symbol_moniker=moniker, start_line=1, end_line=5)
+    cit = Citation(
+        repo_name="repo",
+        commit_sha="a" * 40,
+        file_path=fp,
+        module_name="auth",
+        symbol_moniker=moniker,
+        start_line=1,
+        end_line=5,
+    )
     score = RankingScore(priority=1, score_value=1.0, category="Definition")
 
-    snip1 = ContextSnippet(snippet_id="s1", content="login function", citation=cit, score=score, estimated_tokens=100)
-    snip2 = ContextSnippet(snippet_id="s2", content="login function", citation=cit, score=score, estimated_tokens=100)
-    snip3 = ContextSnippet(snippet_id="s3", content="logout function", citation=cit, score=score, estimated_tokens=150)
+    snip1 = ContextSnippet(
+        snippet_id="s1",
+        content="login function",
+        citation=cit,
+        score=score,
+        estimated_tokens=100,
+    )
+    snip2 = ContextSnippet(
+        snippet_id="s2",
+        content="login function",
+        citation=cit,
+        score=score,
+        estimated_tokens=100,
+    )
+    snip3 = ContextSnippet(
+        snippet_id="s3",
+        content="logout function",
+        citation=cit,
+        score=score,
+        estimated_tokens=150,
+    )
 
     dedup = Deduplicator()
     deduped = dedup.deduplicate((snip1, snip2, snip3))
@@ -75,11 +118,35 @@ def test_context_serializer() -> None:
     serializer = ContextSerializer()
     fp = FilePath(relative_path="auth.py")
     moniker = SymbolMoniker(value="repo:auth.py:global:login")
-    cit = Citation(repo_name="repo", commit_sha="a" * 40, file_path=fp, module_name="auth", symbol_moniker=moniker, start_line=1, end_line=5)
+    cit = Citation(
+        repo_name="repo",
+        commit_sha="a" * 40,
+        file_path=fp,
+        module_name="auth",
+        symbol_moniker=moniker,
+        start_line=1,
+        end_line=5,
+    )
     score = RankingScore(priority=1, score_value=1.0, category="Definition")
-    snip = ContextSnippet(snippet_id="s1", content="login function", citation=cit, score=score, estimated_tokens=10)
+    # Constructed to assert the value object accepts this shape; the serializer is
+    # exercised against an empty-section package below, so the snippet is unused.
+    _snip = ContextSnippet(
+        snippet_id="s1",
+        content="login function",
+        citation=cit,
+        score=score,
+        estimated_tokens=10,
+    )
 
-    pkg = ContextPackage(package_id="pkg1", question="auth?", sections=(), references=(), metadata=pytest.importorskip("ria.domain.context").ContextMetadata(1, 1, 10, 4000))
+    pkg = ContextPackage(
+        package_id="pkg1",
+        question="auth?",
+        sections=(),
+        references=(),
+        metadata=pytest.importorskip("ria.domain.context").ContextMetadata(
+            1, 1, 10, 4000
+        ),
+    )
 
     json_out = serializer.serialize_json(pkg)
     assert "pkg1" in json_out
@@ -93,14 +160,26 @@ def test_context_serializer() -> None:
 
 def test_context_builder_assembly() -> None:
     fact_store = SQLiteFactStoreAdapter(db_path=":memory:")
-    repo_id = RepositoryIdentity(repo_id=UUIDv4.generate(), remote_url="https://github.com/org/repo.git", name="repo")
+    repo_id = RepositoryIdentity(
+        repo_id=UUIDv4.generate(),
+        remote_url="https://github.com/org/repo.git",
+        name="repo",
+    )
     commit = CommitReference(sha="b" * 40, committed_at=Timestamp.now())
 
     fp = FilePath(relative_path="services/auth.py")
     loc = Location(1, 0, 10, 0)
     moniker = SymbolMoniker(value="repo:services/auth.py:global:login")
     qname = QualifiedName(dotted_path="services.auth.login")
-    sym = SemanticSymbol(moniker=moniker, name="login", qualified_name=qname, kind=SymbolKind.FUNCTION, visibility=Visibility.PUBLIC, path=fp, location=loc)
+    sym = SemanticSymbol(
+        moniker=moniker,
+        name="login",
+        qualified_name=qname,
+        kind=SymbolKind.FUNCTION,
+        visibility=Visibility.PUBLIC,
+        path=fp,
+        location=loc,
+    )
 
     fact_set = ResolvedFactSet(symbols=(sym,))
     fact_store.save_fact_set(repo_id, commit, fact_set)
@@ -113,7 +192,15 @@ def test_context_builder_assembly() -> None:
     search_hl = HighlightEngine()
     search_auto = AutocompleteEngine()
     search_cache = SearchCache()
-    search_engine = SearchEngine(search_planner, search_index, search_ranking, search_filters, search_hl, search_auto, search_cache)
+    search_engine = SearchEngine(
+        search_planner,
+        search_index,
+        search_ranking,
+        search_filters,
+        search_hl,
+        search_auto,
+        search_cache,
+    )
 
     # Query Engine Setup
     q_planner = QueryPlanner()
@@ -136,7 +223,9 @@ def test_context_builder_assembly() -> None:
     engine = ContextEngine(builder, serializer)
 
     req = ContextRequest(question="login")
-    pkg, formatted_json = engine.assemble_and_serialize(req, search_engine, query_engine, fact_store, repo_id, commit, fmt="json")
+    pkg, formatted_json = engine.assemble_and_serialize(
+        req, search_engine, query_engine, fact_store, repo_id, commit, fmt="json"
+    )
 
     assert pkg.package_id is not None
     assert pkg.metadata.total_snippets >= 1

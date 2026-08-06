@@ -21,7 +21,9 @@ class LanguageDetection:
         # Shebang fallback for extensionless files
         try:
             content = self._fs.read_bytes(abs_path)
-            first_line = content.split(b"\n", 1)[0].decode("utf-8", errors="ignore").strip()
+            first_line = (
+                content.split(b"\n", 1)[0].decode("utf-8", errors="ignore").strip()
+            )
             if first_line.startswith("#!"):
                 if "python" in first_line:
                     return Language.PYTHON

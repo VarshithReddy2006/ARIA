@@ -71,7 +71,9 @@ def register(server: Any) -> None:
                 repo_name = require_repo(owner, repo)
                 service = get_dead_code_service()
                 result = service.analyze(repo_name)
-                serialized = result.model_dump() if hasattr(result, "model_dump") else result
+                serialized = (
+                    result.model_dump() if hasattr(result, "model_dump") else result
+                )
                 return json.dumps(serialized, indent=2, default=str)
 
     @server.tool()
@@ -135,7 +137,9 @@ def register(server: Any) -> None:
                 # (backend/routers/architecture.py). analyze_impact() never existed,
                 # and it took a file path, hence the parameter rename.
                 result = service.analyze_change(repo_name, effective)
-                serialized = result.model_dump() if hasattr(result, "model_dump") else result
+                serialized = (
+                    result.model_dump() if hasattr(result, "model_dump") else result
+                )
                 return json.dumps(serialized, indent=2, default=str)
 
     @server.tool()
@@ -158,5 +162,7 @@ def register(server: Any) -> None:
                 result = service.load(repo_name)
                 if result is None:
                     raise ToolFailure(f"No API surface indexed for '{repo_name}'.")
-                serialized = result.model_dump() if hasattr(result, "model_dump") else result
+                serialized = (
+                    result.model_dump() if hasattr(result, "model_dump") else result
+                )
                 return json.dumps(serialized, indent=2, default=str)

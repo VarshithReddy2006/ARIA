@@ -1283,20 +1283,28 @@ class TestPipelineCitationVerification:
             embedding_service=_make_mock_embedding_service(),
             chroma_store=_make_mock_chroma(),
             provider_manager=ProviderManager(
-                providers=[ProviderEntry(name="citation", provider=provider, priority=1)]
+                providers=[
+                    ProviderEntry(name="citation", provider=provider, priority=1)
+                ]
             ),
             memory_store=ConversationMemoryStore(),
         )
 
     def test_grounded_answer_is_verified_after_citation_check(self):
         pipeline = self._pipeline("See backend/api.py:1-10.")
-        result = asyncio.run(pipeline.retrieve("owner/repo", "Where is the API?", session_id="grounded"))
+        result = asyncio.run(
+            pipeline.retrieve("owner/repo", "Where is the API?", session_id="grounded")
+        )
         assert result["verified"] is True
         assert result["citation_report"]["citations_valid"] is True
 
     def test_hallucinated_citation_is_not_verified(self):
         pipeline = self._pipeline("See nonexistent/file.py:1-5.")
-        result = asyncio.run(pipeline.retrieve("owner/repo", "Where is the API?", session_id="hallucinated"))
+        result = asyncio.run(
+            pipeline.retrieve(
+                "owner/repo", "Where is the API?", session_id="hallucinated"
+            )
+        )
         assert result["verified"] is False
         assert result["citation_report"]["citations_valid"] is False
 
@@ -1304,9 +1312,16 @@ class TestPipelineCitationVerification:
         pipeline = self._pipeline("See nonexistent/file.py:1-5.")
 
         async def collect():
-            return [json.loads(event[6:].strip()) async for event in pipeline.retrieve_stream("owner/repo", "Where?", session_id="stream")]
+            return [
+                json.loads(event[6:].strip())
+                async for event in pipeline.retrieve_stream(
+                    "owner/repo", "Where?", session_id="stream"
+                )
+            ]
 
-        done_event = next(event for event in asyncio.run(collect()) if event.get("status") == "done")
+        done_event = next(
+            event for event in asyncio.run(collect()) if event.get("status") == "done"
+        )
         assert done_event["verified"] is False
         assert done_event["citation_report"]["citations_valid"] is False
 

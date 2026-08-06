@@ -6,27 +6,38 @@ Generates Mermaid diagrams, PlantUML syntax, ADR (Architecture Decision Record) 
 from __future__ import annotations
 
 import os
-from typing import Dict, Any, List
+from typing import List
 
 
-def generate_mermaid_diagram(node_id: str, depends_on: List[str], imported_by: List[str]) -> str:
+def generate_mermaid_diagram(
+    node_id: str, depends_on: List[str], imported_by: List[str]
+) -> str:
     """Generate a clean Mermaid class/dependency diagram for a node."""
     short_name = os.path.basename(node_id).replace(".", "_").replace("-", "_")
-    lines = ["graph TD", f"    classDef target fill:#1e1b4b,stroke:#6366f1,stroke-width:2px,color:#fff;"]
+    lines = [
+        "graph TD",
+        "    classDef target fill:#1e1b4b,stroke:#6366f1,stroke-width:2px,color:#fff;",
+    ]
 
     for dep in depends_on:
         dep_name = os.path.basename(dep).replace(".", "_").replace("-", "_")
-        lines.append(f"    {short_name}[{os.path.basename(node_id)}] --> {dep_name}[{os.path.basename(dep)}]")
+        lines.append(
+            f"    {short_name}[{os.path.basename(node_id)}] --> {dep_name}[{os.path.basename(dep)}]"
+        )
 
     for imp in imported_by:
         imp_name = os.path.basename(imp).replace(".", "_").replace("-", "_")
-        lines.append(f"    {imp_name}[{os.path.basename(imp)}] --> {short_name}[{os.path.basename(node_id)}]")
+        lines.append(
+            f"    {imp_name}[{os.path.basename(imp)}] --> {short_name}[{os.path.basename(node_id)}]"
+        )
 
     lines.append(f"    class {short_name} target;")
     return "\n".join(lines)
 
 
-def generate_plantuml_diagram(node_id: str, depends_on: List[str], imported_by: List[str]) -> str:
+def generate_plantuml_diagram(
+    node_id: str, depends_on: List[str], imported_by: List[str]
+) -> str:
     """Generate PlantUML component diagram syntax."""
     base = os.path.basename(node_id)
     lines = [
@@ -50,7 +61,9 @@ def generate_plantuml_diagram(node_id: str, depends_on: List[str], imported_by: 
     return "\n".join(lines)
 
 
-def generate_adr(node_id: str, responsibility: str, layer: str, patterns: List[str]) -> str:
+def generate_adr(
+    node_id: str, responsibility: str, layer: str, patterns: List[str]
+) -> str:
     """Generate an Architecture Decision Record (ADR) markdown document."""
     file_name = os.path.basename(node_id)
     pattern_str = ", ".join(patterns) if patterns else "Facade / Modular Component"
@@ -74,7 +87,9 @@ We implement `{file_name}` following the **{pattern_str}** architectural pattern
 """
 
 
-def generate_sequence_diagram(node_id: str, depends_on: List[str], imported_by: List[str]) -> str:
+def generate_sequence_diagram(
+    node_id: str, depends_on: List[str], imported_by: List[str]
+) -> str:
     """Generate a sequence flow diagram in Mermaid format."""
     caller = os.path.basename(imported_by[0]) if imported_by else "Client"
     target = os.path.basename(node_id)

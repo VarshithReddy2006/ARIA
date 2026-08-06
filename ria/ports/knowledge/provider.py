@@ -3,7 +3,11 @@
 from typing import Protocol, runtime_checkable
 
 from ria.domain.knowledge.entities import ProviderResponse
-from ria.domain.knowledge.value_objects import PromptPackage, ProviderConfiguration, ReasoningPolicy
+from ria.domain.knowledge.value_objects import (
+    PromptPackage,
+    ProviderConfiguration,
+    ReasoningPolicy,
+)
 
 
 @runtime_checkable

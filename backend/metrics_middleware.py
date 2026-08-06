@@ -20,7 +20,14 @@ class MetricsMiddleware(BaseHTTPMiddleware):
         self, request: Request, call_next: RequestResponseEndpoint
     ) -> Response:
         # Exclude metrics scraping itself from metrics collection to avoid noise
-        if request.url.path in ["/metrics", "/ready", "/health", "/api/v1/metrics", "/api/v1/ready", "/api/v1/health"]:
+        if request.url.path in [
+            "/metrics",
+            "/ready",
+            "/health",
+            "/api/v1/metrics",
+            "/api/v1/ready",
+            "/api/v1/health",
+        ]:
             return await call_next(request)
 
         metrics_collector.increment_active_requests()
@@ -40,7 +47,11 @@ class MetricsMiddleware(BaseHTTPMiddleware):
             # Log SLOW_REQUEST warning if threshold exceeded
             threshold = getattr(settings, "slow_request_threshold_seconds", 2.0)
             if elapsed > threshold:
-                req_id = getattr(request.state, "request_id", None) or get_current_request_id() or ""
+                req_id = (
+                    getattr(request.state, "request_id", None)
+                    or get_current_request_id()
+                    or ""
+                )
                 logger.warning(
                     "SLOW_REQUEST method=%s path=%s duration_ms=%.2f status=%d request_id=%s threshold_seconds=%.2f",
                     request.method,

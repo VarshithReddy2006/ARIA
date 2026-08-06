@@ -59,7 +59,9 @@ class KnowledgeOrchestrator(KnowledgeOrchestratorPort):
         # 3. Get Provider & Invoke
         t0 = time.perf_counter()
         provider = self._registry.get_provider(request.provider_config.provider_name)
-        raw_response = provider.generate_response(prompt, request.provider_config, ReasoningPolicy())
+        raw_response = provider.generate_response(
+            prompt, request.provider_config, ReasoningPolicy()
+        )
         prov_ms = (time.perf_counter() - t0) * 1000.0
 
         # 4. Validate Response
@@ -73,7 +75,10 @@ class KnowledgeOrchestrator(KnowledgeOrchestratorPort):
         fmt_ms = (time.perf_counter() - t0) * 1000.0
 
         # 6. Add turn to conversation history
-        turn = ConversationTurn(user_message=request.question, assistant_response=grounded_answer.answer_text)
+        turn = ConversationTurn(
+            user_message=request.question,
+            assistant_response=grounded_answer.answer_text,
+        )
         self._conv_mgr.add_turn(request.conversation_id, turn)
 
         stats = KnowledgeStatistics(

@@ -20,7 +20,9 @@ class SearchFilterEngine:
                 continue
             if sfilter.visibility and sym.visibility != sfilter.visibility:
                 continue
-            if sfilter.file_extension and not sym.path.relative_path.endswith(sfilter.file_extension):
+            if sfilter.file_extension and not sym.path.relative_path.endswith(
+                sfilter.file_extension
+            ):
                 continue
             results.append(entry)
         return tuple(results)

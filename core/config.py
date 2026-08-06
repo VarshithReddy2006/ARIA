@@ -22,7 +22,9 @@ class Settings(BaseSettings):
     log_format: str = Field("human", alias="LOG_FORMAT")  # "human" or "json"
     allowed_hosts: List[str] = Field(["*"], alias="ALLOWED_HOSTS")
     rate_limit_per_minute: int = Field(60, alias="RATE_LIMIT_PER_MINUTE")
-    slow_request_threshold_seconds: float = Field(2.0, alias="SLOW_REQUEST_THRESHOLD_SECONDS")
+    slow_request_threshold_seconds: float = Field(
+        2.0, alias="SLOW_REQUEST_THRESHOLD_SECONDS"
+    )
     api_key: Optional[str] = Field(None, alias="API_KEY")
 
     # Services Config

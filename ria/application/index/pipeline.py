@@ -1,6 +1,5 @@
 """Index Pipeline Orchestrator."""
 
-from pathlib import Path
 from typing import Optional
 
 from ria.application.index.assembler import IndexBatchAssembler
@@ -8,7 +7,6 @@ from ria.application.index.builder import IndexUnitBuilder
 from ria.application.index.dto import ExecutePipelineCommand, PipelineResultDTO
 from ria.application.index.exceptions import PipelineException
 from ria.application.index.scanner import RepositoryScanner
-from ria.domain.common.value_objects import UUIDv4
 from ria.domain.index.units import IndexBatch, ParseUnit
 from ria.domain.sync.entities import RepositoryState
 from ria.ports.common.clock import ClockPort
@@ -47,7 +45,9 @@ class IndexPipeline:
         self._logger = logger
         self._metrics = metrics
 
-    def execute(self, command: ExecutePipelineCommand) -> tuple[IndexBatch, PipelineResultDTO]:
+    def execute(
+        self, command: ExecutePipelineCommand
+    ) -> tuple[IndexBatch, PipelineResultDTO]:
         """Execute full indexing pipeline for repository."""
         start_time = self._clock.monotonic_seconds()
         self._logger.info("Executing IndexPipeline", repo_id=command.repo_id)
@@ -60,21 +60,31 @@ class IndexPipeline:
                 break
 
         if target_state is None:
-            raise PipelineException(f"Repository with ID '{command.repo_id}' is not registered.")
+            raise PipelineException(
+                f"Repository with ID '{command.repo_id}' is not registered."
+            )
         if target_state.current_commit is None:
-            raise PipelineException(f"Repository '{command.repo_id}' is not synchronized (missing current commit).")
+            raise PipelineException(
+                f"Repository '{command.repo_id}' is not synchronized (missing current commit)."
+            )
 
         repo_identity = target_state.identity
         commit = target_state.current_commit
         workspace_dir = self._workspace_manager.get_workspace_path(repo_identity)
 
         if not self._fs.exists(workspace_dir):
-            raise PipelineException(f"Workspace directory for repository '{command.repo_id}' does not exist.")
+            raise PipelineException(
+                f"Workspace directory for repository '{command.repo_id}' does not exist."
+            )
 
         try:
             # 1. Scan files
             file_units = self._scanner.scan_repository(workspace_dir)
-            self._logger.info("Discovered files during scan", count=len(file_units), repo_id=command.repo_id)
+            self._logger.info(
+                "Discovered files during scan",
+                count=len(file_units),
+                repo_id=command.repo_id,
+            )
 
             # 2. Parse files
             parse_units: list[ParseUnit] = []
@@ -119,5 +129,9 @@ class IndexPipeline:
             return batch, result_dto
         except Exception as err:
             self._metrics.increment_counter("pipeline_failure_total")
-            self._logger.error("IndexPipeline execution failed", exc=err, repo_id=command.repo_id)
-            raise PipelineException(f"IndexPipeline failed for repository '{command.repo_id}': {err}") from err
+            self._logger.error(
+                "IndexPipeline execution failed", exc=err, repo_id=command.repo_id
+            )
+            raise PipelineException(
+                f"IndexPipeline failed for repository '{command.repo_id}': {err}"
+            ) from err

@@ -1,6 +1,5 @@
 """Tests for deterministic citation verification service (Recovery Item R-005)."""
 
-import pytest
 from services.chat.citation_verifier import CitationVerifier, CitationReport
 from agents.evaluator import EvaluationAgent
 from models.schemas import EvaluationResult
@@ -31,7 +30,9 @@ def test_evaluation_agent_with_nonexistent_file_citation():
     res = agent.evaluate_response(
         prompt="Where is it?",
         response="Look at nonexistent/file.py:1-5 for implementation.",
-        source_contexts=[{"metadata": {"file_path": "backend/api.py"}, "content": "..."}],
+        source_contexts=[
+            {"metadata": {"file_path": "backend/api.py"}, "content": "..."}
+        ],
     )
 
     assert isinstance(res, EvaluationResult)

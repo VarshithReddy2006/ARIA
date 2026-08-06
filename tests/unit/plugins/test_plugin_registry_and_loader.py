@@ -1,9 +1,7 @@
 """Unit tests for PluginRegistry and PluginLoader."""
 
-import pytest
 from ria.domain.index.value_objects import Language
 from ria.plugins import (
-    InvalidPluginError,
     JavaScriptTreeSitterPlugin,
     PluginHealthStatus,
     PluginLoader,

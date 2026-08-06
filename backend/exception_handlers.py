@@ -78,9 +78,7 @@ async def rest_api_exception_handler(
     )
 
 
-async def unhandled_exception_handler(
-    request: Request, exc: Exception
-) -> JSONResponse:
+async def unhandled_exception_handler(request: Request, exc: Exception) -> JSONResponse:
     req_id = _get_request_id(request)
     logger.error(
         "UNHANDLED_EXCEPTION path=%s request_id=%s error=%s",

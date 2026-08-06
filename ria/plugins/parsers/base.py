@@ -46,7 +46,9 @@ class BaseTreeSitterPlugin(AbstractParser):
 
         attrs: tuple[tuple[str, str], ...] = ()
         if not ts_node.children:
-            text_val = code[ts_node.start_byte : ts_node.end_byte].decode("utf-8", errors="ignore")
+            text_val = code[ts_node.start_byte : ts_node.end_byte].decode(
+                "utf-8", errors="ignore"
+            )
             attrs = (("text", text_val),)
 
         domain_ast = ASTNode(

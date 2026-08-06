@@ -24,7 +24,11 @@ class DependencyExpander:
     ) -> Sequence[ContextSnippet]:
         snippets: list[ContextSnippet] = []
         for sym in symbols:
-            q = Query(query_id="dep_q", query_type=QueryType.DEPENDENCY_ANALYSIS, criteria=QueryCriteria(file_path=sym.path))
+            q = Query(
+                query_id="dep_q",
+                query_type=QueryType.DEPENDENCY_ANALYSIS,
+                criteria=QueryCriteria(file_path=sym.path),
+            )
             res = query_engine.execute_query(q, fact_store, repo_id, commit)
             if res.is_success and isinstance(res.payload, DependencyResult):
                 for idx, rel in enumerate(res.payload.relations):
@@ -39,6 +43,16 @@ class DependencyExpander:
                     )
                     content = f"Dependency ({rel.kind.value}): {rel.source.value} -> {rel.target.value}"
                     est_tokens = max(len(content) // 4, 1)
-                    score = RankingScore(priority=4, score_value=0.7, category="Dependency")
-                    snippets.append(ContextSnippet(snippet_id=f"dep_{idx}", content=content, citation=cit, score=score, estimated_tokens=est_tokens))
+                    score = RankingScore(
+                        priority=4, score_value=0.7, category="Dependency"
+                    )
+                    snippets.append(
+                        ContextSnippet(
+                            snippet_id=f"dep_{idx}",
+                            content=content,
+                            citation=cit,
+                            score=score,
+                            estimated_tokens=est_tokens,
+                        )
+                    )
         return tuple(snippets)

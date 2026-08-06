@@ -1,7 +1,5 @@
 """Base AST Symbol Extractor walking domain ASTNode trees."""
 
-from typing import Tuple
-
 from ria.domain.index.value_objects import ASTNode, Location
 from ria.domain.resolution.entities import SemanticSymbol
 from ria.domain.resolution.value_objects import (

@@ -6,7 +6,6 @@ Manages code chunk indexing, file storage, and semantic searches.
 import os
 import logging
 import threading
-import time
 import uuid
 import chromadb
 from typing import Dict, List, Any, Optional
@@ -29,7 +28,9 @@ class ChromaStore:
         self.client = chromadb.PersistentClient(path=self.persist_directory)
         # We create a single collection to store code chunks.
         self.collection = self.client.get_or_create_collection(name="repository_chunks")
-        self._versions = self.client.get_or_create_collection(name="repository_index_versions")
+        self._versions = self.client.get_or_create_collection(
+            name="repository_index_versions"
+        )
         self._publication_lock = threading.RLock()
 
     def _active_version(self, repo_name: str) -> Optional[str]:
@@ -63,7 +64,9 @@ class ChromaStore:
         for meta in metadata:
             cleaned = {}
             for key, value in meta.items():
-                cleaned[key] = value if isinstance(value, (str, int, float, bool)) else str(value)
+                cleaned[key] = (
+                    value if isinstance(value, (str, int, float, bool)) else str(value)
+                )
             cleaned_metadata.append(cleaned)
         return cleaned_metadata
 
@@ -112,7 +115,11 @@ class ChromaStore:
             return
 
         cleaned_metadata = self._clean_metadata(metadatas)
-        repo_names = {str(meta.get("repo_name")) for meta in cleaned_metadata if meta.get("repo_name")}
+        repo_names = {
+            str(meta.get("repo_name"))
+            for meta in cleaned_metadata
+            if meta.get("repo_name")
+        }
         if len(repo_names) == 1:
             repo_name = next(iter(repo_names))
             with self._publication_lock:
@@ -203,9 +210,13 @@ class ChromaStore:
             try:
                 self.client.delete_collection(name=name)
             except Exception as exc:
-                logger.debug("Failed to delete collection %s during clear: %s", name, exc)
+                logger.debug(
+                    "Failed to delete collection %s during clear: %s", name, exc
+                )
         self.collection = self.client.get_or_create_collection(name="repository_chunks")
-        self._versions = self.client.get_or_create_collection(name="repository_index_versions")
+        self._versions = self.client.get_or_create_collection(
+            name="repository_index_versions"
+        )
 
     def index_repository(
         self,
@@ -217,9 +228,12 @@ class ChromaStore:
         filtered_indices = [
             index
             for index, chunk in enumerate(chunks)
-            if isinstance(chunk.get("content", ""), str) and chunk.get("content", "").strip()
+            if isinstance(chunk.get("content", ""), str)
+            and chunk.get("content", "").strip()
         ]
-        if embeddings is None or (filtered_indices and len(embeddings) <= max(filtered_indices)):
+        if embeddings is None or (
+            filtered_indices and len(embeddings) <= max(filtered_indices)
+        ):
             raise ValueError("Embeddings must be provided and aligned with chunks.")
 
         version = uuid.uuid4().hex
@@ -233,7 +247,9 @@ class ChromaStore:
             path = chunk.get("path", "")
             chunk_id = chunk.get("chunk_id", out_index)
             ids.append(
-                f"{repo_name}_{version}_{path}_{chunk_id}".replace("/", "_").replace(".", "_")
+                f"{repo_name}_{version}_{path}_{chunk_id}".replace("/", "_").replace(
+                    ".", "_"
+                )
             )
             documents.append(chunk["content"])
             metadatas.append(
@@ -283,7 +299,9 @@ class ChromaStore:
                     where=self._where_for_repository(repo_name, version)
                 )
             except Exception as cleanup_error:
-                logger.warning("Failed to clean staged index for %s: %s", repo_name, cleanup_error)
+                logger.warning(
+                    "Failed to clean staged index for %s: %s", repo_name, cleanup_error
+                )
             raise
 
         logger.info("Published %d chunks for repository %s.", len(ids), repo_name)
@@ -310,9 +328,16 @@ class ChromaStore:
         with self._publication_lock:
             version = self._active_version(repo_name)
             result = self.collection.get(
-                where=self._where_for_repository(repo_name, version), include=["metadatas"]
+                where=self._where_for_repository(repo_name, version),
+                include=["metadatas"],
             )
-        return sorted({meta["file_path"] for meta in result.get("metadatas", []) if meta and meta.get("file_path")})
+        return sorted(
+            {
+                meta["file_path"]
+                for meta in result.get("metadatas", [])
+                if meta and meta.get("file_path")
+            }
+        )
 
     def get_file_chunks(self, repo_name: str, file_path: str) -> Dict[str, Any]:
         """Return chunks for one file from the currently published revision."""
@@ -344,4 +369,6 @@ class ChromaStore:
             try:
                 self._versions.delete(ids=[repo_name])
             except Exception as exc:
-                logger.debug("Repository version %s could not be deleted: %s", repo_name, exc)
+                logger.debug(
+                    "Repository version %s could not be deleted: %s", repo_name, exc
+                )

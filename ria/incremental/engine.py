@@ -1,6 +1,5 @@
 """Incremental Engine entry point."""
 
-from ria.domain.snapshot.entities import RepositorySnapshot
 from ria.domain.snapshot.value_objects import IncrementalPlan
 from ria.domain.sync.value_objects import CommitReference, RepositoryIdentity
 from ria.ports.incremental.diff import DiffEnginePort
@@ -33,7 +32,9 @@ class IncrementalEngine:
         # 1. Get latest snapshot
         snapshot = self._snapshots.get_latest_snapshot(repo_id)
         if snapshot is None:
-            snapshot = self._snapshots.create_snapshot(repo_id, from_commit, total_files=0, total_symbols=0)
+            snapshot = self._snapshots.create_snapshot(
+                repo_id, from_commit, total_files=0, total_symbols=0
+            )
 
         # 2. Compute diff
         changed_files = self._diff.compute_diff(repo_id, from_commit, to_commit)
@@ -45,6 +46,11 @@ class IncrementalEngine:
         self._scheduler.execute_plan(plan)
 
         # 5. Refresh snapshot to new commit
-        self._snapshots.create_snapshot(repo_id, to_commit, total_files=len(plan.files_to_reindex), total_symbols=len(plan.affected_symbols))
+        self._snapshots.create_snapshot(
+            repo_id,
+            to_commit,
+            total_files=len(plan.files_to_reindex),
+            total_symbols=len(plan.affected_symbols),
+        )
 
         return plan

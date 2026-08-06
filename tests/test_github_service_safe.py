@@ -2,7 +2,7 @@
 
 from unittest.mock import patch, MagicMock
 import pytest
-from services.github_service import GitHubService, RepositoryNotFoundError
+from services.github_service import GitHubService
 from utils.subprocess_runner import CLONE_TIMEOUT, SHORT_GIT_TIMEOUT, INSPECTION_TIMEOUT
 
 
@@ -11,10 +11,11 @@ def test_github_service_credentials_not_in_url() -> None:
     service = GitHubService(token="ghp_test_secret_pat_999")
     repo_url = "https://github.com/myorg/myrepo.git"
 
-    with patch("services.github_service.run_safe_command") as mock_run, \
-         patch("os.path.exists", return_value=False), \
-         patch("os.makedirs"):
-        
+    with (
+        patch("services.github_service.run_safe_command") as mock_run,
+        patch("os.path.exists", return_value=False),
+        patch("os.makedirs"),
+    ):
         mock_run.side_effect = [
             MagicMock(returncode=0, stdout="HEAD"),  # public check
             MagicMock(returncode=0, stdout="HEAD"),  # diagnostics check
@@ -31,7 +32,7 @@ def test_github_service_credentials_not_in_url() -> None:
             # Ensure token is never inside any command string/URL
             for arg in cmd:
                 assert "ghp_test_secret_pat_999" not in arg
-            
+
             # Check secrets parameter passed for redaction
             secrets = kwargs.get("secrets", [])
             assert "ghp_test_secret_pat_999" in secrets
@@ -51,6 +52,7 @@ def test_github_service_cloning_failure_redacts_secrets() -> None:
     with patch("services.github_service.run_safe_command") as mock_run:
         # Public check fails, auth check fails (res.stderr clean/redacted)
         from utils.subprocess_runner import redact_text
+
         raw_stderr = "fatal: authentication failed for ghp_secret_token_abc123"
         clean_stderr = redact_text(raw_stderr, ["ghp_secret_token_abc123"])
 
@@ -75,10 +77,11 @@ def test_github_service_uses_operation_timeouts() -> None:
     service = GitHubService(token=None)
     repo_url = "https://github.com/owner/repo.git"
 
-    with patch("services.github_service.run_safe_command") as mock_run, \
-         patch("os.path.exists", return_value=False), \
-         patch("os.makedirs"):
-
+    with (
+        patch("services.github_service.run_safe_command") as mock_run,
+        patch("os.path.exists", return_value=False),
+        patch("os.makedirs"),
+    ):
         mock_run.side_effect = [
             MagicMock(returncode=0, stdout="HEAD"),  # public check
             MagicMock(returncode=0, stdout="HEAD"),  # diagnostics check
@@ -141,7 +144,10 @@ def test_extract_source_files_rejects_symlinks_and_oversized_files(tmp_path) -> 
         pytest.skip("Symbolic links are unavailable in this test environment")
 
     files = service.extract_source_files(str(tmp_path))
-    assert files == [{"path": "normal.py", "content": "print('safe')"}]
+    # target.py is a regular file (not a symlink) so it passes the safety filter.
+    # Only linked.py (symlink) and oversized.py (exceeds size limit) are excluded.
+    paths = sorted(f["path"] for f in files)
+    assert paths == ["normal.py", "target.py"]
 
 
 def test_extract_source_files_rejects_symlink_escaping_repository(tmp_path) -> None:

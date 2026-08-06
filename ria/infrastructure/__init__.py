@@ -10,7 +10,10 @@ from ria.infrastructure.exceptions import (
 )
 from ria.infrastructure.filesystem import OSFilesystemAdapter, WorkspaceManager
 from ria.infrastructure.git import SubprocessGitAdapter
-from ria.infrastructure.storage import SQLiteRepositoryLockAdapter, SQLiteRepositoryRegistryAdapter
+from ria.infrastructure.storage import (
+    SQLiteRepositoryLockAdapter,
+    SQLiteRepositoryRegistryAdapter,
+)
 from ria.infrastructure.system import (
     HashlibHashingAdapter,
     InMemoryMetricsAdapter,

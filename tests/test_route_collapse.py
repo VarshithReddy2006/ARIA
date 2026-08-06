@@ -43,7 +43,12 @@ def test_all_route_paths_use_canonical_or_operational_prefixes():
 
 def test_legacy_api_prefix_308_redirect():
     """Verify that legacy /api/ endpoints redirect to /api/v1/ with 308 status code and Deprecation header."""
-    response = client.get("/api/repositories/test-owner/test-repo/summary", follow_redirects=False)
+    response = client.get(
+        "/api/repositories/test-owner/test-repo/summary", follow_redirects=False
+    )
     assert response.status_code == 308
-    assert response.headers.get("location") == "/api/v1/repositories/test-owner/test-repo/summary"
+    assert (
+        response.headers.get("location")
+        == "/api/v1/repositories/test-owner/test-repo/summary"
+    )
     assert response.headers.get("deprecation") == "true"

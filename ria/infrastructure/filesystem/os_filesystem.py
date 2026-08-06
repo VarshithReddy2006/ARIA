@@ -30,7 +30,9 @@ class OSFilesystemAdapter(FilesystemPort):
                 return True
         return False
 
-    def walk_directory(self, root: Path, ignore_patterns: Sequence[str] = ()) -> Sequence[Path]:
+    def walk_directory(
+        self, root: Path, ignore_patterns: Sequence[str] = ()
+    ) -> Sequence[Path]:
         """Walk directory tree from root, skipping paths matching ignore_patterns."""
         if not root.exists():
             raise FilesystemError(f"Root directory '{root}' does not exist.")
@@ -64,7 +66,9 @@ class OSFilesystemAdapter(FilesystemPort):
         try:
             return path.exists()
         except OSError as err:
-            raise FilesystemError(f"Error checking existence of path '{path}': {err}") from err
+            raise FilesystemError(
+                f"Error checking existence of path '{path}': {err}"
+            ) from err
 
     def get_size(self, path: Path) -> int:
         """Return size in bytes of file at path."""
@@ -73,4 +77,6 @@ class OSFilesystemAdapter(FilesystemPort):
         try:
             return path.stat().st_size
         except OSError as err:
-            raise FilesystemError(f"Failed to get size for file '{path}': {err}") from err
+            raise FilesystemError(
+                f"Failed to get size for file '{path}': {err}"
+            ) from err

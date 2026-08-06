@@ -8,7 +8,7 @@ from __future__ import annotations
 
 import logging
 import re
-from typing import Any, Dict, Union
+from typing import Any, Dict
 
 # Patterns for sensitive data redaction
 _SENSITIVE_PATTERNS = [
@@ -19,7 +19,10 @@ _SENSITIVE_PATTERNS = [
     (re.compile(r"sk-[a-zA-Z0-9_\-]{20,}"), "sk-***REDACTED***"),
     # Bearer Tokens & JWTs
     (re.compile(r"Bearer\s+[a-zA-Z0-9_\-\.=]+", re.I), "Bearer ***REDACTED***"),
-    (re.compile(r"eyJ[a-zA-Z0-9_\-]+\.eyJ[a-zA-Z0-9_\-]+\.[a-zA-Z0-9_\-]+"), "eyJ***REDACTED***"),
+    (
+        re.compile(r"eyJ[a-zA-Z0-9_\-]+\.eyJ[a-zA-Z0-9_\-]+\.[a-zA-Z0-9_\-]+"),
+        "eyJ***REDACTED***",
+    ),
     # Passwords and Secrets in key-value pairs
     (
         re.compile(
@@ -45,7 +48,17 @@ def sanitize_sensitive_data(val: Any) -> Any:
     elif isinstance(val, dict):
         cleaned: Dict[str, Any] = {}
         for k, v in val.items():
-            if any(s in k.lower() for s in ("password", "secret", "token", "api_key", "apikey", "authorization")):
+            if any(
+                s in k.lower()
+                for s in (
+                    "password",
+                    "secret",
+                    "token",
+                    "api_key",
+                    "apikey",
+                    "authorization",
+                )
+            ):
                 cleaned[k] = "***REDACTED***"
             else:
                 cleaned[k] = sanitize_sensitive_data(v)

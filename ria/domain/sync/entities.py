@@ -27,12 +27,16 @@ class RepositoryState:
 
     def start_cloning(self) -> None:
         if self.status in (SyncStatus.LOCKED,):
-            raise InvalidStateTransitionError("Cannot start cloning a locked repository.")
+            raise InvalidStateTransitionError(
+                "Cannot start cloning a locked repository."
+            )
         self.status = SyncStatus.CLONING
 
     def start_syncing(self) -> None:
         if self.status in (SyncStatus.CLONING, SyncStatus.LOCKED):
-            raise InvalidStateTransitionError(f"Cannot start syncing from status {self.status.name}.")
+            raise InvalidStateTransitionError(
+                f"Cannot start syncing from status {self.status.name}."
+            )
         self.status = SyncStatus.SYNCING
 
     def mark_synchronized(

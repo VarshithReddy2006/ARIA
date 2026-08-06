@@ -21,13 +21,13 @@ To preserve runtime stability across SDK updates, dependencies are strictly boun
 ```toml
 [project]
 dependencies = [
-    "pydantic<2.7.0",
+    "pydantic>=2.8.0,<3.0.0",
     "mcp[cli]<2.0.0",
 ]
 ```
 
 ### Rationale
-- **FastMCP 1.x Compatibility**: FastMCP 1.x relies on `pydantic.create_model()` signature conventions. Pydantic versions `>=2.7.0` changed internal kwarg reflection schemas, triggering runtime validation exceptions during server startup.
+- **FastMCP & GenAI SDK Alignment**: Standardizing on `pydantic>=2.8.0,<3.0.0` satisfies `mcp[cli]` (requires `pydantic>=2.8.0`), `google-genai` (requires `pydantic>=2.7.0`), and `pydantic-settings` while protecting against breaking API changes in Pydantic v3.
 - **SDK 2.x Migration Protection**: FastMCP SDK 2.x refactored module namespaces (`mcp.server.fastmcp`). Bounding `mcp[cli]<2.0.0` prevents auto-upgrade breakage until SDK 2.x migration is formally certified.
 
 ---

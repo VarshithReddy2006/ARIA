@@ -1,16 +1,19 @@
 """CLI Argument Parser."""
 
 import argparse
-from typing import Any
 
 
 def create_cli_parser() -> argparse.ArgumentParser:
-    parser = argparse.ArgumentParser(prog="ria", description="Repository Intelligence Agent (RIA) v2 CLI")
+    parser = argparse.ArgumentParser(
+        prog="ria", description="Repository Intelligence Agent (RIA) v2 CLI"
+    )
     subparsers = parser.add_subparsers(dest="command", required=True)
 
     # ria init
     init_p = subparsers.add_parser("init", help="Initialize & register a repository")
-    init_p.add_argument("--remote-url", required=True, help="Remote Git URL or local repository path")
+    init_p.add_argument(
+        "--remote-url", required=True, help="Remote Git URL or local repository path"
+    )
     init_p.add_argument("--name", required=True, help="Repository name")
 
     # ria index
@@ -18,7 +21,9 @@ def create_cli_parser() -> argparse.ArgumentParser:
     idx_p.add_argument("--repo-id", required=True, help="Repository ID")
 
     # ria update
-    upd_p = subparsers.add_parser("update", help="Synchronize and incremental reindex repository")
+    upd_p = subparsers.add_parser(
+        "update", help="Synchronize and incremental reindex repository"
+    )
     upd_p.add_argument("--repo-id", required=True, help="Repository ID")
 
     # ria search
@@ -36,7 +41,9 @@ def create_cli_parser() -> argparse.ArgumentParser:
     ctx_p = subparsers.add_parser("context", help="Assemble semantic context package")
     ctx_p.add_argument("--repo-id", required=True, help="Repository ID")
     ctx_p.add_argument("--question", required=True, help="Question text")
-    ctx_p.add_argument("--max-tokens", type=int, default=4000, help="Maximum token budget")
+    ctx_p.add_argument(
+        "--max-tokens", type=int, default=4000, help="Maximum token budget"
+    )
 
     # ria ask
     ask_p = subparsers.add_parser("ask", help="Ask grounded natural language question")
@@ -44,7 +51,9 @@ def create_cli_parser() -> argparse.ArgumentParser:
     ask_p.add_argument("--question", required=True, help="Question text")
 
     # ria status
-    stat_p = subparsers.add_parser("status", help="Get repository synchronization status")
+    stat_p = subparsers.add_parser(
+        "status", help="Get repository synchronization status"
+    )
     stat_p.add_argument("--repo-id", required=True, help="Repository ID")
 
     # ria version
