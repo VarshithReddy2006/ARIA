@@ -10,7 +10,9 @@ class TaskScheduler:
     """Scheduler identifying tasks in TaskGraph ready for execution."""
 
     def get_ready_tasks(self, graph: TaskGraph) -> List[Task]:
-        completed_ids = {t.task_id.value for t in graph.tasks if t.status == TaskStatus.COMPLETED}
+        completed_ids = {
+            t.task_id.value for t in graph.tasks if t.status == TaskStatus.COMPLETED
+        }
         ready: list[Task] = []
 
         for task in graph.tasks:

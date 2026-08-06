@@ -205,7 +205,9 @@ async def get_impact_analysis(request: ImpactAnalysisRequest):
 class DiagramGenerationRequest(BaseModel):
     repo: str = Field(..., description="Repository identifier (owner/repo)")
     node_id: str = Field(..., description="Target node or file path")
-    diagram_type: str = Field("mermaid", description="mermaid | plantuml | adr | sequence")
+    diagram_type: str = Field(
+        "mermaid", description="mermaid | plantuml | adr | sequence"
+    )
 
 
 @router.get("/architecture/{owner}/{repo_name}/quality")
@@ -215,7 +217,9 @@ async def get_architecture_quality(owner: str, repo_name: str):
     try:
         edges = []
         if graph_service.graph_exists(full_repo):
-            gdata = graph_service.get_visualization_graph(full_repo, architecture_service, None)
+            gdata = graph_service.get_visualization_graph(
+                full_repo, architecture_service, None
+            )
             edges = gdata.get("edges", [])
 
         from services.architecture.cycle_detector import detect_cycles
@@ -246,7 +250,9 @@ async def get_architecture_cycles(owner: str, repo_name: str):
     try:
         edges = []
         if graph_service.graph_exists(full_repo):
-            gdata = graph_service.get_visualization_graph(full_repo, architecture_service, None)
+            gdata = graph_service.get_visualization_graph(
+                full_repo, architecture_service, None
+            )
             edges = gdata.get("edges", [])
         return detect_cycles(edges)
     except Exception as exc:
@@ -263,7 +269,9 @@ async def get_architecture_rule_violations(owner: str, repo_name: str):
     try:
         edges = []
         if graph_service.graph_exists(full_repo):
-            gdata = graph_service.get_visualization_graph(full_repo, architecture_service, None)
+            gdata = graph_service.get_visualization_graph(
+                full_repo, architecture_service, None
+            )
             edges = gdata.get("edges", [])
         return evaluate_rules(edges)
     except Exception as exc:
@@ -272,7 +280,9 @@ async def get_architecture_rule_violations(owner: str, repo_name: str):
 
 
 @router.get("/architecture/{owner}/{repo_name}/path")
-async def get_dependency_path(owner: str, repo_name: str, source: str = Query(...), target: str = Query(...)):
+async def get_dependency_path(
+    owner: str, repo_name: str, source: str = Query(...), target: str = Query(...)
+):
     """Trace shortest dependency path between source node and target node."""
     from services.architecture.impact_engine import find_shortest_path
 
@@ -280,7 +290,9 @@ async def get_dependency_path(owner: str, repo_name: str, source: str = Query(..
     try:
         edges = []
         if graph_service.graph_exists(full_repo):
-            gdata = graph_service.get_visualization_graph(full_repo, architecture_service, None)
+            gdata = graph_service.get_visualization_graph(
+                full_repo, architecture_service, None
+            )
             edges = gdata.get("edges", [])
         return find_shortest_path(source, target, edges)
     except Exception as exc:
@@ -307,7 +319,9 @@ async def get_node_architecture_details(owner: str, repo_name: str, node_id: str
 
     try:
         if graph_service.graph_exists(full_repo):
-            gdata = graph_service.get_visualization_graph(full_repo, architecture_service, None)
+            gdata = graph_service.get_visualization_graph(
+                full_repo, architecture_service, None
+            )
             edges = gdata.get("edges", [])
         neighbors = graph_service.get_node_neighbors(full_repo, node_id)
         if neighbors:
@@ -319,33 +333,37 @@ async def get_node_architecture_details(owner: str, repo_name: str, node_id: str
     metrics = compute_metrics(node_id, depends_on=depends_on, imported_by=imported_by)
     impact = compute_blast_radius(node_id, edges)
 
-    responsibility = (
-        f"Coordinates logic, component execution, and module interactions within the {layer} layer."
-    )
+    responsibility = f"Coordinates logic, component execution, and module interactions within the {layer} layer."
     if "api" in node_id.lower() or "router" in node_id.lower():
-        responsibility = "Exposes HTTP API router endpoints and handles incoming client requests."
+        responsibility = (
+            "Exposes HTTP API router endpoints and handles incoming client requests."
+        )
     elif "service" in node_id.lower():
         responsibility = "Encapsulates core business application logic and orchestrates domain operations."
 
     recommendations = []
     if metrics["fan_out"] > 8:
-        recommendations.append({
-            "title": "High Coupling / Fan-Out",
-            "reason": f"Module depends directly on {metrics['fan_out']} external files.",
-            "impact": "High risk of ripple-effect failures.",
-            "priority": "P1",
-            "estimated_improvement": "Reduces efferent coupling by 40%",
-            "suggestion": "Introduce Facade or Dependency Injection container to decouple dependencies."
-        })
+        recommendations.append(
+            {
+                "title": "High Coupling / Fan-Out",
+                "reason": f"Module depends directly on {metrics['fan_out']} external files.",
+                "impact": "High risk of ripple-effect failures.",
+                "priority": "P1",
+                "estimated_improvement": "Reduces efferent coupling by 40%",
+                "suggestion": "Introduce Facade or Dependency Injection container to decouple dependencies.",
+            }
+        )
     if metrics["lines_of_code"] > 300:
-        recommendations.append({
-            "title": "Large God Module",
-            "reason": f"Module contains {metrics['lines_of_code']} lines of code.",
-            "impact": "Difficult to test and maintain.",
-            "priority": "P0",
-            "estimated_improvement": "Improves Maintainability Index to 90+",
-            "suggestion": "Decompose module into single-responsibility helper functions or classes."
-        })
+        recommendations.append(
+            {
+                "title": "Large God Module",
+                "reason": f"Module contains {metrics['lines_of_code']} lines of code.",
+                "impact": "Difficult to test and maintain.",
+                "priority": "P0",
+                "estimated_improvement": "Improves Maintainability Index to 90+",
+                "suggestion": "Decompose module into single-responsibility helper functions or classes.",
+            }
+        )
 
     return {
         "node_id": node_id,
@@ -356,7 +374,18 @@ async def get_node_architecture_details(owner: str, repo_name: str, node_id: str
         "system_position": {
             "distance_from_entry_point": 1 if layer == "Presentation" else 2,
             "distance_from_infrastructure": 1 if layer == "Infrastructure" else 3,
-            "layer_number": ["Presentation", "Application", "Domain", "Infrastructure", "Data", "Integration", "Shared", "Test", "Configuration"].index(layer) + 1,
+            "layer_number": [
+                "Presentation",
+                "Application",
+                "Domain",
+                "Infrastructure",
+                "Data",
+                "Integration",
+                "Shared",
+                "Test",
+                "Configuration",
+            ].index(layer)
+            + 1,
             "dependency_depth": len(depends_on) + 1,
             "max_dependency_chain": max(len(depends_on), len(imported_by)) + 1,
         },
@@ -383,7 +412,9 @@ async def get_node_architecture_details(owner: str, repo_name: str, node_id: str
             "common_modification_reasons": None,
             "changed_together_files": None,
             "related_tests": None,
-            "potential_side_effects": [f"Affects {len(imported_by)} dependent consumer files."],
+            "potential_side_effects": [
+                f"Affects {len(imported_by)} dependent consumer files."
+            ],
         },
         "suggested_reading_order": None,
     }

@@ -19,7 +19,9 @@ logger = logging.getLogger(__name__)
 
 @contextmanager
 def time_operation(
-    operation_name: str, repository: Optional[str] = None, slow_threshold: Optional[float] = None
+    operation_name: str,
+    repository: Optional[str] = None,
+    slow_threshold: Optional[float] = None,
 ) -> Generator[None, None, None]:
     """Instrument an operational block, recording duration to metrics and logging slow warnings."""
     start = time.time()

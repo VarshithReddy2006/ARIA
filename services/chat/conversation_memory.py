@@ -24,7 +24,6 @@ from dataclasses import dataclass, field
 from typing import Dict, List, Optional
 
 from services.chat.conversation_context import ConversationContext
-from services.chat.conversation_settings import ConversationSettings
 
 logger = logging.getLogger(__name__)
 
@@ -130,16 +129,31 @@ class ConversationSession:
 
         ctx = self.get_context()
         if ctx.current_file or ctx.recently_discussed_symbols:
-            target = ctx.current_file or (ctx.recently_discussed_symbols[0] if ctx.recently_discussed_symbols else None)
+            target = ctx.current_file or (
+                ctx.recently_discussed_symbols[0]
+                if ctx.recently_discussed_symbols
+                else None
+            )
             if target:
                 q_lower = question.lower().strip()
                 if self.last_entities:
                     last = self.last_entities[0]
-                    for p in [" it ", " it?", " it.", " it,", " this?", " that?", " them ", " them?"]:
+                    for p in [
+                        " it ",
+                        " it?",
+                        " it.",
+                        " it,",
+                        " this?",
+                        " that?",
+                        " them ",
+                        " them?",
+                    ]:
                         if p in f" {q_lower} ":
                             question = question.replace(p.strip(), last, 1)
                             break
-                    if q_lower.startswith(("what calls it", "who calls it", "what uses it")):
+                    if q_lower.startswith(
+                        ("what calls it", "who calls it", "what uses it")
+                    ):
                         question = question.replace("it", last, 1)
 
         return question
@@ -168,7 +182,11 @@ class ConversationMemoryStore:
         repo_name: str,
         session_id: Optional[str] = None,
     ) -> ConversationSession:
-        resolved_session_id = session_id.strip() if session_id and session_id.strip() else uuid.uuid4().hex
+        resolved_session_id = (
+            session_id.strip()
+            if session_id and session_id.strip()
+            else uuid.uuid4().hex
+        )
         key = self._session_key(repo_name, resolved_session_id)
         with self._lock:
             self._evict_expired()

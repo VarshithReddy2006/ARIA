@@ -5,7 +5,11 @@ from dataclasses import dataclass
 from ria.domain.common.base import ValueObject
 from ria.domain.common.value_objects import Timestamp
 from ria.domain.snapshot.value_objects import RepositorySnapshotId, SnapshotMetadata
-from ria.domain.sync.value_objects import BranchReference, CommitReference, RepositoryIdentity
+from ria.domain.sync.value_objects import (
+    BranchReference,
+    CommitReference,
+    RepositoryIdentity,
+)
 
 
 @dataclass(frozen=True, slots=True)

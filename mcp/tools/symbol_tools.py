@@ -58,7 +58,9 @@ def register(server: Any) -> None:
         from mcp.observability import mcp_request_context
         from mcp.dependencies import get_symbol_service
 
-        with mcp_request_context("get_file_symbols", {"owner": owner, "repo": repo, "file_path": file_path}):
+        with mcp_request_context(
+            "get_file_symbols", {"owner": owner, "repo": repo, "file_path": file_path}
+        ):
             with tool_boundary("get_file_symbols"):
                 repo_name = require_repo(owner, repo)
                 path = require_text("file_path", file_path)
@@ -70,7 +72,10 @@ def register(server: Any) -> None:
                     raise ToolFailure(
                         f"No symbol index found for file '{path}' in repo '{repo_name}'."
                     )
-                result = [sym.model_dump() if hasattr(sym, "model_dump") else sym for sym in symbols]
+                result = [
+                    sym.model_dump() if hasattr(sym, "model_dump") else sym
+                    for sym in symbols
+                ]
                 return json.dumps(result, indent=2, default=str)
 
     @server.tool()
@@ -85,7 +90,10 @@ def register(server: Any) -> None:
         from mcp.observability import mcp_request_context
         from mcp.dependencies import get_symbol_service
 
-        with mcp_request_context("get_symbol_definition", {"owner": owner, "repo": repo, "symbol_name": symbol_name}):
+        with mcp_request_context(
+            "get_symbol_definition",
+            {"owner": owner, "repo": repo, "symbol_name": symbol_name},
+        ):
             with tool_boundary("get_symbol_definition"):
                 repo_name = require_repo(owner, repo)
                 name = require_text("symbol_name", symbol_name)
@@ -95,7 +103,9 @@ def register(server: Any) -> None:
                     raise ToolFailure(
                         f"Symbol '{name}' not found in repo '{repo_name}'."
                     )
-                result = symbol.model_dump() if hasattr(symbol, "model_dump") else symbol
+                result = (
+                    symbol.model_dump() if hasattr(symbol, "model_dump") else symbol
+                )
                 return json.dumps(result, indent=2, default=str)
 
     @server.tool()
@@ -110,7 +120,10 @@ def register(server: Any) -> None:
         from mcp.observability import mcp_request_context
         from mcp.dependencies import get_symbol_service
 
-        with mcp_request_context("get_symbol_references", {"owner": owner, "repo": repo, "symbol_name": symbol_name}):
+        with mcp_request_context(
+            "get_symbol_references",
+            {"owner": owner, "repo": repo, "symbol_name": symbol_name},
+        ):
             with tool_boundary("get_symbol_references"):
                 repo_name = require_repo(owner, repo)
                 name = require_text("symbol_name", symbol_name)

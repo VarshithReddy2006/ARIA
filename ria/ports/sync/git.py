@@ -33,7 +33,9 @@ class GitClientPort(Protocol):
         """Query current HEAD commit SHA and timestamp."""
         ...
 
-    def detect_changed_files(self, repo_dir: Path, base_sha: str, head_sha: str) -> Sequence[FilePath]:
+    def detect_changed_files(
+        self, repo_dir: Path, base_sha: str, head_sha: str
+    ) -> Sequence[FilePath]:
         """Compute list of relative FilePaths modified between base_sha and head_sha."""
         ...
 

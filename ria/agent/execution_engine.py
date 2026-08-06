@@ -38,10 +38,16 @@ class ExecutionEngine(ExecutionEnginePort):
                 break
 
             for task in ready_tasks:
-                t_idx = next(i for i, t in enumerate(updated_tasks) if t.task_id == task.task_id)
-                tool_exec = tool_registry.invoke_tool(task.step.tool_name, task.step.parameters)
-                
-                status = TaskStatus.COMPLETED if tool_exec.is_success else TaskStatus.FAILED
+                t_idx = next(
+                    i for i, t in enumerate(updated_tasks) if t.task_id == task.task_id
+                )
+                tool_exec = tool_registry.invoke_tool(
+                    task.step.tool_name, task.step.parameters
+                )
+
+                status = (
+                    TaskStatus.COMPLETED if tool_exec.is_success else TaskStatus.FAILED
+                )
                 completed_task = Task(
                     task_id=task.task_id,
                     step=task.step,
@@ -52,6 +58,8 @@ class ExecutionEngine(ExecutionEnginePort):
                 updated_tasks[t_idx] = completed_task
                 graph = graph.__class__(tasks=tuple(updated_tasks))
 
-                ctx = self._ctx_manager.update_context(ctx, task.task_id, tool_exec.output)
+                ctx = self._ctx_manager.update_context(
+                    ctx, task.task_id, tool_exec.output
+                )
 
         return ctx

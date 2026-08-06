@@ -199,11 +199,16 @@ class GraphService:
         with self._lock:
             # Safely purge legacy .pkl file if present
             if os.path.exists(pkl_path):
-                logger.warning("Purging legacy pickle graph file %s for security reasons.", pkl_path)
+                logger.warning(
+                    "Purging legacy pickle graph file %s for security reasons.",
+                    pkl_path,
+                )
                 try:
                     os.remove(pkl_path)
                 except Exception as exc:
-                    logger.warning("Could not remove legacy pickle file %s: %s", pkl_path, exc)
+                    logger.warning(
+                        "Could not remove legacy pickle file %s: %s", pkl_path, exc
+                    )
 
             if not os.path.exists(json_path):
                 return None
@@ -211,7 +216,11 @@ class GraphService:
             try:
                 with open(json_path, "r", encoding="utf-8") as fh:
                     payload = json.load(fh)
-                graph_data = payload.get("graph_data", payload) if isinstance(payload, dict) else payload
+                graph_data = (
+                    payload.get("graph_data", payload)
+                    if isinstance(payload, dict)
+                    else payload
+                )
                 graph = nx.node_link_graph(graph_data)
                 logger.info("Graph loaded from %s", json_path)
                 return graph

@@ -1,7 +1,7 @@
 """Immutable Index Units for C1 Index Core."""
 
 from dataclasses import dataclass, field
-from typing import Dict, Optional, Tuple
+from typing import Optional, Tuple
 
 from ria.domain.common.base import ValueObject
 from ria.domain.common.value_objects import Timestamp, UUIDv4

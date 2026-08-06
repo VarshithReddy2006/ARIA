@@ -4,7 +4,11 @@ import subprocess
 import time
 from pathlib import Path
 
-from ria.application.incremental import IncrementalApplicationService, IncrementalUpdateCommandDTO, UpdateRepositoryUseCase
+from ria.application.incremental import (
+    IncrementalApplicationService,
+    IncrementalUpdateCommandDTO,
+    UpdateRepositoryUseCase,
+)
 from ria.application.index import (
     FileDiscovery,
     IndexBatchAssembler,
@@ -13,7 +17,11 @@ from ria.application.index import (
     LanguageDetection,
     RepositoryScanner,
 )
-from ria.application.resolution import ResolveAndStoreCommand, ResolveAndStoreUseCase, ResolutionApplicationService
+from ria.application.resolution import (
+    ResolveAndStoreCommand,
+    ResolveAndStoreUseCase,
+    ResolutionApplicationService,
+)
 from ria.application.sync import (
     RegisterRepositoryCommand,
     RegisterRepositoryUseCase,
@@ -21,7 +29,7 @@ from ria.application.sync import (
     SynchronizeRepositoryUseCase,
 )
 from ria.config import Container, Settings
-from ria.domain.index.value_objects import FilePath, Language
+from ria.domain.index.value_objects import Language
 from ria.infrastructure.storage import SQLiteFactStoreAdapter
 from ria.incremental import (
     CacheInvalidator,
@@ -32,7 +40,13 @@ from ria.incremental import (
     IncrementalScheduler,
     SnapshotManager,
 )
-from ria.plugins import PluginLoader, PluginRegistry, JavaScriptTreeSitterPlugin, PythonTreeSitterPlugin, TypeScriptTreeSitterPlugin
+from ria.plugins import (
+    PluginLoader,
+    PluginRegistry,
+    JavaScriptTreeSitterPlugin,
+    PythonTreeSitterPlugin,
+    TypeScriptTreeSitterPlugin,
+)
 from ria.query.cache import QueryCache
 from ria.resolution import (
     JavaScriptLanguageResolver,
@@ -51,14 +65,20 @@ def test_full_incremental_indexing_end_to_end_pipeline(tmp_path: Path) -> None:
     origin_dir = tmp_path / "inc_origin"
     origin_dir.mkdir()
     subprocess.run(["git", "init"], cwd=origin_dir, check=True)
-    subprocess.run(["git", "config", "user.name", "TestRunner"], cwd=origin_dir, check=True)
-    subprocess.run(["git", "config", "user.email", "runner@test.com"], cwd=origin_dir, check=True)
+    subprocess.run(
+        ["git", "config", "user.name", "TestRunner"], cwd=origin_dir, check=True
+    )
+    subprocess.run(
+        ["git", "config", "user.email", "runner@test.com"], cwd=origin_dir, check=True
+    )
 
     f1 = origin_dir / "main.py"
     f1.write_text("def run():\n    print('start')\n")
 
     f2 = origin_dir / "auth.py"
-    f2.write_text("class Authenticator:\n    def login(self) -> bool:\n        return True\n")
+    f2.write_text(
+        "class Authenticator:\n    def login(self) -> bool:\n        return True\n"
+    )
 
     f3 = origin_dir / "utils.py"
     f3.write_text("def helper():\n    return 42\n")
@@ -71,6 +91,7 @@ def test_full_incremental_indexing_end_to_end_pipeline(tmp_path: Path) -> None:
     container = Container.create(settings)
 
     from ria.application.sync import RepositorySyncService
+
     sync_service = RepositorySyncService(
         git_client=container.git_client,
         registry=container.repository_registry,
@@ -83,14 +104,20 @@ def test_full_incremental_indexing_end_to_end_pipeline(tmp_path: Path) -> None:
     reg_use_case = RegisterRepositoryUseCase(sync_service)
     sync_use_case = SynchronizeRepositoryUseCase(sync_service)
 
-    status_dto = reg_use_case.execute(RegisterRepositoryCommand(remote_url=str(origin_dir), name="inc_origin"))
-    sync_dto = sync_use_case.execute(SynchronizeRepositoryCommand(repo_id=status_dto.repo_id))
+    status_dto = reg_use_case.execute(
+        RegisterRepositoryCommand(remote_url=str(origin_dir), name="inc_origin")
+    )
+    sync_dto = sync_use_case.execute(
+        SynchronizeRepositoryCommand(repo_id=status_dto.repo_id)
+    )
     assert sync_dto.is_success
 
     # 3. Setup Index & Resolution Pipelines
     discovery = FileDiscovery(filesystem=container.filesystem)
     lang_detect = LanguageDetection(filesystem=container.filesystem)
-    scanner = RepositoryScanner(discovery, lang_detect, container.filesystem, container.hashing)
+    scanner = RepositoryScanner(
+        discovery, lang_detect, container.filesystem, container.hashing
+    )
 
     plugin_registry = PluginRegistry()
     loader = PluginLoader(plugin_registry)
@@ -116,8 +143,12 @@ def test_full_incremental_indexing_end_to_end_pipeline(tmp_path: Path) -> None:
 
     resolver_registry = LanguageResolverRegistry()
     resolver_registry.register_resolver(Language.PYTHON, PythonLanguageResolver())
-    resolver_registry.register_resolver(Language.TYPESCRIPT, TypeScriptLanguageResolver())
-    resolver_registry.register_resolver(Language.JAVASCRIPT, JavaScriptLanguageResolver())
+    resolver_registry.register_resolver(
+        Language.TYPESCRIPT, TypeScriptLanguageResolver()
+    )
+    resolver_registry.register_resolver(
+        Language.JAVASCRIPT, JavaScriptLanguageResolver()
+    )
 
     res_engine = ResolutionEngine(resolver_registry=resolver_registry)
     fact_store = SQLiteFactStoreAdapter(db_path=tmp_path / "fact_store.db")
@@ -137,7 +168,9 @@ def test_full_incremental_indexing_end_to_end_pipeline(tmp_path: Path) -> None:
     assert fact_dto.total_symbols >= 3
 
     # 4. Modify ONLY auth.py for Commit 2
-    f2.write_text("class Authenticator:\n    def login(self) -> bool:\n        return True\n    def logout(self) -> bool:\n        return True\n")
+    f2.write_text(
+        "class Authenticator:\n    def login(self) -> bool:\n        return True\n    def logout(self) -> bool:\n        return True\n"
+    )
     subprocess.run(["git", "add", "auth.py"], cwd=origin_dir, check=True)
     subprocess.run(["git", "commit", "-m", "Commit 2"], cwd=origin_dir, check=True)
 
@@ -180,7 +213,9 @@ def test_full_incremental_indexing_end_to_end_pipeline(tmp_path: Path) -> None:
 
     # 6. Execute Incremental Update & Measure Performance
     t0 = time.perf_counter()
-    inc_dto = update_use_case.execute(IncrementalUpdateCommandDTO(repo_id=status_dto.repo_id))
+    inc_dto = update_use_case.execute(
+        IncrementalUpdateCommandDTO(repo_id=status_dto.repo_id)
+    )
     elapsed_ms = (time.perf_counter() - t0) * 1000.0
 
     # 7. Assertions
@@ -191,9 +226,13 @@ def test_full_incremental_indexing_end_to_end_pipeline(tmp_path: Path) -> None:
 
     # 8. Assert updated symbols in FactStore
     all_states = container.repository_registry.list_all()
-    repo_state = next(st for st in all_states if st.identity.repo_id.value == status_dto.repo_id)
+    repo_state = next(
+        st for st in all_states if st.identity.repo_id.value == status_dto.repo_id
+    )
     assert repo_state.current_commit is not None
 
-    stored_symbols = fact_store.get_symbols(repo_state.identity, repo_state.current_commit)
+    stored_symbols = fact_store.get_symbols(
+        repo_state.identity, repo_state.current_commit
+    )
     stored_names = {sym.name for sym in stored_symbols}
     assert "logout" in stored_names

@@ -1,7 +1,5 @@
 """Agent Runtime implementing RuntimePort."""
 
-import time
-
 from ria.domain.common.value_objects import UUIDv4
 from ria.domain.agent.entities import ExecutionResult
 from ria.domain.agent.value_objects import Goal

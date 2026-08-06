@@ -218,14 +218,27 @@ class EvaluationAgent:
         # Enforce deterministic verifier: citations_valid is True ONLY IF deterministic verifier succeeded
         citations_valid = citation_report.citations_valid and llm_citations_valid
 
-        hallucination_detected = bool(data.get("hallucination_detected", False)) or (len(citation_report.unresolved) > 0)
-        confidence_score = max(0.0, min(1.0, float(data.get("confidence_score", 0.0 if not citations_valid else 1.0))))
+        hallucination_detected = bool(data.get("hallucination_detected", False)) or (
+            len(citation_report.unresolved) > 0
+        )
+        confidence_score = max(
+            0.0,
+            min(
+                1.0,
+                float(
+                    data.get("confidence_score", 0.0 if not citations_valid else 1.0)
+                ),
+            ),
+        )
         feedback = str(data.get("feedback", citation_report.feedback))
         unsupported_claims = list(data.get("unsupported_claims", []))
 
         # Merge unknown files from verifier and LLM
         unknown_files = list(
-            set([c.file_path for c in citation_report.unresolved] + list(data.get("unknown_files", [])))
+            set(
+                [c.file_path for c in citation_report.unresolved]
+                + list(data.get("unknown_files", []))
+            )
         )
 
         used_chunks_indices = list(data.get("used_chunks_indices", []))

@@ -10,7 +10,7 @@ from __future__ import annotations
 import os
 import re
 import logging
-from typing import Any, Dict, List, Optional, Tuple, Set
+from typing import Any, List, Optional, Tuple, Set
 from pydantic import BaseModel, Field
 
 logger = logging.getLogger(__name__)
@@ -100,7 +100,9 @@ class CitationVerifier:
 
             # Check line numbers if disk file available
             if resolved_file_path and (start_line is not None or end_line is not None):
-                line_ok, reason = self._verify_line_range(resolved_file_path, start_line, end_line)
+                line_ok, reason = self._verify_line_range(
+                    resolved_file_path, start_line, end_line
+                )
                 if not line_ok:
                     unresolved.append(
                         Citation(

@@ -54,14 +54,18 @@ class SQLiteRepositoryRegistryAdapter(RepositoryRegistryPort):
             conn.row_factory = sqlite3.Row
             return conn
         except sqlite3.Error as err:
-            raise DatabaseError(f"Failed to connect to SQLite database '{self._db_path}': {err}") from err
+            raise DatabaseError(
+                f"Failed to connect to SQLite database '{self._db_path}': {err}"
+            ) from err
 
     def _init_db(self) -> None:
         with self._get_connection() as conn:
             try:
                 conn.execute(self.CREATE_TABLE_SQL)
             except sqlite3.Error as err:
-                raise DatabaseError(f"Failed to initialize SQLite table 'repository_state': {err}") from err
+                raise DatabaseError(
+                    f"Failed to initialize SQLite table 'repository_state': {err}"
+                ) from err
 
     def save_state(self, state: RepositoryState) -> None:
         """Persist or update RepositoryState aggregate root."""
@@ -83,7 +87,11 @@ class SQLiteRepositoryRegistryAdapter(RepositoryRegistryPort):
         """
         curr_branch_name = state.current_branch.name if state.current_branch else None
         curr_sha = state.current_commit.sha if state.current_commit else None
-        curr_time = state.current_commit.committed_at.iso_format if state.current_commit else None
+        curr_time = (
+            state.current_commit.committed_at.iso_format
+            if state.current_commit
+            else None
+        )
         last_sync = state.last_synced_at.iso_format if state.last_synced_at else None
 
         with self._get_connection() as conn:
@@ -106,7 +114,9 @@ class SQLiteRepositoryRegistryAdapter(RepositoryRegistryPort):
                     ),
                 )
             except sqlite3.Error as err:
-                raise DatabaseError(f"Failed to save repository state for '{state.identity.repo_id.value}': {err}") from err
+                raise DatabaseError(
+                    f"Failed to save repository state for '{state.identity.repo_id.value}': {err}"
+                ) from err
 
     def _row_to_state(self, row: sqlite3.Row) -> RepositoryState:
         identity = RepositoryIdentity(
@@ -160,7 +170,9 @@ class SQLiteRepositoryRegistryAdapter(RepositoryRegistryPort):
                     return None
                 return self._row_to_state(row)
             except sqlite3.Error as err:
-                raise DatabaseError(f"Failed to get repository state for '{repo_id.repo_id.value}': {err}") from err
+                raise DatabaseError(
+                    f"Failed to get repository state for '{repo_id.repo_id.value}': {err}"
+                ) from err
 
     def list_all(self) -> Sequence[RepositoryState]:
         """Retrieve list of all registered repository states."""
@@ -171,7 +183,9 @@ class SQLiteRepositoryRegistryAdapter(RepositoryRegistryPort):
                 rows = cursor.fetchall()
                 return tuple(self._row_to_state(row) for row in rows)
             except sqlite3.Error as err:
-                raise DatabaseError(f"Failed to list all repository states: {err}") from err
+                raise DatabaseError(
+                    f"Failed to list all repository states: {err}"
+                ) from err
 
     def delete_state(self, repo_id: RepositoryIdentity) -> bool:
         """Remove repository state record. Returns True if deleted, False if not found."""
@@ -181,4 +195,6 @@ class SQLiteRepositoryRegistryAdapter(RepositoryRegistryPort):
                 cursor = conn.execute(sql, (repo_id.repo_id.value,))
                 return cursor.rowcount > 0
             except sqlite3.Error as err:
-                raise DatabaseError(f"Failed to delete repository state '{repo_id.repo_id.value}': {err}") from err
+                raise DatabaseError(
+                    f"Failed to delete repository state '{repo_id.repo_id.value}': {err}"
+                ) from err

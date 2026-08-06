@@ -1,6 +1,5 @@
 """Unit tests verifying import and initialization interface for agent classes."""
 
-import pytest
 from agents import (
     IssueMapper,
     EvaluationAgent,

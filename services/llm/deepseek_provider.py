@@ -350,7 +350,9 @@ class DeepSeekProvider(BaseLLMProvider):
                                     continue
 
                                 choice = choices[0]
-                                finish_reason = choice.get("finish_reason") or finish_reason
+                                finish_reason = (
+                                    choice.get("finish_reason") or finish_reason
+                                )
                                 delta = choice.get("delta", {})
                                 message = choice.get("message", {})
 
@@ -361,7 +363,9 @@ class DeepSeekProvider(BaseLLMProvider):
                                 if isinstance(delta, dict) and delta.get("content"):
                                     text = delta["content"]
                                     source = "delta.content"
-                                elif isinstance(delta, dict) and delta.get("reasoning_content"):
+                                elif isinstance(delta, dict) and delta.get(
+                                    "reasoning_content"
+                                ):
                                     text = delta["reasoning_content"]
                                     source = "delta.reasoning_content"
                                 elif isinstance(delta, dict) and delta.get("reasoning"):
@@ -370,7 +374,9 @@ class DeepSeekProvider(BaseLLMProvider):
                                 elif choice.get("text"):
                                     text = choice["text"]
                                     source = "choices[].text"
-                                elif isinstance(message, dict) and message.get("content"):
+                                elif isinstance(message, dict) and message.get(
+                                    "content"
+                                ):
                                     text = message["content"]
                                     source = "message.content"
 
@@ -395,7 +401,11 @@ class DeepSeekProvider(BaseLLMProvider):
                                     yield text
 
                             except Exception as parse_exc:
-                                logger.debug("DeepSeek stream parse error on chunk '%s': %s", raw[:50], parse_exc)
+                                logger.debug(
+                                    "DeepSeek stream parse error on chunk '%s': %s",
+                                    raw[:50],
+                                    parse_exc,
+                                )
                                 continue
 
                 # Stream completed HTTP iteration — validate non-empty completion text

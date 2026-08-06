@@ -2,7 +2,7 @@
 
 from typing import Protocol, runtime_checkable
 
-from ria.domain.agent.entities import ExecutionContext, TaskGraph
+from ria.domain.agent.entities import ExecutionContext
 from ria.domain.agent.value_objects import ExecutionPlan
 from ria.ports.agent.tool_registry import ToolRegistryPort
 

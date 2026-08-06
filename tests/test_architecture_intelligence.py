@@ -9,7 +9,6 @@ Verifies:
 
 from __future__ import annotations
 
-import pytest
 from fastapi.testclient import TestClient
 
 from services.architecture.layer_classifier import classify_layer
@@ -45,7 +44,9 @@ def test_pattern_detector():
     di_patterns = detect_patterns("backend/dependencies.py", content="def inject_db():")
     assert "Dependency Injection" in di_patterns
 
-    pipe_patterns = detect_patterns("services/chat/retrieval_pipeline.py", content="pipeline = Step()")
+    pipe_patterns = detect_patterns(
+        "services/chat/retrieval_pipeline.py", content="pipeline = Step()"
+    )
     assert "Pipeline" in pipe_patterns
 
 
@@ -86,7 +87,9 @@ def test_diagram_generator():
 
 def test_api_node_details_endpoint():
     """Verify GET /api/architecture/{owner}/{repo}/node-details/{node_id}."""
-    resp = client.get("/api/architecture/VarshithReddy2006/Repo-Intelligence-Agent/node-details/services/chat/retrieval_pipeline.py")
+    resp = client.get(
+        "/api/architecture/VarshithReddy2006/Repo-Intelligence-Agent/node-details/services/chat/retrieval_pipeline.py"
+    )
     assert resp.status_code == 200
     data = resp.json()
     assert data["node_id"] == "services/chat/retrieval_pipeline.py"
@@ -121,7 +124,9 @@ def test_api_node_details_does_not_fabricate_git_metadata():
 
 
 def test_architecture_quality_marks_unsupported_scores_unavailable():
-    resp = client.get("/api/architecture/VarshithReddy2006/Repo-Intelligence-Agent/quality")
+    resp = client.get(
+        "/api/architecture/VarshithReddy2006/Repo-Intelligence-Agent/quality"
+    )
     assert resp.status_code == 200
     payload = resp.json()
     assert payload["overall_score"] is None

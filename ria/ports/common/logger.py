@@ -1,6 +1,6 @@
 """Logger Port abstraction for structured logging."""
 
-from typing import Mapping, Protocol, Union, runtime_checkable
+from typing import Protocol, Union, runtime_checkable
 
 LogContextValue = Union[str, int, float, bool, None]
 
@@ -25,6 +25,8 @@ class LoggerPort(Protocol):
         """Emit a warning level structured log message with optional key-value context."""
         ...
 
-    def error(self, message: str, exc: Exception | None = None, **context: LogContextValue) -> None:
+    def error(
+        self, message: str, exc: Exception | None = None, **context: LogContextValue
+    ) -> None:
         """Emit an error level structured log message with optional exception and context."""
         ...

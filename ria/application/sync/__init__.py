@@ -12,7 +12,10 @@ from ria.application.sync.exceptions import (
     SyncApplicationException,
 )
 from ria.application.sync.service import RepositorySyncService
-from ria.application.sync.use_cases import RegisterRepositoryUseCase, SynchronizeRepositoryUseCase
+from ria.application.sync.use_cases import (
+    RegisterRepositoryUseCase,
+    SynchronizeRepositoryUseCase,
+)
 
 __all__ = [
     "RegisterRepositoryCommand",

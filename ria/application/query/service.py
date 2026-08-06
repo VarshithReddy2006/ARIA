@@ -35,7 +35,9 @@ class QueryApplicationService:
         self._logger = logger
         self._metrics = metrics
 
-    def _get_active_repo_and_commit(self, repo_id_str: str) -> tuple[Optional[RepositoryState], Optional[QueryResult]]:
+    def _get_active_repo_and_commit(
+        self, repo_id_str: str
+    ) -> tuple[Optional[RepositoryState], Optional[QueryResult]]:
         for st in self._registry.list_all():
             if st.identity.repo_id.value == repo_id_str:
                 if st.current_commit is None:
@@ -43,13 +45,22 @@ class QueryApplicationService:
                 return st, None
         return None, None
 
-    def find_definition(self, repo_id_str: str, symbol_moniker: Optional[str] = None, symbol_name: Optional[str] = None) -> QueryResult:
+    def find_definition(
+        self,
+        repo_id_str: str,
+        symbol_moniker: Optional[str] = None,
+        symbol_name: Optional[str] = None,
+    ) -> QueryResult:
         st, err_res = self._get_active_repo_and_commit(repo_id_str)
         if st is None or st.current_commit is None:
-            raise ValueError(f"Repository '{repo_id_str}' is not registered or synchronized.")
+            raise ValueError(
+                f"Repository '{repo_id_str}' is not registered or synchronized."
+            )
 
         criteria = QueryCriteria(
-            symbol_moniker=SymbolMoniker(value=symbol_moniker) if symbol_moniker else None,
+            symbol_moniker=SymbolMoniker(value=symbol_moniker)
+            if symbol_moniker
+            else None,
             symbol_name=symbol_name,
         )
         query = Query(
@@ -57,12 +68,16 @@ class QueryApplicationService:
             query_type=QueryType.GO_TO_DEFINITION,
             criteria=criteria,
         )
-        return self._engine.execute_query(query, self._fact_store, st.identity, st.current_commit)
+        return self._engine.execute_query(
+            query, self._fact_store, st.identity, st.current_commit
+        )
 
     def find_references(self, repo_id_str: str, symbol_moniker: str) -> QueryResult:
         st, _ = self._get_active_repo_and_commit(repo_id_str)
         if st is None or st.current_commit is None:
-            raise ValueError(f"Repository '{repo_id_str}' is not registered or synchronized.")
+            raise ValueError(
+                f"Repository '{repo_id_str}' is not registered or synchronized."
+            )
 
         criteria = QueryCriteria(symbol_moniker=SymbolMoniker(value=symbol_moniker))
         query = Query(
@@ -70,12 +85,18 @@ class QueryApplicationService:
             query_type=QueryType.FIND_REFERENCES,
             criteria=criteria,
         )
-        return self._engine.execute_query(query, self._fact_store, st.identity, st.current_commit)
+        return self._engine.execute_query(
+            query, self._fact_store, st.identity, st.current_commit
+        )
 
-    def find_call_hierarchy(self, repo_id_str: str, symbol_moniker: str, is_callers: bool = True) -> QueryResult:
+    def find_call_hierarchy(
+        self, repo_id_str: str, symbol_moniker: str, is_callers: bool = True
+    ) -> QueryResult:
         st, _ = self._get_active_repo_and_commit(repo_id_str)
         if st is None or st.current_commit is None:
-            raise ValueError(f"Repository '{repo_id_str}' is not registered or synchronized.")
+            raise ValueError(
+                f"Repository '{repo_id_str}' is not registered or synchronized."
+            )
 
         qtype = QueryType.FIND_CALLERS if is_callers else QueryType.FIND_CALLEES
         criteria = QueryCriteria(symbol_moniker=SymbolMoniker(value=symbol_moniker))
@@ -84,12 +105,18 @@ class QueryApplicationService:
             query_type=qtype,
             criteria=criteria,
         )
-        return self._engine.execute_query(query, self._fact_store, st.identity, st.current_commit)
+        return self._engine.execute_query(
+            query, self._fact_store, st.identity, st.current_commit
+        )
 
-    def search_symbols(self, repo_id_str: str, query_name: str, max_results: int = 50) -> QueryResult:
+    def search_symbols(
+        self, repo_id_str: str, query_name: str, max_results: int = 50
+    ) -> QueryResult:
         st, _ = self._get_active_repo_and_commit(repo_id_str)
         if st is None or st.current_commit is None:
-            raise ValueError(f"Repository '{repo_id_str}' is not registered or synchronized.")
+            raise ValueError(
+                f"Repository '{repo_id_str}' is not registered or synchronized."
+            )
 
         criteria = QueryCriteria(symbol_name=query_name, max_results=max_results)
         query = Query(
@@ -97,17 +124,27 @@ class QueryApplicationService:
             query_type=QueryType.SYMBOL_SEARCH,
             criteria=criteria,
         )
-        return self._engine.execute_query(query, self._fact_store, st.identity, st.current_commit)
+        return self._engine.execute_query(
+            query, self._fact_store, st.identity, st.current_commit
+        )
 
-    def analyze_dependencies(self, repo_id_str: str, file_path_str: Optional[str] = None) -> QueryResult:
+    def analyze_dependencies(
+        self, repo_id_str: str, file_path_str: Optional[str] = None
+    ) -> QueryResult:
         st, _ = self._get_active_repo_and_commit(repo_id_str)
         if st is None or st.current_commit is None:
-            raise ValueError(f"Repository '{repo_id_str}' is not registered or synchronized.")
+            raise ValueError(
+                f"Repository '{repo_id_str}' is not registered or synchronized."
+            )
 
-        criteria = QueryCriteria(file_path=FilePath(relative_path=file_path_str) if file_path_str else None)
+        criteria = QueryCriteria(
+            file_path=FilePath(relative_path=file_path_str) if file_path_str else None
+        )
         query = Query(
             query_id=UUIDv4.generate().value,
             query_type=QueryType.DEPENDENCY_ANALYSIS,
             criteria=criteria,
         )
-        return self._engine.execute_query(query, self._fact_store, st.identity, st.current_commit)
+        return self._engine.execute_query(
+            query, self._fact_store, st.identity, st.current_commit
+        )

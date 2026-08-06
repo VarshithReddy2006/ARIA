@@ -6,7 +6,6 @@
 """
 
 import ast
-import os
 from pathlib import Path
 import pytest
 
@@ -35,12 +34,13 @@ def _remove_legacy_main():
             pass
 
 
-
 def test_deleted_dead_modules_do_not_exist():
     """Verify that all 7 confirmed dead modules remain deleted from the repository."""
     for rel_path in DELETED_DEAD_MODULES:
         full_path = PROJECT_ROOT / rel_path
-        assert not full_path.exists(), f"Dead module '{rel_path}' exists but should have been deleted."
+        assert not full_path.exists(), (
+            f"Dead module '{rel_path}' exists but should have been deleted."
+        )
 
 
 def test_single_fastapi_app_instance_in_production_codebase():

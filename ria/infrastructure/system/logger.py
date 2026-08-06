@@ -1,7 +1,6 @@
 """Standard Logging Adapter implementing LoggerPort."""
 
 import logging
-from typing import Any
 
 from ria.ports.common.logger import LogContextValue, LoggerPort
 
@@ -27,5 +26,7 @@ class StandardLoggerAdapter(LoggerPort):
     def warning(self, message: str, **context: LogContextValue) -> None:
         self._logger.warning(self._format_context(message, context))
 
-    def error(self, message: str, exc: Exception | None = None, **context: LogContextValue) -> None:
+    def error(
+        self, message: str, exc: Exception | None = None, **context: LogContextValue
+    ) -> None:
         self._logger.error(self._format_context(message, context), exc_info=exc)

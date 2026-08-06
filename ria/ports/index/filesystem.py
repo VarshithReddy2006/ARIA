@@ -13,7 +13,9 @@ class FilesystemPort(Protocol):
     Postconditions: Returns file content bytes and file tree sequences.
     """
 
-    def walk_directory(self, root: Path, ignore_patterns: Sequence[str] = ()) -> Sequence[Path]:
+    def walk_directory(
+        self, root: Path, ignore_patterns: Sequence[str] = ()
+    ) -> Sequence[Path]:
         """Walk directory tree from root, skipping paths matching ignore_patterns."""
         ...
 

@@ -2,8 +2,6 @@
 
 from typing import Protocol, runtime_checkable
 
-from ria.domain.context.value_objects import TokenBudget
-
 
 @runtime_checkable
 class BudgetPort(Protocol):

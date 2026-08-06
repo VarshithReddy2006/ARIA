@@ -1,7 +1,5 @@
 """Tests for utils.subprocess_runner — safe subprocess execution module."""
 
-import asyncio
-import os
 import sys
 from concurrent.futures import ThreadPoolExecutor
 import pytest
@@ -30,14 +28,22 @@ class TestSubprocessRunner:
 
     def test_non_zero_exit_code_without_check(self) -> None:
         """Test non-zero exit code without check=True returns CompletedProcess."""
-        cmd = [sys.executable, "-c", "import sys; print('err msg', file=sys.stderr); sys.exit(42)"]
+        cmd = [
+            sys.executable,
+            "-c",
+            "import sys; print('err msg', file=sys.stderr); sys.exit(42)",
+        ]
         res = run_safe_command(cmd, check=False)
         assert res.returncode == 42
         assert "err msg" in res.stderr
 
     def test_non_zero_exit_code_with_check(self) -> None:
         """Test check=True raises SafeSubprocessError on non-zero exit code."""
-        cmd = [sys.executable, "-c", "import sys; print('fatal error', file=sys.stderr); sys.exit(1)"]
+        cmd = [
+            sys.executable,
+            "-c",
+            "import sys; print('fatal error', file=sys.stderr); sys.exit(1)",
+        ]
         with pytest.raises(SafeSubprocessError) as exc_info:
             run_safe_command(cmd, check=True)
 
@@ -65,7 +71,9 @@ class TestSubprocessRunner:
 
         err = exc_info.value
         assert err.returncode == -1
-        assert "Executable not found" in err.stderr or "Executable not found" in str(err)
+        assert "Executable not found" in err.stderr or "Executable not found" in str(
+            err
+        )
 
     def test_secret_redaction_in_output_and_exceptions(self) -> None:
         """Test that secret tokens are redacted from stdout, stderr, and exception messages."""
@@ -117,6 +125,7 @@ class TestSubprocessRunner:
 
     def test_concurrent_subprocess_execution(self) -> None:
         """Test running multiple safe subprocesses concurrently."""
+
         def _run_worker(idx: int) -> int:
             cmd = [sys.executable, "-c", f"print({idx})"]
             res = run_safe_command(cmd, timeout=5.0)

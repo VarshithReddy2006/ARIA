@@ -11,7 +11,6 @@ from ria.domain.resolution.value_objects import (
     ImportRelation,
     InheritanceRelation,
     QualifiedName,
-    RelationKind,
     SemanticDefinition,
     SemanticReference,
     SemanticRelation,

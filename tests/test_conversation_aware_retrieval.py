@@ -14,24 +14,16 @@ Covers:
 
 from __future__ import annotations
 
-import asyncio
-import os
 import time
-from typing import Any, Dict, List
-from unittest.mock import MagicMock
 
-import pytest
 
 from services.chat.conversation_context import ConversationContext
-from services.chat.conversation_memory import ConversationMemoryStore, ConversationSession
+from services.chat.conversation_memory import ConversationMemoryStore
 from services.chat.conversation_orchestrator import ConversationOrchestrator
 from services.chat.conversation_settings import ConversationSettings
-from services.chat.explicit_entity_resolver import ExplicitEntityResolver, ExplicitEntityResult
+from services.chat.explicit_entity_resolver import ExplicitEntityResolver
 from services.chat.followup_detector import FollowUpDetector
-from services.chat.navigation_graph import NavigationGraph, NavigationStep
 from services.chat.query_rewriter import QueryRewriter
-from services.chat.retrieval import intelligent_retrieve
-from services.chat.retrieval_pipeline import RetrievalPipeline
 from services.chat.topic_switch_detector import TopicSwitchDetector
 
 
@@ -64,7 +56,9 @@ class TestFollowUpDetector:
         assert r.confidence >= 0.9
 
     def test_startup_strategy_detection(self):
-        r = self.detector.detect("Why is that startup strategy beneficial?", self.context)
+        r = self.detector.detect(
+            "Why is that startup strategy beneficial?", self.context
+        )
         assert r.is_followup is True
         assert r.confidence >= 0.8
 
@@ -94,7 +88,9 @@ class TestTopicSwitchDetector:
         assert r.confidence >= 0.95
 
     def test_comparison_transition(self):
-        r = self.detector.detect("How does that compare to backend/dependencies.py?", self.context)
+        r = self.detector.detect(
+            "How does that compare to backend/dependencies.py?", self.context
+        )
         assert r.is_topic_switch is True
         assert r.target_file == "backend/dependencies.py"
         assert r.confidence >= 0.95
@@ -145,7 +141,11 @@ class TestQueryRewriter:
         q = "Why?"
         rewritten = self.rewriter.rewrite(q, ctx)
         assert "backend/api.py" in rewritten
-        assert "services" in rewritten or "startup" in rewritten or "why" in rewritten.lower()
+        assert (
+            "services" in rewritten
+            or "startup" in rewritten
+            or "why" in rewritten.lower()
+        )
 
 
 # ---------------------------------------------------------------------------
@@ -188,7 +188,9 @@ class TestConversationContext:
             )
         assert len(ctx.previous_questions) == self.settings.max_history  # 10
         assert len(ctx.recently_discussed_files) == self.settings.max_recent_files  # 10
-        assert len(ctx.recently_discussed_symbols) == self.settings.max_recent_symbols  # 20
+        assert (
+            len(ctx.recently_discussed_symbols) == self.settings.max_recent_symbols
+        )  # 20
 
 
 # ---------------------------------------------------------------------------
@@ -207,23 +209,35 @@ class TestPerformanceBenchmarks:
     def test_followup_detection_latency(self):
         t0 = time.perf_counter()
         for _ in range(100):
-            self.orchestrator.followup_detector.detect("Which services does it initialize?", self.context)
+            self.orchestrator.followup_detector.detect(
+                "Which services does it initialize?", self.context
+            )
         avg_ms = ((time.perf_counter() - t0) * 1000.0) / 100
-        assert avg_ms < 2.0, f"Followup detection latency {avg_ms:.3f}ms exceeded target <2ms"
+        assert avg_ms < 2.0, (
+            f"Followup detection latency {avg_ms:.3f}ms exceeded target <2ms"
+        )
 
     def test_query_rewriting_latency(self):
         t0 = time.perf_counter()
         for _ in range(100):
-            self.orchestrator.query_rewriter.rewrite("Which services does it initialize?", self.context)
+            self.orchestrator.query_rewriter.rewrite(
+                "Which services does it initialize?", self.context
+            )
         avg_ms = ((time.perf_counter() - t0) * 1000.0) / 100
-        assert avg_ms < 5.0, f"Query rewriting latency {avg_ms:.3f}ms exceeded target <5ms"
+        assert avg_ms < 5.0, (
+            f"Query rewriting latency {avg_ms:.3f}ms exceeded target <5ms"
+        )
 
     def test_overall_orchestration_latency(self):
         t0 = time.perf_counter()
         for _ in range(50):
-            self.orchestrator.process_incoming_query("owner/repo", "sess1", "How does it manage middleware?")
+            self.orchestrator.process_incoming_query(
+                "owner/repo", "sess1", "How does it manage middleware?"
+            )
         avg_ms = ((time.perf_counter() - t0) * 1000.0) / 50
-        assert avg_ms < 15.0, f"Overall orchestration latency {avg_ms:.3f}ms exceeded target <15ms"
+        assert avg_ms < 15.0, (
+            f"Overall orchestration latency {avg_ms:.3f}ms exceeded target <15ms"
+        )
 
 
 # ---------------------------------------------------------------------------
@@ -242,25 +256,39 @@ class TestAcceptanceScenarios:
         sess = "scenario_a"
 
         # Turn 1
-        r1 = self.orchestrator.process_incoming_query(repo, sess, "Explain backend/api.py")
+        r1 = self.orchestrator.process_incoming_query(
+            repo, sess, "Explain backend/api.py"
+        )
         assert "backend/api.py" in r1.rewritten_query
         self.orchestrator.finalize_turn(
-            repo, sess, "Explain backend/api.py", r1.rewritten_query, "Answer 1",
-            [{"metadata": {"file_path": "backend/api.py"}}], {}, r1
+            repo,
+            sess,
+            "Explain backend/api.py",
+            r1.rewritten_query,
+            "Answer 1",
+            [{"metadata": {"file_path": "backend/api.py"}}],
+            {},
+            r1,
         )
 
         # Turn 2
-        r2 = self.orchestrator.process_incoming_query(repo, sess, "How does it manage middleware?")
+        r2 = self.orchestrator.process_incoming_query(
+            repo, sess, "How does it manage middleware?"
+        )
         assert "backend/api.py" in r2.rewritten_query
         assert r2.context.current_file == "backend/api.py"
 
         # Turn 3
-        r3 = self.orchestrator.process_incoming_query(repo, sess, "Which services does it initialize?")
+        r3 = self.orchestrator.process_incoming_query(
+            repo, sess, "Which services does it initialize?"
+        )
         assert "backend/api.py" in r3.rewritten_query
         assert r3.context.current_file == "backend/api.py"
 
         # Turn 4
-        r4 = self.orchestrator.process_incoming_query(repo, sess, "Why is that startup strategy beneficial?")
+        r4 = self.orchestrator.process_incoming_query(
+            repo, sess, "Why is that startup strategy beneficial?"
+        )
         assert "backend/api.py" in r4.rewritten_query
         assert r4.context.current_file == "backend/api.py"
 
@@ -270,14 +298,24 @@ class TestAcceptanceScenarios:
         sess = "scenario_b"
 
         # Turn 1
-        r1 = self.orchestrator.process_incoming_query(repo, sess, "Explain backend/api.py")
+        r1 = self.orchestrator.process_incoming_query(
+            repo, sess, "Explain backend/api.py"
+        )
         self.orchestrator.finalize_turn(
-            repo, sess, "Explain backend/api.py", r1.rewritten_query, "Answer 1",
-            [{"metadata": {"file_path": "backend/api.py"}}], {}, r1
+            repo,
+            sess,
+            "Explain backend/api.py",
+            r1.rewritten_query,
+            "Answer 1",
+            [{"metadata": {"file_path": "backend/api.py"}}],
+            {},
+            r1,
         )
 
         # Turn 2: Topic switch to backend/dependencies.py
-        r2 = self.orchestrator.process_incoming_query(repo, sess, "Explain backend/dependencies.py")
+        r2 = self.orchestrator.process_incoming_query(
+            repo, sess, "Explain backend/dependencies.py"
+        )
         assert r2.topic_switch_result.is_topic_switch is True
         assert r2.context.current_file == "backend/dependencies.py"
         assert "backend/api.py" in r2.context.recently_discussed_files
@@ -292,15 +330,33 @@ class TestAcceptanceScenarios:
         sess = "scenario_c"
 
         # Turn 1
-        r1 = self.orchestrator.process_incoming_query(repo, sess, "Explain GraphRAGService")
+        r1 = self.orchestrator.process_incoming_query(
+            repo, sess, "Explain GraphRAGService"
+        )
         self.orchestrator.finalize_turn(
-            repo, sess, "Explain GraphRAGService", r1.rewritten_query, "Answer 1",
-            [{"metadata": {"file_path": "services/graph_rag.py", "matched_symbols": "GraphRAGService"}}], {}, r1
+            repo,
+            sess,
+            "Explain GraphRAGService",
+            r1.rewritten_query,
+            "Answer 1",
+            [
+                {
+                    "metadata": {
+                        "file_path": "services/graph_rag.py",
+                        "matched_symbols": "GraphRAGService",
+                    }
+                }
+            ],
+            {},
+            r1,
         )
 
         # Turn 2
         r2 = self.orchestrator.process_incoming_query(repo, sess, "Where is it used?")
-        assert "GraphRAGService" in r2.rewritten_query or "graph_rag.py" in r2.rewritten_query
+        assert (
+            "GraphRAGService" in r2.rewritten_query
+            or "graph_rag.py" in r2.rewritten_query
+        )
 
     def test_scenario_d_single_word_followups(self):
         """Scenario D: Explain backend/api.py -> How? -> Why? -> Where? -> What about middleware?"""
@@ -308,10 +364,18 @@ class TestAcceptanceScenarios:
         sess = "scenario_d"
 
         # Turn 1
-        r1 = self.orchestrator.process_incoming_query(repo, sess, "Explain backend/api.py")
+        r1 = self.orchestrator.process_incoming_query(
+            repo, sess, "Explain backend/api.py"
+        )
         self.orchestrator.finalize_turn(
-            repo, sess, "Explain backend/api.py", r1.rewritten_query, "Answer 1",
-            [{"metadata": {"file_path": "backend/api.py"}}], {}, r1
+            repo,
+            sess,
+            "Explain backend/api.py",
+            r1.rewritten_query,
+            "Answer 1",
+            [{"metadata": {"file_path": "backend/api.py"}}],
+            {},
+            r1,
         )
 
         # Turn 2: How?
@@ -328,18 +392,32 @@ class TestAcceptanceScenarios:
         sess = "scenario_e_100"
 
         # Turn 1
-        r = self.orchestrator.process_incoming_query(repo, sess, "Explain backend/api.py")
+        r = self.orchestrator.process_incoming_query(
+            repo, sess, "Explain backend/api.py"
+        )
         self.orchestrator.finalize_turn(
-            repo, sess, "Explain backend/api.py", r.rewritten_query, "Answer 1",
-            [{"metadata": {"file_path": "backend/api.py"}}], {}, r
+            repo,
+            sess,
+            "Explain backend/api.py",
+            r.rewritten_query,
+            "Answer 1",
+            [{"metadata": {"file_path": "backend/api.py"}}],
+            {},
+            r,
         )
 
         for i in range(2, 101):
             q = f"How does turn {i} work?"
             r_turn = self.orchestrator.process_incoming_query(repo, sess, q)
             self.orchestrator.finalize_turn(
-                repo, sess, q, r_turn.rewritten_query, f"Answer {i}",
-                [{"metadata": {"file_path": "backend/api.py"}}], {}, r_turn
+                repo,
+                sess,
+                q,
+                r_turn.rewritten_query,
+                f"Answer {i}",
+                [{"metadata": {"file_path": "backend/api.py"}}],
+                {},
+                r_turn,
             )
 
         final_session = self.memory.get_or_create(repo, sess)
@@ -357,14 +435,25 @@ class TestAcceptanceScenarios:
         sess = "shared_session_id"
 
         # Repo A
-        rA1 = self.orchestrator.process_incoming_query("RepoA", sess, "Explain backend/api.py")
+        rA1 = self.orchestrator.process_incoming_query(
+            "RepoA", sess, "Explain backend/api.py"
+        )
         self.orchestrator.finalize_turn(
-            "RepoA", sess, "Explain backend/api.py", rA1.rewritten_query, "Answer A1",
-            [{"metadata": {"file_path": "backend/api.py"}}], {}, rA1
+            "RepoA",
+            sess,
+            "Explain backend/api.py",
+            rA1.rewritten_query,
+            "Answer A1",
+            [{"metadata": {"file_path": "backend/api.py"}}],
+            {},
+            rA1,
         )
 
-        # Switch to Repo B with same session_id
-        rB1 = self.orchestrator.process_incoming_query("RepoB", sess, "Explain backend/api.py")
+        # Switch to Repo B with same session_id. The call is made for its effect on
+        # the shared session store, which is what the assertions below inspect.
+        self.orchestrator.process_incoming_query(
+            "RepoB", sess, "Explain backend/api.py"
+        )
 
         # Repo B context must NOT inherit Repo A's active file or turn history
         session_B = self.memory.get_or_create("RepoB", sess)
@@ -378,11 +467,15 @@ class TestAcceptanceScenarios:
         sess = "explicit_entity_session"
 
         # 1. Explain backend/api.py
-        r1 = self.orchestrator.process_incoming_query(repo, sess, "Explain backend/api.py")
+        r1 = self.orchestrator.process_incoming_query(
+            repo, sess, "Explain backend/api.py"
+        )
         assert r1.context.current_file == "backend/api.py"
 
         # 2. Explain backend/dependencies.py (Explicit Entity -> Immediate Topic Switch)
-        r2 = self.orchestrator.process_incoming_query(repo, sess, "Explain backend/dependencies.py")
+        r2 = self.orchestrator.process_incoming_query(
+            repo, sess, "Explain backend/dependencies.py"
+        )
         assert r2.explicit_entity_result.has_explicit_entity is True
         assert r2.context.current_file == "backend/dependencies.py"
         assert r2.disable_previous_boosts is True
@@ -394,7 +487,9 @@ class TestAcceptanceScenarios:
         assert "backend/dependencies.py" in r3.rewritten_query
 
         # 4. Explain ConversationContext (Explicit Class -> Immediate Topic Switch)
-        r4 = self.orchestrator.process_incoming_query(repo, sess, "Explain ConversationContext")
+        r4 = self.orchestrator.process_incoming_query(
+            repo, sess, "Explain ConversationContext"
+        )
         assert r4.explicit_entity_result.has_explicit_entity is True
         assert r4.context.current_symbol == "ConversationContext"
         assert r4.disable_previous_boosts is True
@@ -455,33 +550,59 @@ class TestCompletionGate:
         sess = f"gate_run_{run_index}"
 
         # 1. Explain backend/api.py
-        r1 = self.orchestrator.process_incoming_query(repo, sess, "Explain backend/api.py")
+        r1 = self.orchestrator.process_incoming_query(
+            repo, sess, "Explain backend/api.py"
+        )
         assert "backend/api.py" in r1.rewritten_query
         self.orchestrator.finalize_turn(
-            repo, sess, "Explain backend/api.py", r1.rewritten_query, "Answer 1",
-            [{"metadata": {"file_path": "backend/api.py"}}], {}, r1
+            repo,
+            sess,
+            "Explain backend/api.py",
+            r1.rewritten_query,
+            "Answer 1",
+            [{"metadata": {"file_path": "backend/api.py"}}],
+            {},
+            r1,
         )
 
         # 2. How does it manage middleware?
-        r2 = self.orchestrator.process_incoming_query(repo, sess, "How does it manage middleware?")
+        r2 = self.orchestrator.process_incoming_query(
+            repo, sess, "How does it manage middleware?"
+        )
         assert "backend/api.py" in r2.rewritten_query
         assert r2.context.current_file == "backend/api.py"
         self.orchestrator.finalize_turn(
-            repo, sess, "How does it manage middleware?", r2.rewritten_query, "Answer 2",
-            [{"metadata": {"file_path": "backend/api.py"}}], {}, r2
+            repo,
+            sess,
+            "How does it manage middleware?",
+            r2.rewritten_query,
+            "Answer 2",
+            [{"metadata": {"file_path": "backend/api.py"}}],
+            {},
+            r2,
         )
 
         # 3. Which services does it initialize?
-        r3 = self.orchestrator.process_incoming_query(repo, sess, "Which services does it initialize?")
+        r3 = self.orchestrator.process_incoming_query(
+            repo, sess, "Which services does it initialize?"
+        )
         assert "backend/api.py" in r3.rewritten_query
         assert r3.context.current_file == "backend/api.py"
         self.orchestrator.finalize_turn(
-            repo, sess, "Which services does it initialize?", r3.rewritten_query, "Answer 3",
-            [{"metadata": {"file_path": "backend/api.py"}}], {}, r3
+            repo,
+            sess,
+            "Which services does it initialize?",
+            r3.rewritten_query,
+            "Answer 3",
+            [{"metadata": {"file_path": "backend/api.py"}}],
+            {},
+            r3,
         )
 
         # 4. Why is that startup strategy beneficial?
-        r4 = self.orchestrator.process_incoming_query(repo, sess, "Why is that startup strategy beneficial?")
+        r4 = self.orchestrator.process_incoming_query(
+            repo, sess, "Why is that startup strategy beneficial?"
+        )
         assert "backend/api.py" in r4.rewritten_query
         assert r4.context.current_file == "backend/api.py"
 
@@ -489,4 +610,3 @@ class TestCompletionGate:
         """Completion Gate: Acceptance Test 2.3 must pass 3 consecutive executions without retrieval drift."""
         for run_idx in range(1, 4):
             self.run_acceptance_test_2_3(run_idx)
-

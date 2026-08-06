@@ -9,11 +9,7 @@ Ensures strict API contract stability for the exposed MCP layer:
 - Task lifecycle state model validity
 """
 
-import json
-import pytest
-from unittest.mock import MagicMock, patch
-
-from mcp.metadata import TOOL_METADATA_REGISTRY, list_all_tool_metadata, get_tool_metadata
+from mcp.metadata import list_all_tool_metadata, get_tool_metadata
 from mcp.resources.namespace import (
     TEMPLATE_REPOSITORIES,
     TEMPLATE_METADATA,
@@ -25,13 +21,9 @@ from mcp.resources.namespace import (
     parse_resource_uri,
 )
 from mcp.version import (
-    SERVER_NAME,
-    SERVER_VERSION,
-    PROTOCOL_VERSION,
-    IMPLEMENTATION_NAME,
     get_server_metadata,
 )
-from mcp.lifecycle import TaskState, TaskTracker, global_task_tracker
+from mcp.lifecycle import TaskState, TaskTracker
 
 
 class MockServer:
@@ -44,18 +36,21 @@ class MockServer:
         def decorator(fn):
             self.tools[fn.__name__] = fn
             return fn
+
         return decorator
 
     def resource(self, uri: str, *args, **kwargs):
         def decorator(fn):
             self.resources[uri] = fn
             return fn
+
         return decorator
 
     def prompt(self, *args, **kwargs):
         def decorator(fn):
             self.prompts[fn.__name__] = fn
             return fn
+
         return decorator
 
 
@@ -66,7 +61,9 @@ class TestToolDiscoveryContract:
         mock_server = MockServer()
         from mcp.tools.discovery import discover_and_register_tools
 
-        modules = discover_and_register_tools(mock_server)
+        # The registration side effect on ``mock_server`` is what this test asserts on;
+        # the returned module list is not part of the contract under test.
+        discover_and_register_tools(mock_server)
 
         expected_tools = {
             "list_repositories",
@@ -158,7 +155,11 @@ class TestResourceNamespaceContract:
         assert parsed_root == {"resource_type": "repositories"}
 
         parsed_meta = parse_resource_uri("repo://owner/repo/metadata")
-        assert parsed_meta == {"owner": "owner", "repo": "repo", "resource_type": "metadata"}
+        assert parsed_meta == {
+            "owner": "owner",
+            "repo": "repo",
+            "resource_type": "metadata",
+        }
 
         assert parse_resource_uri("invalid://path") is None
 

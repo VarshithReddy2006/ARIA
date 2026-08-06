@@ -25,7 +25,7 @@ def generate_recommendation_reasoning(
     confidence = 96
     evidence = [
         f"Layer classification detected as {layer}",
-        f"High execution centrality in repository knowledge graph",
+        "High execution centrality in repository knowledge graph",
         f"Required prerequisite for understanding downstream {layer} dependencies",
     ]
 
@@ -47,8 +47,16 @@ def generate_recommendation_reasoning(
         ]
 
     alternatives = [
-        {"id": "services/chat/retrieval_pipeline.py", "label": "Retrieval Pipeline", "reason": "Deeper AI pipeline exploration"},
-        {"id": "backend/api.py", "label": "FastAPI App Setup", "reason": "High-level HTTP overview"},
+        {
+            "id": "services/chat/retrieval_pipeline.py",
+            "label": "Retrieval Pipeline",
+            "reason": "Deeper AI pipeline exploration",
+        },
+        {
+            "id": "backend/api.py",
+            "label": "FastAPI App Setup",
+            "reason": "High-level HTTP overview",
+        },
     ]
 
     return {
@@ -60,7 +68,10 @@ def generate_recommendation_reasoning(
         "confidence_pct": confidence,
         "evidence": evidence,
         "why_this_why_now": f"Complements {len(completed_steps)} previously read modules and unlocks next phase.",
-        "prerequisite_unlocked": [f"Unlocks deeper {layer} inspection", "Unlocks scenario simulations"],
+        "prerequisite_unlocked": [
+            f"Unlocks deeper {layer} inspection",
+            "Unlocks scenario simulations",
+        ],
         "alternative_choices": alternatives,
         "estimated_learning_benefit": "+15% Architecture Comprehension",
     }

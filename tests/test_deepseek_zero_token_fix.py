@@ -10,8 +10,6 @@ Verifies:
 
 from __future__ import annotations
 
-import asyncio
-import json
 import pytest
 from unittest.mock import AsyncMock, MagicMock, patch
 
@@ -22,21 +20,39 @@ from services.chat.provider_manager import ProviderManager, ProviderEntry
 
 
 class MockStreamProvider(BaseLLMProvider):
-    def __init__(self, name: str, model: str, stream_chunks: list[str], raise_exc: Exception | None = None):
+    def __init__(
+        self,
+        name: str,
+        model: str,
+        stream_chunks: list[str],
+        raise_exc: Exception | None = None,
+    ):
         self.name = name
         self.model = model
         self.stream_chunks = stream_chunks
         self.raise_exc = raise_exc
 
     async def health_check(self) -> ProviderHealth:
-        return ProviderHealth(healthy=True, provider=self.name, model=self.model, authenticated=True)
+        return ProviderHealth(
+            healthy=True, provider=self.name, model=self.model, authenticated=True
+        )
 
-    async def generate(self, prompt: str, system_instruction: str | None = None, history: list[dict] | None = None) -> str:
+    async def generate(
+        self,
+        prompt: str,
+        system_instruction: str | None = None,
+        history: list[dict] | None = None,
+    ) -> str:
         if self.raise_exc:
             raise self.raise_exc
         return "".join(self.stream_chunks)
 
-    async def stream(self, prompt: str, system_instruction: str | None = None, history: list[dict] | None = None):
+    async def stream(
+        self,
+        prompt: str,
+        system_instruction: str | None = None,
+        history: list[dict] | None = None,
+    ):
         if self.raise_exc:
             raise self.raise_exc
         for chunk in self.stream_chunks:
@@ -45,6 +61,7 @@ class MockStreamProvider(BaseLLMProvider):
 
 def _create_mock_async_client(mock_lines: list[str]):
     """Helper to mock httpx.AsyncClient with async context manager stream."""
+
     async def mock_aiter_lines():
         for line in mock_lines:
             yield line
@@ -70,7 +87,6 @@ def _create_mock_async_client(mock_lines: list[str]):
 
 @pytest.mark.asyncio
 class TestDeepSeekZeroTokenFix:
-
     async def test_scenario_a_gemini_succeeds(self):
         """Scenario A: Primary provider succeeds -> tokens streamed -> stream completes."""
         p1 = MockStreamProvider("gemini", "gemini-2.5-flash", ["Hello ", "world!"])
@@ -86,12 +102,21 @@ class TestDeepSeekZeroTokenFix:
 
     async def test_scenario_b_gemini_quota_failover_to_deepseek(self):
         """Scenario B: Gemini fails 429 quota -> DeepSeek succeeds -> tokens streamed."""
-        p1 = MockStreamProvider("gemini", "gemini-2.5-flash", [], raise_exc=RuntimeError("429 Resource Exhausted"))
-        p2 = MockStreamProvider("deepseek", "deepseek-v4-flash", ["DeepSeek ", "response."])
-        manager = ProviderManager(providers=[
-            ProviderEntry("gemini", p1, 1),
-            ProviderEntry("deepseek", p2, 2),
-        ])
+        p1 = MockStreamProvider(
+            "gemini",
+            "gemini-2.5-flash",
+            [],
+            raise_exc=RuntimeError("429 Resource Exhausted"),
+        )
+        p2 = MockStreamProvider(
+            "deepseek", "deepseek-v4-flash", ["DeepSeek ", "response."]
+        )
+        manager = ProviderManager(
+            providers=[
+                ProviderEntry("gemini", p1, 1),
+                ProviderEntry("deepseek", p2, 2),
+            ]
+        )
 
         tokens = []
         used_providers = []
@@ -102,14 +127,18 @@ class TestDeepSeekZeroTokenFix:
         assert "".join(tokens) == "DeepSeek response."
         assert set(used_providers) == {"deepseek"}
 
-    async def test_scenario_c_and_f_empty_or_whitespace_completion_triggers_failover(self):
+    async def test_scenario_c_and_f_empty_or_whitespace_completion_triggers_failover(
+        self,
+    ):
         """Scenario C & F: Provider returns 0 tokens or whitespace only -> EmptyCompletionError -> Failover."""
         p1 = MockStreamProvider("deepseek", "deepseek-v4-flash", ["   ", "\n", "\t"])
         p2 = MockStreamProvider("gemini", "gemini-2.5-flash", ["Fallback ", "success."])
-        manager = ProviderManager(providers=[
-            ProviderEntry("deepseek", p1, 1),
-            ProviderEntry("gemini", p2, 2),
-        ])
+        manager = ProviderManager(
+            providers=[
+                ProviderEntry("deepseek", p1, 1),
+                ProviderEntry("gemini", p2, 2),
+            ]
+        )
 
         tokens = []
         used_providers = []
@@ -122,12 +151,14 @@ class TestDeepSeekZeroTokenFix:
 
     async def test_scenario_g_reasoning_content_parsed_correctly(self):
         """Scenario G: Provider streams reasoning_content payload -> parsed and yielded."""
-        provider = DeepSeekProvider(api_key="mock", base_url="http://mock", model="deepseek-v4")
+        provider = DeepSeekProvider(
+            api_key="mock", base_url="http://mock", model="deepseek-v4"
+        )
 
         mock_lines = [
             'data: {"choices":[{"delta":{"reasoning_content":"Step 1 reasoning"}}]}',
             'data: {"choices":[{"delta":{"content":" Final answer"}}]}',
-            'data: [DONE]',
+            "data: [DONE]",
         ]
 
         mock_factory = _create_mock_async_client(mock_lines)
@@ -138,11 +169,15 @@ class TestDeepSeekZeroTokenFix:
 
             assert chunks == ["Step 1 reasoning", " Final answer"]
 
-    async def test_scenario_h_immediate_done_without_content_raises_empty_completion(self):
+    async def test_scenario_h_immediate_done_without_content_raises_empty_completion(
+        self,
+    ):
         """Scenario H: Provider sends [DONE] immediately without content -> EmptyCompletionError."""
-        provider = DeepSeekProvider(api_key="mock", base_url="http://mock", model="deepseek-v4")
+        provider = DeepSeekProvider(
+            api_key="mock", base_url="http://mock", model="deepseek-v4"
+        )
 
-        mock_lines = ['data: [DONE]']
+        mock_lines = ["data: [DONE]"]
 
         mock_factory = _create_mock_async_client(mock_lines)
         with patch("httpx.AsyncClient", mock_factory):
@@ -152,12 +187,14 @@ class TestDeepSeekZeroTokenFix:
 
     async def test_scenario_i_malformed_json_chunks_skipped_gracefully(self):
         """Scenario I: Malformed JSON chunks in SSE stream -> skipped gracefully without crash."""
-        provider = DeepSeekProvider(api_key="mock", base_url="http://mock", model="deepseek-v4")
+        provider = DeepSeekProvider(
+            api_key="mock", base_url="http://mock", model="deepseek-v4"
+        )
 
         mock_lines = [
-            'data: {INVALID_JSON}',
+            "data: {INVALID_JSON}",
             'data: {"choices":[{"delta":{"content":"Valid chunk"}}]}',
-            'data: [DONE]',
+            "data: [DONE]",
         ]
 
         mock_factory = _create_mock_async_client(mock_lines)

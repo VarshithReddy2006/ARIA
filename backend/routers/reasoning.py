@@ -8,7 +8,9 @@ import logging
 import sys
 from fastapi import APIRouter, HTTPException
 
-from backend.dependencies import engineering_reasoning_engine as _engineering_reasoning_engine
+from backend.dependencies import (
+    engineering_reasoning_engine as _engineering_reasoning_engine,
+)
 from models.retrieval import RepositoryRetrievalContext
 from models.reasoning import ReasoningResult
 from pydantic import BaseModel, Field

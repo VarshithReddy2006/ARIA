@@ -28,12 +28,14 @@ def register(server: Any) -> None:
     def list_repositories_resource() -> str:
         """List of all analyzed repositories."""
         from mcp.dependencies import ANALYSIS_STORE
+
         return json.dumps(list(ANALYSIS_STORE.keys()), indent=2)
 
     @server.resource(TEMPLATE_METADATA)
     def repository_metadata(owner: str, repo: str) -> str:
         """Repository analysis metadata including tech stack, dependencies, and file structure."""
         from mcp.dependencies import ANALYSIS_STORE
+
         with tool_boundary("repository_metadata"):
             repo_name = require_repo(owner, repo)
             if repo_name not in ANALYSIS_STORE:
@@ -46,6 +48,7 @@ def register(server: Any) -> None:
     def repository_architecture(owner: str, repo: str) -> str:
         """Repository architecture summary including component relationships and reading order."""
         from mcp.dependencies import ANALYSIS_STORE
+
         with tool_boundary("repository_architecture"):
             repo_name = require_repo(owner, repo)
             if repo_name not in ANALYSIS_STORE:
@@ -58,6 +61,7 @@ def register(server: Any) -> None:
     def repository_call_graph(owner: str, repo: str) -> str:
         """Repository call graph showing function call relationships."""
         from mcp.dependencies import get_call_graph_service
+
         with tool_boundary("repository_call_graph"):
             repo_name = require_repo(owner, repo)
             service = get_call_graph_service()
@@ -71,6 +75,7 @@ def register(server: Any) -> None:
     def repository_symbols(owner: str, repo: str) -> str:
         """All symbols (classes, functions, methods) indexed for the repository."""
         from mcp.dependencies import get_symbol_service
+
         with tool_boundary("repository_symbols"):
             repo_name = require_repo(owner, repo)
             service = get_symbol_service()

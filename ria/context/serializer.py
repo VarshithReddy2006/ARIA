@@ -72,6 +72,8 @@ class ContextSerializer(SerializerPort):
         for sec in package.sections:
             lines.append(f"=== {sec.title} ===")
             for snip in sec.snippets:
-                lines.append(f"[{snip.score.category}] {snip.content} ({snip.citation.file_path.relative_path}:L{snip.citation.start_line})")
+                lines.append(
+                    f"[{snip.score.category}] {snip.content} ({snip.citation.file_path.relative_path}:L{snip.citation.start_line})"
+                )
             lines.append("")
         return "\n".join(lines)

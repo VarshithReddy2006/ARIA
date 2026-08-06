@@ -1,7 +1,7 @@
 """Entities and Containers for Agent Runtime Subsystem."""
 
 from dataclasses import dataclass, field
-from typing import Any, Dict, Optional, Tuple
+from typing import Any, Dict, Tuple
 
 from ria.domain.common.base import ValueObject
 from ria.domain.agent.value_objects import (

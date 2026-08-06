@@ -1,6 +1,5 @@
 """Unit tests for service classes."""
 
-import pytest
 from services.chunking_service import CodeChunker
 from services.embedding_service import EmbeddingService
 

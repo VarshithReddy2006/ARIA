@@ -52,6 +52,7 @@ async def lifespan(app: FastAPI):
     run_migrations()
     # 3. Hydrate ANALYSIS_STORE from disk
     from backend.dependencies import _load_analysis_store
+
     _load_analysis_store()
 
     # 4. Initialize RIA Composition Root Container
@@ -69,6 +70,7 @@ async def lifespan(app: FastAPI):
 
     # Store singletons on app.state
     from backend import dependencies as deps
+
     app.state.snapshot_store = deps.get_snapshot_store()
     app.state.analysis_cache = deps.get_analysis_cache()
     app.state.symbol_service = deps.get_symbol_service()
@@ -102,6 +104,7 @@ app = FastAPI(
 
 # Register global exception handlers (R-019)
 from backend.exception_handlers import register_exception_handlers  # noqa: E402
+
 register_exception_handlers(app)
 
 # Production Middlewares
@@ -153,6 +156,7 @@ def _warmup_services() -> None:
         logger.info("Python Tree-sitter parser warmed up successfully.")
     except Exception as exc:
         logger.warning("Startup warm-up failed: %s", exc, exc_info=True)
+
 
 # ---------------------------------------------------------------------------
 # Startup Validation — validate LLM providers before serving traffic
@@ -396,4 +400,5 @@ if __name__ == "__main__":
 def __getattr__(name: str) -> Any:
     """Delegate attribute lookups to backend.dependencies for backward compatibility."""
     import backend.dependencies as deps
+
     return getattr(deps, name)

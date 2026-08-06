@@ -9,7 +9,10 @@ from ria.domain.sync.value_objects import (
     RepositoryMetadata,
     SyncStatus,
 )
-from ria.infrastructure.storage import SQLiteRepositoryLockAdapter, SQLiteRepositoryRegistryAdapter
+from ria.infrastructure.storage import (
+    SQLiteRepositoryLockAdapter,
+    SQLiteRepositoryRegistryAdapter,
+)
 
 
 def test_sqlite_repository_registry_adapter() -> None:

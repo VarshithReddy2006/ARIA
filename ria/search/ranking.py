@@ -1,6 +1,5 @@
 """Ranking Engine implementing RankingEnginePort."""
 
-import re
 from collections.abc import Sequence
 
 from ria.domain.search.value_objects import SearchIndexEntry, SearchQuery, SearchScore

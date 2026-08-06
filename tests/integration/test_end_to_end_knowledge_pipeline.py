@@ -13,8 +13,16 @@ from ria.application.index import (
     LanguageDetection,
     RepositoryScanner,
 )
-from ria.application.knowledge import AnswerQuestionCommandDTO, AnswerQuestionUseCase, KnowledgeApplicationService
-from ria.application.resolution import ResolveAndStoreCommand, ResolveAndStoreUseCase, ResolutionApplicationService
+from ria.application.knowledge import (
+    AnswerQuestionCommandDTO,
+    AnswerQuestionUseCase,
+    KnowledgeApplicationService,
+)
+from ria.application.resolution import (
+    ResolveAndStoreCommand,
+    ResolveAndStoreUseCase,
+    ResolutionApplicationService,
+)
 from ria.application.sync import (
     RegisterRepositoryCommand,
     RegisterRepositoryUseCase,
@@ -47,8 +55,20 @@ from ria.knowledge import (
     ResponseFormatter,
     ResponseValidator,
 )
-from ria.plugins import PluginLoader, PluginRegistry, JavaScriptTreeSitterPlugin, PythonTreeSitterPlugin, TypeScriptTreeSitterPlugin
-from ria.query import QueryCache, QueryEngine, QueryExecutor, QueryOptimizer, QueryPlanner
+from ria.plugins import (
+    PluginLoader,
+    PluginRegistry,
+    JavaScriptTreeSitterPlugin,
+    PythonTreeSitterPlugin,
+    TypeScriptTreeSitterPlugin,
+)
+from ria.query import (
+    QueryCache,
+    QueryEngine,
+    QueryExecutor,
+    QueryOptimizer,
+    QueryPlanner,
+)
 from ria.resolution import (
     JavaScriptLanguageResolver,
     LanguageResolverRegistry,
@@ -76,20 +96,29 @@ def test_full_knowledge_layer_end_to_end_pipeline(tmp_path: Path) -> None:
     origin_dir = tmp_path / "know_origin"
     origin_dir.mkdir()
     subprocess.run(["git", "init"], cwd=origin_dir, check=True)
-    subprocess.run(["git", "config", "user.name", "TestRunner"], cwd=origin_dir, check=True)
-    subprocess.run(["git", "config", "user.email", "runner@test.com"], cwd=origin_dir, check=True)
+    subprocess.run(
+        ["git", "config", "user.name", "TestRunner"], cwd=origin_dir, check=True
+    )
+    subprocess.run(
+        ["git", "config", "user.email", "runner@test.com"], cwd=origin_dir, check=True
+    )
 
     py_file = origin_dir / "user_manager.py"
-    py_file.write_text("class UserManager:\n    def create_user(self, name: str) -> str:\n        return name\n")
+    py_file.write_text(
+        "class UserManager:\n    def create_user(self, name: str) -> str:\n        return name\n"
+    )
 
     subprocess.run(["git", "add", "."], cwd=origin_dir, check=True)
-    subprocess.run(["git", "commit", "-m", "Knowledge test commit"], cwd=origin_dir, check=True)
+    subprocess.run(
+        ["git", "commit", "-m", "Knowledge test commit"], cwd=origin_dir, check=True
+    )
 
     # 2. DI Setup
     settings = Settings.create_testing(tmp_path)
     container = Container.create(settings)
 
     from ria.application.sync import RepositorySyncService
+
     sync_service = RepositorySyncService(
         git_client=container.git_client,
         registry=container.repository_registry,
@@ -102,14 +131,20 @@ def test_full_knowledge_layer_end_to_end_pipeline(tmp_path: Path) -> None:
     reg_use_case = RegisterRepositoryUseCase(sync_service)
     sync_use_case = SynchronizeRepositoryUseCase(sync_service)
 
-    status_dto = reg_use_case.execute(RegisterRepositoryCommand(remote_url=str(origin_dir), name="know_origin"))
-    sync_dto = sync_use_case.execute(SynchronizeRepositoryCommand(repo_id=status_dto.repo_id))
+    status_dto = reg_use_case.execute(
+        RegisterRepositoryCommand(remote_url=str(origin_dir), name="know_origin")
+    )
+    sync_dto = sync_use_case.execute(
+        SynchronizeRepositoryCommand(repo_id=status_dto.repo_id)
+    )
     assert sync_dto.is_success
 
     # 3. Setup Index & Resolution Pipelines
     discovery = FileDiscovery(filesystem=container.filesystem)
     lang_detect = LanguageDetection(filesystem=container.filesystem)
-    scanner = RepositoryScanner(discovery, lang_detect, container.filesystem, container.hashing)
+    scanner = RepositoryScanner(
+        discovery, lang_detect, container.filesystem, container.hashing
+    )
 
     plugin_registry = PluginRegistry()
     loader = PluginLoader(plugin_registry)
@@ -135,8 +170,12 @@ def test_full_knowledge_layer_end_to_end_pipeline(tmp_path: Path) -> None:
 
     resolver_registry = LanguageResolverRegistry()
     resolver_registry.register_resolver(Language.PYTHON, PythonLanguageResolver())
-    resolver_registry.register_resolver(Language.TYPESCRIPT, TypeScriptLanguageResolver())
-    resolver_registry.register_resolver(Language.JAVASCRIPT, JavaScriptLanguageResolver())
+    resolver_registry.register_resolver(
+        Language.TYPESCRIPT, TypeScriptLanguageResolver()
+    )
+    resolver_registry.register_resolver(
+        Language.JAVASCRIPT, JavaScriptLanguageResolver()
+    )
 
     res_engine = ResolutionEngine(resolver_registry=resolver_registry)
     fact_store = SQLiteFactStoreAdapter(db_path=tmp_path / "fact_store.db")
@@ -162,7 +201,15 @@ def test_full_knowledge_layer_end_to_end_pipeline(tmp_path: Path) -> None:
     search_hl = HighlightEngine()
     search_auto = AutocompleteEngine()
     search_cache = SearchCache()
-    search_engine = SearchEngine(search_planner, search_index, search_ranking, search_filters, search_hl, search_auto, search_cache)
+    search_engine = SearchEngine(
+        search_planner,
+        search_index,
+        search_ranking,
+        search_filters,
+        search_hl,
+        search_auto,
+        search_cache,
+    )
 
     q_planner = QueryPlanner()
     q_executor = QueryExecutor()
@@ -203,7 +250,9 @@ def test_full_knowledge_layer_end_to_end_pipeline(tmp_path: Path) -> None:
     formatter = ResponseFormatter()
     conv_mgr = ConversationManager()
 
-    orchestrator = KnowledgeOrchestrator(intent_analyzer, prompt_builder, prov_registry, validator, formatter, conv_mgr)
+    orchestrator = KnowledgeOrchestrator(
+        intent_analyzer, prompt_builder, prov_registry, validator, formatter, conv_mgr
+    )
     knowledge_engine = KnowledgeEngine(orchestrator)
 
     knowledge_service = KnowledgeApplicationService(
@@ -218,15 +267,25 @@ def test_full_knowledge_layer_end_to_end_pipeline(tmp_path: Path) -> None:
     answer_uc = AnswerQuestionUseCase(knowledge_service)
 
     # Warmup call
-    _ = answer_uc.execute(AnswerQuestionCommandDTO(repo_id=status_dto.repo_id, question="What is UserManager?"))
+    _ = answer_uc.execute(
+        AnswerQuestionCommandDTO(
+            repo_id=status_dto.repo_id, question="What is UserManager?"
+        )
+    )
 
     # 7. Evaluate Performance & Assert Grounded Response
     t0 = time.perf_counter()
-    res_dto = answer_uc.execute(AnswerQuestionCommandDTO(repo_id=status_dto.repo_id, question="What is UserManager?"))
+    res_dto = answer_uc.execute(
+        AnswerQuestionCommandDTO(
+            repo_id=status_dto.repo_id, question="What is UserManager?"
+        )
+    )
     elapsed_ms = (time.perf_counter() - t0) * 1000.0
 
     assert res_dto.is_success
     assert res_dto.is_grounded
     assert res_dto.grounding_score > 0.9
     assert len(res_dto.answer_text) > 0
-    assert elapsed_ms < 50.0, f"Knowledge answer latency {elapsed_ms:.2f}ms exceeded target threshold"
+    assert elapsed_ms < 50.0, (
+        f"Knowledge answer latency {elapsed_ms:.2f}ms exceeded target threshold"
+    )

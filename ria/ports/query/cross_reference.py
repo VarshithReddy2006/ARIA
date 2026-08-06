@@ -6,5 +6,4 @@ from typing import Protocol, Any
 class CrossReferencePort(Protocol):
     """Port interface for cross references."""
 
-    def find_references(self, target: Any) -> Any:
-        ...
+    def find_references(self, target: Any) -> Any: ...

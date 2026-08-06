@@ -4,7 +4,11 @@ from collections.abc import Sequence
 
 from ria.domain.index.value_objects import FilePath
 from ria.domain.snapshot.entities import RepositorySnapshot
-from ria.domain.snapshot.value_objects import ChangedFile, ChangedFileType, IncrementalPlan
+from ria.domain.snapshot.value_objects import (
+    ChangedFile,
+    ChangedFileType,
+    IncrementalPlan,
+)
 from ria.domain.sync.value_objects import CommitReference
 from ria.incremental.dependency_analyzer import DependencyAnalyzer
 from ria.ports.incremental.planner import IncrementalPlannerPort
@@ -31,7 +35,9 @@ class IncrementalPlanner(IncrementalPlannerPort):
             else:
                 files_to_reindex.append(cf.path)
 
-        impact = self._dep_analyzer.analyze_impact(snapshot.identity, snapshot.commit, changed_files)
+        impact = self._dep_analyzer.analyze_impact(
+            snapshot.identity, snapshot.commit, changed_files
+        )
 
         return IncrementalPlan(
             repo_id=snapshot.identity,

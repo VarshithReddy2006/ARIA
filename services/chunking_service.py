@@ -29,9 +29,7 @@ class CodeChunker:
             max_tokens_per_chunk is not None or overlap_tokens is not None
         )
         self.chunk_size = (
-            max_tokens_per_chunk
-            if max_tokens_per_chunk is not None
-            else chunk_size
+            max_tokens_per_chunk if max_tokens_per_chunk is not None else chunk_size
         )
         self.chunk_overlap = (
             overlap_tokens if overlap_tokens is not None else chunk_overlap

@@ -37,14 +37,18 @@ class SQLiteRepositoryLockAdapter(RepositoryLockPort):
             conn.row_factory = sqlite3.Row
             return conn
         except sqlite3.Error as err:
-            raise DatabaseError(f"Failed to connect to SQLite lock DB '{self._db_path}': {err}") from err
+            raise DatabaseError(
+                f"Failed to connect to SQLite lock DB '{self._db_path}': {err}"
+            ) from err
 
     def _init_db(self) -> None:
         with self._get_connection() as conn:
             try:
                 conn.execute(self.CREATE_TABLE_SQL)
             except sqlite3.Error as err:
-                raise DatabaseError(f"Failed to initialize SQLite table 'repository_lock': {err}") from err
+                raise DatabaseError(
+                    f"Failed to initialize SQLite table 'repository_lock': {err}"
+                ) from err
 
     def is_locked(self, repo_id: RepositoryIdentity) -> bool:
         """Check if repository currently has an active, non-expired lock."""
@@ -60,9 +64,13 @@ class SQLiteRepositoryLockAdapter(RepositoryLockPort):
                 ttl_seconds: float = row["ttl_seconds"]
                 return (now - acquired_at) < ttl_seconds
             except sqlite3.Error as err:
-                raise DatabaseError(f"Failed to query lock status for '{repo_id.repo_id.value}': {err}") from err
+                raise DatabaseError(
+                    f"Failed to query lock status for '{repo_id.repo_id.value}': {err}"
+                ) from err
 
-    def acquire_lock(self, repo_id: RepositoryIdentity, ttl_seconds: float = 300.0) -> bool:
+    def acquire_lock(
+        self, repo_id: RepositoryIdentity, ttl_seconds: float = 300.0
+    ) -> bool:
         """Attempt to acquire process lock for repository with expiration timeout."""
         now = time.monotonic()
         repo_str = repo_id.repo_id.value
@@ -80,13 +88,19 @@ class SQLiteRepositoryLockAdapter(RepositoryLockPort):
                 )
                 return cursor.rowcount > 0
             except sqlite3.Error as err:
-                raise DatabaseError(f"Failed to acquire lock for '{repo_str}': {err}") from err
+                raise DatabaseError(
+                    f"Failed to acquire lock for '{repo_str}': {err}"
+                ) from err
 
     def release_lock(self, repo_id: RepositoryIdentity) -> None:
         """Release process lock held for repository."""
         repo_str = repo_id.repo_id.value
         with self._get_connection() as conn:
             try:
-                conn.execute("DELETE FROM repository_lock WHERE repo_id = ?;", (repo_str,))
+                conn.execute(
+                    "DELETE FROM repository_lock WHERE repo_id = ?;", (repo_str,)
+                )
             except sqlite3.Error as err:
-                raise DatabaseError(f"Failed to release lock for '{repo_str}': {err}") from err
+                raise DatabaseError(
+                    f"Failed to release lock for '{repo_str}': {err}"
+                ) from err

@@ -11,7 +11,9 @@ class QueryOptimizer:
         bounded_max = min(max(plan.criteria.max_results, 1), 1000)
         opt_criteria = QueryCriteria(
             symbol_moniker=plan.criteria.symbol_moniker,
-            symbol_name=plan.criteria.symbol_name.strip() if plan.criteria.symbol_name else None,
+            symbol_name=plan.criteria.symbol_name.strip()
+            if plan.criteria.symbol_name
+            else None,
             file_path=plan.criteria.file_path,
             max_results=bounded_max,
         )

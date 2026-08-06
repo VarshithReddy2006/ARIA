@@ -16,7 +16,13 @@ from ria.domain.index.units import (
     ParserResult,
     RepositoryUnit,
 )
-from ria.domain.index.value_objects import ASTNode, ContentHash, FilePath, Language, Location
+from ria.domain.index.value_objects import (
+    ASTNode,
+    ContentHash,
+    FilePath,
+    Language,
+    Location,
+)
 
 __all__ = [
     "Language",

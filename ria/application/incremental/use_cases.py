@@ -1,6 +1,10 @@
 """Single-responsibility use cases for incremental indexing."""
 
-from ria.application.incremental.dto import IncrementalUpdateCommandDTO, PlanGenerationCommandDTO, SnapshotRefreshCommandDTO
+from ria.application.incremental.dto import (
+    IncrementalUpdateCommandDTO,
+    PlanGenerationCommandDTO,
+    SnapshotRefreshCommandDTO,
+)
 from ria.application.incremental.service import IncrementalApplicationService
 from ria.incremental.dto import IncrementalResultDTO
 

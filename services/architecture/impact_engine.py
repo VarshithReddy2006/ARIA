@@ -33,10 +33,16 @@ def compute_blast_radius(
                 queue.append(parent)
 
     all_affected = list(visited)
-    affected_apis = [f for f in all_affected if "api" in f.lower() or "router" in f.lower()]
+    affected_apis = [
+        f for f in all_affected if "api" in f.lower() or "router" in f.lower()
+    ]
     affected_services = [f for f in all_affected if "service" in f.lower()]
-    affected_tests = [f for f in all_affected if "test" in f.lower() or "spec" in f.lower()]
-    affected_entry_points = [f for f in all_affected if classify_layer(f) == "Presentation"]
+    affected_tests = [
+        f for f in all_affected if "test" in f.lower() or "spec" in f.lower()
+    ]
+    affected_entry_points = [
+        f for f in all_affected if classify_layer(f) == "Presentation"
+    ]
 
     total_affected = len(all_affected)
     risk_level = "Low"

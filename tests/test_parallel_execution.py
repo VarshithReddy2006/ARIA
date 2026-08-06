@@ -236,7 +236,11 @@ def test_cache_thread_safety():
                 cache.get_stats()
                 if i % 10 == 0:
                     cache.invalidate(repo, key)
-        except Exception as exc:
+        except Exception as exc:  # noqa: BLE001
+            # Intentional: collect any exception raised from worker threads, including
+            # the AssertionErrors above, so the test can fail after all threads join.
+            # An exception escaping here would be swallowed by threading and the test
+            # would pass silently, so narrowing the type is not possible.
             errors.append(exc)
 
     threads = [threading.Thread(target=worker, args=(i,)) for i in range(10)]
@@ -266,7 +270,11 @@ def test_snapshot_store_thread_safety():
                 loaded = store.load(repo, key)
                 assert loaded is not None
                 assert loaded["data"] == i
-        except Exception as exc:
+        except Exception as exc:  # noqa: BLE001
+            # Intentional: collect any exception raised from worker threads, including
+            # the AssertionErrors above, so the test can fail after all threads join.
+            # An exception escaping here would be swallowed by threading and the test
+            # would pass silently, so narrowing the type is not possible.
             errors.append(exc)
 
     threads = [threading.Thread(target=worker, args=(i,)) for i in range(5)]

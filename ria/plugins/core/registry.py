@@ -21,11 +21,18 @@ class PluginRegistry(ParserRegistryPort):
     def register_parser(self, language: Language, parser: ParserPluginPort) -> None:
         """Register a parser plugin instance for a language."""
         if not parser.can_parse(language):
-            raise InvalidPluginError(f"Plugin '{parser.metadata.name}' declared inability to parse language '{language.value}'.")
+            raise InvalidPluginError(
+                f"Plugin '{parser.metadata.name}' declared inability to parse language '{language.value}'."
+            )
 
         plugin_name = parser.metadata.name
-        if plugin_name in self._plugins_by_name and self._plugins_by_name[plugin_name] is not parser:
-            raise InvalidPluginError(f"Duplicate plugin registration attempted for plugin '{plugin_name}'.")
+        if (
+            plugin_name in self._plugins_by_name
+            and self._plugins_by_name[plugin_name] is not parser
+        ):
+            raise InvalidPluginError(
+                f"Duplicate plugin registration attempted for plugin '{plugin_name}'."
+            )
 
         self._plugins_by_name[plugin_name] = parser
         self._language_map[language] = parser
@@ -66,7 +73,8 @@ class PluginRegistry(ParserRegistryPort):
     def supported_languages(self) -> Sequence[Language]:
         """Return sequence of languages with registered, active parser plugins."""
         return tuple(
-            lang for lang, parser in self._language_map.items()
+            lang
+            for lang, parser in self._language_map.items()
             if parser.metadata.name not in self._disabled_names
         )
 
@@ -75,9 +83,21 @@ class PluginRegistry(ParserRegistryPort):
         results: list[PluginHealth] = []
         for plugin_name, parser in self._plugins_by_name.items():
             if plugin_name in self._disabled_names:
-                results.append(PluginHealth(plugin_id=plugin_name, status=PluginHealthStatus.DISABLED, message="Plugin manually disabled."))
+                results.append(
+                    PluginHealth(
+                        plugin_id=plugin_name,
+                        status=PluginHealthStatus.DISABLED,
+                        message="Plugin manually disabled.",
+                    )
+                )
             elif isinstance(parser, AbstractParser):
                 results.append(parser.check_health())
             else:
-                results.append(PluginHealth(plugin_id=plugin_name, status=PluginHealthStatus.HEALTHY, message="Port compliant plugin."))
+                results.append(
+                    PluginHealth(
+                        plugin_id=plugin_name,
+                        status=PluginHealthStatus.HEALTHY,
+                        message="Port compliant plugin.",
+                    )
+                )
         return tuple(results)

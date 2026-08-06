@@ -10,7 +10,9 @@ class JavaScriptTreeSitterPlugin(BaseTreeSitterPlugin):
     """Tree-sitter parser plugin implementation for JavaScript."""
 
     def __init__(self) -> None:
-        super().__init__(language_ptr=tree_sitter_javascript.language(), language_name="javascript")
+        super().__init__(
+            language_ptr=tree_sitter_javascript.language(), language_name="javascript"
+        )
 
     @property
     def metadata(self) -> PluginMetadata:

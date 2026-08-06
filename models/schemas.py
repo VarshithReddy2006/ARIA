@@ -162,5 +162,6 @@ class EvidenceItem(BaseModel):
     line_end: int = Field(0, description="Ending line number.")
     reason: str = Field("", description="Reason this snippet/file is cited.")
     confidence: float = Field(0.95, description="Confidence score between 0.0 and 1.0.")
-    snippet: Optional[str] = Field(None, description="Optional concise code excerpt (max 3-10 lines).")
-
+    snippet: Optional[str] = Field(
+        None, description="Optional concise code excerpt (max 3-10 lines)."
+    )

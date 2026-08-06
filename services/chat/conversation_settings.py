@@ -27,7 +27,9 @@ class ConversationSettings:
     repository_boost: float = 10.0
     recent_file_boost: float = 10.0
     debug_chat: bool = field(
-        default_factory=lambda: os.getenv("DEBUG_CHAT", "false").lower() in ("true", "1", "yes")
+        default_factory=lambda: (
+            os.getenv("DEBUG_CHAT", "false").lower() in ("true", "1", "yes")
+        )
     )
 
     @classmethod

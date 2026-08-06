@@ -30,7 +30,7 @@ from models.schemas import (
     RepositoryAnalysis,
 )
 from memory.chroma_store import ChromaStore
-from services.github_service import GitHubConfig, GitHubService
+from services.github_service import GitHubService
 from services.chunking_service import CodeChunker
 from services.embedding_service import EmbeddingService
 from services.retrieval_service import RetrievalService
@@ -198,7 +198,11 @@ _CONTAINER_LOCK = threading.Lock()
 
 def get_container(request: Request = None) -> Container:
     """FastAPI dependency to retrieve the application Container from request.app.state."""
-    if request is not None and hasattr(request, "app") and hasattr(request.app.state, "container"):
+    if (
+        request is not None
+        and hasattr(request, "app")
+        and hasattr(request.app.state, "container")
+    ):
         return request.app.state.container
 
     global _GLOBAL_CONTAINER
@@ -242,7 +246,9 @@ def get_snapshot_store() -> JsonSnapshotStore:
 
 
 def get_analysis_cache() -> AnalysisCache:
-    return _get_or_create("analysis_cache", lambda: AnalysisCache(limit=settings.cache_size_limit))
+    return _get_or_create(
+        "analysis_cache", lambda: AnalysisCache(limit=settings.cache_size_limit)
+    )
 
 
 def get_analysis_registry() -> AnalysisRegistry:
@@ -291,7 +297,9 @@ def get_analysis_registry() -> AnalysisRegistry:
 def get_build_pipeline() -> BuildPipeline:
     return _get_or_create(
         "build_pipeline",
-        lambda: BuildPipeline(get_analysis_registry(), snapshot_store=get_snapshot_store()),
+        lambda: BuildPipeline(
+            get_analysis_registry(), snapshot_store=get_snapshot_store()
+        ),
     )
 
 
@@ -483,7 +491,9 @@ def get_repository_twin_builder() -> RepositoryTwinBuilder:
 
 
 def get_repository_twin_navigator() -> RepositoryTwinNavigator:
-    return _get_or_create("repository_twin_navigator", lambda: RepositoryTwinNavigator())
+    return _get_or_create(
+        "repository_twin_navigator", lambda: RepositoryTwinNavigator()
+    )
 
 
 def get_repository_knowledge_graph_builder() -> RepositoryKnowledgeGraphBuilder:

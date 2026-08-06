@@ -5,7 +5,6 @@ never import from the top-level delivery layer (backend).
 """
 
 import ast
-import os
 from pathlib import Path
 import pytest
 
@@ -56,8 +55,7 @@ def test_no_backend_imports_in_domain_layer(domain_dir: str):
             rel_path = py_file.relative_to(PROJECT_ROOT)
             violations.append(str(rel_path))
 
-    assert (
-        len(violations) == 0
-    ), f"Architecture Violation! Found illegal 'backend' imports in domain layer:\n" + "\n".join(
-        f"  - {v}" for v in violations
+    assert len(violations) == 0, (
+        "Architecture Violation! Found illegal 'backend' imports in domain layer:\n"
+        + "\n".join(f"  - {v}" for v in violations)
     )

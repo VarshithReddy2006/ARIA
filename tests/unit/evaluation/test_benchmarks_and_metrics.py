@@ -2,11 +2,19 @@
 
 from pathlib import Path
 
-from ria.evaluation import BenchmarkHarness, DatasetGenerator, PerformanceBaseline, RegressionSuite, ReportGenerator
+from ria.evaluation import (
+    BenchmarkHarness,
+    DatasetGenerator,
+    PerformanceBaseline,
+    RegressionSuite,
+    ReportGenerator,
+)
 
 
 def test_benchmark_harness_and_report_generation(tmp_path: Path) -> None:
-    dataset = DatasetGenerator.create_small_mixed_repo(tmp_path, py_files=10, ts_files=10, js_files=10)
+    dataset = DatasetGenerator.create_small_mixed_repo(
+        tmp_path, py_files=10, ts_files=10, js_files=10
+    )
     harness = BenchmarkHarness(work_dir=tmp_path / "work")
 
     index_batch, result = harness.run_benchmark(dataset)

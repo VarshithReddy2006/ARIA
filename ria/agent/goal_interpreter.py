@@ -37,4 +37,6 @@ class GoalInterpreter(GoalInterpreterPort):
         else:
             gtype = GoalType.REPOSITORY_EXPLANATION
 
-        return Goal(goal_id=gid, description=raw_description, goal_type=gtype, repo_id=repo_id)
+        return Goal(
+            goal_id=gid, description=raw_description, goal_type=gtype, repo_id=repo_id
+        )

@@ -3,7 +3,11 @@
 from ria.application.index.assembler import IndexBatchAssembler
 from ria.application.index.builder import IndexUnitBuilder
 from ria.application.index.discovery import FileDiscovery
-from ria.application.index.dto import ExecutePipelineCommand, PipelineResultDTO, ScanRepositoryCommand
+from ria.application.index.dto import (
+    ExecutePipelineCommand,
+    PipelineResultDTO,
+    ScanRepositoryCommand,
+)
 from ria.application.index.exceptions import (
     IndexApplicationException,
     PipelineException,

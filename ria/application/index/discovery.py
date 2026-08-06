@@ -11,11 +11,28 @@ class FileDiscovery:
     """Discovers indexable source files in a repository workspace, filtering ignored, binary, and oversized paths."""
 
     BINARY_EXTENSIONS: tuple[str, ...] = (
-        ".exe", ".dll", ".so", ".dylib", ".bin", ".pyc", ".pyo", ".pyd",
-        ".png", ".jpg", ".jpeg", ".gif", ".ico", ".pdf", ".zip", ".tar", ".gz"
+        ".exe",
+        ".dll",
+        ".so",
+        ".dylib",
+        ".bin",
+        ".pyc",
+        ".pyo",
+        ".pyd",
+        ".png",
+        ".jpg",
+        ".jpeg",
+        ".gif",
+        ".ico",
+        ".pdf",
+        ".zip",
+        ".tar",
+        ".gz",
     )
 
-    def __init__(self, filesystem: FilesystemPort, max_file_size_bytes: int = 2 * 1024 * 1024) -> None:
+    def __init__(
+        self, filesystem: FilesystemPort, max_file_size_bytes: int = 2 * 1024 * 1024
+    ) -> None:
         self._fs = filesystem
         self._max_size = max_file_size_bytes
 
@@ -29,7 +46,9 @@ class FileDiscovery:
         except Exception:
             return True
 
-    def discover_files(self, workspace_path: Path, ignore_patterns: Sequence[str] = ()) -> Sequence[FilePath]:
+    def discover_files(
+        self, workspace_path: Path, ignore_patterns: Sequence[str] = ()
+    ) -> Sequence[FilePath]:
         """Discover indexable relative FilePaths under workspace_path."""
         abs_paths = self._fs.walk_directory(workspace_path, ignore_patterns)
         discovered: list[FilePath] = []

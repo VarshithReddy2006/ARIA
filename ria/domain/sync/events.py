@@ -3,7 +3,7 @@
 from dataclasses import dataclass
 
 from ria.domain.common.value_objects import Timestamp
-from ria.domain.sync.value_objects import CommitReference, RepositoryIdentity, SyncStatus
+from ria.domain.sync.value_objects import CommitReference, RepositoryIdentity
 
 
 @dataclass(frozen=True, slots=True)

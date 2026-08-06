@@ -12,7 +12,6 @@ Guarantees that explicit repository entity mentions take immediate priority over
 
 from __future__ import annotations
 
-import os
 import re
 from dataclasses import dataclass
 from typing import Optional
@@ -42,13 +41,9 @@ class ExplicitEntityResolver:
         r"\b([a-zA-Z0-9_]+\.[a-zA-Z0-9_]+(?:\.[a-zA-Z0-9_]+)*)\b"
     )
 
-    _METHOD_PATTERN = re.compile(
-        r"\b([A-Z]\w*)\.([a-z_]\w*)(?:\s*\(\))?"
-    )
+    _METHOD_PATTERN = re.compile(r"\b([A-Z]\w*)\.([a-z_]\w*)(?:\s*\(\))?")
 
-    _FUNCTION_PATTERN = re.compile(
-        r"\b([a-z_]\w*)\s*\(\)"
-    )
+    _FUNCTION_PATTERN = re.compile(r"\b([a-z_]\w*)\s*\(\)")
 
     _CLASS_SYMBOL_PATTERN = re.compile(
         r"\b([A-Z][a-zA-Z0-9_]*(?:Service|Detector|Resolver|Engine|Store|Pipeline|Context|Manager|Analyzer|Builder|Router|Factory|State|Machine|Graph)?)\b"

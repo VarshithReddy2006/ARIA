@@ -6,5 +6,4 @@ from typing import Protocol, Any
 class IntentClassifierPort(Protocol):
     """Port interface for intent classification."""
 
-    def classify(self, query: str) -> Any:
-        ...
+    def classify(self, query: str) -> Any: ...

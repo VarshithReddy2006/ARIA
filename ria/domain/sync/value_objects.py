@@ -2,7 +2,7 @@
 
 import re
 from dataclasses import dataclass
-from enum import Enum, auto
+from enum import Enum
 from typing import Optional
 
 from ria.domain.common.base import ValueObject
@@ -46,7 +46,9 @@ class CommitReference(ValueObject):
 
     def _validate_invariants(self) -> None:
         if not re.match(r"^[0-9a-fA-F]{40}$", self.sha):
-            raise InvalidCommitRefError(f"Commit SHA must be a 40-character hex string, got '{self.sha}'.")
+            raise InvalidCommitRefError(
+                f"Commit SHA must be a 40-character hex string, got '{self.sha}'."
+            )
 
 
 @dataclass(frozen=True, slots=True)

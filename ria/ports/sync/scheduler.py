@@ -14,7 +14,9 @@ class SyncSchedulerPort(Protocol):
     Postconditions: Registers or cancels background sync timers.
     """
 
-    def schedule_sync(self, repo_id: RepositoryIdentity, interval_seconds: float) -> None:
+    def schedule_sync(
+        self, repo_id: RepositoryIdentity, interval_seconds: float
+    ) -> None:
         """Schedule periodic background sync for repository."""
         ...
 

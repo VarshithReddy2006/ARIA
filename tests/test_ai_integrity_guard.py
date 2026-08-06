@@ -7,7 +7,6 @@ Fails automatically if a hardcoded fabricated confidence literal is reintroduced
 
 import ast
 import os
-import pytest
 
 
 FORBIDDEN_CONFIDENCE_LITERALS = {0.97, 95}
@@ -38,7 +37,12 @@ def test_no_hardcoded_fabricated_confidence_literals_in_backend_or_services():
 
                 # Check string literal formatting (e.g. "Confidence: 95%")
                 if "Confidence: 95%" in content or "confidence: 0.97" in content:
-                    violations.append((rel_path, "Contains forbidden hardcoded confidence string literal"))
+                    violations.append(
+                        (
+                            rel_path,
+                            "Contains forbidden hardcoded confidence string literal",
+                        )
+                    )
 
                 # AST analysis for dictionary keys or kwargs
                 try:
@@ -50,12 +54,22 @@ def test_no_hardcoded_fabricated_confidence_literals_in_backend_or_services():
                     # Check Dict keys: {"confidence": 0.97} or {"confidence": 95}
                     if isinstance(node, ast.Dict):
                         for k, v in zip(node.keys, node.values):
-                            if isinstance(k, ast.Constant) and str(k.value).lower() in ("confidence", "topic_confidence"):
-                                if isinstance(v, ast.Constant) and v.value in FORBIDDEN_CONFIDENCE_LITERALS:
+                            if isinstance(k, ast.Constant) and str(k.value).lower() in (
+                                "confidence",
+                                "topic_confidence",
+                            ):
+                                if (
+                                    isinstance(v, ast.Constant)
+                                    and v.value in FORBIDDEN_CONFIDENCE_LITERALS
+                                ):
                                     violations.append(
-                                        (rel_path, f"Line {node.lineno}: Dict key '{k.value}' assigned forbidden literal {v.value}")
+                                        (
+                                            rel_path,
+                                            f"Line {node.lineno}: Dict key '{k.value}' assigned forbidden literal {v.value}",
+                                        )
                                     )
 
-    assert (
-        len(violations) == 0
-    ), f"AI Integrity Guard Violation(s) detected:\n" + "\n".join(f"  {path}: {reason}" for path, reason in violations)
+    assert len(violations) == 0, (
+        "AI Integrity Guard Violation(s) detected:\n"
+        + "\n".join(f"  {path}: {reason}" for path, reason in violations)
+    )

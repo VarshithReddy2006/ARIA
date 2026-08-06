@@ -12,7 +12,7 @@ Features:
 import logging
 import os
 import subprocess
-from typing import Dict, List, Optional, Sequence, Union
+from typing import Dict, Optional, Sequence, Union
 
 logger = logging.getLogger(__name__)
 
@@ -102,7 +102,9 @@ def run_safe_command(
         SafeSubprocessError: If execution times out, executable is missing, or check=True fails.
     """
     if not isinstance(cmd, (list, tuple)):
-        raise TypeError("Command must be a list or tuple of strings (non-shell execution).")
+        raise TypeError(
+            "Command must be a list or tuple of strings (non-shell execution)."
+        )
 
     cmd_list = [str(arg) for arg in cmd]
 
@@ -124,8 +126,12 @@ def run_safe_command(
             check=False,  # We handle return code manually for safe secret redaction
         )
     except subprocess.TimeoutExpired as exc:
-        stdout_str = redact_text(exc.stdout or "", secrets) if text and exc.stdout else ""
-        stderr_str = redact_text(exc.stderr or "", secrets) if text and exc.stderr else ""
+        stdout_str = (
+            redact_text(exc.stdout or "", secrets) if text and exc.stdout else ""
+        )
+        stderr_str = (
+            redact_text(exc.stderr or "", secrets) if text and exc.stderr else ""
+        )
         safe_cmd = [redact_text(arg, secrets) for arg in cmd_list]
         raise SafeSubprocessError(
             cmd=safe_cmd,
@@ -172,8 +178,12 @@ def run_safe_command(
         raise SafeSubprocessError(
             cmd=safe_cmd,
             returncode=completed.returncode,
-            stdout=completed.stdout[:max_output_length] if isinstance(completed.stdout, str) else "",
-            stderr=completed.stderr[:max_output_length] if isinstance(completed.stderr, str) else "",
+            stdout=completed.stdout[:max_output_length]
+            if isinstance(completed.stdout, str)
+            else "",
+            stderr=completed.stderr[:max_output_length]
+            if isinstance(completed.stderr, str)
+            else "",
             timed_out=False,
         )
 

@@ -10,10 +10,18 @@ import contextvars
 import uuid
 from typing import Optional
 
-request_id_var: contextvars.ContextVar[str] = contextvars.ContextVar("request_id", default="")
-build_id_var: contextvars.ContextVar[str] = contextvars.ContextVar("build_id", default="")
-repository_var: contextvars.ContextVar[str] = contextvars.ContextVar("repository", default="")
-analysis_var: contextvars.ContextVar[str] = contextvars.ContextVar("analysis", default="")
+request_id_var: contextvars.ContextVar[str] = contextvars.ContextVar(
+    "request_id", default=""
+)
+build_id_var: contextvars.ContextVar[str] = contextvars.ContextVar(
+    "build_id", default=""
+)
+repository_var: contextvars.ContextVar[str] = contextvars.ContextVar(
+    "repository", default=""
+)
+analysis_var: contextvars.ContextVar[str] = contextvars.ContextVar(
+    "analysis", default=""
+)
 
 
 def get_current_request_id() -> str:

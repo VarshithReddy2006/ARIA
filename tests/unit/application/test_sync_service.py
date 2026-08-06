@@ -4,18 +4,24 @@ from pathlib import Path
 
 import pytest
 from ria.application.sync import (
-    LockAcquisitionException,
     RegisterRepositoryCommand,
     RepositorySyncException,
     RepositorySyncService,
     SynchronizeRepositoryCommand,
 )
-from ria.domain.common.value_objects import Timestamp, UUIDv4
-from ria.domain.sync import CommitReference, RepositoryIdentity, SyncStatus
+from ria.domain.common.value_objects import UUIDv4
+from ria.domain.sync import SyncStatus
 from ria.infrastructure.filesystem import WorkspaceManager
 from ria.infrastructure.git import SubprocessGitAdapter
-from ria.infrastructure.storage import SQLiteRepositoryLockAdapter, SQLiteRepositoryRegistryAdapter
-from ria.infrastructure.system import InMemoryMetricsAdapter, StandardLoggerAdapter, SystemClockAdapter
+from ria.infrastructure.storage import (
+    SQLiteRepositoryLockAdapter,
+    SQLiteRepositoryRegistryAdapter,
+)
+from ria.infrastructure.system import (
+    InMemoryMetricsAdapter,
+    StandardLoggerAdapter,
+    SystemClockAdapter,
+)
 
 
 def test_register_and_sync_repository_flow(tmp_path: Path) -> None:
@@ -26,12 +32,16 @@ def test_register_and_sync_repository_flow(tmp_path: Path) -> None:
     origin_dir.mkdir()
     subprocess.run(["git", "init"], cwd=origin_dir, check=True)
     subprocess.run(["git", "config", "user.name", "Test"], cwd=origin_dir, check=True)
-    subprocess.run(["git", "config", "user.email", "test@test.com"], cwd=origin_dir, check=True)
+    subprocess.run(
+        ["git", "config", "user.email", "test@test.com"], cwd=origin_dir, check=True
+    )
 
     f1 = origin_dir / "main.py"
     f1.write_text("print('hello')")
     subprocess.run(["git", "add", "main.py"], cwd=origin_dir, check=True)
-    subprocess.run(["git", "commit", "-m", "Initial commit"], cwd=origin_dir, check=True)
+    subprocess.run(
+        ["git", "commit", "-m", "Initial commit"], cwd=origin_dir, check=True
+    )
 
     git_client = SubprocessGitAdapter(timeout_seconds=10.0)
     registry = SQLiteRepositoryRegistryAdapter(db_path=":memory:")

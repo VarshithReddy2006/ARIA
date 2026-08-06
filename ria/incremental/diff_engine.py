@@ -30,7 +30,9 @@ class DiffEngine(DiffEnginePort):
             return ()
 
         ws_dir = self._workspace.get_workspace_path(repo_id)
-        raw_changed = self._git.detect_changed_files(ws_dir, from_commit.sha, to_commit.sha)
+        raw_changed = self._git.detect_changed_files(
+            ws_dir, from_commit.sha, to_commit.sha
+        )
 
         results: list[ChangedFile] = []
         for fp in raw_changed:

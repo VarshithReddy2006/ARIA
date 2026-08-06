@@ -33,7 +33,9 @@ STORE = ROOT / "data" / "analysis_store.json"
 
 LEGACY_CMD = [sys.executable, "-m", "backend.cli", "mcp"]
 FASTMCP_CMD = [
-    sys.executable, "-u", "-c",
+    sys.executable,
+    "-u",
+    "-c",
     "from mcp.server import run_mcp_server; run_mcp_server('stdio')",
 ]
 
@@ -59,9 +61,15 @@ class StdioPeer:
         )
         self.spawned_at = time.perf_counter()
         self.proc = subprocess.Popen(
-            cmd, cwd=str(ROOT), env=env, stdin=subprocess.PIPE,
-            stdout=subprocess.PIPE, stderr=subprocess.PIPE,
-            text=True, encoding="utf-8", bufsize=1,
+            cmd,
+            cwd=str(ROOT),
+            env=env,
+            stdin=subprocess.PIPE,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            text=True,
+            encoding="utf-8",
+            bufsize=1,
         )
         self.spawn_ms = (time.perf_counter() - self.spawned_at) * 1000
         self._frames: queue.Queue[str | None] = queue.Queue()
@@ -195,7 +203,9 @@ class TransportContract:
 
     def test_initialize(self, client: StdioPeer) -> None:
         frame, ms = client.handshake()
-        assert frame is not None, f"no initialize response; stderr: {client.stderr[-5:]}"
+        assert frame is not None, (
+            f"no initialize response; stderr: {client.stderr[-5:]}"
+        )
         result = frame["result"]
         assert result["protocolVersion"]
         assert "tools" in result["capabilities"]
@@ -301,9 +311,7 @@ class TestFastMCPStdioTransport(TransportContract):
         )
         assert frame is not None
         assert frame["result"]["isError"] is True
-        text = " ".join(
-            c.get("text", "") for c in frame["result"].get("content", [])
-        )
+        text = " ".join(c.get("text", "") for c in frame["result"].get("content", []))
         assert "No call graph indexed" in text
         assert "Traceback (most recent call last)" not in text
         assert ":\\" not in text, "leaked a filesystem path"

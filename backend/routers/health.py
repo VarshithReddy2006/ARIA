@@ -58,13 +58,17 @@ def readiness(request: Request, response: Response) -> Dict[str, Any]:
     # 2. Tree-sitter Parser Initialization
     try:
         from services.tree_sitter_service import TreeSitterService
+
         ts = TreeSitterService()
         res = ts.parse_file("dummy.py", "def main(): pass")
         if res is not None:
             checks["parser"] = {"status": "ready", "languages": ["python"]}
         else:
             is_ready = False
-            checks["parser"] = {"status": "unready", "error": "Python parser returned None"}
+            checks["parser"] = {
+                "status": "unready",
+                "error": "Python parser returned None",
+            }
     except Exception as exc:
         is_ready = False
         checks["parser"] = {"status": "unready", "error": str(exc)}
@@ -81,6 +85,7 @@ def readiness(request: Request, response: Response) -> Dict[str, Any]:
         snapshot_store = getattr(request.app.state, "snapshot_store", None)
         if snapshot_store is None:
             from storage.snapshot_store import JsonSnapshotStore
+
             snapshot_store = JsonSnapshotStore()
         checks["database"] = {"status": "ready", "type": "JsonSnapshotStore"}
     except Exception as exc:

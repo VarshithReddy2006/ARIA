@@ -13,7 +13,9 @@ class RepositoryLockPort(Protocol):
     Postconditions: Acquire returns True if lock obtained, False if busy. Release guarantees lock removal.
     """
 
-    def acquire_lock(self, repo_id: RepositoryIdentity, ttl_seconds: float = 300.0) -> bool:
+    def acquire_lock(
+        self, repo_id: RepositoryIdentity, ttl_seconds: float = 300.0
+    ) -> bool:
         """Attempt to acquire process lock for repository with expiration timeout."""
         ...
 

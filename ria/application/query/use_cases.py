@@ -18,7 +18,9 @@ class SearchSymbolUseCase:
         self._service = service
 
     def execute(self, dto: SearchSymbolQueryDTO) -> QueryResult:
-        return self._service.search_symbols(dto.repo_id, dto.symbol_name, dto.max_results)
+        return self._service.search_symbols(
+            dto.repo_id, dto.symbol_name, dto.max_results
+        )
 
 
 class FindDefinitionUseCase:
@@ -28,7 +30,9 @@ class FindDefinitionUseCase:
         self._service = service
 
     def execute(self, dto: FindDefinitionQueryDTO) -> QueryResult:
-        return self._service.find_definition(dto.repo_id, dto.symbol_moniker, dto.symbol_name)
+        return self._service.find_definition(
+            dto.repo_id, dto.symbol_moniker, dto.symbol_name
+        )
 
 
 class FindReferencesUseCase:
@@ -48,7 +52,9 @@ class FindCallHierarchyUseCase:
         self._service = service
 
     def execute(self, dto: CallHierarchyQueryDTO) -> QueryResult:
-        return self._service.find_call_hierarchy(dto.repo_id, dto.symbol_moniker, dto.is_callers)
+        return self._service.find_call_hierarchy(
+            dto.repo_id, dto.symbol_moniker, dto.is_callers
+        )
 
 
 class DependencyAnalysisUseCase:

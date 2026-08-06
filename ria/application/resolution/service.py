@@ -37,7 +37,9 @@ class ResolutionApplicationService:
     def resolve_and_store(self, command: ResolveAndStoreCommand) -> FactSummaryDTO:
         """Execute indexing, resolve symbols, and save facts into FactStore."""
         start_time = self._clock.monotonic_seconds()
-        self._logger.info("Executing ResolutionApplicationService", repo_id=command.repo_id)
+        self._logger.info(
+            "Executing ResolutionApplicationService", repo_id=command.repo_id
+        )
 
         # Lookup state
         target_state: Optional[RepositoryState] = None
@@ -65,7 +67,9 @@ class ResolutionApplicationService:
 
         try:
             # 1. Execute Index Pipeline
-            index_batch, pipe_dto = self._index_pipeline.execute(ExecutePipelineCommand(repo_id=command.repo_id))
+            index_batch, pipe_dto = self._index_pipeline.execute(
+                ExecutePipelineCommand(repo_id=command.repo_id)
+            )
 
             # 2. Execute Resolution Engine
             fact_set = self._engine.resolve_batch(index_batch)
@@ -90,7 +94,9 @@ class ResolutionApplicationService:
             )
         except Exception as err:
             self._metrics.increment_counter("resolution_failure_total")
-            self._logger.error("Resolution and store pipeline failed", exc=err, repo_id=command.repo_id)
+            self._logger.error(
+                "Resolution and store pipeline failed", exc=err, repo_id=command.repo_id
+            )
             return FactSummaryDTO(
                 repo_id=command.repo_id,
                 commit_sha=commit.sha,

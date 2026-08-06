@@ -2,11 +2,9 @@
 
 from typing import Optional
 
-from ria.application.incremental.dto import IncrementalUpdateCommandDTO, PlanGenerationCommandDTO, SnapshotRefreshCommandDTO
-from ria.domain.snapshot.entities import RepositorySnapshot
-from ria.domain.snapshot.value_objects import IncrementalPlan
+from ria.application.incremental.dto import IncrementalUpdateCommandDTO
 from ria.domain.sync.entities import RepositoryState
-from ria.domain.sync.value_objects import BranchReference, CommitReference
+from ria.domain.sync.value_objects import BranchReference
 from ria.incremental.dto import IncrementalResultDTO
 from ria.incremental.engine import IncrementalEngine
 from ria.ports.common.clock import ClockPort
@@ -38,9 +36,14 @@ class IncrementalApplicationService:
         self._logger = logger
         self._metrics = metrics
 
-    def update_repository(self, dto: IncrementalUpdateCommandDTO) -> IncrementalResultDTO:
+    def update_repository(
+        self, dto: IncrementalUpdateCommandDTO
+    ) -> IncrementalResultDTO:
         start_t = self._clock.monotonic_seconds()
-        self._logger.info("Executing IncrementalApplicationService.update_repository", repo_id=dto.repo_id)
+        self._logger.info(
+            "Executing IncrementalApplicationService.update_repository",
+            repo_id=dto.repo_id,
+        )
 
         target_state: Optional[RepositoryState] = None
         for st in self._registry.list_all():
@@ -72,11 +75,17 @@ class IncrementalApplicationService:
             to_commit = self._git.checkout(ws_dir, target_branch)
 
             # 2. Process incremental update
-            plan = self._engine.process_incremental_update(repo_identity, from_commit, to_commit)
+            plan = self._engine.process_incremental_update(
+                repo_identity, from_commit, to_commit
+            )
 
             # 3. Update state
-            branch_ref = target_state.current_branch or BranchReference(name="main", head_commit=to_commit)
-            target_state.mark_synchronized(branch=branch_ref, commit=to_commit, synced_at=self._clock.now_utc())
+            branch_ref = target_state.current_branch or BranchReference(
+                name="main", head_commit=to_commit
+            )
+            target_state.mark_synchronized(
+                branch=branch_ref, commit=to_commit, synced_at=self._clock.now_utc()
+            )
             self._registry.save_state(target_state)
 
             elapsed = self._clock.monotonic_seconds() - start_t
@@ -94,7 +103,9 @@ class IncrementalApplicationService:
             )
         except Exception as err:
             elapsed = self._clock.monotonic_seconds() - start_t
-            self._logger.error("Incremental update failed", exc=err, repo_id=dto.repo_id)
+            self._logger.error(
+                "Incremental update failed", exc=err, repo_id=dto.repo_id
+            )
             return IncrementalResultDTO(
                 repo_id=dto.repo_id,
                 from_commit_sha=from_commit.sha,

@@ -1,7 +1,5 @@
 """Unit tests for SQLiteFactStoreAdapter."""
 
-from pathlib import Path
-
 from ria.domain.common.value_objects import Timestamp, UUIDv4
 from ria.domain.index.value_objects import FilePath, Location
 from ria.domain.resolution import (
@@ -10,7 +8,6 @@ from ria.domain.resolution import (
     RelationKind,
     ResolvedFactSet,
     SemanticDefinition,
-    SemanticRelation,
     SemanticSymbol,
     SymbolKind,
     SymbolMoniker,
@@ -23,7 +20,11 @@ from ria.infrastructure.storage import SQLiteFactStoreAdapter
 def test_sqlite_fact_store_crud() -> None:
     store = SQLiteFactStoreAdapter(db_path=":memory:")
 
-    repo_id = RepositoryIdentity(repo_id=UUIDv4.generate(), remote_url="https://github.com/org/repo.git", name="repo")
+    repo_id = RepositoryIdentity(
+        repo_id=UUIDv4.generate(),
+        remote_url="https://github.com/org/repo.git",
+        name="repo",
+    )
     commit = CommitReference(sha="a" * 40, committed_at=Timestamp.now())
 
     fp = FilePath(relative_path="src/main.py")
@@ -40,10 +41,14 @@ def test_sqlite_fact_store_crud() -> None:
         path=fp,
         location=loc,
     )
-    defn = SemanticDefinition(moniker=moniker, qualified_name=qname, path=fp, location=loc)
+    defn = SemanticDefinition(
+        moniker=moniker, qualified_name=qname, path=fp, location=loc
+    )
 
     callee_m = SymbolMoniker(value="repo:src/util.py:global:helper")
-    call_rel = CallRelation(caller_moniker=moniker, callee_moniker=callee_m, location=loc)
+    call_rel = CallRelation(
+        caller_moniker=moniker, callee_moniker=callee_m, location=loc
+    )
 
     fact_set = ResolvedFactSet(
         symbols=(sym,),
@@ -65,7 +70,9 @@ def test_sqlite_fact_store_crud() -> None:
     symbols_filtered = store.get_symbols(repo_id, commit, path=fp)
     assert len(symbols_filtered) == 1
 
-    symbols_empty = store.get_symbols(repo_id, commit, path=FilePath(relative_path="other.py"))
+    symbols_empty = store.get_symbols(
+        repo_id, commit, path=FilePath(relative_path="other.py")
+    )
     assert len(symbols_empty) == 0
 
     # 3. Get relations

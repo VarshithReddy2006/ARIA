@@ -2,7 +2,7 @@
 
 from pathlib import Path
 
-from ria.evaluation import BenchmarkHarness, DatasetGenerator, PerformanceBaseline, RegressionSuite
+from ria.evaluation import BenchmarkHarness, DatasetGenerator
 
 
 def test_stress_deep_nested_directory(tmp_path: Path) -> None:
@@ -17,7 +17,9 @@ def test_stress_deep_nested_directory(tmp_path: Path) -> None:
 
 
 def test_stress_repeated_sync_and_indexing_cycles(tmp_path: Path) -> None:
-    dataset = DatasetGenerator.create_small_mixed_repo(tmp_path, py_files=5, ts_files=5, js_files=5)
+    dataset = DatasetGenerator.create_small_mixed_repo(
+        tmp_path, py_files=5, ts_files=5, js_files=5
+    )
     harness = BenchmarkHarness(work_dir=tmp_path / "work_repeat")
 
     # Cycle 1

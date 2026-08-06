@@ -66,6 +66,7 @@ class ChatRequest(BaseModel):
                 "Please open a repository from the analysis page first."
             )
         return stripped
+
     @field_validator("session_id")
     @classmethod
     def session_id_must_not_be_empty(cls, value: str) -> str:

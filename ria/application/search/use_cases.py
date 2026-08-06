@@ -1,6 +1,11 @@
 """Single-responsibility use cases for search subsystem."""
 
-from ria.application.search.dto import AutocompleteDTO, SearchFileDTO, SearchModuleDTO, SearchSymbolDTO
+from ria.application.search.dto import (
+    AutocompleteDTO,
+    SearchFileDTO,
+    SearchModuleDTO,
+    SearchSymbolDTO,
+)
 from ria.application.search.service import SearchApplicationService
 from ria.domain.search.entities import SearchResponse
 
@@ -12,7 +17,9 @@ class SearchSymbolUseCase:
         self._service = service
 
     def execute(self, dto: SearchSymbolDTO) -> SearchResponse:
-        return self._service.search_symbol(dto.repo_id, dto.query_text, dto.query_type, dto.max_results)
+        return self._service.search_symbol(
+            dto.repo_id, dto.query_text, dto.query_type, dto.max_results
+        )
 
 
 class SearchFileUseCase:

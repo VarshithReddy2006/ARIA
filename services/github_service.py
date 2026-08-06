@@ -31,9 +31,7 @@ ACCESS_DENIED_MESSAGE = "Repository not found or access denied."
 NETWORK_FAILURE_MESSAGE = (
     "Network failure: unable to reach the repository host. Please try again."
 )
-GIT_FAILURE_MESSAGE = (
-    "Connection failure: unable to complete the repository operation."
-)
+GIT_FAILURE_MESSAGE = "Connection failure: unable to complete the repository operation."
 
 # Internal diagnostic categories. Every category is logged distinctly for
 # operators; several intentionally collapse to one public message.
@@ -91,7 +89,11 @@ def classify_git_failure(
     # results, because their stderr also contains "not found".
     if any(
         kw in text
-        for kw in ("executable not found", "no such file or directory", "cannot run program")
+        for kw in (
+            "executable not found",
+            "no such file or directory",
+            "cannot run program",
+        )
     ):
         return _CATEGORY_GIT_FAILURE
 
@@ -125,7 +127,13 @@ def classify_git_failure(
 
     if any(
         kw in text
-        for kw in ("403", "forbidden", "permission denied", "write access", "authorization")
+        for kw in (
+            "403",
+            "forbidden",
+            "permission denied",
+            "write access",
+            "authorization",
+        )
     ):
         return _CATEGORY_PERMISSION_DENIED
 
@@ -330,7 +338,10 @@ class GitHubService:
         secrets_list: List[str] = []
         if self.token:
             import base64
-            auth_str = base64.b64encode(f"x-access-token:{self.token}".encode("utf-8")).decode("utf-8")
+
+            auth_str = base64.b64encode(
+                f"x-access-token:{self.token}".encode("utf-8")
+            ).decode("utf-8")
             extra_env = {
                 "GIT_CONFIG_KEY_0": "http.extraHeader",
                 "GIT_CONFIG_VALUE_0": f"Authorization: Basic {auth_str}",
@@ -341,7 +352,9 @@ class GitHubService:
         is_public = False
         try:
             cmd_check = ["git", "ls-remote", public_url, "HEAD"]
-            res = run_safe_command(cmd_check, timeout=SHORT_GIT_TIMEOUT, secrets=secrets_list)
+            res = run_safe_command(
+                cmd_check, timeout=SHORT_GIT_TIMEOUT, secrets=secrets_list
+            )
             if res.returncode == 0:
                 is_public = True
         except Exception:
@@ -442,8 +455,10 @@ class GitHubService:
         # 6. Clear target directory
         if os.path.exists(dest_dir):
             try:
+
                 def _remove_readonly(func, path, exc_info):
                     import stat
+
                     try:
                         os.chmod(path, stat.S_IWRITE)
                         func(path)
@@ -497,7 +512,10 @@ class GitHubService:
                 return False
             resolved_repository = os.path.realpath(repository_path)
             resolved_file = os.path.realpath(file_path)
-            return os.path.commonpath([resolved_repository, resolved_file]) == resolved_repository
+            return (
+                os.path.commonpath([resolved_repository, resolved_file])
+                == resolved_repository
+            )
         except (OSError, ValueError):
             return False
 
@@ -519,7 +537,11 @@ class GitHubService:
         extracted_files = []
 
         for root, dirs, files in os.walk(local_path):
-            dirs[:] = [d for d in dirs if d not in ignored_names and not os.path.islink(os.path.join(root, d))]
+            dirs[:] = [
+                d
+                for d in dirs
+                if d not in ignored_names and not os.path.islink(os.path.join(root, d))
+            ]
 
             for file in files:
                 file_path = os.path.join(root, file)
@@ -531,15 +553,39 @@ class GitHubService:
 
                 ext = os.path.splitext(file)[1].lower()
                 if ext in {
-                    ".png", ".jpg", ".jpeg", ".gif", ".ico", ".pdf", ".zip", ".tar",
-                    ".gz", ".mp3", ".mp4", ".woff", ".woff2", ".ttf", ".eot", ".svg",
-                    ".pyc", ".db", ".sqlite", ".exe", ".bin", ".dll", ".so", ".dylib",
-                    ".pkl", ".h5",
+                    ".png",
+                    ".jpg",
+                    ".jpeg",
+                    ".gif",
+                    ".ico",
+                    ".pdf",
+                    ".zip",
+                    ".tar",
+                    ".gz",
+                    ".mp3",
+                    ".mp4",
+                    ".woff",
+                    ".woff2",
+                    ".ttf",
+                    ".eot",
+                    ".svg",
+                    ".pyc",
+                    ".db",
+                    ".sqlite",
+                    ".exe",
+                    ".bin",
+                    ".dll",
+                    ".so",
+                    ".dylib",
+                    ".pkl",
+                    ".h5",
                 }:
                     continue
 
                 if not self._safe_source_file(file_path, local_path):
-                    logger.debug("Skipping unsafe or oversized source file: %s", rel_path)
+                    logger.debug(
+                        "Skipping unsafe or oversized source file: %s", rel_path
+                    )
                     continue
 
                 try:
@@ -549,7 +595,9 @@ class GitHubService:
                         {"path": rel_path.replace(os.sep, "/"), "content": content}
                     )
                 except OSError as exc:
-                    logger.debug("Skipping file %s due to read error: %s", rel_path, exc)
+                    logger.debug(
+                        "Skipping file %s due to read error: %s", rel_path, exc
+                    )
 
         return extracted_files
 
@@ -592,7 +640,11 @@ class GitHubService:
         }
 
         for root, dirs, files in os.walk(dest_dir):
-            dirs[:] = [d for d in dirs if d not in ignored_names and not os.path.islink(os.path.join(root, d))]
+            dirs[:] = [
+                d
+                for d in dirs
+                if d not in ignored_names and not os.path.islink(os.path.join(root, d))
+            ]
             for file in files:
                 file_path = os.path.join(root, file)
                 rel_path = os.path.relpath(file_path, dest_dir).replace(os.sep, "/")

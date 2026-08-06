@@ -29,7 +29,13 @@ def register(server: Any) -> None:
     """Register workspace tools on the MCP server."""
 
     @server.tool()
-    def get_workspace(owner: str, repo: str, panel: str = "overview", file: Optional[str] = None, symbol: Optional[str] = None) -> str:
+    def get_workspace(
+        owner: str,
+        repo: str,
+        panel: str = "overview",
+        file: Optional[str] = None,
+        symbol: Optional[str] = None,
+    ) -> str:
         """Retrieves a contextual workspace view for a repository.
 
         Args:
@@ -43,7 +49,16 @@ def register(server: Any) -> None:
         from mcp.dependencies import get_workspace_service
         from models.workspace import WorkspaceState
 
-        with mcp_request_context("get_workspace", {"owner": owner, "repo": repo, "panel": panel, "file": file, "symbol": symbol}):
+        with mcp_request_context(
+            "get_workspace",
+            {
+                "owner": owner,
+                "repo": repo,
+                "panel": panel,
+                "file": file,
+                "symbol": symbol,
+            },
+        ):
             with tool_boundary("get_workspace"):
                 repo_name = require_repo(owner, repo)
                 service = get_workspace_service()
@@ -58,5 +73,9 @@ def register(server: Any) -> None:
                     selected_symbol=symbol,
                 )
                 workspace = service.get_workspace(repo_name, state=state)
-                serialized = workspace.model_dump() if hasattr(workspace, "model_dump") else workspace
+                serialized = (
+                    workspace.model_dump()
+                    if hasattr(workspace, "model_dump")
+                    else workspace
+                )
                 return json.dumps(serialized, indent=2, default=str)

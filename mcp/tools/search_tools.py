@@ -49,7 +49,9 @@ def register(server: Any) -> None:
         from mcp.observability import mcp_request_context
         from mcp.dependencies import get_retrieval_service
 
-        with mcp_request_context("query_codebase", {"owner": owner, "repo": repo, "query": query}):
+        with mcp_request_context(
+            "query_codebase", {"owner": owner, "repo": repo, "query": query}
+        ):
             with tool_boundary("query_codebase"):
                 repo_name = require_repo(owner, repo)
                 query = require_text("query", query)
@@ -60,12 +62,18 @@ def register(server: Any) -> None:
                 if isinstance(result, dict):
                     answer = result.get("answer", "")
                     confidence = result.get("confidence", 0.0)
-                    sources = [s.model_dump() if hasattr(s, "model_dump") else s for s in result.get("sources", [])]
+                    sources = [
+                        s.model_dump() if hasattr(s, "model_dump") else s
+                        for s in result.get("sources", [])
+                    ]
                     verified = result.get("verified", False)
                 else:
                     answer = getattr(result, "answer", "")
                     confidence = getattr(result, "confidence", 0.0)
-                    sources = [s.model_dump() if hasattr(s, "model_dump") else s for s in getattr(result, "sources", [])]
+                    sources = [
+                        s.model_dump() if hasattr(s, "model_dump") else s
+                        for s in getattr(result, "sources", [])
+                    ]
                     verified = getattr(result, "verified", False)
 
                 response = {
@@ -89,7 +97,10 @@ def register(server: Any) -> None:
         from mcp.observability import mcp_request_context
         from mcp.dependencies import get_chroma_store, get_embedding_service
 
-        with mcp_request_context("semantic_search", {"owner": owner, "repo": repo, "query": query, "top_k": top_k}):
+        with mcp_request_context(
+            "semantic_search",
+            {"owner": owner, "repo": repo, "query": query, "top_k": top_k},
+        ):
             with tool_boundary("semantic_search"):
                 repo_name = require_repo(owner, repo)
                 query = require_text("query", query)
@@ -107,5 +118,7 @@ def register(server: Any) -> None:
                 results = get_chroma_store().search_repository(
                     repo_name, query_embedding, limit=top_k
                 )
-                serialized = [r.model_dump() if hasattr(r, "model_dump") else r for r in results]
+                serialized = [
+                    r.model_dump() if hasattr(r, "model_dump") else r for r in results
+                ]
                 return json.dumps(serialized, indent=2, default=str)

@@ -6,5 +6,4 @@ from typing import Protocol, Any
 class CompressionEnginePort(Protocol):
     """Port interface for context compression."""
 
-    def compress(self, context: Any) -> Any:
-        ...
+    def compress(self, context: Any) -> Any: ...

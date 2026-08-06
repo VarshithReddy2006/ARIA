@@ -1,6 +1,5 @@
 """Subprocess implementation of GitClientPort."""
 
-import subprocess
 from collections.abc import Sequence
 from pathlib import Path
 
@@ -32,8 +31,12 @@ class SubprocessGitAdapter(GitClientPort):
             return result.stdout.strip()
         except SafeSubprocessError as err:
             if err.timed_out:
-                raise GitCommandError(f"Git command '{' '.join(full_cmd)}' timed out after {self._timeout} seconds.") from err
-            raise GitCommandError(f"Git command '{' '.join(full_cmd)}' failed with exit code {err.returncode}: {err.stderr.strip()}") from err
+                raise GitCommandError(
+                    f"Git command '{' '.join(full_cmd)}' timed out after {self._timeout} seconds."
+                ) from err
+            raise GitCommandError(
+                f"Git command '{' '.join(full_cmd)}' failed with exit code {err.returncode}: {err.stderr.strip()}"
+            ) from err
         except OSError as err:
             raise GitCommandError(f"Failed to execute git executable: {err}") from err
 
@@ -54,7 +57,9 @@ class SubprocessGitAdapter(GitClientPort):
         except Exception:
             pass
         try:
-            self._run_git(["reset", "--hard", "--quiet", f"origin/{branch_or_sha}"], cwd=repo_dir)
+            self._run_git(
+                ["reset", "--hard", "--quiet", f"origin/{branch_or_sha}"], cwd=repo_dir
+            )
         except Exception:
             pass
         return self.get_current_commit(repo_dir)
@@ -65,13 +70,23 @@ class SubprocessGitAdapter(GitClientPort):
         time_str = self._run_git(["log", "-1", "--format=%cI", "HEAD"], cwd=repo_dir)
         return CommitReference(sha=sha, committed_at=Timestamp(iso_format=time_str))
 
-    def detect_changed_files(self, repo_dir: Path, base_sha: str, head_sha: str) -> Sequence[FilePath]:
+    def detect_changed_files(
+        self, repo_dir: Path, base_sha: str, head_sha: str
+    ) -> Sequence[FilePath]:
         """Compute list of relative FilePaths modified between base_sha and head_sha."""
-        raw_diff = self._run_git(["diff", "--name-only", base_sha, head_sha], cwd=repo_dir)
+        raw_diff = self._run_git(
+            ["diff", "--name-only", base_sha, head_sha], cwd=repo_dir
+        )
         if not raw_diff:
             return ()
-        lines = [line.strip().replace("\\", "/") for line in raw_diff.splitlines() if line.strip()]
-        return tuple(FilePath(relative_path=line) for line in lines if not line.startswith("/"))
+        lines = [
+            line.strip().replace("\\", "/")
+            for line in raw_diff.splitlines()
+            if line.strip()
+        ]
+        return tuple(
+            FilePath(relative_path=line) for line in lines if not line.startswith("/")
+        )
 
     def get_metadata(self, repo_dir: Path, default_branch: str) -> RepositoryMetadata:
         """Inspect repository and return file count, total bytes, and default branch metadata."""

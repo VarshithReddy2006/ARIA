@@ -2,10 +2,14 @@
 
 from typing import Dict, Optional
 
-from ria.domain.common.value_objects import Timestamp, UUIDv4
+from ria.domain.common.value_objects import UUIDv4
 from ria.domain.snapshot.entities import RepositorySnapshot
 from ria.domain.snapshot.value_objects import RepositorySnapshotId, SnapshotMetadata
-from ria.domain.sync.value_objects import BranchReference, CommitReference, RepositoryIdentity
+from ria.domain.sync.value_objects import (
+    BranchReference,
+    CommitReference,
+    RepositoryIdentity,
+)
 from ria.ports.common.clock import ClockPort
 from ria.ports.incremental.snapshot import SnapshotManagerPort
 

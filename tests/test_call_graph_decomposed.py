@@ -1,29 +1,31 @@
 """Unit tests for decomposed CallGraph service components."""
 
-import os
 import tempfile
-import pytest
 import networkx as nx
 
-from models.call_graph import CallNode, CallGraphSummary
+from models.call_graph import CallNode
 from models.symbol import Symbol
-from services.call_graph.extractor import CallGraphExtractor, _node_id, _qualified, _file_dir
+from services.call_graph.extractor import (
+    CallGraphExtractor,
+    _node_id,
+    _qualified,
+    _file_dir,
+)
 from services.call_graph.store import CallGraphStore
 from services.call_graph.query_engine import CallGraphQueryEngine
 from services.call_graph.serializer import CallGraphSerializer
-from services.call_graph.builder import CallGraphBuilder
 
 
 def test_extractor_helpers():
     assert _node_id("foo.py", "bar") == "foo.py::bar"
-    
+
     sym = Symbol(
         name="my_func",
         file_path="src/main.py",
         line_number=10,
         type="function",
         language="python",
-        parent_class="MyClass"
+        parent_class="MyClass",
     )
     assert _qualified(sym) == "MyClass.my_func"
     assert _file_dir("a/b/c.py") == "a/b"
@@ -122,8 +124,24 @@ def test_extractor_parse():
         ),
     }
     defn_by_name = {
-        "foo": [Symbol(name="foo", file_path="test.py", line_number=1, type="function", language="python")],
-        "bar": [Symbol(name="bar", file_path="test.py", line_number=4, type="function", language="python")],
+        "foo": [
+            Symbol(
+                name="foo",
+                file_path="test.py",
+                line_number=1,
+                type="function",
+                language="python",
+            )
+        ],
+        "bar": [
+            Symbol(
+                name="bar",
+                file_path="test.py",
+                line_number=4,
+                type="function",
+                language="python",
+            )
+        ],
     }
     edges = extractor.extract_call_edges("test.py", content, defn_by_name, all_nodes)
     assert len(edges) == 1

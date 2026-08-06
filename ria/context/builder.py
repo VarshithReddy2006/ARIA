@@ -47,10 +47,10 @@ class ContextBuilder(ContextBuilderPort):
         repo_id: RepositoryIdentity,
         commit: CommitReference,
     ) -> ContextPackage:
-        t_start = time.perf_counter()
-
         # 1. Search for seed symbols matching question
-        search_q = SearchQuery(query_text=request.question, query_type=SearchQueryType.PREFIX)
+        search_q = SearchQuery(
+            query_text=request.question, query_type=SearchQueryType.PREFIX
+        )
         search_resp = search_engine.search(search_q, fact_store, repo_id, commit)
 
         seed_symbols: list[SemanticSymbol] = []
@@ -87,7 +87,9 @@ class ContextBuilder(ContextBuilderPort):
 
         # 5. Optimize token budget
         t_opt = time.perf_counter()
-        final_snippets = self._optimizer.optimize_budget(deduped, request.options.token_budget)
+        final_snippets = self._optimizer.optimize_budget(
+            deduped, request.options.token_budget
+        )
         opt_ms = (time.perf_counter() - t_opt) * 1000.0
 
         # Group by category sections
@@ -100,7 +102,10 @@ class ContextBuilder(ContextBuilderPort):
             sec_map[cat].append(snip)
             total_tokens += snip.estimated_tokens
 
-        sections = tuple(ContextSection(title=cat, snippets=tuple(snips)) for cat, snips in sec_map.items())
+        sections = tuple(
+            ContextSection(title=cat, snippets=tuple(snips))
+            for cat, snips in sec_map.items()
+        )
 
         stats = ContextStatistics(
             expansion_ms=exp_ms,

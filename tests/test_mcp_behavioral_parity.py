@@ -41,21 +41,27 @@ class Capture:
         self.resources: dict[str, Callable[..., Any]] = {}
         self.prompts: dict[str, Callable[..., Any]] = {}
 
-    def tool(self, *a: Any, **k: Any) -> Callable[[Callable[..., Any]], Callable[..., Any]]:
+    def tool(
+        self, *a: Any, **k: Any
+    ) -> Callable[[Callable[..., Any]], Callable[..., Any]]:
         def deco(fn: Callable[..., Any]) -> Callable[..., Any]:
             self.tools[fn.__name__] = fn
             return fn
 
         return deco
 
-    def resource(self, uri: str, *a: Any, **k: Any) -> Callable[[Callable[..., Any]], Callable[..., Any]]:
+    def resource(
+        self, uri: str, *a: Any, **k: Any
+    ) -> Callable[[Callable[..., Any]], Callable[..., Any]]:
         def deco(fn: Callable[..., Any]) -> Callable[..., Any]:
             self.resources[uri] = fn
             return fn
 
         return deco
 
-    def prompt(self, *a: Any, **k: Any) -> Callable[[Callable[..., Any]], Callable[..., Any]]:
+    def prompt(
+        self, *a: Any, **k: Any
+    ) -> Callable[[Callable[..., Any]], Callable[..., Any]]:
         def deco(fn: Callable[..., Any]) -> Callable[..., Any]:
             self.prompts[fn.__name__] = fn
             return fn
@@ -92,11 +98,17 @@ class TestImpactAnalysisAlias:
         return svc
 
     def _call(self, tools: Capture, service: Any, **kwargs: Any) -> Any:
-        with patch("mcp.dependencies.get_impact_analysis_service", return_value=service):
-            return tools.tools["get_impact_analysis"](owner="acme", repo="widget", **kwargs)
+        with patch(
+            "mcp.dependencies.get_impact_analysis_service", return_value=service
+        ):
+            return tools.tools["get_impact_analysis"](
+                owner="acme", repo="widget", **kwargs
+            )
 
     def test_new_parameter_is_used(self, tools: Capture, service: Any) -> None:
-        payload = json.loads(self._call(tools, service, change_description="rename auth"))
+        payload = json.loads(
+            self._call(tools, service, change_description="rename auth")
+        )
         assert payload == {"affected_files": ["a.py"]}
         service.analyze_change.assert_called_once_with("acme/widget", "rename auth")
 
@@ -109,7 +121,9 @@ class TestImpactAnalysisAlias:
     def test_new_parameter_wins_when_both_supplied(
         self, tools: Capture, service: Any
     ) -> None:
-        self._call(tools, service, change_description="preferred", file_path="ignored.py")
+        self._call(
+            tools, service, change_description="preferred", file_path="ignored.py"
+        )
         service.analyze_change.assert_called_once_with("acme/widget", "preferred")
 
     def test_neither_parameter_is_invalid_params(
@@ -131,7 +145,9 @@ class TestImpactAnalysisAlias:
     def test_metadata_documents_the_alias(self) -> None:
         from mcp.tools import analysis_tools
 
-        meta = next(m for m in analysis_tools.METADATA if m.name == "get_impact_analysis")
+        meta = next(
+            m for m in analysis_tools.METADATA if m.name == "get_impact_analysis"
+        )
         assert "change" in meta.description.lower()
 
 
@@ -312,7 +328,9 @@ class TestTracebackHygiene:
                 except (ToolFailure, ToolInputError) as exc:
                     assert_clean(str(exc))
                 except Exception as exc:  # noqa: BLE001
-                    pytest.fail(f"{name} raised un-normalised {type(exc).__name__}: {exc}")
+                    pytest.fail(
+                        f"{name} raised un-normalised {type(exc).__name__}: {exc}"
+                    )
         finally:
             for p in patches:
                 p.stop()
@@ -359,7 +377,11 @@ class TestLegacyMessageParity:
             execute_tool(
                 "get_repository_summary",
                 {"owner": "acme", "repo": "missing"},
-                {}, None, None, None, None,
+                {},
+                None,
+                None,
+                None,
+                None,
             )
         with patch("mcp.dependencies.ANALYSIS_STORE", {}):
             with pytest.raises(ToolFailure) as fast:
@@ -376,7 +398,11 @@ class TestLegacyMessageParity:
             execute_tool(
                 "get_call_graph",
                 {"owner": "acme", "repo": "widget"},
-                {}, None, legacy_svc, None, None,
+                {},
+                None,
+                legacy_svc,
+                None,
+                None,
             )
         fast_svc = MagicMock(spec=CallGraphService)
         fast_svc.load_summary.return_value = None
@@ -421,7 +447,9 @@ def test_business_failure_surfaces_as_sdk_tool_error() -> None:
     async def drive() -> str:
         with patch("mcp.dependencies.get_call_graph_service", return_value=svc):
             try:
-                await server.call_tool("get_call_graph", {"owner": "acme", "repo": "widget"})
+                await server.call_tool(
+                    "get_call_graph", {"owner": "acme", "repo": "widget"}
+                )
             except Exception as exc:
                 return f"{type(exc).__name__}: {exc}"
         return ""

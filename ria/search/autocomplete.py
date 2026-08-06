@@ -27,10 +27,14 @@ class AutocompleteEngine(AutocompletePort):
             n_lower = name.lower()
 
             if n_lower.startswith(p_lower):
-                suggestions.append(AutocompleteSuggestion(text=name, category="prefix", score=0.9))
+                suggestions.append(
+                    AutocompleteSuggestion(text=name, category="prefix", score=0.9)
+                )
                 seen.add(name)
             elif p_lower in n_lower:
-                suggestions.append(AutocompleteSuggestion(text=name, category="substring", score=0.6))
+                suggestions.append(
+                    AutocompleteSuggestion(text=name, category="substring", score=0.6)
+                )
                 seen.add(name)
 
             if len(suggestions) >= max_suggestions:

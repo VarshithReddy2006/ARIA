@@ -1,6 +1,10 @@
 """Single-responsibility use cases for Knowledge Layer."""
 
-from ria.application.knowledge.dto import AnswerQuestionCommandDTO, ManageConversationCommandDTO, ValidateResponseCommandDTO
+from ria.application.knowledge.dto import (
+    AnswerQuestionCommandDTO,
+    ManageConversationCommandDTO,
+    ValidateResponseCommandDTO,
+)
 from ria.application.knowledge.service import KnowledgeApplicationService
 from ria.knowledge.dto import KnowledgeResultDTO
 

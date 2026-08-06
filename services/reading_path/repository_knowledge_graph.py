@@ -7,7 +7,7 @@ Classes, Functions, Routes, Services, Database Tables, Patterns, and Concepts wi
 from __future__ import annotations
 
 import os
-from typing import Dict, List, Set, Any
+from typing import Dict, List, Any
 from services.architecture.layer_classifier import classify_layer
 from services.architecture.pattern_detector import detect_patterns
 
@@ -21,7 +21,9 @@ class RepositoryKnowledgeGraph:
         self.edges: List[Dict[str, str]] = []
         self.concept_index: Dict[str, List[str]] = {}
 
-    def build_graph(self, file_paths: List[str], graph_edges: List[Dict[str, str]] | None = None) -> None:
+    def build_graph(
+        self, file_paths: List[str], graph_edges: List[Dict[str, str]] | None = None
+    ) -> None:
         """Build node-edge knowledge graph from repository files and graph edges."""
         graph_edges = graph_edges or []
         self.edges = graph_edges
@@ -57,7 +59,12 @@ class RepositoryKnowledgeGraph:
             concepts.add("Routing")
         if "service" in path_lower:
             concepts.add("Dependency Injection")
-        if "db" in path_lower or "repo" in path_lower or "store" in path_lower or "model" in path_lower:
+        if (
+            "db" in path_lower
+            or "repo" in path_lower
+            or "store" in path_lower
+            or "model" in path_lower
+        ):
             concepts.add("Database")
         if "cache" in path_lower or "redis" in path_lower:
             concepts.add("Caching")
@@ -83,17 +90,25 @@ class RepositoryKnowledgeGraph:
         total_files = max(len(self.nodes), 1)
 
         for concept, files in self.concept_index.items():
-            result.append({
-                "concept": concept,
-                "file_count": len(files),
-                "coverage_pct": min(100, round((len(files) / total_files) * 100, 1)),
-                "sample_files": files[:3],
-            })
+            result.append(
+                {
+                    "concept": concept,
+                    "file_count": len(files),
+                    "coverage_pct": min(
+                        100, round((len(files) / total_files) * 100, 1)
+                    ),
+                    "sample_files": files[:3],
+                }
+            )
 
         return sorted(result, key=lambda x: x["file_count"], reverse=True)
 
 
-def get_knowledge_graph(owner_repo: str, file_paths: List[str], graph_edges: List[Dict[str, str]] | None = None) -> RepositoryKnowledgeGraph:
+def get_knowledge_graph(
+    owner_repo: str,
+    file_paths: List[str],
+    graph_edges: List[Dict[str, str]] | None = None,
+) -> RepositoryKnowledgeGraph:
     """Factory helper to construct and populate a RepositoryKnowledgeGraph."""
     pkg = RepositoryKnowledgeGraph(owner_repo)
     pkg.build_graph(file_paths, graph_edges)

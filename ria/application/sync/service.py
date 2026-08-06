@@ -5,12 +5,14 @@ from typing import Optional
 from ria.application.sync.dto import (
     RegisterRepositoryCommand,
     SyncResultDTO,
-
     SyncStatusDTO,
     SynchronizeRepositoryCommand,
 )
-from ria.application.sync.exceptions import LockAcquisitionException, RepositorySyncException
-from ria.domain.common.value_objects import Timestamp, UUIDv4
+from ria.application.sync.exceptions import (
+    LockAcquisitionException,
+    RepositorySyncException,
+)
+from ria.domain.common.value_objects import UUIDv4
 from ria.domain.sync.entities import RepositoryState
 from ria.domain.sync.value_objects import (
     BranchReference,
@@ -51,7 +53,9 @@ class RepositorySyncService:
 
     def register_repository(self, command: RegisterRepositoryCommand) -> SyncStatusDTO:
         """Register a new repository with UNINITIALIZED state."""
-        self._logger.info("Registering repository", remote_url=command.remote_url, name=command.name)
+        self._logger.info(
+            "Registering repository", remote_url=command.remote_url, name=command.name
+        )
 
         repo_id = RepositoryIdentity(
             repo_id=UUIDv4.generate(),
@@ -85,10 +89,14 @@ class RepositorySyncService:
             last_synced_at=None,
         )
 
-    def synchronize_repository(self, command: SynchronizeRepositoryCommand) -> SyncResultDTO:
+    def synchronize_repository(
+        self, command: SynchronizeRepositoryCommand
+    ) -> SyncResultDTO:
         """Synchronize repository via clone or fetch within a process lock."""
         start_time = self._clock.monotonic_seconds()
-        repo_uuid = UUIDv4(value=command.repo_id)
+        # Constructed for its validation side effect only: a malformed repo_id must
+        # fail fast here rather than midway through the sync flow.
+        UUIDv4(value=command.repo_id)
 
         # Lookup existing state to get remote_url and name
         all_states = self._registry.list_all()
@@ -99,14 +107,20 @@ class RepositorySyncService:
                 break
 
         if target_state is None:
-            raise RepositorySyncException(f"Repository with ID '{command.repo_id}' is not registered.")
+            raise RepositorySyncException(
+                f"Repository with ID '{command.repo_id}' is not registered."
+            )
 
         repo_identity = target_state.identity
 
         # Acquire lock
         if not self._lock_manager.acquire_lock(repo_identity, ttl_seconds=300.0):
-            self._logger.warning("Repository is locked by another process", repo_id=command.repo_id)
-            raise LockAcquisitionException(f"Failed to acquire sync lock for repository '{command.repo_id}'.")
+            self._logger.warning(
+                "Repository is locked by another process", repo_id=command.repo_id
+            )
+            raise LockAcquisitionException(
+                f"Failed to acquire sync lock for repository '{command.repo_id}'."
+            )
 
         try:
             target_state.start_syncing()
@@ -119,22 +133,32 @@ class RepositorySyncService:
             prev_commit: Optional[CommitReference] = target_state.current_commit
 
             if not is_cloned:
-                self._logger.info("Cloning repository into workspace", repo_id=command.repo_id)
+                self._logger.info(
+                    "Cloning repository into workspace", repo_id=command.repo_id
+                )
                 commit = self._git_client.clone(repo_identity.remote_url, workspace_dir)
             else:
-                self._logger.info("Fetching remote updates for workspace", repo_id=command.repo_id)
+                self._logger.info(
+                    "Fetching remote updates for workspace", repo_id=command.repo_id
+                )
                 self._git_client.fetch(workspace_dir)
-                target_branch = command.target_branch or target_state.metadata.default_branch
+                target_branch = (
+                    command.target_branch or target_state.metadata.default_branch
+                )
                 commit = self._git_client.checkout(workspace_dir, target_branch)
 
             # Update metadata
-            metadata = self._git_client.get_metadata(workspace_dir, target_state.metadata.default_branch)
+            metadata = self._git_client.get_metadata(
+                workspace_dir, target_state.metadata.default_branch
+            )
             target_state.metadata = metadata
 
             # Calculate changes
             files_changed = 0
             if prev_commit and prev_commit.sha != commit.sha:
-                changed = self._git_client.detect_changed_files(workspace_dir, prev_commit.sha, commit.sha)
+                changed = self._git_client.detect_changed_files(
+                    workspace_dir, prev_commit.sha, commit.sha
+                )
                 files_changed = len(changed)
 
             branch_ref = BranchReference(
@@ -142,7 +166,9 @@ class RepositorySyncService:
                 head_commit=commit,
             )
             now_ts = self._clock.now_utc()
-            target_state.mark_synchronized(branch=branch_ref, commit=commit, synced_at=now_ts)
+            target_state.mark_synchronized(
+                branch=branch_ref, commit=commit, synced_at=now_ts
+            )
             self._registry.save_state(target_state)
 
             elapsed = self._clock.monotonic_seconds() - start_time
@@ -161,8 +187,12 @@ class RepositorySyncService:
             target_state.mark_failed()
             self._registry.save_state(target_state)
             self._metrics.increment_counter("sync_failure_total")
-            self._logger.error("Repository sync failed", exc=err, repo_id=command.repo_id)
-            raise RepositorySyncException(f"Repository synchronization failed for '{command.repo_id}': {err}") from err
+            self._logger.error(
+                "Repository sync failed", exc=err, repo_id=command.repo_id
+            )
+            raise RepositorySyncException(
+                f"Repository synchronization failed for '{command.repo_id}': {err}"
+            ) from err
         finally:
             self._lock_manager.release_lock(repo_identity)
 
@@ -182,9 +212,15 @@ class RepositorySyncService:
             remote_url=target_state.identity.remote_url,
             name=target_state.identity.name,
             status=target_state.status.value,
-            current_branch=target_state.current_branch.name if target_state.current_branch else None,
-            current_commit_sha=target_state.current_commit.sha if target_state.current_commit else None,
+            current_branch=target_state.current_branch.name
+            if target_state.current_branch
+            else None,
+            current_commit_sha=target_state.current_commit.sha
+            if target_state.current_commit
+            else None,
             file_count=target_state.metadata.file_count,
             total_bytes=target_state.metadata.total_bytes,
-            last_synced_at=target_state.last_synced_at.iso_format if target_state.last_synced_at else None,
+            last_synced_at=target_state.last_synced_at.iso_format
+            if target_state.last_synced_at
+            else None,
         )

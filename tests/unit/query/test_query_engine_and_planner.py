@@ -1,7 +1,5 @@
 """Unit tests for C4 Query Engine domain models, planner, executor, optimizer, cache, engine, and use cases."""
 
-from pathlib import Path
-
 import pytest
 from ria.application.query import (
     CallHierarchyQueryDTO,
@@ -40,7 +38,6 @@ from ria.domain.resolution import (
     RelationKind,
     ResolvedFactSet,
     SemanticDefinition,
-    SemanticReference,
     SemanticRelation,
     SemanticSymbol,
     SymbolKind,
@@ -48,9 +45,21 @@ from ria.domain.resolution import (
     SymbolMoniker,
     Visibility,
 )
-from ria.domain.sync import CommitReference, RepositoryIdentity, RepositoryState, SyncStatus
-from ria.infrastructure.storage import SQLiteFactStoreAdapter, SQLiteRepositoryRegistryAdapter
-from ria.infrastructure.system import InMemoryMetricsAdapter, StandardLoggerAdapter, SystemClockAdapter
+from ria.domain.sync import (
+    CommitReference,
+    RepositoryIdentity,
+    RepositoryState,
+    SyncStatus,
+)
+from ria.infrastructure.storage import (
+    SQLiteFactStoreAdapter,
+    SQLiteRepositoryRegistryAdapter,
+)
+from ria.infrastructure.system import (
+    InMemoryMetricsAdapter,
+    StandardLoggerAdapter,
+    SystemClockAdapter,
+)
 from ria.query import (
     QueryCache,
     QueryEngine,
@@ -65,7 +74,9 @@ def test_query_planner_and_optimizer() -> None:
     optimizer = QueryOptimizer()
 
     criteria = QueryCriteria(symbol_name=" main ", max_results=2000)
-    query = Query(query_id="q1", query_type=QueryType.GO_TO_DEFINITION, criteria=criteria)
+    query = Query(
+        query_id="q1", query_type=QueryType.GO_TO_DEFINITION, criteria=criteria
+    )
 
     plan = planner.create_plan(query)
     assert plan.query_id == "q1"
@@ -82,9 +93,17 @@ def test_query_planner_and_optimizer() -> None:
 def test_query_cache() -> None:
     cache = QueryCache(enabled=True)
 
-    repo_id = RepositoryIdentity(repo_id=UUIDv4.generate(), remote_url="https://github.com/org/repo.git", name="repo")
+    repo_id = RepositoryIdentity(
+        repo_id=UUIDv4.generate(),
+        remote_url="https://github.com/org/repo.git",
+        name="repo",
+    )
     commit = CommitReference(sha="a" * 40, committed_at=Timestamp.now())
-    plan = QueryPlan(query_id="q1", query_type=QueryType.SYMBOL_SEARCH, criteria=QueryCriteria(symbol_name="login"))
+    plan = QueryPlan(
+        query_id="q1",
+        query_type=QueryType.SYMBOL_SEARCH,
+        criteria=QueryCriteria(symbol_name="login"),
+    )
 
     assert cache.get(repo_id, commit, plan) is None
 
@@ -93,7 +112,11 @@ def test_query_cache() -> None:
 
 def test_query_executor_evaluation_all_types() -> None:
     fact_store = SQLiteFactStoreAdapter(db_path=":memory:")
-    repo_id = RepositoryIdentity(repo_id=UUIDv4.generate(), remote_url="https://github.com/org/repo.git", name="repo")
+    repo_id = RepositoryIdentity(
+        repo_id=UUIDv4.generate(),
+        remote_url="https://github.com/org/repo.git",
+        name="repo",
+    )
     commit = CommitReference(sha="b" * 40, committed_at=Timestamp.now())
 
     fp = FilePath(relative_path="auth.py")
@@ -120,12 +143,18 @@ def test_query_executor_evaluation_all_types() -> None:
         path=fp,
         location=loc,
     )
-    defn = SemanticDefinition(moniker=moniker, qualified_name=qname, path=fp, location=loc)
+    defn = SemanticDefinition(
+        moniker=moniker, qualified_name=qname, path=fp, location=loc
+    )
 
     callee_m = SymbolMoniker(value="repo:auth.py:global:hash_password")
-    call_rel = CallRelation(caller_moniker=moniker, callee_moniker=callee_m, location=loc)
+    call_rel = CallRelation(
+        caller_moniker=moniker, callee_moniker=callee_m, location=loc
+    )
     imp_rel = ImportRelation(importer_path=fp, imported_symbol_moniker=callee_m)
-    gen_rel = SemanticRelation(source=moniker, target=callee_m, kind=RelationKind.REFERENCES, location=loc)
+    gen_rel = SemanticRelation(
+        source=moniker, target=callee_m, kind=RelationKind.REFERENCES, location=loc
+    )
 
     fact_set = ResolvedFactSet(
         symbols=(sym_func, sym_mod),
@@ -144,60 +173,96 @@ def test_query_executor_evaluation_all_types() -> None:
     engine = QueryEngine(planner, executor, optimizer, cache)
 
     # 1. Definition Query
-    def_q = Query(query_id="q1", query_type=QueryType.GO_TO_DEFINITION, criteria=QueryCriteria(symbol_name="login"))
+    def_q = Query(
+        query_id="q1",
+        query_type=QueryType.GO_TO_DEFINITION,
+        criteria=QueryCriteria(symbol_name="login"),
+    )
     def_res = engine.execute_query(def_q, fact_store, repo_id, commit)
     assert def_res.is_success
     assert isinstance(def_res.payload, DefinitionResult)
     assert len(def_res.payload.symbols) == 1
 
     # 2. References Query
-    ref_q = Query(query_id="q2", query_type=QueryType.FIND_REFERENCES, criteria=QueryCriteria(symbol_moniker=moniker))
+    ref_q = Query(
+        query_id="q2",
+        query_type=QueryType.FIND_REFERENCES,
+        criteria=QueryCriteria(symbol_moniker=moniker),
+    )
     ref_res = engine.execute_query(ref_q, fact_store, repo_id, commit)
     assert ref_res.is_success
     assert isinstance(ref_res.payload, ReferenceResult)
     assert len(ref_res.payload.references) == 1
 
     # 3. Callers Query
-    callers_q = Query(query_id="q3", query_type=QueryType.FIND_CALLERS, criteria=QueryCriteria(symbol_moniker=callee_m))
+    callers_q = Query(
+        query_id="q3",
+        query_type=QueryType.FIND_CALLERS,
+        criteria=QueryCriteria(symbol_moniker=callee_m),
+    )
     callers_res = engine.execute_query(callers_q, fact_store, repo_id, commit)
     assert callers_res.is_success
     assert isinstance(callers_res.payload, CallHierarchyResult)
     assert len(callers_res.payload.calls) == 1
 
     # 4. Callees Query
-    callees_q = Query(query_id="q4", query_type=QueryType.FIND_CALLEES, criteria=QueryCriteria(symbol_moniker=moniker))
+    callees_q = Query(
+        query_id="q4",
+        query_type=QueryType.FIND_CALLEES,
+        criteria=QueryCriteria(symbol_moniker=moniker),
+    )
     callees_res = engine.execute_query(callees_q, fact_store, repo_id, commit)
     assert callees_res.is_success
     assert isinstance(callees_res.payload, CallHierarchyResult)
     assert len(callees_res.payload.calls) == 1
 
     # 5. Imports Query
-    imp_q = Query(query_id="q5", query_type=QueryType.FIND_IMPORTS, criteria=QueryCriteria(symbol_moniker=moniker))
+    imp_q = Query(
+        query_id="q5",
+        query_type=QueryType.FIND_IMPORTS,
+        criteria=QueryCriteria(symbol_moniker=moniker),
+    )
     imp_res = engine.execute_query(imp_q, fact_store, repo_id, commit)
     assert imp_res.is_success
     assert isinstance(imp_res.payload, ImportResult)
 
     # 6. Exports Query
-    exp_q = Query(query_id="q6", query_type=QueryType.FIND_EXPORTS, criteria=QueryCriteria(file_path=fp))
+    exp_q = Query(
+        query_id="q6",
+        query_type=QueryType.FIND_EXPORTS,
+        criteria=QueryCriteria(file_path=fp),
+    )
     exp_res = engine.execute_query(exp_q, fact_store, repo_id, commit)
     assert exp_res.is_success
     assert isinstance(exp_res.payload, ExportResult)
     assert len(exp_res.payload.exports) == 1
 
     # 7. Dependency Query
-    dep_q = Query(query_id="q7", query_type=QueryType.DEPENDENCY_ANALYSIS, criteria=QueryCriteria(symbol_moniker=moniker))
+    dep_q = Query(
+        query_id="q7",
+        query_type=QueryType.DEPENDENCY_ANALYSIS,
+        criteria=QueryCriteria(symbol_moniker=moniker),
+    )
     dep_res = engine.execute_query(dep_q, fact_store, repo_id, commit)
     assert dep_res.is_success
     assert isinstance(dep_res.payload, DependencyResult)
 
     # 8. Symbol Search Query
-    srch_q = Query(query_id="q8", query_type=QueryType.SYMBOL_SEARCH, criteria=QueryCriteria(symbol_name="log"))
+    srch_q = Query(
+        query_id="q8",
+        query_type=QueryType.SYMBOL_SEARCH,
+        criteria=QueryCriteria(symbol_name="log"),
+    )
     srch_res = engine.execute_query(srch_q, fact_store, repo_id, commit)
     assert srch_res.is_success
     assert isinstance(srch_res.payload, SymbolSearchResult)
 
     # 9. Module Search Query
-    mod_q = Query(query_id="q9", query_type=QueryType.MODULE_SEARCH, criteria=QueryCriteria(symbol_name="auth"))
+    mod_q = Query(
+        query_id="q9",
+        query_type=QueryType.MODULE_SEARCH,
+        criteria=QueryCriteria(symbol_name="auth"),
+    )
     mod_res = engine.execute_query(mod_q, fact_store, repo_id, commit)
     assert mod_res.is_success
     assert isinstance(mod_res.payload, ModuleSearchResult)
@@ -212,12 +277,24 @@ def test_query_application_use_cases() -> None:
     metrics = InMemoryMetricsAdapter()
 
     repo_id_val = str(UUIDv4.generate().value)
-    repo_identity = RepositoryIdentity(repo_id=UUIDv4(value=repo_id_val), remote_url="https://github.com/org/repo.git", name="repo")
+    repo_identity = RepositoryIdentity(
+        repo_id=UUIDv4(value=repo_id_val),
+        remote_url="https://github.com/org/repo.git",
+        name="repo",
+    )
     commit = CommitReference(sha="c" * 40, committed_at=Timestamp.now())
 
     from ria.domain.sync import RepositoryMetadata
-    meta = RepositoryMetadata(file_count=1, total_bytes=100, default_branch="main", registered_at=Timestamp.now())
-    state = RepositoryState(identity=repo_identity, status=SyncStatus.SYNCHRONIZED, metadata=meta)
+
+    meta = RepositoryMetadata(
+        file_count=1,
+        total_bytes=100,
+        default_branch="main",
+        registered_at=Timestamp.now(),
+    )
+    state = RepositoryState(
+        identity=repo_identity, status=SyncStatus.SYNCHRONIZED, metadata=meta
+    )
     state.mark_synchronized(branch=None, commit=commit, synced_at=Timestamp.now())
     registry.save_state(state)
 
@@ -227,7 +304,9 @@ def test_query_application_use_cases() -> None:
     cache = QueryCache()
     engine = QueryEngine(planner, executor, optimizer, cache)
 
-    query_service = QueryApplicationService(engine, fact_store, registry, clock, logger, metrics)
+    query_service = QueryApplicationService(
+        engine, fact_store, registry, clock, logger, metrics
+    )
 
     find_def_uc = FindDefinitionUseCase(query_service)
     find_ref_uc = FindReferencesUseCase(query_service)
@@ -235,16 +314,24 @@ def test_query_application_use_cases() -> None:
     search_sym_uc = SearchSymbolUseCase(query_service)
     dep_uc = DependencyAnalysisUseCase(query_service)
 
-    res_def = find_def_uc.execute(FindDefinitionQueryDTO(repo_id=repo_id_val, symbol_name="unknown"))
+    res_def = find_def_uc.execute(
+        FindDefinitionQueryDTO(repo_id=repo_id_val, symbol_name="unknown")
+    )
     assert res_def.is_success
 
-    res_ref = find_ref_uc.execute(FindReferencesQueryDTO(repo_id=repo_id_val, symbol_moniker="m1"))
+    res_ref = find_ref_uc.execute(
+        FindReferencesQueryDTO(repo_id=repo_id_val, symbol_moniker="m1")
+    )
     assert res_ref.is_success
 
-    res_call = call_hier_uc.execute(CallHierarchyQueryDTO(repo_id=repo_id_val, symbol_moniker="m1"))
+    res_call = call_hier_uc.execute(
+        CallHierarchyQueryDTO(repo_id=repo_id_val, symbol_moniker="m1")
+    )
     assert res_call.is_success
 
-    res_srch = search_sym_uc.execute(SearchSymbolQueryDTO(repo_id=repo_id_val, symbol_name="test"))
+    res_srch = search_sym_uc.execute(
+        SearchSymbolQueryDTO(repo_id=repo_id_val, symbol_name="test")
+    )
     assert res_srch.is_success
 
     res_dep = dep_uc.execute(DependencyQueryDTO(repo_id=repo_id_val))

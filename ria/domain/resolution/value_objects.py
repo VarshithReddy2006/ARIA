@@ -1,12 +1,15 @@
 """Value Objects for C2 Semantic Resolution Engine."""
 
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from enum import Enum
-from typing import Optional, Tuple
+from typing import Optional
 
 from ria.domain.common.base import ValueObject
-from ria.domain.index.value_objects import FilePath, Language, Location
-from ria.domain.resolution.exceptions import InvalidMonikerError, InvalidQualifiedNameError
+from ria.domain.index.value_objects import FilePath, Location
+from ria.domain.resolution.exceptions import (
+    InvalidMonikerError,
+    InvalidQualifiedNameError,
+)
 
 
 class SymbolKind(Enum):
@@ -69,7 +72,9 @@ class QualifiedName(ValueObject):
 
     def _validate_invariants(self) -> None:
         if not self.dotted_path or not self.dotted_path.strip():
-            raise InvalidQualifiedNameError("QualifiedName dotted path cannot be empty.")
+            raise InvalidQualifiedNameError(
+                "QualifiedName dotted path cannot be empty."
+            )
 
 
 @dataclass(frozen=True, slots=True)

@@ -1,23 +1,18 @@
 """Unit and Architectural Regression Tests for Observability Core (R-019)."""
 
-import json
 import logging
-import pytest
 from fastapi import FastAPI, HTTPException
 from fastapi.testclient import TestClient
 from starlette.requests import Request
 
 from backend.exception_handlers import register_exception_handlers
-from backend.logging_config import HumanFormatter, JsonFormatter, configure_logging
+from backend.logging_config import HumanFormatter, JsonFormatter
 from backend.logging_middleware import RequestIdMiddleware
-from backend.metrics_middleware import MetricsMiddleware
 from backend.routers.health import router as health_router
 from core.observability import (
     MetricsCollector,
-    RedactionFilter,
     RequestContext,
     get_current_request_id,
-    metrics_collector,
     request_id_var,
     sanitize_sensitive_data,
     time_operation,
@@ -28,6 +23,7 @@ from ria.interfaces.rest.exceptions import RESTAPIException
 # ---------------------------------------------------------------------------
 # 1. Sensitive Data Redaction Tests
 # ---------------------------------------------------------------------------
+
 
 def test_sensitive_data_redaction():
     text = (
@@ -64,7 +60,9 @@ def test_json_and_human_formatters_redact():
         level=logging.INFO,
         pathname="test.py",
         lineno=1,
-        msg="Logging key GOOGLE_API_KEY_PLACEHOLDER",
+        # Synthetic, non-functional key matching the AIzaSy redaction pattern, same
+        # dummy value used by test_sensitive_data_redaction above.
+        msg="Logging key AIzaSyABC12345678901234567890123456789",
         args=(),
         exc_info=None,
     )
@@ -87,6 +85,7 @@ def test_json_and_human_formatters_redact():
 # ---------------------------------------------------------------------------
 # 2. Request ID Ownership Tests
 # ---------------------------------------------------------------------------
+
 
 def test_request_id_middleware_preserves_or_generates():
     app = FastAPI()
@@ -116,6 +115,7 @@ def test_request_id_middleware_preserves_or_generates():
 # ---------------------------------------------------------------------------
 # 3. Standardized Error Response Envelope Tests
 # ---------------------------------------------------------------------------
+
 
 def test_error_response_envelope_standardization():
     app = FastAPI()
@@ -169,6 +169,7 @@ def test_error_response_envelope_standardization():
 # 4. Liveness vs Readiness Probes Tests
 # ---------------------------------------------------------------------------
 
+
 def test_liveness_and_readiness_endpoints():
     app = FastAPI()
     app.include_router(health_router)
@@ -193,6 +194,7 @@ def test_liveness_and_readiness_endpoints():
 # 5. Metrics Abstraction Tests
 # ---------------------------------------------------------------------------
 
+
 def test_metrics_collector_exporter_decoupling():
     collector = MetricsCollector()
     collector.increment_request("GET", "/api/v1/test", 200)
@@ -200,7 +202,10 @@ def test_metrics_collector_exporter_decoupling():
     collector.record_cache_access(hit=True, cache_key="call_graph")
 
     prom_output = collector.generate_prometheus_metrics()
-    assert 'http_requests_total{method="GET",path="/api/v1/test",status="200"} 1.0' in prom_output
+    assert (
+        'http_requests_total{method="GET",path="/api/v1/test",status="200"} 1.0'
+        in prom_output
+    )
     assert 'cache_hits_total{cache_key="call_graph"} 1.0' in prom_output
 
 
@@ -208,9 +213,10 @@ def test_metrics_collector_exporter_decoupling():
 # 6. Reusability Outside FastAPI Tests
 # ---------------------------------------------------------------------------
 
+
 def test_observability_core_outside_fastapi():
     # Verify RequestContext context manager works in standalone Python scripts / MCP tools
-    with RequestContext(request_id="mcp-task-001", repository="my-repo") as ctx:
+    with RequestContext(request_id="mcp-task-001", repository="my-repo"):
         assert get_current_request_id() == "mcp-task-001"
         assert request_id_var.get() == "mcp-task-001"
 

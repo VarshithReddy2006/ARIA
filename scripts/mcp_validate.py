@@ -133,7 +133,11 @@ class StdioClient:
             if isinstance(frame.get("id"), int) and frame["id"] < self._id:
                 self.stale_frames += 1
                 continue
-            return frame, f"id mismatch: sent {self._id}, got {frame.get('id')!r}", elapsed
+            return (
+                frame,
+                f"id mismatch: sent {self._id}, got {frame.get('id')!r}",
+                elapsed,
+            )
 
     def notify(self, method: str, params: Any = None) -> None:
         req: dict[str, Any] = {"jsonrpc": "2.0", "method": method}

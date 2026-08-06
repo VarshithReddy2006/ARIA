@@ -27,18 +27,21 @@ class MockMCPServer:
         def decorator(fn):
             self.tools[fn.__name__] = fn
             return fn
+
         return decorator
 
     def resource(self, uri: str, *args, **kwargs):
         def decorator(fn):
             self.resources[uri] = fn
             return fn
+
         return decorator
 
     def prompt(self, *args, **kwargs):
         def decorator(fn):
             self.prompts[fn.__name__] = fn
             return fn
+
         return decorator
 
 
@@ -53,7 +56,10 @@ def mock_server():
 @pytest.fixture
 def mock_analysis_store():
     mock_analysis = MagicMock()
-    mock_analysis.model_dump.return_value = {"metadata": {"local_path": "/path"}, "files": []}
+    mock_analysis.model_dump.return_value = {
+        "metadata": {"local_path": "/path"},
+        "files": [],
+    }
     mock_arch = MagicMock()
     mock_arch.model_dump.return_value = {"summary": "Test arch", "relationships": []}
     return {
@@ -72,6 +78,7 @@ class TestToolRegistration:
 
     def test_repository_tools_register(self, mock_server):
         from mcp.tools.repository_tools import register
+
         register(mock_server)
         assert "list_repositories" in mock_server.tools
         assert "get_repository_summary" in mock_server.tools
@@ -79,6 +86,7 @@ class TestToolRegistration:
 
     def test_architecture_tools_register(self, mock_server):
         from mcp.tools.architecture_tools import register
+
         register(mock_server)
         assert "get_call_graph" in mock_server.tools
         assert "get_dependency_graph" in mock_server.tools
@@ -86,6 +94,7 @@ class TestToolRegistration:
 
     def test_symbol_tools_register(self, mock_server):
         from mcp.tools.symbol_tools import register
+
         register(mock_server)
         assert "get_file_symbols" in mock_server.tools
         assert "get_symbol_definition" in mock_server.tools
@@ -93,12 +102,14 @@ class TestToolRegistration:
 
     def test_search_tools_register(self, mock_server):
         from mcp.tools.search_tools import register
+
         register(mock_server)
         assert "query_codebase" in mock_server.tools
         assert "semantic_search" in mock_server.tools
 
     def test_analysis_tools_register(self, mock_server):
         from mcp.tools.analysis_tools import register
+
         register(mock_server)
         assert "get_dead_code" in mock_server.tools
         assert "get_impact_analysis" in mock_server.tools
@@ -106,11 +117,13 @@ class TestToolRegistration:
 
     def test_workspace_tools_register(self, mock_server):
         from mcp.tools.workspace_tools import register
+
         register(mock_server)
         assert "get_workspace" in mock_server.tools
 
     def test_report_tools_register(self, mock_server):
         from mcp.tools.report_tools import register
+
         register(mock_server)
         assert "generate_report" in mock_server.tools
         assert "export_report" in mock_server.tools
@@ -124,6 +137,7 @@ class TestResourceRegistration:
 
     def test_resources_register(self, mock_server):
         from mcp.resources.resource_providers import register
+
         register(mock_server)
         assert "repo://repositories" in mock_server.resources
         assert "repo://{owner}/{repo}/metadata" in mock_server.resources
@@ -140,6 +154,7 @@ class TestPromptRegistration:
 
     def test_prompts_register(self, mock_server):
         from mcp.prompts.prompt_templates import register
+
         register(mock_server)
         assert "explain_repository" in mock_server.prompts
         assert "review_architecture" in mock_server.prompts
@@ -156,6 +171,7 @@ class TestRepositoryToolExecution:
 
     def test_list_repositories(self, mock_server, mock_analysis_store):
         from mcp.tools.repository_tools import register
+
         register(mock_server)
 
         with patch("mcp.dependencies.ANALYSIS_STORE", mock_analysis_store):
@@ -165,6 +181,7 @@ class TestRepositoryToolExecution:
 
     def test_get_repository_summary_found(self, mock_server, mock_analysis_store):
         from mcp.tools.repository_tools import register
+
         register(mock_server)
 
         with patch("mcp.dependencies.ANALYSIS_STORE", mock_analysis_store):
@@ -182,6 +199,7 @@ class TestRepositoryToolExecution:
         """
         from mcp.tools.repository_tools import register
         from mcp.errors import ToolFailure
+
         register(mock_server)
 
         with patch("mcp.dependencies.ANALYSIS_STORE", {}):
@@ -194,6 +212,7 @@ class TestSymbolToolExecution:
 
     def test_get_file_symbols(self, mock_server):
         from mcp.tools.symbol_tools import register
+
         register(mock_server)
 
         from services.symbol_service import SymbolService
@@ -208,10 +227,13 @@ class TestSymbolToolExecution:
             data = json.loads(result)
             assert isinstance(data, list)
             assert data[0]["name"] == "my_func"
-            mock_service.get_file_symbols.assert_called_once_with("owner/repo", "main.py")
+            mock_service.get_file_symbols.assert_called_once_with(
+                "owner/repo", "main.py"
+            )
 
     def test_get_symbol_definition(self, mock_server):
         from mcp.tools.symbol_tools import register
+
         register(mock_server)
 
         from services.symbol_service import SymbolService
@@ -222,13 +244,16 @@ class TestSymbolToolExecution:
         mock_service.get_definition.return_value = mock_def
 
         with patch("mcp.dependencies.get_symbol_service", return_value=mock_service):
-            result = mock_server.tools["get_symbol_definition"]("owner", "repo", "my_func")
+            result = mock_server.tools["get_symbol_definition"](
+                "owner", "repo", "my_func"
+            )
             data = json.loads(result)
             assert data["name"] == "my_func"
             assert data["line"] == 42
 
     def test_get_symbol_references(self, mock_server):
         from mcp.tools.symbol_tools import register
+
         register(mock_server)
 
         from services.symbol_service import SymbolService
@@ -239,7 +264,9 @@ class TestSymbolToolExecution:
         mock_service.get_references.return_value = [mock_ref]
 
         with patch("mcp.dependencies.get_symbol_service", return_value=mock_service):
-            result = mock_server.tools["get_symbol_references"]("owner", "repo", "my_func")
+            result = mock_server.tools["get_symbol_references"](
+                "owner", "repo", "my_func"
+            )
             data = json.loads(result)
             assert len(data) == 1
             assert data[0]["file"] == "other.py"
@@ -251,6 +278,7 @@ class TestArchitectureToolExecution:
     def test_get_call_graph(self, mock_server):
         from mcp.tools.architecture_tools import register
         from services.call_graph_service import CallGraphService
+
         register(mock_server)
 
         mock_summary = MagicMock()
@@ -260,7 +288,9 @@ class TestArchitectureToolExecution:
         mock_service = MagicMock(spec=CallGraphService)
         mock_service.load_summary.return_value = mock_summary
 
-        with patch("mcp.dependencies.get_call_graph_service", return_value=mock_service):
+        with patch(
+            "mcp.dependencies.get_call_graph_service", return_value=mock_service
+        ):
             result = mock_server.tools["get_call_graph"]("owner", "repo")
             data = json.loads(result)
             assert "nodes" in data
@@ -269,6 +299,7 @@ class TestArchitectureToolExecution:
     def test_get_call_graph_not_indexed(self, mock_server):
         from mcp.tools.architecture_tools import register
         from services.call_graph_service import CallGraphService
+
         register(mock_server)
 
         from mcp.errors import ToolFailure
@@ -276,7 +307,9 @@ class TestArchitectureToolExecution:
         mock_service = MagicMock(spec=CallGraphService)
         mock_service.load_summary.return_value = None
 
-        with patch("mcp.dependencies.get_call_graph_service", return_value=mock_service):
+        with patch(
+            "mcp.dependencies.get_call_graph_service", return_value=mock_service
+        ):
             with pytest.raises(ToolFailure, match="No call graph indexed"):
                 mock_server.tools["get_call_graph"]("owner", "repo")
 
@@ -286,6 +319,7 @@ class TestSearchToolExecution:
 
     def test_query_codebase(self, mock_server):
         from mcp.tools.search_tools import register
+
         register(mock_server)
 
         from services.retrieval_service import RetrievalService
@@ -301,7 +335,9 @@ class TestSearchToolExecution:
         }
 
         with patch("mcp.dependencies.get_retrieval_service", return_value=mock_service):
-            result = mock_server.tools["query_codebase"]("owner", "repo", "what does this do?")
+            result = mock_server.tools["query_codebase"](
+                "owner", "repo", "what does this do?"
+            )
             data = json.loads(result)
             assert data["answer"] == "Test answer"
             assert data["confidence"] == 0.85
@@ -315,6 +351,7 @@ class TestAnalysisToolExecution:
 
     def test_get_dead_code(self, mock_server):
         from mcp.tools.analysis_tools import register
+
         register(mock_server)
 
         from services.dead_code_service import DeadCodeService
@@ -335,6 +372,7 @@ class TestReportToolExecution:
 
     def test_generate_report(self, mock_server):
         from mcp.tools.report_tools import register
+
         register(mock_server)
 
         mock_report = MagicMock()
@@ -361,6 +399,7 @@ class TestResourceExecution:
 
     def test_list_repositories_resource(self, mock_server, mock_analysis_store):
         from mcp.resources.resource_providers import register
+
         register(mock_server)
 
         with patch("mcp.dependencies.ANALYSIS_STORE", mock_analysis_store):
@@ -370,10 +409,13 @@ class TestResourceExecution:
 
     def test_repository_metadata_resource(self, mock_server, mock_analysis_store):
         from mcp.resources.resource_providers import register
+
         register(mock_server)
 
         with patch("mcp.dependencies.ANALYSIS_STORE", mock_analysis_store):
-            result = mock_server.resources["repo://{owner}/{repo}/metadata"]("owner", "repo")
+            result = mock_server.resources["repo://{owner}/{repo}/metadata"](
+                "owner", "repo"
+            )
             data = json.loads(result)
             assert "metadata" in data
 
@@ -386,6 +428,7 @@ class TestPromptExecution:
 
     def test_explain_repository_prompt(self, mock_server):
         from mcp.prompts.prompt_templates import register
+
         register(mock_server)
 
         result = mock_server.prompts["explain_repository"]("owner", "repo")
@@ -395,6 +438,7 @@ class TestPromptExecution:
 
     def test_review_architecture_prompt(self, mock_server):
         from mcp.prompts.prompt_templates import register
+
         register(mock_server)
 
         result = mock_server.prompts["review_architecture"]("owner", "repo")
@@ -403,22 +447,29 @@ class TestPromptExecution:
 
     def test_trace_execution_path_prompt(self, mock_server):
         from mcp.prompts.prompt_templates import register
+
         register(mock_server)
 
-        result = mock_server.prompts["trace_execution_path"]("owner", "repo", "my_function")
+        result = mock_server.prompts["trace_execution_path"](
+            "owner", "repo", "my_function"
+        )
         assert "my_function" in result
         assert "get_symbol_definition" in result
 
     def test_analyze_blast_radius_prompt(self, mock_server):
         from mcp.prompts.prompt_templates import register
+
         register(mock_server)
 
-        result = mock_server.prompts["analyze_blast_radius"]("owner", "repo", "src/main.py")
+        result = mock_server.prompts["analyze_blast_radius"](
+            "owner", "repo", "src/main.py"
+        )
         assert "src/main.py" in result
         assert "get_impact_analysis" in result
 
     def test_generate_health_report_prompt(self, mock_server):
         from mcp.prompts.prompt_templates import register
+
         register(mock_server)
 
         result = mock_server.prompts["generate_health_report"]("owner", "repo")
@@ -455,7 +506,9 @@ class TestObservabilityIntegration:
 
         # Check that a metric was recorded
         key = ("MCP", "tools/test_metrics_tool", 200)
-        assert metrics_collector.http_requests_total.get(key, 0) > initial_requests.get(key, 0)
+        assert metrics_collector.http_requests_total.get(key, 0) > initial_requests.get(
+            key, 0
+        )
 
     def test_mcp_request_context_records_error_metrics(self):
         from mcp.observability import mcp_request_context
@@ -468,7 +521,9 @@ class TestObservabilityIntegration:
                 raise ValueError("test error")
 
         key = ("MCP", "tools/test_error_tool", 500)
-        assert metrics_collector.http_requests_total.get(key, 0) > initial_requests.get(key, 0)
+        assert metrics_collector.http_requests_total.get(key, 0) > initial_requests.get(
+            key, 0
+        )
 
 
 # ---------------------------------------------------------------------------
@@ -479,10 +534,12 @@ class TestDIIntegration:
 
     def test_dependencies_module_exports_analysis_store(self):
         from mcp.dependencies import ANALYSIS_STORE
+
         assert isinstance(ANALYSIS_STORE, dict)
 
     def test_dependencies_module_exports_getters(self):
         from mcp import dependencies as deps
+
         assert callable(deps.get_symbol_service)
         assert callable(deps.get_call_graph_service)
         assert callable(deps.get_dead_code_service)
@@ -502,6 +559,7 @@ class TestServerCreation:
         """If the mcp SDK is not installed, create_server should raise."""
         with patch("mcp.server.FastMCP", None):
             from mcp.server import create_server
+
             with pytest.raises(RuntimeError, match="mcp.*SDK.*not installed"):
                 create_server()
 
@@ -514,6 +572,7 @@ class TestLegacyBackwardCompatibility:
 
     def test_legacy_tools_list_unchanged(self):
         from backend.mcp_server import TOOLS
+
         tool_names = [t["name"] for t in TOOLS]
         # Original 7 tools must still be present
         assert "list_repositories" in tool_names
@@ -527,6 +586,7 @@ class TestLegacyBackwardCompatibility:
 
     def test_legacy_execute_tool_list(self):
         from backend.mcp_server import execute_tool
+
         store = {"owner/repo": {"analysis": MagicMock(), "architecture": MagicMock()}}
         result = execute_tool("list_repositories", {}, store, None, None, None, None)
         assert "owner/repo" in result

@@ -31,7 +31,9 @@ class ContextEngine:
         commit: CommitReference,
         fmt: str = "json",
     ) -> tuple[ContextPackage, str]:
-        package = self._builder.build_context(request, search_engine, query_engine, fact_store, repo_id, commit)
+        package = self._builder.build_context(
+            request, search_engine, query_engine, fact_store, repo_id, commit
+        )
 
         if fmt.lower() == "markdown":
             formatted = self._serializer.serialize_markdown(package)

@@ -48,7 +48,9 @@ class JsonFormatter(logging.Formatter):
 
         # Include exception tracebacks
         if record.exc_info:
-            log_data["exception"] = sanitize_sensitive_data(self.formatException(record.exc_info))
+            log_data["exception"] = sanitize_sensitive_data(
+                self.formatException(record.exc_info)
+            )
 
         return json.dumps(log_data)
 

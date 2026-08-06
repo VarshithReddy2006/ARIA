@@ -1,7 +1,5 @@
 """Application Service for Agent Runtime."""
 
-from typing import Optional
-
 from ria.agent.dto import AgentResultDTO
 from ria.agent.runtime import AgentRuntime
 from ria.application.agent.dto import ExecuteGoalCommandDTO
@@ -33,9 +31,18 @@ class AgentApplicationService:
 
     def execute_goal(self, dto: ExecuteGoalCommandDTO) -> AgentResultDTO:
         start_t = self._clock.monotonic_seconds()
-        self._logger.info("Executing AgentApplicationService.execute_goal", repo_id=dto.repo_id)
+        self._logger.info(
+            "Executing AgentApplicationService.execute_goal", repo_id=dto.repo_id
+        )
 
-        st = next((s for s in self._registry.list_all() if s.identity.repo_id.value == dto.repo_id), None)
+        st = next(
+            (
+                s
+                for s in self._registry.list_all()
+                if s.identity.repo_id.value == dto.repo_id
+            ),
+            None,
+        )
         if st is None or st.current_commit is None:
             return AgentResultDTO(
                 goal_id="none",
@@ -65,7 +72,9 @@ class AgentApplicationService:
             )
         except Exception as err:
             elapsed = (self._clock.monotonic_seconds() - start_t) * 1000.0
-            self._logger.error("Agent goal execution failed", exc=err, repo_id=dto.repo_id)
+            self._logger.error(
+                "Agent goal execution failed", exc=err, repo_id=dto.repo_id
+            )
             return AgentResultDTO(
                 goal_id="none",
                 is_success=False,

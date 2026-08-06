@@ -15,7 +15,14 @@ def detect_knowledge_gaps(
 ) -> Dict[str, Any]:
     """Analyze learning state and detect knowledge gaps with recovery recommendations."""
     quiz_scores = quiz_scores or {}
-    all_concepts = all_concepts or ["Authentication", "Routing", "Dependency Injection", "Database", "Caching", "Testing"]
+    all_concepts = all_concepts or [
+        "Authentication",
+        "Routing",
+        "Dependency Injection",
+        "Database",
+        "Caching",
+        "Testing",
+    ]
 
     completed_set = set(completed_steps)
     missing_concepts = []
@@ -30,19 +37,25 @@ def detect_knowledge_gaps(
     weak_areas = []
     for quiz_id, score in quiz_scores.items():
         if score < 60.0:
-            weak_areas.append({"quiz_id": quiz_id, "score": score, "topic": "Architecture Boundaries"})
+            weak_areas.append(
+                {"quiz_id": quiz_id, "score": score, "topic": "Architecture Boundaries"}
+            )
 
     recovery_journeys = []
     if missing_concepts:
-        recovery_journeys.append({
-            "recovery_id": "rec-1",
-            "title": f"Bridge {missing_concepts[0]} Knowledge Gap",
-            "reason": f"No files covering '{missing_concepts[0]}' have been explored yet.",
-            "recommended_steps": [
-                "services/db/repository.py" if missing_concepts[0] == "Database" else "backend/api.py"
-            ],
-            "estimated_minutes": 10,
-        })
+        recovery_journeys.append(
+            {
+                "recovery_id": "rec-1",
+                "title": f"Bridge {missing_concepts[0]} Knowledge Gap",
+                "reason": f"No files covering '{missing_concepts[0]}' have been explored yet.",
+                "recommended_steps": [
+                    "services/db/repository.py"
+                    if missing_concepts[0] == "Database"
+                    else "backend/api.py"
+                ],
+                "estimated_minutes": 10,
+            }
+        )
 
     return {
         "gap_count": len(missing_concepts) + len(weak_areas),

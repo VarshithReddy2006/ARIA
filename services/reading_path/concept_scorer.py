@@ -5,7 +5,7 @@ Computes importance score, learning difficulty, repository coverage %, and execu
 
 from __future__ import annotations
 
-from typing import Dict, List, Any
+from typing import Dict, Any
 
 
 def score_concept(

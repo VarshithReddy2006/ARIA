@@ -1,7 +1,5 @@
 """CLI Console output formatter."""
 
-from typing import Any
-
 
 class ConsoleFormatter:
     """Formatter for terminal console output."""

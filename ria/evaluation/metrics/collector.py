@@ -3,7 +3,7 @@
 import time
 import tracemalloc
 from dataclasses import dataclass, field
-from typing import Any, Dict, List, Optional
+from typing import Any, List
 
 
 @dataclass(frozen=True, slots=True)
@@ -53,14 +53,27 @@ class PerformanceCollector:
     def __init__(self) -> None:
         self.stage_metrics: List[StageMetric] = []
 
-    def measure_stage(self, stage_name: str, items_processed: int = 0, failures: int = 0, warnings: int = 0) -> "StageTracker":
+    def measure_stage(
+        self,
+        stage_name: str,
+        items_processed: int = 0,
+        failures: int = 0,
+        warnings: int = 0,
+    ) -> "StageTracker":
         return StageTracker(self, stage_name, items_processed, failures, warnings)
 
 
 class StageTracker:
     """Helper context manager tracking start/end time and tracemalloc peak memory."""
 
-    def __init__(self, collector: PerformanceCollector, stage_name: str, items: int, failures: int, warnings: int) -> None:
+    def __init__(
+        self,
+        collector: PerformanceCollector,
+        stage_name: str,
+        items: int,
+        failures: int,
+        warnings: int,
+    ) -> None:
         self._collector = collector
         self._stage_name = stage_name
         self._items = items

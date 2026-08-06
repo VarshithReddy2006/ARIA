@@ -17,7 +17,9 @@ class NavigationStep:
 
     from_entity: Optional[str]
     to_entity: str
-    transition_type: str  # e.g., "INITIAL", "FILE_TO_FILE", "FILE_TO_SYMBOL", "TOPIC_SWITCH"
+    transition_type: (
+        str  # e.g., "INITIAL", "FILE_TO_FILE", "FILE_TO_SYMBOL", "TOPIC_SWITCH"
+    )
     timestamp: float = field(default_factory=time.time)
 
 
@@ -63,7 +65,9 @@ class NavigationGraph:
             return None
         current = self.steps[-1].to_entity
         for step in reversed(self.steps[:-1]):
-            if step.to_entity != current and ("/" in step.to_entity or "." in step.to_entity):
+            if step.to_entity != current and (
+                "/" in step.to_entity or "." in step.to_entity
+            ):
                 return step.to_entity
         return self.previous_entity
 
@@ -73,6 +77,10 @@ class NavigationGraph:
             return None
         current = self.steps[-1].to_entity
         for step in reversed(self.steps[:-1]):
-            if step.to_entity != current and "/" not in step.to_entity and not step.to_entity.endswith(".py"):
+            if (
+                step.to_entity != current
+                and "/" not in step.to_entity
+                and not step.to_entity.endswith(".py")
+            ):
                 return step.to_entity
         return self.previous_entity

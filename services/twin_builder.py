@@ -6,7 +6,6 @@ providers to compose the read-only RepositoryTwin and RepositoryTwinSummary view
 
 import os
 import logging
-import networkx as nx
 from typing import Any, Dict, Optional
 
 from utils.subprocess_runner import run_safe_command, SHORT_GIT_TIMEOUT
@@ -161,9 +160,7 @@ class RepositoryTwinBuilder:
             else 0
         )
         cycles_count = (
-            len(self.graph_service.get_cycles(repo_name))
-            if self.graph_service
-            else 0
+            len(self.graph_service.get_cycles(repo_name)) if self.graph_service else 0
         )
 
         entry_points = []

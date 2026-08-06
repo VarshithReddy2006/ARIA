@@ -8,9 +8,13 @@ def test_analysis_registry_has_no_type_none_builders():
     type_none_entries = [
         name
         for name, node in analysis_registry.nodes.items()
-        if node.service_class is type(None) or node.service_class == type(None)
+        # Both operators are checked on purpose: ``is`` catches the plain
+        # ``type(None)`` sentinel, while ``==`` also catches a registration whose
+        # metaclass overrides ``__eq__``. Narrowing to ``is`` alone would weaken
+        # the regression guard, so E721 is suppressed for this line only.
+        if node.service_class is type(None) or node.service_class == type(None)  # noqa: E721
     ]
 
-    assert (
-        len(type_none_entries) == 0
-    ), f"Found analysis capabilities registered with type(None): {type_none_entries}"
+    assert len(type_none_entries) == 0, (
+        f"Found analysis capabilities registered with type(None): {type_none_entries}"
+    )
