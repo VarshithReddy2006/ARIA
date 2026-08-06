@@ -48,3 +48,4 @@ select = ["E4", "E7", "E9", "F"]
 pythonpath = ["."]
 testpaths = ["tests"]
 norecursedirs = [".venv", "data", "node_modules", "frontend", "cloned_repos"]
+asyncio_mode = "auto"

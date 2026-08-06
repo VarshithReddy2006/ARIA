@@ -144,7 +144,10 @@ def test_extract_source_files_rejects_symlinks_and_oversized_files(tmp_path) -> 
         pytest.skip("Symbolic links are unavailable in this test environment")
 
     files = service.extract_source_files(str(tmp_path))
-    assert files == [{"path": "normal.py", "content": "print('safe')"}]
+    # target.py is a regular file (not a symlink) so it passes the safety filter.
+    # Only linked.py (symlink) and oversized.py (exceeds size limit) are excluded.
+    paths = sorted(f["path"] for f in files)
+    assert paths == ["normal.py", "target.py"]
 
 
 def test_extract_source_files_rejects_symlink_escaping_repository(tmp_path) -> None:

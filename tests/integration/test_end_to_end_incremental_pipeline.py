@@ -64,7 +64,7 @@ def test_full_incremental_indexing_end_to_end_pipeline(tmp_path: Path) -> None:
     # 1. Prepare git origin repository with 3 files
     origin_dir = tmp_path / "inc_origin"
     origin_dir.mkdir()
-    subprocess.run(["git", "init"], cwd=origin_dir, check=True)
+    subprocess.run(["git", "init", "-b", "main"], cwd=origin_dir, check=True)
     subprocess.run(
         ["git", "config", "user.name", "TestRunner"], cwd=origin_dir, check=True
     )
