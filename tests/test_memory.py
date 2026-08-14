@@ -82,7 +82,7 @@ def test_atomic_rebuild_preserves_active_revision_on_failure(chroma_test_dir) ->
     store.index_repository("owner/repo", old_chunks, [[0.1, 0.2, 0.3]])
 
     with patch.object(
-        store.collection, "upsert", side_effect=RuntimeError("staging failed")
+        store.collection, "add", side_effect=RuntimeError("staging failed")
     ):
         with pytest.raises(RuntimeError, match="staging failed"):
             store.index_repository(

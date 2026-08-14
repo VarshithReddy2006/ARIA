@@ -218,19 +218,21 @@ async def chat_reload():
     Call this after updating GEMINI_API_KEY or DEEPSEEK_API_KEY in .env.
     Resets the ProviderFactory cache, ProviderManager, and circuit breakers.
     """
+    from backend.settings import get_settings
     from services.llm import ProviderFactory
     from backend import dependencies
 
-    # 1. Reset provider factory cache
+    # 1. Reload settings from disk and reset provider factory cache
+    fresh_settings = get_settings(reload=True)
     ProviderFactory.reset()
 
-    # 2. Reset pipeline's provider manager so it rebuilds with new key
+    # 2. Reset pipeline's provider manager so it rebuilds with fresh settings and keys
     global_pipeline = dependencies._SINGLETONS.get("retrieval_pipeline")
     if global_pipeline is not None:
         try:
             from services.chat.provider_manager import ProviderManager
 
-            global_pipeline.provider_manager = ProviderManager()
+            global_pipeline.provider_manager = ProviderManager(settings=fresh_settings)
             logger.info("chat_reload: ProviderManager rebuilt successfully")
         except Exception as exc:
             logger.error("chat_reload: ProviderManager rebuild failed: %s", exc)
@@ -240,7 +242,7 @@ async def chat_reload():
 
     # 3. Verify the new provider works
     try:
-        new_provider = ProviderFactory.get_provider()
+        new_provider = ProviderFactory.get_provider(settings=fresh_settings)
         test_response = await new_provider.generate(
             prompt="Reply with the single word: ready",
             system_instruction="You are a health check assistant.",

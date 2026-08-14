@@ -91,6 +91,13 @@ class ChromaStore:
         ids = [f"{file_path}_{i}" for i in range(len(chunks))]
 
         cleaned_metadata = self._clean_metadata(metadata)
+        for meta in cleaned_metadata:
+            r_name = meta.get("repo_name")
+            if r_name and "index_version" not in meta:
+                with self._publication_lock:
+                    v = self._active_version(str(r_name))
+                if v is not None:
+                    meta["index_version"] = v
 
         self.collection.upsert(
             ids=ids, documents=chunks, embeddings=embeddings, metadatas=cleaned_metadata
@@ -115,20 +122,13 @@ class ChromaStore:
             return
 
         cleaned_metadata = self._clean_metadata(metadatas)
-        repo_names = {
-            str(meta.get("repo_name"))
-            for meta in cleaned_metadata
-            if meta.get("repo_name")
-        }
-        if len(repo_names) == 1:
-            repo_name = next(iter(repo_names))
-            with self._publication_lock:
-                version = self._active_version(repo_name)
-                if version is not None:
-                    for meta in cleaned_metadata:
-                        meta["index_version"] = version
-                self._add_in_batches(ids, documents, embeddings, cleaned_metadata)
-            return
+        for meta in cleaned_metadata:
+            r_name = meta.get("repo_name")
+            if r_name and "index_version" not in meta:
+                with self._publication_lock:
+                    v = self._active_version(str(r_name))
+                if v is not None:
+                    meta["index_version"] = v
 
         self._add_in_batches(ids, documents, embeddings, cleaned_metadata)
 
@@ -155,7 +155,7 @@ class ChromaStore:
 
         batch_size = 2000
         for i in range(0, len(unique_ids), batch_size):
-            self.collection.upsert(
+            self.collection.add(
                 ids=unique_ids[i : i + batch_size],
                 documents=unique_docs[i : i + batch_size],
                 embeddings=unique_embs[i : i + batch_size],

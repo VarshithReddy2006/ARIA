@@ -491,21 +491,12 @@ class GitHubService:
         if os.path.exists(dest_dir):
             import stat
 
-            for root, dirs, files in os.walk(dest_dir, topdown=False):
-                for f_name in files:
-                    p = os.path.join(root, f_name)
-                    try:
-                        os.chmod(p, stat.S_IWRITE)
-                    except Exception:
-                        pass
-                for d_name in dirs:
-                    p = os.path.join(root, d_name)
-                    try:
-                        os.chmod(p, stat.S_IWRITE)
-                    except Exception:
-                        pass
+            def _remove_readonly(func, path, exc_info):
+                os.chmod(path, stat.S_IWRITE)
+                func(path)
+
             try:
-                shutil.rmtree(dest_dir, ignore_errors=True)
+                shutil.rmtree(dest_dir, onerror=_remove_readonly)
             except Exception as e:
                 logger.warning(
                     f"Failed to completely remove existing directory {dest_dir}: {e}."

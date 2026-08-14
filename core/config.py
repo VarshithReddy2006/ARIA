@@ -34,7 +34,9 @@ class Settings(BaseSettings):
     deepseek_base_url: str = Field(
         "https://integrate.api.nvidia.com/v1", alias="DEEPSEEK_BASE_URL"
     )
-    deepseek_model: str = Field("deepseek-ai/deepseek-v4-flash", alias="DEEPSEEK_MODEL")
+    deepseek_model: str = Field(
+        "deepseek-ai/deepseek-v4-flash-0731", alias="DEEPSEEK_MODEL"
+    )
     gemini_api_key: Optional[str] = Field(None, alias="GEMINI_API_KEY")
     gemini_model: str = Field("gemini-2.5-flash", alias="GEMINI_MODEL")
     embedding_model: str = Field("BAAI/bge-small-en-v1.5", alias="EMBEDDING_MODEL")
@@ -56,6 +58,24 @@ class Settings(BaseSettings):
     model_config = SettingsConfigDict(
         env_file=".env", env_file_encoding="utf-8", extra="ignore"
     )
+
+    @field_validator(
+        "api_key",
+        "github_token",
+        "deepseek_api_key",
+        "deepseek_base_url",
+        "deepseek_model",
+        "gemini_api_key",
+        "gemini_model",
+        "llm_provider",
+        mode="before",
+    )
+    @classmethod
+    def strip_whitespace(cls, v: Optional[str]) -> Optional[str]:
+        if isinstance(v, str):
+            stripped = v.strip()
+            return stripped if stripped else None
+        return v
 
     @field_validator("deepseek_api_key")
     @classmethod
@@ -99,3 +119,12 @@ class Settings(BaseSettings):
 
 # Instantiate settings singleton
 settings = Settings()
+
+
+def get_settings(reload: bool = False) -> Settings:
+    """Return an up-to-date Settings instance, reloading .env if requested."""
+    global settings, is_production
+    if reload:
+        load_dotenv(override=not is_production)
+        settings = Settings()
+    return settings

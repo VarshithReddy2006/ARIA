@@ -44,10 +44,16 @@ class GeminiProvider(BaseLLMProvider):
         api_key: Optional[str] = None,
         model: Optional[str] = None,
     ) -> None:
-        from core.config import settings
+        from core.config import get_settings
 
-        self.api_key = api_key or settings.gemini_api_key or ""
-        self.model = model or settings.gemini_model or "gemini-2.5-flash"
+        current_settings = get_settings()
+
+        self.api_key = (
+            api_key if api_key is not None else (current_settings.gemini_api_key or "")
+        ).strip()
+        self.model = (
+            model or current_settings.gemini_model or "gemini-2.5-flash"
+        ).strip()
 
         if not self.api_key:
             logger.warning("GEMINI_API_KEY is not set — requests to Gemini will fail.")
