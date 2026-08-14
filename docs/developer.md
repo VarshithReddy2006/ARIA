@@ -1,6 +1,6 @@
 # Developer Guide
 
-This guide describes how to extend the Repo Intelligence Agent by adding new analysis services and wiring them into the build pipeline.
+This guide describes how to extend ARIA by adding new analysis services and wiring them into the build pipeline.
 
 ## 1. Adding a New Analysis Service
 

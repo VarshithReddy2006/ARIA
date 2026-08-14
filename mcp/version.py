@@ -9,7 +9,7 @@ from __future__ import annotations
 import subprocess
 from typing import Any, Dict, List, Optional
 
-SERVER_NAME: str = "Repo Intelligence Agent"
+SERVER_NAME: str = "ARIA"
 SERVER_VERSION: str = "1.5.0"
 PROTOCOL_VERSION: str = "2024-11-05"
 IMPLEMENTATION_NAME: str = "ria-mcp-server"

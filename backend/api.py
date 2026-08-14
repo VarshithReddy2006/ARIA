@@ -1,4 +1,4 @@
-"""FastAPI application entry point for the Repo Intelligence Agent.
+"""FastAPI application entry point for ARIA (AI-Powered Repository Intelligence Agent).
 
 Responsibilities of this file (only):
   - Load environment variables
@@ -96,9 +96,9 @@ async def lifespan(app: FastAPI):
 
 
 app = FastAPI(
-    title="Repo Intelligence Agent API",
+    title="ARIA — AI-Powered Repository Intelligence Agent",
     description="Backend services exposing multi-agent codebase analysis and chat.",
-    version="1.0.0",
+    version="1.5.0",
     lifespan=lifespan,
 )
 
@@ -122,10 +122,12 @@ app.add_middleware(GZipMiddleware, minimum_size=1000)
 app.add_middleware(TrustedHostMiddleware, allowed_hosts=settings.allowed_hosts)
 
 _cors_origins = [settings.frontend_url]
-if "localhost:4321" not in settings.frontend_url:
-    _cors_origins.append("http://localhost:4321")
-if "localhost:5173" not in settings.frontend_url:
-    _cors_origins.append("http://localhost:5173")
+if settings.app_env != "production":
+    # Development convenience: allow common local frontend dev server origins.
+    if "localhost:4321" not in settings.frontend_url:
+        _cors_origins.append("http://localhost:4321")
+    if "localhost:5173" not in settings.frontend_url:
+        _cors_origins.append("http://localhost:5173")
 
 app.add_middleware(
     CORSMiddleware,

@@ -1,4 +1,4 @@
-# Repository Intelligence Agent — Independent Architecture Validation
+# ARIA — Independent Architecture Validation
 
 **Report type:** External architecture research and validation review
 **Perspective:** Reviewed as if designed by a third party. No deference to existing decisions.

@@ -1,6 +1,6 @@
 # Product Requirements Document
 
-**Product:** Repository Intelligence Agent
+**Product:** ARIA (Repository Intelligence Agent)
 **Document status:** Foundation — normative
 **Version:** 2.0 (greenfield redesign)
 **Supersedes:** all positioning and scope statements in `README.md`, `ARCHITECTURE.md`, `AUDIT_REPORT.md`
@@ -177,7 +177,7 @@ L1 and L2 are fully solvable and are our Phase 1–3 scope. L3 is solvable with 
 
 ### 6.1 Precise definition
 
-> **Repository Intelligence Agent is a repository indexing system that maintains, for each indexed repository and at each indexed commit, a versioned multi-facet model of that repository — its structure, resolved symbol relationships, history, runtime behavior, recorded intent, and human ownership — and exposes that model through a deterministic query API, an MCP server for AI agents, and a set of reference applications built exclusively on that API.**
+> **ARIA is a repository indexing system that maintains, for each indexed repository and at each indexed commit, a versioned multi-facet model of that repository — its structure, resolved symbol relationships, history, runtime behavior, recorded intent, and human ownership — and exposes that model through a deterministic query API, an MCP server for AI agents, and a set of reference applications built exclusively on that API.**
 
 Decomposed into commitments:
 

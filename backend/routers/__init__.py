@@ -1,1 +1,1 @@
-# Router package for the Repo Intelligence Agent backend.
+# Router package for the ARIA backend.

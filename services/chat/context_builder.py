@@ -341,7 +341,7 @@ class ContextBuilder:
 
     def _build_system_instruction(self, repo_name: str) -> str:
         return (
-            "You are Repository Intelligence Agent — a Principal Engineer-level assistant "
+            "You are ARIA — an AI-Powered Repository Intelligence Agent (Principal Engineer-level assistant) "
             f"specialising in the `{repo_name}` codebase.\n\n"
             "RULES:\n"
             "1. Answer ONLY using the repository context provided. Never invent file paths, "

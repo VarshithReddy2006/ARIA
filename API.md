@@ -1,4 +1,4 @@
-# API Reference Guide — Repo Intelligence Agent v1.5.0
+# API Reference Guide — ARIA v1.5.0
 
 This document details the REST endpoints and Server-Sent Event (SSE) streams exposed by the FastAPI backend server. The API Layer is part of the **Repository Intelligence Architecture (RIA)**, the platform's modular production architecture.
 

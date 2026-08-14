@@ -1,4 +1,4 @@
-"""Memory package for the Repo Intelligence Agent.
+"""Memory package for ARIA.
 
 Contains vector embeddings storage (ChromaDB).
 """

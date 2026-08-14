@@ -1,4 +1,4 @@
-"""MCP Server Package for Repo Intelligence Agent.
+"""MCP Server Package for ARIA.
 
 Exposes the Repository Intelligence Platform's analysis engines through
 the Model Context Protocol (MCP), enabling integration with VS Code,

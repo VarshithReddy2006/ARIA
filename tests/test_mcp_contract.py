@@ -208,7 +208,7 @@ class TestServerVersionContract:
 
     def test_version_metadata(self):
         meta = get_server_metadata()
-        assert meta["server_name"] == "Repo Intelligence Agent"
+        assert meta["server_name"] == "ARIA"
         assert meta["server_version"] == "1.5.0"
         assert meta["protocol_version"] == "2024-11-05"
         assert meta["implementation_name"] == "ria-mcp-server"

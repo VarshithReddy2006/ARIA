@@ -92,7 +92,7 @@ class ChromaStore:
 
         cleaned_metadata = self._clean_metadata(metadata)
 
-        self.collection.add(
+        self.collection.upsert(
             ids=ids, documents=chunks, embeddings=embeddings, metadatas=cleaned_metadata
         )
 
@@ -139,14 +139,27 @@ class ChromaStore:
         embeddings: List[List[float]],
         metadatas: List[Dict[str, Any]],
     ) -> None:
-        """Insert a prepared batch sequence into the chunk collection."""
+        """Insert a prepared batch sequence into the chunk collection safely using upsert."""
+        seen_ids = set()
+        unique_ids = []
+        unique_docs = []
+        unique_embs = []
+        unique_metas = []
+        for idx, uid in enumerate(ids):
+            if uid not in seen_ids:
+                seen_ids.add(uid)
+                unique_ids.append(uid)
+                unique_docs.append(documents[idx])
+                unique_embs.append(embeddings[idx])
+                unique_metas.append(metadatas[idx])
+
         batch_size = 2000
-        for i in range(0, len(ids), batch_size):
-            self.collection.add(
-                ids=ids[i : i + batch_size],
-                documents=documents[i : i + batch_size],
-                embeddings=embeddings[i : i + batch_size],
-                metadatas=metadatas[i : i + batch_size],
+        for i in range(0, len(unique_ids), batch_size):
+            self.collection.upsert(
+                ids=unique_ids[i : i + batch_size],
+                documents=unique_docs[i : i + batch_size],
+                embeddings=unique_embs[i : i + batch_size],
+                metadatas=unique_metas[i : i + batch_size],
             )
 
     def search_similar(

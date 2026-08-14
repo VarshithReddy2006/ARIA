@@ -1,6 +1,6 @@
 """Model Context Protocol (MCP) Stdio Server.
 
-Exposes the Repo Intelligence Agent's analysis engines (symbols, call graphs,
+Exposes ARIA's analysis engines (symbols, call graphs,
 dependency graphs, dead code, PR analysis, and retrieval) as standard MCP tools.
 """
 
@@ -228,7 +228,7 @@ def _error_data(exc: Exception) -> Dict[str, Any]:
 
 def run_mcp_server() -> None:
     """Main loop reading JSON-RPC requests from stdin and responding to stdout."""
-    logger.info("Initializing Repo Intelligence MCP Server...")
+    logger.info("Initializing ARIA MCP Server...")
 
     # Lazy-load back-end singletons on start
     from backend.dependencies import (

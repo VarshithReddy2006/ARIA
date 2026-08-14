@@ -127,7 +127,7 @@ function buildHoverContent(symbol: RepoSymbol): vscode.MarkdownString {
   }
 
   md.appendMarkdown('\n---\n');
-  md.appendMarkdown('_Repo Intelligence Agent_');
+  md.appendMarkdown('_ARIA_');
 
   return md;
 }

@@ -1,4 +1,4 @@
-"""GitHub Action entrypoint for the Repository Intelligence Agent.
+"""GitHub Action entrypoint for ARIA.
 
 Drives one PR through three steps:
 1. Call the hosted backend's `/api/v1/pr/analyze` to get a `PRAnalysisResult`.

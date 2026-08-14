@@ -1,4 +1,4 @@
-"""Centralised configuration system for Repo Intelligence Agent using Pydantic Settings (core layer)."""
+"""Centralised configuration system for ARIA using Pydantic Settings (core layer)."""
 
 import os
 from typing import List, Optional
@@ -80,6 +80,19 @@ class Settings(BaseSettings):
             if app_env == "production":
                 raise ValueError(
                     "GEMINI_API_KEY is required in production when LLM_PROVIDER is gemini"
+                )
+        return v
+
+    @field_validator("allowed_hosts")
+    @classmethod
+    def validate_allowed_hosts_in_production(cls, v: List[str], info) -> List[str]:
+        app_env = info.data.get("app_env", "development")
+        if app_env == "production":
+            if not v or v == ["*"]:
+                raise ValueError(
+                    "ALLOWED_HOSTS must be explicitly configured in production "
+                    '(e.g. ALLOWED_HOSTS=["api.yourdomain.com"]). '
+                    "A wildcard (['*']) is not permitted."
                 )
         return v
 

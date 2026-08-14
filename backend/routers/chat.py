@@ -225,7 +225,7 @@ async def chat_reload():
     ProviderFactory.reset()
 
     # 2. Reset pipeline's provider manager so it rebuilds with new key
-    global_pipeline = dependencies._retrieval_pipeline
+    global_pipeline = dependencies._SINGLETONS.get("retrieval_pipeline")
     if global_pipeline is not None:
         try:
             from services.chat.provider_manager import ProviderManager

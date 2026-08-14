@@ -1,4 +1,4 @@
-# Changelog — Repo Intelligence Agent
+# Changelog — ARIA
 
 All notable changes to this project are documented in this file.
 

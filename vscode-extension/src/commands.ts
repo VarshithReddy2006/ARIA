@@ -1,5 +1,5 @@
 /**
- * Command registrations for the Repo Intelligence Agent extension.
+ * Command registrations for the ARIA extension.
  *
  * Each command is a thin orchestrator that delegates to the appropriate
  * panel, provider, or API client. No business logic here.

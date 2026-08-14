@@ -1,7 +1,7 @@
 # MCP Subsystem — Release Readiness Report (v1.5.0)
 
 ## Executive Summary
-This document serves as the authoritative operational and release readiness guide for the Model Context Protocol (MCP) subsystem of the Repository Intelligence Agent (v1.5.0 production release).
+This document serves as the authoritative operational and release readiness guide for the Model Context Protocol (MCP) subsystem of ARIA (v1.5.0 production release).
 
 The Production MCP Integration Layer exposes the platform's codebase analysis, architectural indexing, symbol search, and report generation capabilities to external AI coding assistants and agent environments (including Cursor, VS Code Extension, and Claude Desktop) via standard JSON-RPC 2.0 protocol frames. The Production MCP Integration Layer operates within the broader **Repository Intelligence Architecture (RIA v1)**, the platform's modular, layered production architecture.
 

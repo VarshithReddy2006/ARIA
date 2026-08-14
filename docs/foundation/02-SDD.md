@@ -1,6 +1,6 @@
 # System Design Document
 
-**Product:** Repository Intelligence Agent
+**Product:** ARIA (Repository Intelligence Agent)
 **Document status:** Foundation — normative
 **Version:** 2.0 (greenfield design)
 **Companion documents:** `01-PRD.md`, `03-DIGITAL-TWIN-SPEC.md`

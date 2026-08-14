@@ -12,7 +12,7 @@
   "version": "0.2.0",
   "configurations": [
     {
-      "name": "Run Repo Intelligence Extension",
+      "name": "Run ARIA Extension",
       "type": "extensionHost",
       "request": "launch",
       "runtimeExecutable": "${execPath}",

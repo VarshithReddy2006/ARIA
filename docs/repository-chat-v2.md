@@ -4,7 +4,7 @@
 
 Repository Chat v2 transforms the chat subsystem from a simple embedding search
 into a full intelligence layer that leverages every analysis capability built
-into Repo Intelligence Agent.
+into ARIA.
 
 **Before v2:**
 ```

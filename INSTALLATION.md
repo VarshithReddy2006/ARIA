@@ -1,6 +1,6 @@
-# Installation & Setup Guide — Repo Intelligence Agent v1.5.0
+# Installation & Setup Guide — ARIA v1.5.0
 
-This guide walks you through setting up and running the Repo Intelligence Agent backend, frontend, VS Code extension, and Docker containers.
+This guide walks you through setting up and running the ARIA backend, frontend, VS Code extension, and Docker containers.
 
 ---
 
@@ -8,7 +8,7 @@ This guide walks you through setting up and running the Repo Intelligence Agent 
 
 Ensure you have the following tools installed:
 
-- **Python**: Version `>=3.9` (fully validated against Python `3.10`, `3.11`, and `3.12` in development).
+- **Python**: Version `>=3.11` (production Docker uses 3.11, CI validates on 3.12).
 - **Node.js**: Version `18` or higher (LTS recommended) for compiling the Astro frontend and VS Code extension.
 - **npm**: Version `9.x` or `10.x`.
 - **Git**: Required for cloning the repositories to analyze.

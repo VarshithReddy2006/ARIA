@@ -180,3 +180,46 @@ def test_analyze_repository_failure() -> None:
 
         done_event = next(e for e in events if e.get("status") == "done")
         assert "repo" not in done_event
+
+
+def test_chat_reload_resolves_pipeline_without_attribute_error() -> None:
+    """Regression test for H-1: /chat/reload must not raise AttributeError.
+
+    The endpoint previously referenced `dependencies._retrieval_pipeline`
+    which does not exist in the module, causing a silent failure or crash.
+    This test verifies:
+      1. The endpoint does not raise AttributeError.
+      2. When a retrieval pipeline exists, the ProviderManager is replaced.
+      3. The endpoint returns a structured response (success or provider error).
+    """
+    from backend import dependencies
+    from unittest.mock import AsyncMock, MagicMock
+
+    # Simulate a cached retrieval pipeline with a ProviderManager
+    mock_pipeline = MagicMock()
+    mock_pipeline.provider_manager = MagicMock()
+    original_pm = mock_pipeline.provider_manager
+
+    with patch.dict(dependencies._SINGLETONS, {"retrieval_pipeline": mock_pipeline}):
+        with patch(
+            "services.llm.provider_factory.ProviderFactory.get_provider"
+        ) as mock_get:
+            mock_provider = AsyncMock()
+            mock_provider.generate = AsyncMock(return_value="ready")
+            mock_get.return_value = mock_provider
+
+            response = client.post("/api/v1/chat/reload")
+
+    assert response.status_code == 200
+    data = response.json()
+    assert data["status"] == "ok"
+    # Verify the ProviderManager was replaced (not the original instance)
+    assert mock_pipeline.provider_manager is not original_pm
+
+
+def test_openapi_version_matches_release() -> None:
+    """M-2 regression: OpenAPI metadata must report the current release version."""
+    response = client.get("/openapi.json")
+    assert response.status_code == 200
+    schema = response.json()
+    assert schema["info"]["version"] == "1.5.0"

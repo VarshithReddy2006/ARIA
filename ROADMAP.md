@@ -1,6 +1,6 @@
-# Roadmap — Repo Intelligence Agent
+# Roadmap — ARIA
 
-This document details the planned milestones, future enhancements, and architectural direction for the Repo Intelligence Agent platform.
+This document details the planned milestones, future enhancements, and architectural direction for the ARIA platform.
 
 Completed work and changelogs for past releases can be found in [CHANGELOG.md](CHANGELOG.md).
 

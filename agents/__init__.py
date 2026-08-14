@@ -1,4 +1,4 @@
-"""Agents package for the Repo Intelligence Agent.
+"""Agents package for ARIA.
 
 Contains specialized agents for GitHub issue mapping and output evaluations.
 """

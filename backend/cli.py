@@ -1,4 +1,4 @@
-"""First-party CLI for Repo Intelligence Agent using Typer."""
+"""First-party CLI for ARIA (AI-Powered Repository Intelligence Agent) using Typer."""
 
 import os
 import json
@@ -6,7 +6,7 @@ import httpx
 import typer
 from typing import Optional
 
-app = typer.Typer(help="Repo Intelligence Agent CLI")
+app = typer.Typer(help="ARIA CLI")
 
 
 def get_api_url(url: Optional[str]) -> str:

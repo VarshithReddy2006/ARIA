@@ -1,4 +1,4 @@
-"""Shared dependency singletons for the Repo Intelligence Agent API.
+"""Shared dependency singletons for the ARIA API.
 
 All service objects are constructed lazily or during FastAPI app lifespan and
 provided across routers via Depends() or getter functions.

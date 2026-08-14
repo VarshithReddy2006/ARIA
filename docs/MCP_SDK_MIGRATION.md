@@ -1,6 +1,6 @@
 # MCP SDK Migration & Pydantic Compatibility Guide (v1.5.0)
 
-This guide documents the SDK compatibility policies, Pydantic constraints, and migration paths for the **Production MCP Integration Layer** of the Repository Intelligence Agent (v1.5.0 Production Release).
+This guide documents the SDK compatibility policies, Pydantic constraints, and migration paths for the **Production MCP Integration Layer** of ARIA (v1.5.0 Production Release).
 
 ---
 

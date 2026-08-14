@@ -1,6 +1,6 @@
 # Architecture Specification — Repository Intelligence Architecture (RIA)
 
-This document describes the production architecture of Repo Intelligence Agent v1.5.0, organized around the **Repository Intelligence Architecture (RIA)**. Every diagram, component, and flow reflects the current implementation in the codebase. RIA separates the platform into well-defined layers — Agent Layer, Application Layer, Domain Layer, Infrastructure Layer, Repository Intelligence Services, MCP Integration Layer, API Layer, VS Code Extension, and Dashboard — enabling modular development, independent testing, and clean service boundaries.
+This document describes the production architecture of ARIA v1.5.0, organized around the **Repository Intelligence Architecture (RIA)**. Every diagram, component, and flow reflects the current implementation in the codebase. RIA separates the platform into well-defined layers — Agent Layer, Application Layer, Domain Layer, Infrastructure Layer, Repository Intelligence Services, MCP Integration Layer, API Layer, VS Code Extension, and Dashboard — enabling modular development, independent testing, and clean service boundaries.
 
 ---
 
