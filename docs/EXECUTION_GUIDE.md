@@ -122,15 +122,15 @@ Confirm all components function correctly by completing the following checklist.
 ### Feature Checklist
 
 - **[ ] Backend health**: Open a browser or run `curl http://127.0.0.1:8001/health` and verify the status is `"healthy"`.
-- **[ ] Analyze Repository**: Click **Repo Intelligence: Analyze Repository** in the VS Code sidebar. Verify that the repository is cloned and the Digital Twin / Knowledge Graph are built under `data/`.
+- **[ ] Analyze Repository**: Click **ARIA: Analyze Repository** in the VS Code sidebar. Verify that the repository is cloned and the Digital Twin / Knowledge Graph are built under `data/`.
 - **[ ] Findings**: Verify that the **Engineering Findings** panel renders the list of detected issues (Complexity, Performance, etc.).
 - **[ ] Advisor**: Verify that the **Advisor Dashboard** lists advisor recommendations and roadmaps.
 - **[ ] Execution Planner**: Verify that the **Execution Planner** displays tasks, batches, critical paths, and rollback checkpoints.
 - **[ ] Hover**: Open a file, hover over a symbol (function/class name), and verify that the rich documentation card appears.
 - **[ ] CodeLens**: Verify that CodeLens annotations ("Show Callers", "Show Blast Radius") render above symbol declarations.
 - **[ ] Code Actions**: Highlight a block of code, press `Ctrl+.` / `Cmd+.`, and verify that refactoring suggestions are shown.
-- **[ ] Search**: Use the **Search** field in the Repo Intelligence bar and verify that it resolves matching files/symbols.
-- **[ ] Review**: Right-click a file in the explorer, select **Repo Intelligence: Review Current File**, and check for feedback.
+- **[ ] Search**: Use the **Search** field in the ARIA bar and verify that it resolves matching files/symbols.
+- **[ ] Review**: Right-click a file in the explorer, select **ARIA: Review Current File**, and check for feedback.
 - **[ ] Graph Navigation**: Select **Show Call Graph** or **Show Dependency Graph** to display interactive visual maps.
 
 ---

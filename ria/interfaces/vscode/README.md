@@ -1,4 +1,4 @@
-# Repository Intelligence Agent (RIA) v2 - VS Code Extension
+# ARIA (RIA v2) — VS Code Extension
 
 Exposes deterministic repository intelligence capabilities (Search, Query, Context Assembly, Grounded Answering) directly within VS Code.
 

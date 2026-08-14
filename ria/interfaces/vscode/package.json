@@ -1,7 +1,7 @@
 {
   "name": "ria-vscode-extension",
-  "displayName": "Repository Intelligence Agent (RIA)",
-  "description": "Deterministic repository intelligence, semantic resolution, context assembly, and grounded answering inside VS Code.",
+  "displayName": "ARIA (RIA)",
+  "description": "ARIA — Deterministic repository intelligence, semantic resolution, context assembly, and grounded answering inside VS Code.",
   "version": "2.0.0",
   "publisher": "ria-team",
   "engines": {

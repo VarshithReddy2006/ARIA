@@ -1,7 +1,7 @@
 {
   "name": "repo-intelligence-agent",
-  "displayName": "Repo Intelligence Agent",
-  "description": "Bring repository intelligence directly into VS Code — symbol hover, CodeLens, interactive graphs, chat, and more.",
+  "displayName": "ARIA",
+  "description": "Bring repository intelligence directly into VS Code with ARIA — symbol hover, CodeLens, interactive graphs, chat, and more.",
   "version": "0.1.0",
   "publisher": "repo-intelligence",
   "author": "Varshith Reddy",
@@ -76,12 +76,12 @@
   "main": "./out/extension.js",
   "contributes": {
     "configuration": {
-      "title": "Repo Intelligence Agent",
+      "title": "ARIA",
       "properties": {
         "repoIntelligence.backendUrl": {
           "type": "string",
           "default": "http://127.0.0.1:8001",
-          "description": "URL of the running Repo Intelligence Agent backend."
+          "description": "URL of the running ARIA backend."
         },
         "repoIntelligence.apiToken": {
           "type": "string",
@@ -143,89 +143,89 @@
             "error"
           ],
           "default": "info",
-          "description": "Log level for the Repository Intelligence output channel."
+          "description": "Log level for the ARIA output channel."
         }
       }
     },
     "commands": [
       {
         "command": "repoIntelligence.analyzeRepository",
-        "title": "Repo Intelligence: Analyze Repository",
+        "title": "ARIA: Analyze Repository",
         "icon": "$(sync)"
       },
       {
         "command": "repoIntelligence.refreshAnalysis",
-        "title": "Repo Intelligence: Refresh Analysis",
+        "title": "ARIA: Refresh Analysis",
         "icon": "$(refresh)"
       },
       {
         "command": "repoIntelligence.setActiveRepository",
-        "title": "Repo Intelligence: Set Active Repository",
+        "title": "ARIA: Set Active Repository",
         "icon": "$(repo)"
       },
       {
         "command": "repoIntelligence.showDependencyGraph",
-        "title": "Repo Intelligence: Show Dependency Graph",
+        "title": "ARIA: Show Dependency Graph",
         "icon": "$(type-hierarchy)"
       },
       {
         "command": "repoIntelligence.showCallGraph",
-        "title": "Repo Intelligence: Show Call Graph",
+        "title": "ARIA: Show Call Graph",
         "icon": "$(call-outgoing)"
       },
       {
         "command": "repoIntelligence.showAPISurface",
-        "title": "Repo Intelligence: Show API Surface",
+        "title": "ARIA: Show API Surface",
         "icon": "$(symbol-interface)"
       },
       {
         "command": "repoIntelligence.showRepositoryChat",
-        "title": "Repo Intelligence: Open Repository Chat",
+        "title": "ARIA: Open Repository Chat",
         "icon": "$(comment-discussion)"
       },
       {
         "command": "repoIntelligence.showReadingPath",
-        "title": "Repo Intelligence: Show Reading Path",
+        "title": "ARIA: Show Reading Path",
         "icon": "$(book)"
       },
       {
         "command": "repoIntelligence.openDashboard",
-        "title": "Repo Intelligence: Open Dashboard",
+        "title": "ARIA: Open Dashboard",
         "icon": "$(dashboard)"
       },
       {
         "command": "repoIntelligence.openWorkspace",
-        "title": "Repo Intelligence: Open Workspace",
+        "title": "ARIA: Open Workspace",
         "icon": "$(layout)"
       },
       {
         "command": "repoIntelligence.openFindings",
-        "title": "Repo Intelligence: Open Findings",
+        "title": "ARIA: Open Findings",
         "icon": "$(issues)"
       },
       {
         "command": "repoIntelligence.openAdvisor",
-        "title": "Repo Intelligence: Open Advisor",
+        "title": "ARIA: Open Advisor",
         "icon": "$(lightbulb)"
       },
       {
         "command": "repoIntelligence.openTimeline",
-        "title": "Repo Intelligence: Open Timeline",
+        "title": "ARIA: Open Timeline",
         "icon": "$(history)"
       },
       {
         "command": "repoIntelligence.openMonitoring",
-        "title": "Repo Intelligence: Open Monitoring",
+        "title": "ARIA: Open Monitoring",
         "icon": "$(pulse)"
       },
       {
         "command": "repoIntelligence.openExecutionPlan",
-        "title": "Repo Intelligence: Open Execution Plan",
+        "title": "ARIA: Open Execution Plan",
         "icon": "$(tasklist)"
       },
       {
         "command": "repoIntelligence.refreshWorkspace",
-        "title": "Repo Intelligence: Refresh Workspace",
+        "title": "ARIA: Refresh Workspace",
         "icon": "$(refresh)"
       },
       {
@@ -250,7 +250,7 @@
       },
       {
         "command": "repoIntelligence.connectBackend",
-        "title": "Repo Intelligence: Connect to Backend",
+        "title": "ARIA: Connect to Backend",
         "icon": "$(plug)"
       },
       {
@@ -260,127 +260,127 @@
       },
       {
         "command": "repoIntelligence.updateApiToken",
-        "title": "Repo Intelligence: Update API Token"
+        "title": "ARIA: Update API Token"
       },
       {
         "command": "repoIntelligence.nextReadingStep",
-        "title": "Repo Intelligence: Next Reading Step",
+        "title": "ARIA: Next Reading Step",
         "icon": "$(arrow-right)"
       },
       {
         "command": "repoIntelligence.previousReadingStep",
-        "title": "Repo Intelligence: Previous Reading Step",
+        "title": "ARIA: Previous Reading Step",
         "icon": "$(arrow-left)"
       },
       {
         "command": "repoIntelligence.refreshRepository",
-        "title": "Repo Intelligence: Refresh Repository",
+        "title": "ARIA: Refresh Repository",
         "icon": "$(refresh)"
       },
       {
         "command": "repoIntelligence.reconnectBackend",
-        "title": "Repo Intelligence: Reconnect Backend",
+        "title": "ARIA: Reconnect Backend",
         "icon": "$(plug)"
       },
       {
         "command": "repoIntelligence.askRepository",
-        "title": "Repo Intelligence: Ask Repository",
+        "title": "ARIA: Ask Repository",
         "icon": "$(comment-discussion)"
       },
       {
         "command": "repoIntelligence.runInspection",
-        "title": "Repo Intelligence: Run Inspection",
+        "title": "ARIA: Run Inspection",
         "icon": "$(play)"
       },
       {
         "command": "repoIntelligence.runMonitoring",
-        "title": "Repo Intelligence: Run Monitoring",
+        "title": "ARIA: Run Monitoring",
         "icon": "$(activity)"
       },
       {
         "command": "repoIntelligence.generateRoadmap",
-        "title": "Repo Intelligence: Generate Roadmap",
+        "title": "ARIA: Generate Roadmap",
         "icon": "$(lightbulb)"
       },
       {
         "command": "repoIntelligence.generateExecutionPlan",
-        "title": "Repo Intelligence: Generate Execution Plan",
+        "title": "ARIA: Generate Execution Plan",
         "icon": "$(tasklist)"
       },
       {
         "command": "repoIntelligence.askAboutFile",
-        "title": "Repo Intelligence: Ask About This File"
+        "title": "ARIA: Ask About This File"
       },
       {
         "command": "repoIntelligence.findReferencesInGraph",
-        "title": "Repo Intelligence: Find References in Repository Graph"
+        "title": "ARIA: Find References in Repository Graph"
       },
       {
         "command": "repoIntelligence.inspectModule",
-        "title": "Repo Intelligence: Inspect This Module"
+        "title": "ARIA: Inspect This Module"
       },
       {
         "command": "repoIntelligence.showCodeLensQuickPick",
-        "title": "Repo Intelligence: Show CodeLens Actions"
+        "title": "ARIA: Show CodeLens Actions"
       },
       {
         "command": "repoIntelligence.search",
-        "title": "Repo Intelligence: Search",
+        "title": "ARIA: Search",
         "icon": "$(search)"
       },
       {
         "command": "repoIntelligence.reviewFile",
-        "title": "Repo Intelligence: Review Current File",
+        "title": "ARIA: Review Current File",
         "icon": "$(eye)"
       },
       {
         "command": "repoIntelligence.reviewModule",
-        "title": "Repo Intelligence: Review Current Module",
+        "title": "ARIA: Review Current Module",
         "icon": "$(eye)"
       },
       {
         "command": "repoIntelligence.reviewChanges",
-        "title": "Repo Intelligence: Review Current Changes",
+        "title": "ARIA: Review Current Changes",
         "icon": "$(eye)"
       },
       {
         "command": "repoIntelligence.reviewStagedChanges",
-        "title": "Repo Intelligence: Review Staged Changes",
+        "title": "ARIA: Review Staged Changes",
         "icon": "$(eye)"
       },
       {
         "command": "repoIntelligence.reviewRepository",
-        "title": "Repo Intelligence: Review Entire Repository",
+        "title": "ARIA: Review Entire Repository",
         "icon": "$(eye)"
       },
       {
         "command": "repoIntelligence.showDependencyChain",
-        "title": "Repo Intelligence: Show Dependency Chain",
+        "title": "ARIA: Show Dependency Chain",
         "icon": "$(type-hierarchy)"
       },
       {
         "command": "repoIntelligence.explainFile",
-        "title": "Repo Intelligence: Explain File"
+        "title": "ARIA: Explain File"
       },
       {
         "command": "repoIntelligence.explainSymbol",
-        "title": "Repo Intelligence: Explain Symbol"
+        "title": "ARIA: Explain Symbol"
       },
       {
         "command": "repoIntelligence.showCallersInGraph",
-        "title": "Repo Intelligence: Find Callers"
+        "title": "ARIA: Find Callers"
       },
       {
         "command": "repoIntelligence.showCalleesInGraph",
-        "title": "Repo Intelligence: Find Callees"
+        "title": "ARIA: Find Callees"
       },
       {
         "command": "repoIntelligence.showBlastRadiusInGraph",
-        "title": "Repo Intelligence: Show Blast Radius"
+        "title": "ARIA: Show Blast Radius"
       },
       {
         "command": "repoIntelligence.showCallHierarchy",
-        "title": "Repo Intelligence: Show Call Hierarchy"
+        "title": "ARIA: Show Call Hierarchy"
       },
       {
         "command": "repoIntelligence.advisorOpenFile",
@@ -420,14 +420,14 @@
       },
       {
         "command": "repoIntelligence.runSelfDiagnostics",
-        "title": "Repo Intelligence: Run Self Diagnostics"
+        "title": "ARIA: Run Self Diagnostics"
       }
     ],
     "viewsContainers": {
       "activitybar": [
         {
           "id": "repoIntelligence",
-          "title": "Repo Intelligence",
+          "title": "ARIA",
           "icon": "resources/activity-bar-icon.svg"
         }
       ]

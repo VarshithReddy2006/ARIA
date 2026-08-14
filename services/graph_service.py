@@ -221,6 +221,13 @@ class GraphService:
                     if isinstance(payload, dict)
                     else payload
                 )
+                if isinstance(graph_data, dict):
+                    if "edges" in graph_data and "links" not in graph_data:
+                        graph_data["links"] = graph_data["edges"]
+                    if "nodes" not in graph_data:
+                        graph_data["nodes"] = []
+                    if "links" not in graph_data:
+                        graph_data["links"] = []
                 graph = nx.node_link_graph(graph_data)
                 logger.info("Graph loaded from %s", json_path)
                 return graph

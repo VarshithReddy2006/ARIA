@@ -1,1 +1,1 @@
-"""Utilities package for Repo Intelligence Agent."""
+"""Utilities package for ARIA."""

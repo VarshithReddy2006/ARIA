@@ -1,4 +1,4 @@
-"""Services package for the Repo Intelligence Agent.
+"""Core analytical and LLM services for ARIA.
 
 Contains client wrappers for external systems, including the GitHub API,
 Gemini embedding models, and Model Context Protocol (MCP) server integration.

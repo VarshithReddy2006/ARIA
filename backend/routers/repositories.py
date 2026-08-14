@@ -123,7 +123,11 @@ def format_analysis_error(e: Exception) -> str:
                 "Please check the server's network connection and try again."
             )
         else:
-            reason = "Unable to complete the repository operation."
+            reason = (
+                f"Git operation failed: {err_str}"
+                if err_str
+                else "Unable to complete the repository operation."
+            )
             suggested_fix = "Please check the server logs or retry later."
         recoverable = "Yes"
         retryable = "Yes"
@@ -161,6 +165,9 @@ def format_analysis_error(e: Exception) -> str:
         suggested_fix = "Please wait a few minutes before retrying."
         recoverable = "Yes"
         retryable = "Yes"
+    # For all other unrecognized exceptions, the default generic reason set above
+    # is returned. Raw exception text is NEVER interpolated into client-facing
+    # messages to prevent information disclosure (paths, SQL, credentials, etc.).
 
     return (
         f"Stage: {stage}\n"
@@ -438,13 +445,17 @@ async def analyze_repository(request: AnalyzeRequest):
                         raise
                     timer.stop("Chroma")
 
-                # Chunk added/modified files and rename targets.
-                files_to_chunk = [
-                    f
-                    for f in files
-                    if f["path"]
-                    in (change_set.added | change_set.modified | renamed_new_paths)
-                ]
+                # Chunk added/modified files and rename targets (deduplicated by path).
+                seen_chunk_paths = set()
+                files_to_chunk = []
+                target_paths = (
+                    change_set.added | change_set.modified | renamed_new_paths
+                )
+                for f in files:
+                    p = f["path"]
+                    if p in target_paths and p not in seen_chunk_paths:
+                        seen_chunk_paths.add(p)
+                        files_to_chunk.append(f)
                 new_chunks = []
                 timer.start("Chunk")
                 for file in files_to_chunk:
@@ -456,9 +467,18 @@ async def analyze_repository(request: AnalyzeRequest):
 
                 if new_chunks:
                     timer.start("Embedding")
-                    new_embeddings = await asyncio.to_thread(
-                        embedding_service.generate_embeddings, new_chunks
-                    )
+                    new_embeddings = []
+                    chunk_sub_batch = 500
+                    total_new = len(new_chunks)
+                    for start_idx in range(0, total_new, chunk_sub_batch):
+                        end_idx = min(start_idx + chunk_sub_batch, total_new)
+                        batch = new_chunks[start_idx:end_idx]
+                        batch_embs = await asyncio.to_thread(
+                            embedding_service.generate_embeddings, batch
+                        )
+                        new_embeddings.extend(batch_embs)
+                        pct = int((end_idx / total_new) * 100)
+                        yield f"data: {json.dumps({'status': 'generating_embeddings', 'message': f'Generating Embeddings: {end_idx}/{total_new} new chunks ({pct}%)'})}\n\n"
                     timer.stop("Embedding")
 
                     # Prepare bulk insertion payload
@@ -511,14 +531,22 @@ async def analyze_repository(request: AnalyzeRequest):
                     all_chunks.extend(file_chunks)
                 timer.stop("Chunk")
 
-                yield f"data: {json.dumps({'status': 'generating_embeddings', 'message': f'Generating Embeddings: {len(all_chunks)} chunks'})}\n\n"
+                yield f"data: {json.dumps({'status': 'generating_embeddings', 'message': f'Generating Embeddings: 0/{len(all_chunks)} chunks (0%)'})}\n\n"
 
                 embeddings = []
                 if all_chunks:
                     timer.start("Embedding")
-                    embeddings = await asyncio.to_thread(
-                        embedding_service.generate_embeddings, all_chunks
-                    )
+                    chunk_sub_batch = 500
+                    total_chunks = len(all_chunks)
+                    for start_idx in range(0, total_chunks, chunk_sub_batch):
+                        end_idx = min(start_idx + chunk_sub_batch, total_chunks)
+                        batch = all_chunks[start_idx:end_idx]
+                        batch_embs = await asyncio.to_thread(
+                            embedding_service.generate_embeddings, batch
+                        )
+                        embeddings.extend(batch_embs)
+                        pct = int((end_idx / total_chunks) * 100)
+                        yield f"data: {json.dumps({'status': 'generating_embeddings', 'message': f'Generating Embeddings: {end_idx}/{total_chunks} chunks ({pct}%)'})}\n\n"
                     timer.stop("Embedding")
 
                     timer.start("Chroma")

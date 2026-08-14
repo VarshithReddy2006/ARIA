@@ -1,4 +1,4 @@
-"""Repository Intelligence Agent — implementation of the foundation specifications.
+"""ARIA — implementation of the foundation specifications.
 
 This package implements the layered architecture defined in
 ``docs/foundation/02-SDD.md`` and the entity model defined in

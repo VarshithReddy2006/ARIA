@@ -87,16 +87,18 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
 
         client_ip = request.client.host if request.client else "unknown"
 
-        # Bypass rate limit during tests (for the main API only) or local loopback requests
+        # Bypass rate limit during tests only. Production loopback requests are
+        # rate-limited like any other client. Health/metrics endpoints (the only
+        # paths that Docker HEALTHCHECK and Prometheus scrapers hit) are already
+        # exempted by path above.
         import sys
         from backend.settings import settings
 
-        is_main_app = getattr(request.app, "title", "") == "Repo Intelligence Agent API"
-        if (
-            ("pytest" in sys.modules and is_main_app)
-            or settings.app_env == "test"
-            or client_ip in ("127.0.0.1", "::1")
-        ):
+        is_main_app = getattr(request.app, "title", "") in (
+            "ARIA — AI-Powered Repository Intelligence Agent",
+            "Aria — AI-Powered Repository Intelligence Agent",
+        )
+        if ("pytest" in sys.modules and is_main_app) or settings.app_env == "test":
             return await call_next(request)
 
         if not self.limiter.is_allowed(client_ip):

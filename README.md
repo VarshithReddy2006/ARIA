@@ -2,12 +2,12 @@
 
 <br/>
 
-# 🧠 Repo Intelligence Agent
+# 🧠 ARIA
 
-### Understand any codebase in minutes—not weeks.
+### AI-Powered Repository Intelligence Agent
 
 <p>
-Repo Intelligence Agent combines AST analysis, dependency graphs, semantic search, AI repository chat, PR intelligence, and a VS Code extension to help developers understand unfamiliar repositories faster. Built on the <strong>Repository Intelligence Architecture (RIA)</strong> — a modular, layered architecture designed for AI-native repository understanding — v1.5.0 introduces production-ready <strong>Model Context Protocol (MCP)</strong> servers, enabling AI coding assistants such as Cursor, Claude Desktop, VS Code MCP clients, and MCP Inspector to interact with repository intelligence directly over JSON-RPC 2.0.
+ARIA is an AI-powered repository intelligence platform built on the <strong>Repository Intelligence Architecture (RIA)</strong> — a modular, layered architecture designed for AI-native repository understanding. ARIA combines AST analysis, dependency graphs, semantic search, AI repository chat, PR intelligence, and a VS Code extension to help developers understand unfamiliar repositories faster. v1.5.0 introduces production-ready <strong>Model Context Protocol (MCP)</strong> servers, enabling AI coding assistants such as Cursor, Claude Desktop, VS Code MCP clients, and MCP Inspector to interact with repository intelligence directly over JSON-RPC 2.0.
 </p>
 
 <br/>
@@ -25,7 +25,7 @@ Repo Intelligence Agent combines AST analysis, dependency graphs, semantic searc
 <!-- Stack -->
 <br/>
 
-![Python](https://img.shields.io/badge/Python-3.10%20|%203.11%20|%203.12-3776AB?style=for-the-badge&logo=python&logoColor=white)
+![Python](https://img.shields.io/badge/Python-3.11%20|%203.12-3776AB?style=for-the-badge&logo=python&logoColor=white)
 ![Node.js](https://img.shields.io/badge/Node.js-%E2%89%A518-339933?style=for-the-badge&logo=nodedotjs&logoColor=white)
 ![FastAPI](https://img.shields.io/badge/FastAPI-009688?style=for-the-badge&logo=fastapi&logoColor=white)
 ![Astro](https://img.shields.io/badge/Astro%204%20+%20React-FF5D01?style=for-the-badge&logo=astro&logoColor=white)
@@ -72,7 +72,7 @@ Version **v1.5.0** represents the largest architectural evolution of the project
 
 <p align="center">
   <a href="https://www.youtube.com/watch?v=evpdcO4QxzI">
-    <img src="docs/assets/demo.gif" width="100%" alt="Repo Intelligence Agent Demo">
+    <img src="docs/assets/demo.gif" width="100%" alt="ARIA Demo">
   </a>
 </p>
 
@@ -82,11 +82,11 @@ Version **v1.5.0** represents the largest architectural evolution of the project
 
 ---
 
-# 🚀 Why Repo Intelligence Agent?
+# 🚀 Why ARIA?
 
 Most AI code assistants treat repositories as collections of text chunks. They retrieve similar snippets using embeddings but lack an understanding of the repository's structure.
 
-Repo Intelligence Agent takes a different approach.
+ARIA takes a different approach.
 
 Before any AI reasoning happens, it builds a structural understanding of the repository using AST parsing, dependency graphs, call graphs, and symbol indexing. This enables the AI to reason about relationships between modules, identify architectural patterns, estimate change impact, and answer questions with structural context rather than semantic similarity alone.
 
@@ -98,7 +98,7 @@ Repository Intelligence Architecture (RIA v1) serves as the architectural founda
 
 ## 🏛️ Architecture Principles
 
-Repository Intelligence Agent is built around five engineering principles:
+ARIA is built around five engineering principles:
 
 - **Structure Before Semantics** — structural understanding precedes AI reasoning.
 - **Graph-First Intelligence** — dependency graphs and call graphs are first-class knowledge sources.
@@ -110,7 +110,7 @@ Repository Intelligence Agent is built around five engineering principles:
 
 # 🎯 Who Is This For?
 
-Repo Intelligence Agent is designed for developers and teams who need to understand complex codebases quickly.
+ARIA is designed for developers and teams who need to understand complex codebases quickly.
 
 | User | How It Helps |
 |------|--------------|
@@ -183,7 +183,7 @@ Traditional RAG pipeline:
 
 ## ✅ The Solution
 
-Repo Intelligence Agent runs a **structural analysis pass before any retrieval**. The dependency graph, call graph, and symbol index are built first — from the AST. Retrieval is grounded in that structure, not in raw text similarity.
+ARIA runs a **structural analysis pass before any retrieval**. The dependency graph, call graph, and symbol index are built first — from the AST. Retrieval is grounded in that structure, not in raw text similarity.
 
 ```
 Repository
@@ -212,7 +212,7 @@ Repository
 
 Traditional RAG tools index text. This tool indexes **your codebase's structure.**
 
-| Capability | Traditional RAG | Repo Intelligence Agent |
+| Capability | Traditional RAG | ARIA |
 |---|:---:|:---:|
 | 🔍 Semantic code search | ✅ | ✅ |
 | 📦 Dependency graph (import topology) | ❌ | ✅ |
@@ -716,7 +716,7 @@ Repo-Intelligence-Agent/
 
 | Requirement | Version / Notes |
 |---|---|
-| Python | ≥ 3.9 (validated on 3.10, 3.11, 3.12) |
+| Python | ≥ 3.11 (Docker 3.11, CI 3.12) |
 | Node.js | ≥ 18 |
 | Git | Any recent version |
 | LLM API key | Google Gemini **or** NVIDIA NIM |
@@ -1364,7 +1364,7 @@ Ignored recommendations are saved persistently in the VS Code extension's `works
 <details>
 <summary><strong>What is MCP?</strong></summary>
 
-The Model Context Protocol (MCP) is an open standard for connecting AI coding assistants to external tools and data sources. Repo Intelligence Agent implements MCP so that clients like Cursor, Claude Desktop, and VS Code MCP extensions can directly invoke repository intelligence tools over JSON-RPC 2.0.
+The Model Context Protocol (MCP) is an open standard for connecting AI coding assistants to external tools and data sources. ARIA implements MCP so that clients like Cursor, Claude Desktop, and VS Code MCP extensions can directly invoke repository intelligence tools over JSON-RPC 2.0.
 
 </details>
 
@@ -1390,7 +1390,7 @@ The Legacy MCP server (`backend/mcp_server.py`) is a lightweight, zero-SDK-depen
 </details>
 
 <details>
-<summary><strong>Why does Repo Intelligence Agent use RIA instead of a traditional RAG architecture?</strong></summary>
+<summary><strong>Why does ARIA use RIA instead of a traditional RAG architecture?</strong></summary>
 
 Traditional RAG architectures retrieve text chunks based on embedding similarity, which works well for general knowledge but lacks structural understanding of codebases. The Repository Intelligence Architecture (RIA), introduced in v1.5.0, goes beyond semantic retrieval by building AST-level structural understanding, dependency graphs, call graphs, and symbol indexes before any AI reasoning occurs. This means the LLM reasons over verified structural relationships — not just similar-looking text — enabling accurate dependency tracing, change impact estimation, dead code detection, and architectural analysis that pure embedding-based systems cannot provide.
 
@@ -1473,7 +1473,7 @@ Built on excellent open-source foundations:
 
 <br/>
 
-**If Repo Intelligence Agent helps you understand a codebase faster, consider giving it a ⭐**<br/>
+**If ARIA helps you understand a codebase faster, consider giving it a ⭐**<br/>
 *It helps other engineers find the project.*
 
 <br/>

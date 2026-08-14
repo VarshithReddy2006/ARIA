@@ -1,6 +1,6 @@
 """Domain models package.
 
-Re-exports domain models for the Repository Intelligence Agent.
+Re-exports domain models for ARIA.
 """
 
 from __future__ import annotations

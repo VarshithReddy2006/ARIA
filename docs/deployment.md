@@ -1,6 +1,6 @@
 # Deployment Guide
 
-This guide details steps for deploying the Repo Intelligence Agent in production.
+This guide details steps for deploying ARIA in production.
 
 ## Docker Deployment (Recommended)
 

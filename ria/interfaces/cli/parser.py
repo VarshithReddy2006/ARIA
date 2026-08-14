@@ -4,9 +4,7 @@ import argparse
 
 
 def create_cli_parser() -> argparse.ArgumentParser:
-    parser = argparse.ArgumentParser(
-        prog="ria", description="Repository Intelligence Agent (RIA) v2 CLI"
-    )
+    parser = argparse.ArgumentParser(prog="ria", description="ARIA (RIA v2 CLI)")
     subparsers = parser.add_subparsers(dest="command", required=True)
 
     # ria init

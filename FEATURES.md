@@ -1,6 +1,6 @@
-# Features Catalog — Repo Intelligence Agent v1.5.0
+# Features Catalog — ARIA v1.5.0
 
-This document outlines all functional modules, intelligence engines, and developer tools of the Repo Intelligence Agent, categorized by their implementation status. All capabilities are built on the **Repository Intelligence Architecture (RIA)**, the platform's modular, layered production architecture.
+This document outlines all functional modules, intelligence engines, and developer tools of ARIA, categorized by their implementation status. All capabilities are built on the **Repository Intelligence Architecture (RIA)**, the platform's modular, layered production architecture.
 
 ---
 

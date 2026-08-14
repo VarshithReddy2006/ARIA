@@ -45,6 +45,13 @@ class GraphSerializer:
         self.architecture_service = architecture_service or ArchitectureService()
         self._graph_cache: Dict[str, nx.DiGraph] = {}
 
+    def clear_cache(self, repo_name: Optional[str] = None) -> None:
+        """Clear the in-memory graph cache."""
+        if repo_name:
+            self._graph_cache.pop(repo_name, None)
+        else:
+            self._graph_cache.clear()
+
     # ------------------------------------------------------------------
     # Public query methods
     # ------------------------------------------------------------------

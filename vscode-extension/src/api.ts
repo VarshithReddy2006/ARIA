@@ -1,6 +1,6 @@
 /* eslint-disable @typescript-eslint/ban-types */
 /**
- * API client for the Repo Intelligence Agent backend.
+ * API client for the ARIA backend.
  *
  * All backend communication goes through this module. It reads the base URL
  * and optional token from VS Code settings so there is one place to change

@@ -1,6 +1,6 @@
 # 📊 Validation & Telemetry Report
 
-This report presents performance metrics, validation benchmarks, and pipeline latency figures collected during testing of the **Repo Intelligence Agent** MVP and Phase 2 releases.
+This report presents performance metrics, validation benchmarks, and pipeline latency figures collected during testing of the **ARIA** MVP and Phase 2 releases.
 
 ---
 

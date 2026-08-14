@@ -30,11 +30,65 @@ def test_validation_fails_in_production_without_key():
 
 def test_validation_passes_in_production_with_key():
     settings = Settings(
-        APP_ENV="production", LLM_PROVIDER="gemini", GEMINI_API_KEY="test-key"
+        APP_ENV="production",
+        LLM_PROVIDER="gemini",
+        GEMINI_API_KEY="test-key",
+        ALLOWED_HOSTS=["api.example.com"],
     )
     assert settings.gemini_api_key == "test-key"
 
     settings_ds = Settings(
-        APP_ENV="production", LLM_PROVIDER="deepseek", DEEPSEEK_API_KEY="test-key-ds"
+        APP_ENV="production",
+        LLM_PROVIDER="deepseek",
+        DEEPSEEK_API_KEY="test-key-ds",
+        ALLOWED_HOSTS=["api.example.com"],
     )
     assert settings_ds.deepseek_api_key == "test-key-ds"
+
+
+# ---------------------------------------------------------------------------
+# H-3 Regression: ALLOWED_HOSTS wildcard rejected in production
+# ---------------------------------------------------------------------------
+
+
+def test_allowed_hosts_wildcard_rejected_in_production():
+    """Production must not accept ALLOWED_HOSTS=['*']."""
+    with pytest.raises(ValidationError):
+        Settings(
+            APP_ENV="production",
+            LLM_PROVIDER="gemini",
+            GEMINI_API_KEY="test-key",
+            ALLOWED_HOSTS=["*"],
+        )
+
+
+def test_allowed_hosts_empty_rejected_in_production():
+    """Production must not accept empty ALLOWED_HOSTS."""
+    with pytest.raises(ValidationError):
+        Settings(
+            APP_ENV="production",
+            LLM_PROVIDER="gemini",
+            GEMINI_API_KEY="test-key",
+            ALLOWED_HOSTS=[],
+        )
+
+
+def test_allowed_hosts_explicit_accepted_in_production():
+    """Production accepts explicitly configured hostnames."""
+    s = Settings(
+        APP_ENV="production",
+        LLM_PROVIDER="gemini",
+        GEMINI_API_KEY="test-key",
+        ALLOWED_HOSTS=["api.example.com", "app.example.com"],
+    )
+    assert s.allowed_hosts == ["api.example.com", "app.example.com"]
+
+
+def test_allowed_hosts_wildcard_accepted_in_development():
+    """Development/test environments may use wildcard ALLOWED_HOSTS."""
+    s = Settings(
+        APP_ENV="development",
+        LLM_PROVIDER="gemini",
+        ALLOWED_HOSTS=["*"],
+    )
+    assert s.allowed_hosts == ["*"]

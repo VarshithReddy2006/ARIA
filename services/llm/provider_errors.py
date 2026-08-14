@@ -114,6 +114,10 @@ _GEMINI_MESSAGES = {
         "Check your Gemini API quota and billing at "
         "https://console.cloud.google.com/apis/api/generativelanguage.googleapis.com",
     ),
+    ProviderErrorType.CONFIGURATION_ERROR: (
+        "Gemini model or configuration error.",
+        "Verify GEMINI_MODEL in your .env file is a supported model (e.g. gemini-2.5-flash).",
+    ),
     ProviderErrorType.TIMEOUT: (
         "Gemini request timed out.",
         "This may be a transient issue. Retry the request.",
@@ -136,6 +140,14 @@ _DEEPSEEK_MESSAGES = {
     ProviderErrorType.RATE_LIMIT_ERROR: (
         "DeepSeek/NVIDIA NIM rate limit exceeded.",
         "Wait 60 seconds and retry.",
+    ),
+    ProviderErrorType.QUOTA_EXCEEDED: (
+        "DeepSeek/NVIDIA NIM quota exceeded.",
+        "Check your NVIDIA NIM API quota and billing at https://build.nvidia.com",
+    ),
+    ProviderErrorType.CONFIGURATION_ERROR: (
+        "DeepSeek/NVIDIA NIM model or configuration error.",
+        "Verify DEEPSEEK_MODEL (e.g. deepseek-ai/deepseek-v4-flash-0731) and DEEPSEEK_BASE_URL in your .env file.",
     ),
     ProviderErrorType.TIMEOUT: (
         "DeepSeek/NVIDIA NIM request timed out.",
@@ -208,6 +220,15 @@ def classify_gemini_error(
                 _GEMINI_MESSAGES,
             )
 
+        # 404 not found / invalid model
+        if "404" in exc_str or "not_found" in exc_str:
+            return _make(
+                ProviderErrorType.CONFIGURATION_ERROR,
+                provider_name,
+                exc,
+                _GEMINI_MESSAGES,
+            )
+
         # 429 rate limit
         if "429" in exc_str or "resource_exhausted" in exc_str or "rate" in exc_str:
             if "quota" in exc_str:
@@ -235,6 +256,43 @@ def classify_gemini_error(
     if _is_network_error(exc_type, exc_str):
         return _make(
             ProviderErrorType.NETWORK_ERROR, provider_name, exc, _GEMINI_MESSAGES
+        )
+
+    # String-based fallback for other exception types
+    if "401" in exc_str or "unauthenticated" in exc_str or "unauthorized" in exc_str:
+        return _make(
+            ProviderErrorType.AUTHENTICATION_ERROR,
+            provider_name,
+            exc,
+            _GEMINI_MESSAGES,
+        )
+    if "403" in exc_str or "permission_denied" in exc_str or "forbidden" in exc_str:
+        return _make(
+            ProviderErrorType.AUTHENTICATION_ERROR,
+            provider_name,
+            exc,
+            _GEMINI_MESSAGES,
+        )
+    if "404" in exc_str or "not_found" in exc_str:
+        return _make(
+            ProviderErrorType.CONFIGURATION_ERROR,
+            provider_name,
+            exc,
+            _GEMINI_MESSAGES,
+        )
+    if "429" in exc_str or "resource_exhausted" in exc_str or "rate limit" in exc_str:
+        if "quota" in exc_str:
+            return _make(
+                ProviderErrorType.QUOTA_EXCEEDED,
+                provider_name,
+                exc,
+                _GEMINI_MESSAGES,
+            )
+        return _make(
+            ProviderErrorType.RATE_LIMIT_ERROR,
+            provider_name,
+            exc,
+            _GEMINI_MESSAGES,
         )
 
     # API key format issues (wrong key format detected locally)
@@ -291,23 +349,37 @@ def classify_deepseek_error(
         except Exception:
             status = None
 
-        if status == 401:
+        if status == 401 or status == 403:
             return _make(
                 ProviderErrorType.AUTHENTICATION_ERROR,
                 provider_name,
                 exc,
                 _DEEPSEEK_MESSAGES,
             )
-        if status == 403:
+        if status == 404 or status == 410 or status == 400:
             return _make(
-                ProviderErrorType.AUTHENTICATION_ERROR,
+                ProviderErrorType.CONFIGURATION_ERROR,
                 provider_name,
                 exc,
                 _DEEPSEEK_MESSAGES,
             )
-        if status == 429:
+        if status == 429 or status == 529:
+            if "quota" in exc_str:
+                return _make(
+                    ProviderErrorType.QUOTA_EXCEEDED,
+                    provider_name,
+                    exc,
+                    _DEEPSEEK_MESSAGES,
+                )
             return _make(
                 ProviderErrorType.RATE_LIMIT_ERROR,
+                provider_name,
+                exc,
+                _DEEPSEEK_MESSAGES,
+            )
+        if status and status >= 500:
+            return _make(
+                ProviderErrorType.NETWORK_ERROR,
                 provider_name,
                 exc,
                 _DEEPSEEK_MESSAGES,
@@ -328,7 +400,27 @@ def classify_deepseek_error(
             exc,
             _DEEPSEEK_MESSAGES,
         )
-    if "429" in exc_str or "rate limit" in exc_str or "too many requests" in exc_str:
+    if "404" in exc_str or "410" in exc_str or "gone" in exc_str:
+        return _make(
+            ProviderErrorType.CONFIGURATION_ERROR,
+            provider_name,
+            exc,
+            _DEEPSEEK_MESSAGES,
+        )
+    if (
+        "429" in exc_str
+        or "529" in exc_str
+        or "rate limit" in exc_str
+        or "too many requests" in exc_str
+        or "overloaded" in exc_str
+    ):
+        if "quota" in exc_str:
+            return _make(
+                ProviderErrorType.QUOTA_EXCEEDED,
+                provider_name,
+                exc,
+                _DEEPSEEK_MESSAGES,
+            )
         return _make(
             ProviderErrorType.RATE_LIMIT_ERROR, provider_name, exc, _DEEPSEEK_MESSAGES
         )

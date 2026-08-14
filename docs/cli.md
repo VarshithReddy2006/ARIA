@@ -1,6 +1,6 @@
 # CLI Guide
 
-The Repo Intelligence Agent includes a first-party command-line interface (`repo-intel`) built using **Typer**.
+The ARIA platform includes a first-party command-line interface (`repo-intel`) built using **Typer**.
 
 The CLI communicates directly with the FastAPI server via HTTP and does not replicate database or LLM service bindings locally, keeping execution lightweight.
 
@@ -74,11 +74,11 @@ repo-intel mcp
 
 ## Model Context Protocol (MCP) Integration
 
-Exposing the Repo Intelligence Agent as an MCP server allows external LLM clients (such as **Claude Desktop** or **Cursor**) to query symbol indexes, call graphs, and run search queries directly.
+Exposing ARIA as an MCP server allows external LLM clients (such as **Claude Desktop** or **Cursor**) to query symbol indexes, call graphs, and run search queries directly.
 
 ### Claude Desktop Configuration
 
-To register the Repo Intelligence Agent with Claude Desktop, add the following to your `claude_desktop_config.json` (typically located at `%APPDATA%\Claude\claude_desktop_config.json` on Windows or `~/Library/Application Support/Claude/claude_desktop_config.json` on macOS):
+To register ARIA with Claude Desktop, add the following to your `claude_desktop_config.json` (typically located at `%APPDATA%\Claude\claude_desktop_config.json` on Windows or `~/Library/Application Support/Claude/claude_desktop_config.json` on macOS):
 
 **Using Gemini (default provider):**
 ```json

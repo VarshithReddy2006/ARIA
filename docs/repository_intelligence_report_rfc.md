@@ -1,6 +1,6 @@
 # RFC: Repository Intelligence Report (repo-intel report)
 
-This RFC details the design and architecture for the **Repository Intelligence Report**, the flagship feature of the **Repo Intelligence Agent (v3.0)**. 
+This RFC details the design and architecture for the **Repository Intelligence Report**, the flagship feature of **ARIA (v3.0)**. 
 
 The goal of this feature is to turn the agent's advanced analysis capabilities into a unified, high-value, and polished user experience that answers the ultimate developer and management question: **"What is the true health and architecture of this codebase?"**
 
@@ -9,7 +9,7 @@ The goal of this feature is to turn the agent's advanced analysis capabilities i
 ## 1. Executive Summary
 
 ### The "Why"
-The Repo Intelligence Agent currently operates as a collection of advanced, disconnected diagnostic services (Symbol Index, Call Graph, Dead Code, API Surface, Git Churn, etc.). While technically sophisticated, developers and team leads must query these indices individually or write ad-hoc scripts to interpret the combined state of the codebase. 
+ARIA currently operates as a collection of advanced, disconnected diagnostic services (Symbol Index, Call Graph, Dead Code, API Surface, Git Churn, etc.). While technically sophisticated, developers and team leads must query these indices individually or write ad-hoc scripts to interpret the combined state of the codebase. 
 
 The **Repository Intelligence Report** consolidates all existing analysis outputs into a single, cohesive, premium engineering report (HTML, PDF, Markdown, JSON). 
 

@@ -1,4 +1,4 @@
-"""MCP Server for Repo Intelligence Agent.
+"""MCP Server for ARIA.
 
 Creates and configures a FastMCP server instance that exposes the
 Repository Intelligence Platform through the Model Context Protocol.

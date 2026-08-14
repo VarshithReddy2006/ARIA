@@ -1,16 +1,16 @@
 name: Repository Intelligence Review
 description: Post an AI-assisted sticky PR review comment and a Check Run.
-author: Repo Intelligence Agent
+author: ARIA
 
 inputs:
   github-token:
     description: Token with `pull-requests: write` and `checks: write` (typically `${{ secrets.GITHUB_TOKEN }}`).
     required: true
   api-url:
-    description: Base URL of the Repo Intelligence backend (e.g. `https://repo-intel.example.com`).
+    description: Base URL of the ARIA backend (e.g. `https://repo-intel.example.com`).
     required: true
   api-token:
-    description: Optional bearer token forwarded to the Repo Intelligence backend.
+    description: Optional bearer token forwarded to the ARIA backend.
     required: false
     default: ""
   check-name:

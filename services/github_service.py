@@ -215,11 +215,12 @@ class GitHubService:
         repo_fullName: str,
         env: Optional[Dict[str, str]] = None,
         secrets: Optional[List[str]] = None,
+        cwd: Optional[str] = None,
     ) -> Any:
         """Run a git command, converting execution failures into client-safe errors."""
         try:
             return run_safe_command(
-                cmd, timeout=timeout, env=env, secrets=secrets or []
+                cmd, timeout=timeout, env=env, secrets=secrets or [], cwd=cwd
             )
         except SafeSubprocessError as sub_exc:
             self._raise_safe_git_error(
@@ -452,19 +453,49 @@ class GitHubService:
                         f"Branch '{branch}' does not exist for repository {repo_fullName}."
                     )
 
-        # 6. Clear target directory
-        if os.path.exists(dest_dir):
+        # 6. Check if target directory already exists with a valid git repository
+        if os.path.exists(dest_dir) and os.path.exists(os.path.join(dest_dir, ".git")):
+            target_branch = actual_branch or "main"
+            logger.info(
+                f"Existing repository clone found at {dest_dir}. Updating via git fetch (branch={target_branch})..."
+            )
             try:
+                cmd_fetch = ["git", "fetch", "--depth", "1", clone_url, target_branch]
+                res_fetch = self._run_git(
+                    cmd_fetch,
+                    timeout=CLONE_TIMEOUT,
+                    repo_fullName=repo_fullName,
+                    env=extra_env,
+                    secrets=secrets_list,
+                    cwd=dest_dir,
+                )
+                if res_fetch.returncode == 0:
+                    cmd_reset = ["git", "reset", "--hard", "FETCH_HEAD"]
+                    res_reset = self._run_git(
+                        cmd_reset,
+                        timeout=SHORT_GIT_TIMEOUT,
+                        repo_fullName=repo_fullName,
+                        env=extra_env,
+                        secrets=secrets_list,
+                        cwd=dest_dir,
+                    )
+                    if res_reset.returncode == 0:
+                        logger.info(f"Successfully updated repository at {dest_dir}")
+                        return dest_dir
+            except Exception as exc:
+                logger.warning(
+                    f"Failed to update existing clone at {dest_dir}: {exc}. Cleaning up for full clone..."
+                )
 
-                def _remove_readonly(func, path, exc_info):
-                    import stat
+        # 7. Clear target directory if it exists and needs clean re-clone
+        if os.path.exists(dest_dir):
+            import stat
 
-                    try:
-                        os.chmod(path, stat.S_IWRITE)
-                        func(path)
-                    except Exception:
-                        pass
+            def _remove_readonly(func, path, exc_info):
+                os.chmod(path, stat.S_IWRITE)
+                func(path)
 
+            try:
                 shutil.rmtree(dest_dir, onerror=_remove_readonly)
             except Exception as e:
                 logger.warning(
@@ -473,7 +504,7 @@ class GitHubService:
 
         os.makedirs(os.path.dirname(dest_dir), exist_ok=True)
 
-        # 7. Perform Clone
+        # 8. Perform Clone
         logger.info(
             f"Cloning repository {repo_fullName} to {dest_dir} (branch={actual_branch})..."
         )

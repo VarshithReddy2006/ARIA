@@ -5,9 +5,9 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "repo-intelligence-agent"
 version = "1.5.0"
-description = "Production-grade codebase intelligence agent."
+description = "ARIA — AI-Powered Repository Intelligence Agent"
 readme = "README.md"
-requires-python = ">=3.9"
+requires-python = ">=3.11"
 license = { text = "MIT" }
 dependencies = [
     "fastapi>=0.110.0",

@@ -1,6 +1,6 @@
 # Contributing Guide
 
-We welcome contributions to the Repo Intelligence Agent! Please follow these guidelines to set up your environment, write tests, and submit pull requests.
+We welcome contributions to ARIA! Please follow these guidelines to set up your environment, write tests, and submit pull requests.
 
 ## Development Workflow
 

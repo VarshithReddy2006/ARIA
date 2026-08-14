@@ -34,11 +34,28 @@ class DeepSeekProvider(BaseLLMProvider):
         max_retries: int = _DEFAULT_MAX_RETRIES,
         timeout: float = _DEFAULT_TIMEOUT,
     ) -> None:
-        from core.config import settings
+        from core.config import get_settings
 
-        self.api_key = api_key or settings.deepseek_api_key or ""
-        self.base_url = (base_url or settings.deepseek_base_url).rstrip("/")
-        self.model = model or settings.deepseek_model
+        current_settings = get_settings()
+
+        self.api_key = (
+            api_key
+            if api_key is not None
+            else (current_settings.deepseek_api_key or "")
+        ).strip()
+        self.base_url = (
+            (base_url or current_settings.deepseek_base_url).strip().rstrip("/")
+        )
+        resolved_model = (model or current_settings.deepseek_model).strip()
+
+        # NVIDIA NIM endpoint compatibility: normalize deepseek-v4-flash without suffix to -0731
+        if (
+            "integrate.api.nvidia.com" in self.base_url
+            and resolved_model == "deepseek-ai/deepseek-v4-flash"
+        ):
+            resolved_model = "deepseek-ai/deepseek-v4-flash-0731"
+
+        self.model = resolved_model
         self.max_retries = max_retries
         self.timeout = timeout
 
@@ -443,6 +460,16 @@ class DeepSeekProvider(BaseLLMProvider):
                     self.model,
                     error.error_type.value,
                     type(exc).__name__,
+                    exc_info=True,
+                )
+                raise
+            except httpx.HTTPStatusError as exc:
+                error = classify_deepseek_error(exc, "deepseek")
+                logger.error(
+                    "DeepSeek stream HTTP error: model=%s error_type=%s status=%s",
+                    self.model,
+                    error.error_type.value,
+                    exc.response.status_code if hasattr(exc, "response") else "unknown",
                     exc_info=True,
                 )
                 raise

@@ -1,6 +1,6 @@
 # Performance Guide
 
-The Repo Intelligence Agent relies on parallel execution and incremental analyses to maintain sub-second response times on incremental updates.
+ARIA relies on parallel execution and incremental analyses to maintain sub-second response times on incremental updates.
 
 ## Parallel Execution Performance
 

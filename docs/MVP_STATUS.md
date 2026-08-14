@@ -1,6 +1,6 @@
 # Production Status — v1.5.0
 
-This document tracks feature coverage, validation results, known limitations, and technical debt for Repo Intelligence Agent v1.5.0.
+This document tracks feature coverage, validation results, known limitations, and technical debt for ARIA v1.5.0.
 
 ---
 

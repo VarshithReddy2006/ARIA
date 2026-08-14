@@ -21,21 +21,37 @@ logger = logging.getLogger(__name__)
 
 # SQLite embedding cache helpers
 def _get_cached_embedding(chunk_hash: str, model_name: str) -> Optional[List[float]]:
+    res = _get_cached_embeddings_bulk([chunk_hash], model_name)
+    return res.get(chunk_hash)
+
+
+def _get_cached_embeddings_bulk(
+    chunk_hashes: List[str], model_name: str
+) -> Dict[str, List[float]]:
+    if not chunk_hashes:
+        return {}
+    results: Dict[str, List[float]] = {}
     conn = get_db_connection()
     try:
         cursor = conn.cursor()
-        cursor.execute(
-            "SELECT embedding FROM embedding_cache WHERE chunk_hash = ? AND model_name = ?",
-            (chunk_hash, model_name),
-        )
-        row = cursor.fetchone()
-        if row:
-            return json.loads(row[0])
+        batch_size = 900
+        for i in range(0, len(chunk_hashes), batch_size):
+            batch = chunk_hashes[i : i + batch_size]
+            placeholders = ",".join("?" for _ in batch)
+            cursor.execute(
+                f"SELECT chunk_hash, embedding FROM embedding_cache WHERE model_name = ? AND chunk_hash IN ({placeholders})",
+                [model_name] + batch,
+            )
+            for row in cursor.fetchall():
+                try:
+                    results[row[0]] = json.loads(row[1])
+                except Exception:
+                    pass
     except Exception as e:
-        logger.warning("Failed to lookup embedding in SQLite cache: %s", e)
+        logger.warning("Failed bulk lookup of embeddings in SQLite cache: %s", e)
     finally:
         conn.close()
-    return None
+    return results
 
 
 def _save_embeddings_to_cache_bulk(records: List[Dict[str, Any]]) -> None:
@@ -84,6 +100,13 @@ def _get_model():
             return _model
 
         try:
+            import os
+            import torch
+
+            if hasattr(torch, "set_num_threads"):
+                num_threads = min(8, os.cpu_count() or 4)
+                torch.set_num_threads(num_threads)
+
             from sentence_transformers import SentenceTransformer  # type: ignore
 
             logger.info("Loading BGE embedding model '%s' (first call)…", _MODEL_NAME)
@@ -141,22 +164,11 @@ class EmbeddingService:
         client: Any = None,  # accepted but ignored (Gemini client)
         model_name: str = _MODEL_NAME,
     ) -> None:
-        """Initialise the EmbeddingService.
-
-        Args:
-            client:     Ignored.  Accepted for backwards-compatibility only.
-            model_name: Name of the sentence-transformers model to load.
-                        Defaults to BAAI/bge-small-en-v1.5.
-        """
         if client is not None:
             logger.debug(
                 "EmbeddingService: 'client' parameter is ignored — using local BGE model."
             )
         self.model_name = model_name
-        # ponytail: lazy load — model loads on first generate_embedding(s) call.
-        # Eager load duplicated under uvicorn --reload (reloader parent + worker
-        # both instantiated EmbeddingService at import time). Singleton in
-        # _get_model() still guarantees one load per process.
 
     # ------------------------------------------------------------------
     # Core embedding methods
@@ -180,33 +192,33 @@ class EmbeddingService:
             return []
 
         results: List[Optional[List[float]]] = [None] * len(texts)
+        prefixed_texts = [f"Represent this sentence: {t}" for t in texts]
+        hashes = [hashlib.md5(pt.encode("utf-8")).hexdigest() for pt in prefixed_texts]
+
+        # 1. Query SQLite cache in bulk
+        cached_map = _get_cached_embeddings_bulk(hashes, self.model_name)
+
         uncached_texts: List[str] = []
         uncached_indices: List[int] = []
 
-        # 1. Query SQLite cache
-        for idx, text in enumerate(texts):
-            prefixed_text = f"Represent this sentence: {text}"
-            chunk_hash = hashlib.md5(prefixed_text.encode("utf-8")).hexdigest()
-
-            cached_val = _get_cached_embedding(chunk_hash, self.model_name)
-            if cached_val is not None:
-                results[idx] = cached_val
+        for idx, chunk_hash in enumerate(hashes):
+            if chunk_hash in cached_map:
+                results[idx] = cached_map[chunk_hash]
             else:
-                uncached_texts.append(prefixed_text)
+                uncached_texts.append(prefixed_texts[idx])
                 uncached_indices.append(idx)
 
         # 2. Process cache misses in batch
         if uncached_texts:
-            # Deduplicate uncached texts locally
             unique_uncached: List[str] = []
-            unique_to_idx = {}
+            unique_to_idx: Dict[str, int] = {}
             for t in uncached_texts:
                 if t not in unique_to_idx:
                     unique_to_idx[t] = len(unique_uncached)
                     unique_uncached.append(t)
 
             model = _get_model()
-            batch_size = 64
+            batch_size = 128
             t0 = time.perf_counter()
             encoded = model.encode(
                 unique_uncached,
@@ -223,15 +235,13 @@ class EmbeddingService:
                 elapsed,
             )
 
-            # Map results back and save to cache
             unique_embeddings = [vec.tolist() for vec in encoded]
             records_to_cache = []
 
             for idx, orig_idx in enumerate(uncached_indices):
-                prefixed_text = uncached_texts[idx]
-                chunk_hash = hashlib.md5(prefixed_text.encode("utf-8")).hexdigest()
-
-                embedding_val = unique_embeddings[unique_to_idx[prefixed_text]]
+                pt = uncached_texts[idx]
+                chunk_hash = hashes[orig_idx]
+                embedding_val = unique_embeddings[unique_to_idx[pt]]
                 results[orig_idx] = embedding_val
 
                 records_to_cache.append(
@@ -243,7 +253,6 @@ class EmbeddingService:
                     }
                 )
 
-            # Bulk persist to SQLite
             _save_embeddings_to_cache_bulk(records_to_cache)
 
         return results  # type: ignore

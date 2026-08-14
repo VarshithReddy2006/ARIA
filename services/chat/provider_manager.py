@@ -27,7 +27,7 @@ import logging
 import time
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import AsyncIterator, Dict, List, Optional, Tuple
+from typing import Any, AsyncIterator, Dict, List, Optional, Tuple
 
 logger = logging.getLogger(__name__)
 
@@ -141,29 +141,37 @@ class ProviderManager:
     def __init__(
         self,
         providers: Optional[List[ProviderEntry]] = None,
+        settings: Optional[Any] = None,
     ) -> None:
         """Initialise the ProviderManager.
 
         Args:
             providers: Ordered list of ProviderEntry objects.
                        If None, loads from ProviderFactory settings.
+            settings:  Optional Settings instance to configure providers.
         """
         if providers is not None:
             self._providers = sorted(providers, key=lambda p: p.priority)
         else:
-            self._providers = self._load_from_settings()
+            self._providers = self._load_from_settings(settings=settings)
 
-    def _load_from_settings(self) -> List[ProviderEntry]:
+    def _load_from_settings(
+        self, settings: Optional[Any] = None
+    ) -> List[ProviderEntry]:
         """Build providers from application settings."""
         from services.llm import ProviderFactory
-        from core.config import settings
+        from core.config import Settings, get_settings
+
+        current_settings: Settings = (
+            settings if isinstance(settings, Settings) else get_settings()
+        )
 
         entries: List[ProviderEntry] = []
-        provider_name = settings.llm_provider.lower()
+        provider_name = current_settings.llm_provider.lower().strip()
 
         # Primary provider (from config)
         try:
-            primary = ProviderFactory.get_provider()
+            primary = ProviderFactory.get_provider(settings=current_settings)
             entries.append(
                 ProviderEntry(
                     name=provider_name,
@@ -172,41 +180,59 @@ class ProviderManager:
                     timeout=60.0,
                 )
             )
+            logger.info(
+                "ProviderManager: registered primary provider=%s (model=%s)",
+                provider_name,
+                getattr(primary, "model", "unknown"),
+            )
         except Exception as exc:
             logger.error("ProviderManager: failed to load primary provider: %s", exc)
 
         # Secondary provider (if configured and different from primary)
-        if provider_name == "gemini" and settings.deepseek_api_key:
+        if provider_name == "gemini" and current_settings.deepseek_api_key:
             try:
                 from services.llm.deepseek_provider import DeepSeekProvider
 
+                secondary_deepseek = DeepSeekProvider(
+                    api_key=current_settings.deepseek_api_key,
+                    base_url=current_settings.deepseek_base_url,
+                    model=current_settings.deepseek_model,
+                )
                 entries.append(
                     ProviderEntry(
                         name="deepseek",
-                        provider=DeepSeekProvider(),
+                        provider=secondary_deepseek,
                         priority=2,
                         timeout=120.0,
                     )
                 )
                 logger.info(
-                    "ProviderManager: DeepSeek registered as secondary provider"
+                    "ProviderManager: registered secondary provider=deepseek (model=%s)",
+                    secondary_deepseek.model,
                 )
             except Exception as exc:
                 logger.debug("ProviderManager: DeepSeek secondary unavailable: %s", exc)
 
-        elif provider_name == "deepseek" and settings.gemini_api_key:
+        elif provider_name == "deepseek" and current_settings.gemini_api_key:
             try:
                 from services.llm.gemini_provider import GeminiProvider
 
+                secondary_gemini = GeminiProvider(
+                    api_key=current_settings.gemini_api_key,
+                    model=current_settings.gemini_model,
+                )
                 entries.append(
                     ProviderEntry(
                         name="gemini",
-                        provider=GeminiProvider(),
+                        provider=secondary_gemini,
                         priority=2,
                         timeout=60.0,
                     )
                 )
-                logger.info("ProviderManager: Gemini registered as secondary provider")
+                logger.info(
+                    "ProviderManager: registered secondary provider=gemini (model=%s)",
+                    secondary_gemini.model,
+                )
             except Exception as exc:
                 logger.debug("ProviderManager: Gemini secondary unavailable: %s", exc)
 
@@ -549,9 +575,11 @@ class ProviderManager:
         return [
             {
                 "name": e.name,
+                "model": getattr(e.provider, "model", "unknown"),
                 "priority": e.priority,
                 "circuit_state": e.circuit_breaker.state.value,
                 "failure_count": e.circuit_breaker._failure_count,
+                "configured": True,
             }
             for e in self._providers
         ]

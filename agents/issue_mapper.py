@@ -232,7 +232,7 @@ class IssueMapper:
         )
 
         system_instr = (
-            "You are a Repo Intelligence Agent. Generate a detailed, repository-specific "
+            "You are ARIA, an AI-Powered Repository Intelligence Agent. Generate a detailed, repository-specific "
             "implementation plan for the given GitHub issue.\n"
             "Rules:\n"
             "- Use ONLY files and logic present in the retrieved codebase context.\n"

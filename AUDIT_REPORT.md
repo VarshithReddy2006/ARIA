@@ -1,4 +1,4 @@
-# Repo Intelligence Agent - Phase 2 Audit Report
+# ARIA - Phase 2 Audit Report
 
 **Audit Date:** July 4, 2026  
 **Auditor:** Antigravity AI Assistant  
@@ -9,7 +9,7 @@
 
 ## Executive Summary
 
-The Repo Intelligence Agent Phase 2 implementation demonstrates **exceptional architectural maturity** with a well-structured, production-ready codebase. The system successfully implements structural codebase intelligence through AST parsing, dependency graphs, and symbol indexing, moving beyond traditional RAG approaches.
+The ARIA Phase 2 implementation demonstrates **exceptional architectural maturity** with a well-structured, production-ready codebase. The system successfully implements structural codebase intelligence through AST parsing, dependency graphs, and symbol indexing, moving beyond traditional RAG approaches.
 
 **Overall Assessment:** ✅ **PRODUCTION READY** with minor recommendations for enhancement.
 
@@ -480,7 +480,7 @@ Production readiness is **exceptional** with comprehensive security, observabili
 
 ## 11. Conclusion
 
-The Repo Intelligence Agent Phase 2 implementation represents **exceptional engineering quality** with a production-ready architecture. The system successfully delivers on its promise of structural codebase intelligence beyond traditional RAG approaches.
+The ARIA Phase 2 implementation represents **exceptional engineering quality** with a production-ready architecture. The system successfully delivers on its promise of structural codebase intelligence beyond traditional RAG approaches.
 
 ### Overall Grade: **A+ (95/100)**
 

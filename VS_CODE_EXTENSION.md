@@ -1,4 +1,4 @@
-# Repo Intelligence Agent — VS Code Extension Documentation
+# ARIA — VS Code Extension Documentation
 
 > **First-class Visual Studio Code integration for the Repository Intelligence Platform.**  
 > The extension acts purely as a client to the Repository Intelligence Backend, bringing grounded code intelligence, interactive graphs, repository chat, CodeLens, hover cards, and architectural reviews directly into VS Code.
@@ -88,7 +88,7 @@ Deterministic Engine   Knowledge Graph       Architecture Engine
 
 ## 4. Configuration Settings
 
-Settings can be customized in VS Code Settings (`Ctrl+,` or `Cmd+,` under `Repo Intelligence`):
+Settings can be customized in VS Code Settings (`Ctrl+,` or `Cmd+,` under `ARIA`):
 
 | Setting | Default | Description |
 |---|---|---|

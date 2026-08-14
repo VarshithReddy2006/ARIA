@@ -1,5 +1,5 @@
 /**
- * Centralized API configuration for the Repo Intelligence Agent frontend.
+ * Centralized API configuration for the ARIA frontend.
  *
  * Every backend request must go through this module so the base URL is defined
  * in exactly one place. In development the FastAPI backend runs on a different

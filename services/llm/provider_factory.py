@@ -35,7 +35,7 @@ class ProviderFactory:
     """Creates and caches the globally configured LLM provider instance."""
 
     @classmethod
-    def get_provider(cls) -> BaseLLMProvider:
+    def get_provider(cls, settings: Optional[Settings] = None) -> BaseLLMProvider:
         """Return the singleton provider instance, creating it if necessary.
 
         Re-creates the provider automatically if the API key in the environment
@@ -44,7 +44,7 @@ class ProviderFactory:
         global _cached_provider, _cached_api_key
 
         # Reload settings fresh from env each call (cheap — pydantic reads os.environ)
-        current_settings = Settings()
+        current_settings = settings or Settings()
         provider_name = current_settings.llm_provider.lower().strip()
 
         # Pick the relevant API key for the active provider
@@ -106,7 +106,9 @@ class ProviderFactory:
         _cached_validation_results = None
 
     @classmethod
-    async def validate_all_providers(cls) -> Dict[str, ProviderHealth]:
+    async def validate_all_providers(
+        cls, settings: Optional[Settings] = None
+    ) -> Dict[str, ProviderHealth]:
         """Run health checks on every configured LLM provider.
 
         Called once at application startup.  Results are used to decide
@@ -133,19 +135,17 @@ class ProviderFactory:
             not is_testing
             and _cached_validation_results is not None
             and (now - _last_validation_time) < _validation_cache_ttl
+            and settings is None
         ):
-            logger.debug(
-                "ProviderFactory: returning cached provider validation results"
-            )
             return _cached_validation_results
 
-        current_settings = Settings()
+        current_settings = settings or Settings()
         results: Dict[str, ProviderHealth] = {}
 
         # ── Primary provider ────────────────────────────────────────────
         primary_name = current_settings.llm_provider.lower().strip()
         try:
-            primary = cls.get_provider()
+            primary = cls.get_provider(settings=current_settings)
             health = await primary.health_check()
             results[primary_name] = health
         except Exception as exc:

@@ -21,7 +21,7 @@ services:
       # ── Authentication / security ──────────────────────────────────────────
       # APIKeyMiddleware refuses to start with APP_ENV=production and no API_KEY.
       - API_KEY=${API_KEY:?API_KEY is required when APP_ENV=production}
-      - ALLOWED_HOSTS=${ALLOWED_HOSTS:-["*"]}
+      - ALLOWED_HOSTS=${ALLOWED_HOSTS:?ALLOWED_HOSTS is required when APP_ENV=production}
       - RATE_LIMIT_PER_MINUTE=${RATE_LIMIT_PER_MINUTE:-60}
 
       # ── LLM provider ───────────────────────────────────────────────────────

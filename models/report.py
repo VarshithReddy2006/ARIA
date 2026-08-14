@@ -1,4 +1,4 @@
-"""Report schema models for the Repo Intelligence Agent.
+"""Report schema models for ARIA.
 
 Defines Pydantic structures for health score breakdowns, metadata, sections,
 and the unified report data model.

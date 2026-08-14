@@ -1,6 +1,6 @@
-# Frequently Asked Questions — Repo Intelligence Agent
+# Frequently Asked Questions — ARIA
 
-This document answers common technical questions about the Repo Intelligence Agent architecture.
+This document answers common technical questions about the ARIA architecture.
 
 ---
 

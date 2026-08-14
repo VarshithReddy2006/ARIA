@@ -1,1 +1,1 @@
-"""Unit testing suite for the Repo Intelligence Agent codebase."""
+"""Unit testing suite for the ARIA codebase."""

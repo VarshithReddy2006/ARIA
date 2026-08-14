@@ -1,6 +1,6 @@
 # Repository Digital Twin — Specification
 
-**Product:** Repository Intelligence Agent
+**Product:** ARIA (Repository Intelligence Agent)
 **Document status:** Foundation — normative. This is the most important document in the set.
 **Version:** 2.0 (greenfield design)
 **Companion documents:** `01-PRD.md`, `02-SDD.md`

@@ -15,7 +15,7 @@ class PromptBuilder(PromptBuilderPort):
         intent: IntentType,
     ) -> PromptPackage:
         sys_prompt = (
-            f"You are the Repository Intelligence Agent (RIA) v2. "
+            f"You are ARIA (RIA v2). "
             f"Answer the user's question accurately using ONLY the provided semantic context snippets. "
             f"Target Intent: {intent.value}. "
             f"Cite every file and symbol referenced in your answer."

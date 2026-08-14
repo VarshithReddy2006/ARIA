@@ -1,4 +1,4 @@
-"""Shared schemas and models package for the Repo Intelligence Agent."""
+"""Shared schemas and models package for ARIA."""
 
 from .schemas import (
     RepositoryAnalysis,

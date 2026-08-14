@@ -1,6 +1,6 @@
 # Production Operations Guide
 
-This document covers everything needed to deploy, monitor, and operate Repo Intelligence Agent in production.
+This document covers everything needed to deploy, monitor, and operate ARIA in production.
 
 ---
 
