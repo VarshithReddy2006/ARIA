@@ -16,7 +16,9 @@ from .provider_errors import classify_deepseek_error, ProviderErrorType
 logger = logging.getLogger(__name__)
 
 _RETRY_STATUS_CODES = {429, 500, 502, 503, 504}
-_DEFAULT_MAX_RETRIES = 1  # Fail fast on streaming so user gets fast response or immediate fallback
+_DEFAULT_MAX_RETRIES = (
+    1  # Fail fast on streaming so user gets fast response or immediate fallback
+)
 _DEFAULT_INITIAL_DELAY = 2.0
 _DEFAULT_BACKOFF_FACTOR = 2.0
 _DEFAULT_TIMEOUT = 45.0
@@ -279,7 +281,9 @@ class DeepSeekProvider(BaseLLMProvider):
         }
 
         try:
-            timeout_cfg = httpx.Timeout(connect=15.0, read=self.timeout, write=15.0, pool=15.0)
+            timeout_cfg = httpx.Timeout(
+                connect=15.0, read=self.timeout, write=15.0, pool=15.0
+            )
             async with httpx.AsyncClient(timeout=timeout_cfg) as client:
                 response = await self._post_with_retry(client, payload)
         except Exception as exc:
@@ -337,7 +341,9 @@ class DeepSeekProvider(BaseLLMProvider):
             first_token = True
 
             try:
-                timeout_cfg = httpx.Timeout(connect=15.0, read=self.timeout, write=15.0, pool=15.0)
+                timeout_cfg = httpx.Timeout(
+                    connect=15.0, read=self.timeout, write=15.0, pool=15.0
+                )
                 async with httpx.AsyncClient(timeout=timeout_cfg) as client:
                     async with client.stream(
                         "POST", url, json=payload, headers=self._headers()

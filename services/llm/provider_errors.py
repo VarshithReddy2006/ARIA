@@ -244,7 +244,9 @@ def classify_gemini_error(
             or "tpm" in exc_str
             or "rpm" in exc_str
         ):
-            if "quota" in exc_str or ("token" in exc_str and "rate" not in exc_str and "rpm" not in exc_str):
+            if "quota" in exc_str or (
+                "token" in exc_str and "rate" not in exc_str and "rpm" not in exc_str
+            ):
                 return _make(
                     ProviderErrorType.QUOTA_EXCEEDED,
                     provider_name,
@@ -314,9 +316,8 @@ def classify_gemini_error(
         or "quota" in exc_str
         or "high demand" in exc_str
     ):
-        if (
-            "quota" in exc_str
-            or ("token" in exc_str and "rate" not in exc_str and "rpm" not in exc_str)
+        if "quota" in exc_str or (
+            "token" in exc_str and "rate" not in exc_str and "rpm" not in exc_str
         ):
             return _make(
                 ProviderErrorType.QUOTA_EXCEEDED,
