@@ -1,265 +1,519 @@
 ---
 import Layout from '../layouts/Layout.astro';
-import RepoInput from '../components/interactive/RepoInput';
 
-const features = [
-  {
-    title: 'Dependency Graph',
-    description: 'Interactive force-directed map of every file, edge, and cycle in your codebase.',
-    icon: `<path d="M5 6h14M5 12h14M5 18h14"/>`,
-  },
-  {
-    title: 'PR Risk Intelligence',
-    description: 'Blast radius, symbol diffs, and propagation paths for every pull request.',
-    icon: `<path d="M12 2 4 6v6c0 5 3.5 9.4 8 10 4.5-.6 8-5 8-10V6l-8-4Z"/>`,
-  },
-  {
-    title: 'Architecture Drift',
-    description: 'Track cycles, coupling shifts, and entry-point changes across releases.',
-    icon: `<path d="M12 2v20M2 12h20M4.9 4.9l14.2 14.2M19.1 4.9 4.9 19.1"/>`,
-  },
-  {
-    title: 'Dead Code Analyzer',
-    description: 'Surface unreachable modules and orphan chains with cleanup confidence scores.',
-    icon: `<path d="M3 6h18M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2M6 6l1 14a2 2 0 0 0 2 2h6a2 2 0 0 0 2-2l1-14"/>`,
-  },
-  {
-    title: 'Reading Path',
-    description: 'Ranked onboarding flow — read the right files in the right order.',
-    icon: `<path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2Z"/>`,
-  },
-  {
-    title: 'Codebase Chat',
-    description: 'Conversational answers grounded in retrieval, cited file by file.',
-    icon: `<path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>`,
-  },
-];
+import StoryBackdrop from '../components/landing/StoryBackdrop.astro';
+import SceneGlimpse from '../components/landing/SceneGlimpse.astro';
+import HeroStage from '../components/landing/HeroStage.astro';
+import ChapterHeading from '../components/landing/ChapterHeading.astro';
 
-const pipeline = [
-  ['01', 'Clone',   'Shallow clone the target GitHub repo'],
-  ['02', 'Detect',  'Languages, frameworks & manifests'],
-  ['03', 'Index',   'AST → symbol & dependency graph'],
-  ['04', 'Analyze', 'Centrality, cycles, hotspots'],
-  ['05', 'Answer',  'Retrieval-grounded responses'],
-];
+import StructureTransform from '../components/landing/StructureTransform';
+import CodebaseGraph from '../components/landing/CodebaseGraph';
+import ChangeSurface from '../components/landing/ChangeSurface';
+import RepositoryHistory from '../components/landing/RepositoryHistory';
+import GroundedRetrieval from '../components/landing/GroundedRetrieval';
+import ReadingPath from '../components/landing/ReadingPath';
+import AnalysisPipeline from '../components/landing/AnalysisPipeline';
+import RepositoryAnalyzer from '../components/landing/RepositoryAnalyzer';
 
-const previewKpis = [
-  { label: 'Files',        value: '1,284' },
-  { label: 'Symbols',      value: '8,917' },
-  { label: 'Components',   value: '32' },
-  { label: 'Entry Points', value: '6' },
-  { label: 'Health',       value: 'A' },
-];
+import { TECHNOLOGY } from '../components/landing/data';
+import { scene, type SceneId } from '../components/landing/sceneModel';
 
-const techStack = {
-  frontend: ['Astro', 'React', 'TailwindCSS', 'TypeScript', 'React Flow', 'Framer Motion'],
-  backend:  ['FastAPI', 'Python 3.12', 'NetworkX', 'GitHub API', 'Jinja2'],
-  ai:       ['Gemini 2.5 Flash', 'ChromaDB', 'Tree-sitter', 'Incremental Analysis'],
-};
+/**
+ * The ARIA landing page: twelve cinematic scenes, not a long document.
+ *
+ * ── Presentation model ─────────────────────────────────────────────────────
+ *
+ * Every scene is a tall scroll space (`[data-stage]`) containing exactly one
+ * `.scene-stage`, which is `position: sticky`. The stage holds the viewport while
+ * its scroll space passes, so the scene occupies the frame, dissolves, and the
+ * next scene is created in the same place. Scroll distance is per scene, from the
+ * shared model — a typographic statement needs one viewport, the five-stage
+ * structural transformation needs nearly three.
+ *
+ * The narrative, chapters, components, graph semantics, illustrative disclosures
+ * and accessibility mirrors are unchanged. This is a presentation change: the same
+ * story, staged.
+ *
+ * ── Two things worth knowing before editing ────────────────────────────────
+ *
+ * 1. A pinned stage is one viewport tall, and a reader cannot scroll inside a
+ *    pinned frame. The director therefore measures each stage and turns pinning
+ *    OFF for any scene whose content does not fit, so no content is ever clipped
+ *    or unreachable. Keep stage content close to one viewport where you can.
+ *
+ * 2. `data-create` sequences a scene's construction and must go on wrappers, never
+ *    on an element that already carries `data-reveal` — both drive opacity, and
+ *    stacking them lets the later stylesheet rule silently win.
+ *
+ * The seam statements that used to sit between chapters now open the scene they
+ * introduce, so each scene is self-contained rather than depending on a strip of
+ * page above it that a pinned frame would never show.
+ */
+
+/** Scroll duration for a scene, in viewport heights, straight from the model. */
+const vh = (id: SceneId) => scene(id).vh;
+const vhc = (id: SceneId) => scene(id).vhCompact;
+
+/** Inline custom properties so the first paint is already correctly sized. */
+const dur = (id: SceneId) => `--scene-vh:${vh(id)};--scene-vh-compact:${vhc(id)}`;
 ---
 
-<Layout title="ARIA — Understand any codebase in minutes">
+<Layout title="ARIA — Understand any codebase">
+  <StoryBackdrop />
+  {/*
+    The transition bridge layer. Sits above the scenes; every graphic in it is
+    decorative and aria-hidden.
+  */}
+  <SceneGlimpse />
 
-  {/* ============================================================
-        HERO
-        ============================================================ */}
-  <section class="relative pt-6 pb-12 sm:pt-12 sm:pb-20">
-    <div aria-hidden="true" class="pointer-events-none absolute inset-0 -z-10 overflow-hidden">
-      <div
-        class="absolute top-[-10%] left-1/2 -translate-x-1/2 h-[420px] w-[820px] rounded-full blur-3xl opacity-30"
-        style="background: radial-gradient(circle, rgba(94,106,210,0.45) 0%, transparent 65%);"
-      ></div>
-      <div
-        class="absolute inset-0"
-        style="background-image: radial-gradient(rgba(255,255,255,0.04) 1px, transparent 1px); background-size: 28px 28px;"
-      ></div>
-    </div>
+  <!-- ══ SCENE 01 · HERO ════════════════════════════════════════════════════ -->
+  <HeroStage />
 
-    <div class="max-w-4xl mx-auto text-center space-y-6 fade-up px-2">
-      <div class="inline-flex items-center gap-2 px-3 py-1 rounded-full border border-border bg-surface-2 text-[11px] font-mono text-text-muted">
-        <span class="h-1.5 w-1.5 rounded-full bg-success animate-pulse" aria-hidden="true"></span>
-        <span>Multi-agent AI · Repository Intelligence</span>
-      </div>
-
-      <h1 class="text-4xl sm:text-5xl md:text-6xl font-bold tracking-tight leading-[1.05]">
-        <span class="text-gradient-brand">Understand any codebase</span>
-        <br />
-        <span class="text-text">in minutes, not weeks.</span>
-      </h1>
-
-      <p class="text-base sm:text-lg text-text-muted max-w-2xl mx-auto leading-relaxed">
-        ARIA indexes a GitHub repository, builds a typed dependency graph,
-        and answers questions like a senior engineer who's already read the whole thing.
-      </p>
-
-      <div class="pt-4">
-        <RepoInput client:load />
-      </div>
-    </div>
-  </section>
-
-  {/* ============================================================
-        FEATURE CARDS
-        ============================================================ */}
-  <section class="py-12 sm:py-16" aria-labelledby="features-heading">
-    <div class="max-w-6xl mx-auto space-y-8">
-      <header class="text-center space-y-2">
-        <p class="text-[11px] font-mono uppercase tracking-widest text-primary font-semibold">
-          What it does
+  <!-- ══ SCENE 02 · CINEMATIC STATEMENT ═════════════════════════════════════
+       Typography only. The claim the rest of the experience has to earn. -->
+  <section data-stage="thesis" data-pin="on" style={dur('thesis')} aria-label="Structure is hidden">
+    <div class="scene-stage">
+      <div class="story-shell">
+        {/* Vocabulary: masked rise. `data-reveal` belongs on the mask, not the line. */}
+        <p class="display-1 text-text type-scroll" data-type-scroll data-create>
+          <span class="reveal-mask" data-reveal="line" style="--reveal-delay:0ms">
+            <span>Structure is hidden.</span>
+          </span>
+          <span class="reveal-mask" data-reveal="line" style="--reveal-delay:180ms">
+            <span class="display-dim">Until you map it.</span>
+          </span>
         </p>
-        <h2 id="features-heading" class="text-2xl sm:text-3xl font-semibold text-text tracking-tight">
-          A complete comprehension toolkit
-        </h2>
-      </header>
 
-      <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-5">
-        {features.map((f) => (
-          <article class="card p-5 space-y-3 transition-all hover:border-primary/40 hover:-translate-y-0.5">
-            <!-- Icon: proper inline SVG using the icon path -->
-            <div
-              class="h-9 w-9 rounded-lg border border-primary/30 bg-primary/10 text-primary flex items-center justify-center"
-              aria-hidden="true"
-            >
-              <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" set:html={f.icon} />
-            </div>
-            <h3 class="text-base font-semibold text-text">{f.title}</h3>
-            <p class="text-sm text-text-muted leading-relaxed">{f.description}</p>
-          </article>
-        ))}
+        <span
+          class="block h-px w-full max-w-md mt-10 bg-gradient-to-r from-primary/50 via-white/[0.08] to-transparent"
+          data-reveal="rule"
+          style="--reveal-delay:320ms"
+          aria-hidden="true"
+        ></span>
+
+        <div
+          class="mt-6 flex flex-wrap items-baseline gap-x-8 gap-y-2"
+          data-reveal="fade"
+          style="--reveal-delay:460ms"
+          data-create
+        >
+          <span class="mono-label">01 · THE PREMISE</span>
+          <span class="mono-label" style="letter-spacing:0.2em">NEXT — STRUCTURAL TRANSFORMATION</span>
+        </div>
       </div>
     </div>
   </section>
 
-  {/* ============================================================
-        PIPELINE STEPPER
-        ============================================================ */}
-  <section class="py-12 sm:py-16" aria-labelledby="arch-heading">
-    <div class="max-w-6xl mx-auto">
-      <div class="card p-6 sm:p-8 space-y-8">
-        <header class="space-y-2 max-w-2xl">
-          <p class="text-[11px] font-mono uppercase tracking-widest text-primary font-semibold">
-            Under the hood
-          </p>
-          <h2 id="arch-heading" class="text-2xl font-semibold text-text tracking-tight">
-            Multi-agent pipeline, deterministic graph core
-          </h2>
-          <p class="text-sm text-text-muted leading-relaxed">
-            Each stage is a focused agent. The graph is built with NetworkX, indexed by symbol,
-            and served behind a FastAPI surface. Every answer is cited.
-          </p>
-        </header>
+  <!-- ══ SCENE 02b · THE PREMISE ════════════════════════════════════════════ -->
+  <section
+    id="premise"
+    data-stage="thesis"
+    data-pin="on"
+    style={dur('thesis')}
+    aria-labelledby="premise-heading"
+  >
+    <div class="scene-stage">
+      <div class="story-shell" data-create>
+        <ChapterHeading
+          headingId="premise-heading"
+          marker="01 — THE PREMISE"
+          lines={['The codebase', 'is not a file tree.']}
+          dimFrom={1}
+          lead="Thousands of files hide relationships that are difficult to see, trace, and reason about."
+          class="max-w-5xl"
+        />
+      </div>
+    </div>
+  </section>
 
-        <!-- Visual stepper -->
-        <ol class="grid grid-cols-1 md:grid-cols-5 gap-0 relative" aria-label="Analysis pipeline stages">
-          {pipeline.map(([n, title, desc], idx) => (
-            <li class="flex md:flex-col gap-4 md:gap-3 items-start md:items-center text-center relative">
-              <!-- Connector line (hidden on mobile) -->
-              {idx < pipeline.length - 1 && (
-                <div
-                  class="hidden md:block absolute top-5 left-[calc(50%+28px)] right-[calc(-50%+28px)] h-px bg-border"
-                  aria-hidden="true"
-                ></div>
-              )}
-              <!-- Number circle -->
+  <!-- ══ SCENE 03 · STRUCTURAL TRANSFORMATION ═══════════════════════════════
+       Pins itself: it has driven its own sticky stage and five scroll-linked
+       stages since before the scene system existed. Wrapping it in a second
+       pinned stage would give it two competing pins, so it is left alone. -->
+  <StructureTransform client:visible={{ rootMargin: '400px' }} />
+
+  <!-- ══ SCENE 04 · STRUCTURAL INTELLIGENCE ═════════════════════════════════ -->
+  <section
+    id="graph"
+    data-stage="architecture"
+    data-pin="off"
+    style={dur('architecture')}
+    aria-labelledby="graph-heading"
+  >
+    <div class="scene-stage">
+      {/*
+        Creation order: the seam statement, then the chapter marker + lead, then the topology.
+        `data-create` children build in authored order as the scene's progress
+        advances, so the reader watches the scene come into existence.
+      */}
+      <div class="story-shell" data-create>
+        <p class="flex flex-wrap items-baseline gap-x-4 gap-y-1"><span class="mono-label">STRUCTURE → TOPOLOGY</span><span class="text-[13px] text-text-muted">Once relationships are resolved, position stops being alphabetical.</span></p>
+      </div>
+
+      <div class="story-shell mt-3 sm:mt-4" data-create>
+        <ChapterHeading
+          headingId="graph-heading"
+          marker="03 — STRUCTURAL INTELLIGENCE"
+          lead="Every import. Every symbol. Every caller. Every dependency."
+          size="compact"
+          class="max-w-3xl"
+        />
+      </div>
+
+      <div class="story-shell story-shell--wide mt-3 sm:mt-4" data-create>
+        <CodebaseGraph client:visible={{ rootMargin: '300px' }} />
+      </div>
+    </div>
+  </section>
+
+  <!-- ══ SCENE 05 · CHANGE SURFACE ══════════════════════════════════════════ -->
+  <section
+    id="change"
+    data-stage="impact"
+    data-pin="off"
+    style={dur('impact')}
+    aria-labelledby="change-heading"
+  >
+    <div class="scene-stage">
+      <div class="story-shell" data-create>
+        <p class="flex flex-wrap items-baseline gap-x-4 gap-y-1"><span class="mono-label">TOPOLOGY → BLAST RADIUS</span><span class="text-[13px] text-text-muted">What is connected tells you what can be affected.</span></p>
+      </div>
+
+      <div class="story-shell mt-4 sm:mt-5" data-create>
+        <ChapterHeading
+          headingId="change-heading"
+          marker="04 — CHANGE SURFACE"
+          lines={['Know what', 'a change touches.']}
+          dimFrom={1}
+          align="right"
+          lead="Blast radius traced through the call graph: direct callers, downstream dependencies, and the API surface a change reaches."
+          class="max-w-4xl"
+        />
+      </div>
+
+      <div class="story-shell mt-4 sm:mt-5" data-create>
+        <ChangeSurface client:visible={{ rootMargin: '300px' }} />
+      </div>
+    </div>
+  </section>
+
+  <!-- ══ SCENE 06 · REPOSITORY MEMORY ═══════════════════════════════════════ -->
+  <section
+    id="memory"
+    data-stage="memory"
+    data-pin="off"
+    style={dur('memory')}
+    aria-labelledby="memory-heading"
+  >
+    <div class="scene-stage">
+      <div class="story-shell" data-create>
+        <p class="flex flex-wrap items-baseline gap-x-4 gap-y-1"><span class="mono-label">BLAST RADIUS → REPOSITORY MEMORY</span><span class="text-[13px] text-text-muted">Structure is one dimension. Time is the other.</span></p>
+      </div>
+
+      <div class="story-shell mt-3 sm:mt-4" data-create>
+        <ChapterHeading
+          headingId="memory-heading"
+          marker="05 — REPOSITORY MEMORY"
+          lead="Churn, commit concentration and architectural hotspots read from git history — what the repository is, and how it got that way."
+          size="compact"
+          class="max-w-4xl"
+        />
+      </div>
+
+      <div class="story-shell mt-3 sm:mt-4" data-create>
+        <RepositoryHistory client:visible={{ rootMargin: '300px' }} />
+      </div>
+    </div>
+  </section>
+
+  <!-- ══ SCENE 07 · GROUNDED RETRIEVAL ══════════════════════════════════════ -->
+  <section
+    id="retrieval"
+    data-stage="retrieval"
+    data-pin="off"
+    style={dur('retrieval')}
+    aria-labelledby="retrieval-heading"
+  >
+    <div class="scene-stage">
+      <div class="story-shell" data-create>
+        <p class="flex flex-wrap items-baseline gap-x-4 gap-y-1"><span class="mono-label">MEMORY → REASONING</span><span class="text-[13px] text-text-muted">Structure and history become context.</span></p>
+      </div>
+
+      <div class="story-shell mt-4 sm:mt-5" data-create>
+        <ChapterHeading
+          headingId="retrieval-heading"
+          marker="06 — GROUNDED RETRIEVAL"
+          lines={['Ask the', 'codebase.']}
+          dimFrom={1}
+          size="2"
+          lead="Conversational responses grounded in the repository's symbol graph, dependencies, and source files."
+          class="max-w-4xl"
+        />
+      </div>
+
+      <div class="story-shell mt-4 sm:mt-5" data-create>
+        <GroundedRetrieval client:visible={{ rootMargin: '300px' }} />
+      </div>
+    </div>
+  </section>
+
+  <!-- ══ SCENE 08 · READING PATH ════════════════════════════════════════════ -->
+  <section
+    id="onboarding"
+    data-stage="route"
+    data-pin="off"
+    style={dur('route')}
+    aria-labelledby="onboarding-heading"
+  >
+    <div class="scene-stage">
+      <div class="story-shell" data-create>
+        <p class="flex flex-wrap items-baseline gap-x-4 gap-y-1"><span class="mono-label">REASONING → READING PATH</span><span class="text-[13px] text-text-muted">Context tells you where to begin.</span></p>
+      </div>
+
+      <div class="story-shell mt-3 sm:mt-4" data-create>
+        <ChapterHeading
+          headingId="onboarding-heading"
+          marker="07 — ONBOARDING"
+          align="right"
+          lead="Context tells you where to begin. Centrality-ranked file sequences help engineers understand the architecture before diving into implementation details."
+          size="compact"
+          class="max-w-4xl"
+        />
+      </div>
+
+      <div class="story-shell mt-3 sm:mt-4" data-create>
+        <ReadingPath client:visible={{ rootMargin: '300px' }} />
+      </div>
+    </div>
+  </section>
+
+  <!-- ══ SCENE 09 · PIPELINE ════════════════════════════════════════════════ -->
+  <section
+    id="pipeline"
+    data-stage="pipeline"
+    data-pin="off"
+    style={dur('pipeline')}
+    aria-labelledby="pipeline-heading"
+  >
+    <div class="scene-stage">
+      <div class="story-shell story-shell--wide" data-create>
+        <p class="flex flex-wrap items-baseline gap-x-4 gap-y-1"><span class="mono-label">READING PATH → PIPELINE</span><span class="text-[13px] text-text-muted">Understanding starts with deterministic structure.</span></p>
+      </div>
+
+      <div class="story-shell story-shell--wide mt-3 sm:mt-4" data-create>
+        <ChapterHeading
+          headingId="pipeline-heading"
+          marker="08 — PIPELINE ARCHITECTURE"
+          lead="Each stage executes as an isolated analyzer. The graph is computed, indexed, and exposed as structured engineering intelligence."
+          size="compact"
+          class="max-w-3xl"
+        />
+      </div>
+
+      <div class="story-shell story-shell--wide mt-3 sm:mt-4" data-create>
+        <AnalysisPipeline client:visible={{ rootMargin: '300px' }} />
+      </div>
+    </div>
+  </section>
+
+  <!-- ══ SCENE 10 · TECHNICAL SPECIFICATION ═════════════════════════════════
+       An engineering specification, not a logo wall. -->
+  <section
+    id="technology"
+    data-stage="technology"
+    data-pin="on"
+    style={dur('technology')}
+    aria-label="Technology specification"
+  >
+    <div class="scene-stage">
+      <div class="story-shell">
+        <div data-create>
+          <div class="chapter-rule mb-10 sm:mb-14" data-reveal="fade">
+            <span class="mono-label mono-label-accent whitespace-nowrap">09 — TECHNOLOGY</span>
+          </div>
+        </div>
+
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-x-10 gap-y-10" data-create>
+          {TECHNOLOGY.map((column, ci) => (
+            <div class="md:hair-l md:first:border-l-0 md:pl-10 md:first:pl-0">
               <div
-                class="relative z-10 shrink-0 h-10 w-10 rounded-full bg-primary/10 border border-primary/30
-                       flex items-center justify-center text-[11px] font-mono font-bold text-primary"
-                aria-hidden="true"
+                class="flex items-baseline justify-between mb-5 pb-3 hair-b"
+                data-reveal
+                style={`--reveal-delay:${ci * 120}ms`}
               >
-                {n}
+                <h3 class="font-mono text-sm font-bold tracking-[0.2em] text-text uppercase">
+                  {column.column}
+                </h3>
+                <span class="mono-label">{String(column.items.length).padStart(2, '0')}</span>
               </div>
-              <div class="text-left md:text-center space-y-1">
-                <div class="text-sm font-semibold text-text">{title}</div>
-                <div class="text-[11px] text-text-muted leading-relaxed font-sans">{desc}</div>
-              </div>
-            </li>
-          ))}
-        </ol>
-      </div>
-    </div>
-  </section>
 
-  {/* ============================================================
-        DASHBOARD PREVIEW
-        ============================================================ */}
-  <section class="py-12 sm:py-16" aria-labelledby="preview-heading">
-    <div class="max-w-6xl mx-auto space-y-6">
-      <header class="text-center space-y-2">
-        <p class="text-[11px] font-mono uppercase tracking-widest text-primary font-semibold">
-          The dashboard
+              <ul>
+                {/*
+                  Each row is a datasheet line: index, entry, and a measured gutter
+                  naming its position in the group.
+                */}
+                {column.items.map((item, ii) => (
+                  <li
+                    data-reveal
+                    style={`--reveal-delay:${ci * 120 + 140 + ii * 80}ms`}
+                    class="spec-item flex items-baseline gap-4 py-2.5 hair-b last:border-b-0 group px-3 -mx-3 transition-colors duration-300 hover:bg-white/[0.018]"
+                  >
+                    <span class="mono-label shrink-0" style="letter-spacing:0.18em">
+                      {String(ii + 1).padStart(2, '0')}
+                    </span>
+                    <span
+                      class="font-mono text-[13px] text-text-muted group-hover:text-text transition-colors duration-300 flex-1 min-w-0"
+                    >
+                      {item}
+                    </span>
+                    <span class="spec-gutter shrink-0 tabular-nums">
+                      {String(ii + 1).padStart(2, '0')}/{String(column.items.length).padStart(2, '0')}
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          ))}
+        </div>
+
+        <p class="mono-detail mt-10 pt-5 hair-t max-w-2xl" data-reveal>
+          No inference where a parser will do. Language detection, symbol extraction and graph
+          computation are deterministic; models are used only to describe what the graph already
+          proves.
         </p>
-        <h2 id="preview-heading" class="text-2xl sm:text-3xl font-semibold text-text tracking-tight">
-          Every metric, one keyboard shortcut away
-        </h2>
-      </header>
-
-      <div class="card p-6 space-y-5">
-        <div class="flex items-center gap-3 pb-4 border-b border-border">
-          <div class="h-8 w-8 rounded-md bg-primary/15 border border-primary/30" aria-hidden="true"></div>
-          <div class="flex-grow space-y-2">
-            <div class="h-3 w-40 rounded bg-surface-2"></div>
-            <div class="h-2 w-24 rounded bg-surface-2 opacity-60"></div>
-          </div>
-          <div class="h-6 w-20 rounded-full bg-success/10 border border-success/30"></div>
-        </div>
-
-        <div class="grid grid-cols-2 sm:grid-cols-5 gap-3">
-          {previewKpis.map((kpi) => (
-            <div class="card p-3 flex flex-col gap-1.5">
-              <div class="text-[9px] font-mono uppercase tracking-widest text-text-subtle">{kpi.label}</div>
-              <div class="text-xl font-extrabold text-text font-mono tracking-tight">{kpi.value}</div>
-              <div class="h-1 w-12 rounded-full bg-primary" aria-hidden="true"></div>
-            </div>
-          ))}
-        </div>
-
-        <div class="grid grid-cols-1 lg:grid-cols-3 gap-4">
-          <div class="card-flat p-4 lg:col-span-2 space-y-3">
-            <div class="h-2 w-32 rounded bg-surface-2"></div>
-            <div class="space-y-2">
-              {[60, 40, 80, 30, 70, 50].map((w) => (
-                <div class="flex items-center gap-3">
-                  <div class="h-2 rounded bg-primary/40" style={`width: ${w}%`}></div>
-                  <div class="h-2 w-10 rounded bg-surface-2"></div>
-                </div>
-              ))}
-            </div>
-          </div>
-          <div class="card-flat p-4 flex flex-col items-center justify-center gap-3">
-            <div
-              class="h-24 w-24 rounded-full border-[10px] border-border"
-              style="border-top-color: var(--primary); border-right-color: var(--primary);"
-              aria-hidden="true"
-            ></div>
-            <div class="h-2 w-20 rounded bg-surface-2"></div>
-          </div>
-        </div>
-      </div>
-    </div>
-  </section>
-  {/* ============================================================
-        TECH STACK — grouped by category
-        ============================================================ */}
-  <section class="py-12" aria-labelledby="tech-heading">
-    <div class="max-w-4xl mx-auto space-y-6">
-      <p id="tech-heading" class="text-center text-[11px] font-mono uppercase tracking-widest text-text-subtle">
-        Powered by
-      </p>
-      <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
-        {Object.entries(techStack).map(([category, items]) => (
-          <div class="space-y-2">
-            <p class="text-[10px] font-mono uppercase tracking-widest text-text-subtle text-center capitalize">{category}</p>
-            <div class="flex flex-wrap justify-center gap-1.5">
-              {items.map((t) => (
-                <span class="text-xs font-mono px-2.5 py-1 rounded-md border border-border bg-surface-1 text-text-muted hover:text-text hover:border-primary/30 transition-colors">
-                  {t}
-                </span>
-              ))}
-            </div>
-          </div>
-        ))}
       </div>
     </div>
   </section>
 
+  <!-- ══ SCENE 11 · FINAL STATEMENT ═════════════════════════════════════════
+       The climax. The topology behind becomes extremely sparse. -->
+  <section
+    id="statement"
+    data-stage="statement"
+    data-pin="on"
+    style={dur('statement')}
+    aria-label="Closing statement"
+  >
+    <div class="scene-stage">
+      <div class="absolute inset-0 pointer-events-none" aria-hidden="true">
+        <svg
+          class="statement-drift h-full w-full"
+          viewBox="0 0 1440 900"
+          preserveAspectRatio="xMidYMid slice"
+          fill="none"
+        >
+          <g stroke="rgba(94,106,210,0.13)" stroke-width="1">
+            <path d="M-80 300 L360 470 L820 340 L1520 520" />
+            <path d="M-80 700 L300 560 L780 740 L1520 600" />
+            <path d="M180 -40 L360 470 L470 940" />
+            <path d="M980 -40 L820 340 L1080 940" />
+          </g>
+          <g fill="rgba(94,106,210,0.3)">
+            <circle cx="360" cy="470" r="2.5" />
+            <circle cx="820" cy="340" r="2.5" />
+            <circle cx="300" cy="560" r="2" />
+            <circle cx="780" cy="740" r="2" />
+          </g>
+        </svg>
+      </div>
+
+      <div class="story-shell relative">
+        {/*
+          Vocabulary: horizontal wipe, line by line. The inner span is what gets
+          clipped — clipping the observed element makes it invisible to the
+          IntersectionObserver that is supposed to reveal it.
+        */}
+        <p class="display-1 text-text type-scroll" data-type-scroll data-create>
+          <span class="block" data-reveal="line-clip" style="--reveal-delay:0ms"><span>Stop</span></span>
+          <span class="block" data-reveal="line-clip" style="--reveal-delay:150ms"><span>reading</span></span>
+          <span class="block" data-reveal="line-clip" style="--reveal-delay:300ms"><span>the codebase.</span></span>
+        </p>
+
+        <span
+          class="block h-px w-full max-w-md my-4 sm:my-6 bg-gradient-to-r from-primary/60 to-transparent"
+          data-reveal="rule"
+          style="--reveal-delay:480ms"
+          aria-hidden="true"
+        ></span>
+
+        {/*
+          Vocabulary: luminance emergence. The words are already in position and
+          brighten out of the canvas — which is precisely what the sentence claims.
+        */}
+        <p class="display-2" data-create>
+          <span class="block is-dim" data-reveal="line-lumen" style="--reveal-delay:600ms">Let ARIA</span>
+          <span class="block" data-reveal="line-lumen" style="--reveal-delay:800ms">map it first.</span>
+        </p>
+      </div>
+    </div>
+  </section>
+
+  <!-- ══ SCENE 12 · ENTER THE SYSTEM ════════════════════════════════════════
+       A command terminal, not a pricing card. The final destination. -->
+  <section
+    id="analyze"
+    data-stage="command"
+    data-pin="on"
+    style={dur('command')}
+    aria-labelledby="analyze-heading"
+  >
+    <div class="scene-stage">
+      <div class="story-shell">
+        {/*
+          The command surface resolves in layers: the chapter is named, then the
+          invitation, then the field itself. The system should read as waiting.
+        */}
+        <div data-create>
+          <ChapterHeading
+            headingId="analyze-heading"
+            marker="10 — ENTER THE SYSTEM"
+            lines={['Start with', 'a repository.']}
+            dimFrom={1}
+            lead="Paste a public GitHub repository and let ARIA map its structure, relationships, and engineering intelligence."
+            size="2"
+            class="max-w-3xl mb-10 sm:mb-14"
+          />
+        </div>
+
+        <div data-create>
+          <RepositoryAnalyzer client:load />
+        </div>
+      </div>
+    </div>
+  </section>
 </Layout>
+
+<script>
+  /**
+   * One observer drives every `[data-reveal]` element on the page. Elements
+   * reveal once and are then unobserved, so scrolling back up never re-triggers
+   * the animation and the observer empties itself as the visitor descends.
+   */
+  function initReveals() {
+    const targets = Array.from(document.querySelectorAll<HTMLElement>('[data-reveal]'));
+    if (targets.length === 0) return;
+
+    const prefersReduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    if (prefersReduced || typeof IntersectionObserver === 'undefined') {
+      targets.forEach((el) => el.classList.add('is-revealed'));
+      return;
+    }
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        entries.forEach((entry) => {
+          if (!entry.isIntersecting) return;
+          entry.target.classList.add('is-revealed');
+          observer.unobserve(entry.target);
+        });
+      },
+      { threshold: 0.15, rootMargin: '0px 0px -8% 0px' }
+    );
+
+    targets.forEach((el) => observer.observe(el));
+  }
+
+  // The navbar owns the reading-progress rail, so every route shares it.
+  initReveals();
+  document.addEventListener('astro:page-load', initReveals);
+</script>

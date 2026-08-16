@@ -1,0 +1,37 @@
+---
+/**
+ * ChapterRail — a fixed index at the edge of the frame.
+ *
+ * One tick per chapter, the current one extended and named, plus a spine showing
+ * how far through the story the reader is. Driven entirely by the scene
+ * controller in StoryBackdrop: it toggles `is-active` / `is-past` and writes
+ * `--rail-p`, so this component ships no JavaScript of its own.
+ *
+ * `aria-hidden` on purpose. The navbar and the chapter markers already expose
+ * this structure semantically; a screen reader should not be read the table of
+ * contents a second time as decoration.
+ *
+ * Scene names come from the shared model, so the rail, the director and the
+ * sections cannot drift apart.
+ */
+
+import { SCENES } from './sceneModel';
+
+/*
+  Driven straight off the scene model, so the rail can never disagree with the
+  director about how many scenes there are or what they are called.
+*/
+const chapters = SCENES;
+---
+
+<nav class="chapter-rail" data-chapter-rail aria-hidden="true">
+  {/* Film chapter marker: 01 — 12. Updated by the director on each scene change. */}
+  <span class="scene-counter" data-scene-counter><b>01</b><i></i>{String(chapters.length).padStart(2, '0')}</span>
+  <span class="rail-spine"></span>
+  {chapters.map((c) => (
+    <span class="rail-tick" data-scene={c.id}>
+      <i></i>
+      <b>{c.label}</b>
+    </span>
+  ))}
+</nav>

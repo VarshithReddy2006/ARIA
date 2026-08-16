@@ -1,0 +1,63 @@
+---
+/**
+ * SectionBridge — the seam between two chapters.
+ *
+ * The story never cuts. A hairline draws itself downward, a node sits on it, and
+ * a one-line statement names the logical step being taken. The statement is what
+ * earns the negative space: without it the gap reads as an accident.
+ */
+
+interface Props {
+  /** e.g. "TOPOLOGY → BLAST RADIUS" */
+  note: string;
+  /** One short line. Never a paragraph. */
+  statement: string;
+  align?: 'left' | 'center';
+}
+
+const { note, statement, align = 'left' } = Astro.props;
+const wrapper = align === 'center' ? 'items-center text-center' : 'items-start';
+---
+
+<div class="story-shell relative z-[1]" aria-hidden="true">
+  <div class={`flex flex-col gap-4 ${wrapper}`}>
+    {/*
+      The seam carries something across. The rule draws itself, then a single
+      point travels it once — so the gap between chapters reads as a connection
+      being made rather than as leftover space. It never repeats.
+    */}
+    <span class="relative block h-10 sm:h-14 w-px">
+      <span
+        class="absolute inset-0 bg-gradient-to-b from-white/[0.02] via-white/[0.09] to-primary/40"
+        data-reveal="rule-y"
+        style="--reveal-delay:0ms"
+      ></span>
+      <span
+        class="absolute -left-[2px] top-0 h-1.5 w-1.5 rounded-full bg-primary"
+        style="box-shadow:0 0 12px 3px rgba(94,106,210,0.55)"
+        data-reveal="pulse"
+      ></span>
+    </span>
+
+    <div class="flex flex-col gap-2.5" data-reveal="fade" style="--reveal-delay:200ms">
+      <span class="flex items-center gap-3">
+        {/*
+          A resting node, not a status light. It used to carry `status-dot`, which
+          breathes indefinitely — seven pulsing dots down the page, none of them
+          reporting anything. Motion here has to mean discovery, connection,
+          tracing, understanding, or a chapter change; a seam marker is none of
+          those, so it holds still and lets the drawn rule carry the transition.
+        */}
+        <span class="h-1 w-1 rounded-full bg-primary"></span>
+        <span class="mono-label">{note}</span>
+      </span>
+      <p class="text-[13px] sm:text-sm text-text-muted max-w-md leading-relaxed">{statement}</p>
+    </div>
+
+    <span
+      class="block h-10 sm:h-14 w-px bg-gradient-to-b from-primary/40 via-white/[0.09] to-white/[0.02]"
+      data-reveal="rule-y"
+      style="--reveal-delay:320ms"
+    ></span>
+  </div>
+</div>

@@ -5,10 +5,11 @@ import React, {
   useCallback,
   useMemo,
 } from 'react';
-import { Info, RefreshCw, GitBranch, Network, Layers, RotateCw } from 'lucide-react';
+import { Info, RefreshCw, GitBranch, Network, Layers, RotateCw, X } from 'lucide-react';
 import { ReactFlowProvider, useReactFlow } from 'reactflow';
 
 import { apiUrl, extractErrorMessage } from '../../../lib/api';
+import { normalizeGraphPath, resolveGraphNode } from '../../../lib/graphPathUtils';
 import { GraphCanvas } from './GraphCanvas';
 import { GraphToolbar } from './GraphToolbar';
 import { SearchBar } from './SearchBar';
@@ -16,7 +17,7 @@ import { NodeDetailsPanel } from './NodeDetailsPanel';
 import { GraphFilterBar } from './GraphFilterBar';
 import { GraphBreadcrumbNav } from './GraphBreadcrumbNav';
 import { ArchitectureDiagramModal } from './ArchitectureDiagramModal';
-import { GraphWorkspaceProvider } from './workspaceStore';
+import { GraphWorkspaceProvider, useGraphWorkspace } from './workspaceStore';
 import { computeGraphStats } from './graphStats';
 import { CATEGORY_COLORS, CATEGORY_LABELS } from './types';
 import type { GraphNode, GraphEdge, GraphMode, GraphResponse } from './types';
@@ -82,6 +83,8 @@ const InteractiveDependencyGraphInner: React.FC<
   InteractiveDependencyGraphProps
 > = ({ repoName, focusRequest }) => {
   const { zoomIn, zoomOut, setViewport, getViewport, setCenter, fitView, getNodes } = useReactFlow();
+  const { selectNode } = useGraphWorkspace();
+
   // ── Repo split ──────────────────────────────────────────────────────────
   const [owner, repo] = useMemo(() => {
     const parts = repoName.split('/');
@@ -97,12 +100,9 @@ const InteractiveDependencyGraphInner: React.FC<
   const [mode, setMode] = useState<GraphMode>('full');
   const [focusNode, setFocusNode] = useState<string | null>(null);
   const [selectedNode, setSelectedNode] = useState<GraphNode | null>(null);
+  const [nonGraphFileTarget, setNonGraphFileTarget] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
-  // used internally to differentiate trace directions when both toolbar
-  // buttons share the same mode key
-  const [traceDir, setTraceDir] = useState<'forward' | 'backward' | 'both'>(
-    'both',
-  );
+  const [traceDir, setTraceDir] = useState<'forward' | 'backward' | 'both'>('both');
 
   // ── Request state ───────────────────────────────────────────────────────
   const [loading, setLoading] = useState(false);
@@ -110,10 +110,66 @@ const InteractiveDependencyGraphInner: React.FC<
 
   // ── Refs ─────────────────────────────────────────────────────────────────
   const fitViewRef = useRef<(() => void) | null>(null);
-  /** AbortController for in-flight requests — cancels stale fetches. */
   const abortRef = useRef<AbortController | null>(null);
-  /** Debounce timer for search input. */
   const searchDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  /** Holds a pending target file to resolve as soon as graph nodes become available. */
+  const pendingTargetRef = useRef<string | null>(focusRequest?.path ?? null);
+
+  // ── Centering and Selection Helpers ─────────────────────────────────────
+  const centerOnNode = useCallback(
+    (nodeId: string) => {
+      let attempts = 0;
+      const tryCenter = () => {
+        attempts++;
+        const nodes = getNodes();
+        const target = nodes.find((n) => n.id === nodeId);
+        if (target && target.position) {
+          const x = target.position.x + (target.width ?? 200) / 2;
+          const y = target.position.y + (target.height ?? 40) / 2;
+          setCenter(x, y, { zoom: 1.15, duration: 400 });
+        } else if (attempts < 10) {
+          setTimeout(tryCenter, 60);
+        } else {
+          fitView({ padding: 0.15, duration: 300, minZoom: 0.15, maxZoom: 1.5 });
+        }
+      };
+      setTimeout(tryCenter, 50);
+    },
+    [getNodes, setCenter, fitView],
+  );
+
+  const applyTargetSelection = useCallback(
+    (targetPath: string, nodes: GraphNode[]) => {
+      if (!targetPath || !nodes || nodes.length === 0) return;
+      const decodedTarget = decodeURIComponent(targetPath);
+      const match = resolveGraphNode(decodedTarget, nodes, repoName);
+      if (match) {
+        setNonGraphFileTarget(null);
+        setSelectedNode(match);
+        setFocusNode(match.id);
+        selectNode(match.id);
+        centerOnNode(match.id);
+        pendingTargetRef.current = null;
+
+        // Keep URL in sync with durable file parameter without reload
+        if (typeof window !== 'undefined') {
+          const url = new URL(window.location.href);
+          url.searchParams.set('tab', 'graph');
+          url.searchParams.set('file', match.id);
+          url.searchParams.delete('focus');
+          window.history.replaceState({}, '', url.toString());
+          window.dispatchEvent(new CustomEvent('aria-workspace-file-select', { detail: { path: match.id } }));
+        }
+      } else {
+        // Node not in graph (e.g. documentation or non-indexed file)
+        // Keep the graph fully rendered, set non-graph notice, and fit viewport
+        setNonGraphFileTarget(decodedTarget);
+        pendingTargetRef.current = null;
+        setTimeout(() => fitView({ padding: 0.15, duration: 300, minZoom: 0.15, maxZoom: 1.5 }), 100);
+      }
+    },
+    [repoName, selectNode, centerOnNode, fitView],
+  );
 
   // ── Core fetch ───────────────────────────────────────────────────────────
   const fetchGraph = useCallback(
@@ -122,21 +178,22 @@ const InteractiveDependencyGraphInner: React.FC<
       focusId: string | null,
       query: string,
       dir: 'forward' | 'backward' | 'both',
+      isOptionalEnrichment = false,
     ) => {
       if (!owner || !repo) return;
 
-      // Cancel any in-flight request
-      abortRef.current?.abort();
-      abortRef.current = new AbortController();
-
-      setLoading(true);
-      setError(null);
-      setMatchCount(null);
+      if (!isOptionalEnrichment) {
+        abortRef.current?.abort();
+        abortRef.current = new AbortController();
+        setLoading(true);
+        setError(null);
+        setMatchCount(null);
+      }
 
       const url = buildUrl(owner, repo, fetchMode, focusId, query, dir);
 
       try {
-        const res = await fetch(url, { signal: abortRef.current.signal });
+        const res = await fetch(url, { signal: isOptionalEnrichment ? undefined : abortRef.current?.signal });
 
         if (!res.ok) {
           let detail = `HTTP ${res.status}`;
@@ -145,6 +202,10 @@ const InteractiveDependencyGraphInner: React.FC<
             detail = extractErrorMessage(body);
           } catch {
             /* ignore */
+          }
+          if (isOptionalEnrichment) {
+            // CRITICAL: Optional enrichment failure must NOT clear existing nodes!
+            return;
           }
           setError(detail);
           setApiNodes([]);
@@ -155,57 +216,66 @@ const InteractiveDependencyGraphInner: React.FC<
         const data: GraphResponse = await res.json();
 
         if (data.error) {
+          if (isOptionalEnrichment) return;
           setError(data.error);
           setApiNodes([]);
           setApiEdges([]);
           return;
         }
 
-        setApiNodes(data.nodes ?? []);
-        setApiEdges(data.edges ?? []);
+        const receivedNodes = data.nodes ?? [];
+        const receivedEdges = data.edges ?? [];
+
+        setApiNodes(receivedNodes);
+        setApiEdges(receivedEdges);
         if (data.matched_count !== undefined) {
           setMatchCount(data.matched_count);
         }
 
-        // Auto-fit after data loads
-        setTimeout(() => fitView({ padding: 0.15, duration: 300 }), 80);
+        // Asynchronously resolve pending focus target against loaded nodes
+        if (pendingTargetRef.current) {
+          applyTargetSelection(pendingTargetRef.current, receivedNodes);
+        } else {
+          setTimeout(() => fitView({ padding: 0.15, duration: 300, minZoom: 0.15, maxZoom: 1.5 }), 80);
+        }
       } catch (err: any) {
-        if (err.name === 'AbortError') return; // stale request cancelled
+        if (err.name === 'AbortError') return;
+        if (isOptionalEnrichment) return;
         setError(extractErrorMessage(err));
         setApiNodes([]);
         setApiEdges([]);
       } finally {
-        setLoading(false);
+        if (!isOptionalEnrichment) {
+          setLoading(false);
+        }
       }
     },
-    [owner, repo],
+    [owner, repo, applyTargetSelection, fitView],
   );
 
-  // ── Initial load ─────────────────────────────────────────────────────────
+  const lastHandledTokenRef = useRef<number | null>(focusRequest?.token ?? null);
+
+  // ── Initial load: always fetch full repository graph first ────────────────
   useEffect(() => {
-    setFocusNode(null);
-    setSelectedNode(null);
-    setSearchQuery('');
-    setMatchCount(null);
+    if (focusRequest?.path) {
+      pendingTargetRef.current = focusRequest.path;
+      lastHandledTokenRef.current = focusRequest.token;
+    }
     setMode('full');
     fetchGraph('full', null, '', 'both');
     return () => abortRef.current?.abort();
-  }, [fetchGraph]);
+  }, [repoName]);
 
-  // ── External focus request ───────────────────────────────────────────────
-  // Declared after the initial load so it wins on mount; fetchGraph aborts the
-  // in-flight full-graph request.
+  // ── External focus request handling ───────────────────────────────────────
   useEffect(() => {
-    const path = focusRequest?.path;
-    if (!path) return;
-    setSearchQuery('');
-    setMatchCount(null);
-    setSelectedNode(null);
-    setFocusNode(path);
-    setMode('neighbors');
-    setTraceDir('both');
-    fetchGraph('neighbors', path, '', 'both');
-  }, [focusRequest?.path, focusRequest?.token, fetchGraph]);
+    if (!focusRequest?.path || focusRequest.token === lastHandledTokenRef.current) return;
+    lastHandledTokenRef.current = focusRequest.token;
+    pendingTargetRef.current = focusRequest.path;
+
+    if (apiNodes.length > 0) {
+      applyTargetSelection(focusRequest.path, apiNodes);
+    }
+  }, [focusRequest?.token, focusRequest?.path, apiNodes, applyTargetSelection]);
 
   // ── Search debounce ──────────────────────────────────────────────────────
   const handleSearchChange = useCallback(
@@ -339,19 +409,44 @@ const InteractiveDependencyGraphInner: React.FC<
     setMatchCount(null);
     fetchGraph('full', null, '', 'both');
     setTimeout(() => {
-      fitView({ padding: 0.15, duration: 200 });
+      fitView({ padding: 0.15, duration: 200, minZoom: 0.15, maxZoom: 1.5 });
     }, 100);
   }, [fetchGraph, fitView]);
 
   const handleFitView = useCallback(() => {
-    fitView({ padding: 0.15, duration: 200 });
+    fitView({ padding: 0.15, duration: 200, minZoom: 0.15, maxZoom: 1.5 });
   }, [fitView]);
 
   // ── Node selection ────────────────────────────────────────────────────────
-  const handleNodeSelect = useCallback((node: GraphNode | null) => {
-    setSelectedNode(node);
-    if (node) setFocusNode(node.id);
-  }, []);
+  const handleNodeSelect = useCallback(
+    (node: GraphNode | null) => {
+      setNonGraphFileTarget(null);
+      setSelectedNode(node);
+      if (node) {
+        setFocusNode(node.id);
+        selectNode(node.id);
+        if (typeof window !== 'undefined') {
+          const url = new URL(window.location.href);
+          url.searchParams.set('tab', 'graph');
+          url.searchParams.set('file', node.id);
+          url.searchParams.delete('focus');
+          window.history.replaceState({}, '', url.toString());
+          window.dispatchEvent(new CustomEvent('aria-workspace-file-select', { detail: { path: node.id } }));
+        }
+      } else {
+        setFocusNode(null);
+        selectNode(null);
+        if (typeof window !== 'undefined') {
+          const url = new URL(window.location.href);
+          url.searchParams.delete('file');
+          url.searchParams.delete('focus');
+          window.history.replaceState({}, '', url.toString());
+          window.dispatchEvent(new CustomEvent('aria-workspace-file-select', { detail: { path: null } }));
+        }
+      }
+    },
+    [selectNode],
+  );
 
   // Compute lightweight stats client-side over current view
   const stats = useMemo(() => computeGraphStats(apiNodes, apiEdges), [apiNodes, apiEdges]);
@@ -361,47 +456,53 @@ const InteractiveDependencyGraphInner: React.FC<
 
   // ── Render ────────────────────────────────────────────────────────────────
   return (
-    <div className="card overflow-hidden flex flex-col h-[700px] relative">
-      {/* Statistics + search header */}
-      <div className="px-3 py-2.5 border-b border-border bg-surface-2 flex items-center gap-3 z-10 flex-wrap">
-        <SearchBar
-          value={searchQuery}
-          matchCount={matchCount}
-          onChange={handleSearchChange}
-          onClear={handleSearchClear}
-        />
-
-        {/* Stat pills */}
-        <div className="flex items-center gap-1.5 font-mono text-[10px]">
-          <StatPill icon={<Network className="h-3 w-3" />} label="Nodes" value={apiNodes.length} />
-          <StatPill icon={<GitBranch className="h-3 w-3" />} label="Edges" value={apiEdges.length} />
-          <StatPill icon={<Layers className="h-3 w-3" />} label="Components" value={stats.components} />
-          <StatPill
-            icon={<RotateCw className="h-3 w-3" />}
-            label="Cycles"
-            value={stats.cycleClusters}
-            tone={stats.cycleClusters > 0 ? 'danger' : 'neutral'}
-          />
+    <div className="card overflow-hidden flex flex-col h-[700px] relative border border-border/70 bg-[#030303]">
+      {/* Editorial Technical Header */}
+      <div className="px-4 py-2.5 border-b border-border/80 bg-zinc-950/90 flex items-center justify-between gap-4 z-10 flex-wrap font-mono">
+        <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2">
+            <span className="text-[10px] font-bold text-indigo-400 tracking-wider uppercase">FILE GRAPH</span>
+            <span className="text-zinc-600 text-[10px]">/</span>
+            <span className="text-[10px] text-zinc-400 uppercase tracking-wider">REPOSITORY TOPOLOGY</span>
+          </div>
+          <div className="hidden sm:flex items-center gap-1.5 text-[10px] text-zinc-400">
+            <span className="text-zinc-200 font-bold">{apiNodes.length.toLocaleString()}</span> NODES
+            <span className="text-zinc-600">·</span>
+            <span className="text-zinc-200 font-bold">{apiEdges.length.toLocaleString()}</span> EDGES
+            {stats.components > 0 && (
+              <>
+                <span className="text-zinc-600">·</span>
+                <span className="text-zinc-200 font-bold">{stats.components}</span> COMPONENTS
+              </>
+            )}
+            <span className="text-zinc-600">·</span>
+            <span className="text-zinc-400">DIRECTED</span>
+          </div>
         </div>
 
-        {/* Legend */}
-        <div className="ml-auto text-[10px] font-mono text-text-muted hidden lg:flex items-center gap-3">
-          {(['entry_point', 'core_module', 'high_coupling'] as const).map((k) => (
-            <span key={k} className="flex items-center gap-1.5">
-              <span
-                className="h-2 w-2 rounded-full"
-                style={{ backgroundColor: CATEGORY_COLORS[k] }}
-                aria-hidden="true"
-              />
-              {CATEGORY_LABELS[k]}
+        <div className="flex items-center gap-3 ml-auto">
+          <SearchBar
+            value={searchQuery}
+            matchCount={matchCount}
+            onChange={handleSearchChange}
+            onClear={handleSearchClear}
+          />
+
+          {/* Compact Legend */}
+          <div className="hidden xl:flex items-center gap-3 text-[9px] text-zinc-400 uppercase font-mono">
+            <span className="flex items-center gap-1">
+              <span className="h-1.5 w-1.5 rounded-full bg-emerald-400" /> Entry
             </span>
-          ))}
-          <span className="flex items-center gap-1.5">
-            <span className="h-2 w-2 rounded-full bg-amber-400" aria-hidden="true" /> Match
-          </span>
-          <span className="flex items-center gap-1.5">
-            <span className="h-2 w-2 rounded-full bg-white" aria-hidden="true" /> Focus
-          </span>
+            <span className="flex items-center gap-1">
+              <span className="h-1.5 w-1.5 rounded-full bg-blue-400" /> Module
+            </span>
+            <span className="flex items-center gap-1">
+              <span className="h-1.5 w-1.5 rounded-full bg-amber-400" /> Coupled
+            </span>
+            <span className="flex items-center gap-1">
+              <span className="h-1.5 w-1.5 rounded-full bg-indigo-400" /> Focus
+            </span>
+          </div>
         </div>
       </div>
 
@@ -439,21 +540,21 @@ const InteractiveDependencyGraphInner: React.FC<
           <div
             role="status"
             aria-live="polite"
-            className="absolute inset-0 bg-canvas/70 backdrop-blur-sm flex flex-col items-center justify-center gap-2 z-30 font-mono text-xs text-text-muted"
+            className="absolute inset-0 bg-canvas/80 backdrop-blur-sm flex flex-col items-center justify-center gap-2 z-30 font-mono text-xs text-text-muted"
           >
-            <RefreshCw className="h-5 w-5 animate-spin text-primary" aria-hidden="true" />
-            <span>Loading graph…</span>
+            <RefreshCw className="h-5 w-5 animate-spin text-indigo-400" aria-hidden="true" />
+            <span className="tracking-wide">BUILDING REPOSITORY TOPOLOGY…</span>
           </div>
         )}
 
         {/* Error overlay */}
         {!loading && error && (
-          <div className="absolute inset-0 bg-canvas/80 backdrop-blur-sm flex items-center justify-center z-30 p-6">
+          <div className="absolute inset-0 bg-canvas/85 backdrop-blur-sm flex items-center justify-center z-30 p-6 font-mono">
             <EmptyState
               tone="danger"
-              icon={<Info className="h-6 w-6" aria-hidden="true" />}
-              title="Graph failed to load"
-              description={error}
+              icon={<Info className="h-6 w-6 text-red-400" aria-hidden="true" />}
+              title="TOPOLOGY UNAVAILABLE"
+              description={error || 'Unable to load repository dependency graph.'}
               action={<Button variant="ghost" onClick={handleReset}>Retry</Button>}
             />
           </div>
@@ -461,14 +562,14 @@ const InteractiveDependencyGraphInner: React.FC<
 
         {/* Empty state */}
         {!loading && !error && apiNodes.length === 0 && (
-          <div className="absolute inset-0 flex items-center justify-center z-30 p-6">
+          <div className="absolute inset-0 flex items-center justify-center z-30 p-6 font-mono">
             <EmptyState
-              icon={<Network className="h-6 w-6" aria-hidden="true" />}
-              title={searchQuery ? 'No nodes matched your search' : 'Graph is empty'}
+              icon={<Network className="h-6 w-6 text-zinc-500" aria-hidden="true" />}
+              title={searchQuery ? 'NO MATCHING NODES' : 'GRAPH IS EMPTY'}
               description={
                 searchQuery
-                  ? 'Try a different keyword or clear the search to see the full graph.'
-                  : 'Run a repository analysis to populate the dependency graph.'
+                  ? 'Try a different keyword or clear search to reveal the full topology.'
+                  : 'Run repository analysis to index module relationships.'
               }
               action={searchQuery ? <Button variant="ghost" onClick={handleSearchClear}>Clear search</Button> : undefined}
             />
@@ -476,7 +577,7 @@ const InteractiveDependencyGraphInner: React.FC<
         )}
 
         {/* React Flow canvas */}
-        <div className="flex-grow h-full bg-canvas/10">
+        <div className="flex-grow h-full bg-[#030303]">
           <GraphCanvas
             apiNodes={apiNodes}
             apiEdges={apiEdges}
@@ -485,25 +586,84 @@ const InteractiveDependencyGraphInner: React.FC<
           />
         </div>
 
+        {/* Compact instruction hint when no node is selected */}
+        {!selectedNode && !nonGraphFileTarget && apiNodes.length > 0 && (
+          <div className="absolute top-3 right-3 hidden lg:flex items-center gap-2 px-3 py-1.5 bg-zinc-950/85 border border-zinc-800/80 rounded-md text-[10px] font-mono text-zinc-400 shadow-sm backdrop-blur-sm pointer-events-none select-none">
+            <span className="h-1.5 w-1.5 rounded-full bg-indigo-500/80" />
+            <span>Select any node to open Architecture Inspector</span>
+          </div>
+        )}
+
+        {/* Non-graph file drawer notice */}
+        {nonGraphFileTarget && !selectedNode && (
+          <div
+            role="dialog"
+            aria-label={`Notice: ${nonGraphFileTarget} not in graph`}
+            className="fixed inset-x-0 bottom-0 max-h-[80vh] md:absolute md:right-0 md:top-0 md:bottom-0 md:max-h-none md:w-[380px] bg-zinc-950 border-t md:border-t-0 md:border-l border-zinc-800 flex flex-col z-20 shadow-2xl font-mono animate-in fade-in slide-in-from-right-2 duration-200"
+          >
+            <div className="flex items-start justify-between px-4 pt-4 pb-3 border-b border-zinc-800/80 shrink-0">
+              <div>
+                <span className="text-[9px] font-bold text-amber-400 uppercase tracking-wider block">
+                  Topology Notice
+                </span>
+                <h3 className="text-xs font-semibold text-zinc-100 truncate block mt-0.5" title={nonGraphFileTarget}>
+                  {nonGraphFileTarget.split('/').pop() || nonGraphFileTarget}
+                </h3>
+                <span className="text-[9px] text-zinc-500 truncate block">{nonGraphFileTarget}</span>
+              </div>
+              <button
+                type="button"
+                onClick={() => setNonGraphFileTarget(null)}
+                className="text-zinc-400 hover:text-zinc-100 p-1 rounded"
+                title="Dismiss notice"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+            <div className="p-4 space-y-3 text-xs text-zinc-300">
+              <div className="p-3 bg-amber-950/20 border border-amber-500/30 rounded-lg space-y-1.5">
+                <span className="text-[10px] font-bold text-amber-400 uppercase tracking-wider block">
+                  File Not Represented in Topology
+                </span>
+                <p className="text-[11px] text-zinc-300 leading-relaxed">
+                  This file exists in the repository but does not import or export code modules in the structural AST dependency graph (e.g. documentation, static assets, or configs).
+                </p>
+              </div>
+              <p className="text-[10px] text-zinc-400 leading-relaxed">
+                The full repository dependency graph remains rendered and interactive. Click any graph node to inspect its architectural properties.
+              </p>
+            </div>
+          </div>
+        )}
+
         {/* Node details panel */}
         {selectedNode && (
           <NodeDetailsPanel
             node={selectedNode}
             repoName={repoName}
-            onClose={() => setSelectedNode(null)}
+            onClose={() => handleNodeSelect(null)}
             onExpand={(id) => {
               setFocusNode(id);
               setMode('neighbors');
-              fetchGraph('neighbors', id, '', 'both');
+              fetchGraph('neighbors', id, '', 'both', true);
             }}
             onTraceForward={handleTraceForward}
             onTraceBackward={handleTraceBackward}
             onTraceBoth={handleTraceBoth}
             onOpenDiagramModal={(id) => setDiagramModalNodeId(id)}
             onSelectNode={(id) => {
-              const match = apiNodes.find((n) => n.id === id) || { id, label: id.split('/').pop() || id, category: 'regular', degree: 1, centrality: 0.1, language: 'typescript', highlighted: false, is_focus: true };
-              setSelectedNode(match);
-              setFocusNode(id);
+              const match = resolveGraphNode(id, apiNodes, repoName) || {
+                id,
+                label: id.split('/').pop() || id,
+                category: 'regular',
+                degree: 1,
+                centrality: 0.1,
+                language: 'typescript',
+                highlighted: false,
+                is_focus: true,
+              };
+              handleNodeSelect(match);
+              centerOnNode(match.id);
             }}
           />
         )}
@@ -556,3 +716,4 @@ const StatPill: React.FC<StatPillProps> = ({ icon, label, value, tone = 'neutral
 );
 
 export default InteractiveDependencyGraph;
+// Interactive dependency graph entry point

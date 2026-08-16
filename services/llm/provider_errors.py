@@ -190,9 +190,13 @@ def classify_gemini_error(
             ProviderErrorType.MISSING_CREDENTIAL, provider_name, exc, _GEMINI_MESSAGES
         )
 
-    # google.genai.errors.ClientError covers all HTTP-level errors
+    # google.genai.errors.ClientError / ServerError / APIError covers all HTTP-level errors
     # The message always contains the HTTP status and detail string
-    if "clienterror" in exc_type.lower() or "apierror" in exc_type.lower():
+    if (
+        "clienterror" in exc_type.lower()
+        or "apierror" in exc_type.lower()
+        or "servererror" in exc_type.lower()
+    ):
         # Access token type unsupported — most specific check first
         if "access_token_type_unsupported" in exc_str:
             return _make(
@@ -229,9 +233,18 @@ def classify_gemini_error(
                 _GEMINI_MESSAGES,
             )
 
-        # 429 rate limit
-        if "429" in exc_str or "resource_exhausted" in exc_str or "rate" in exc_str:
-            if "quota" in exc_str:
+        # 429 rate limit / quota / token limit / resource exhausted
+        if (
+            "429" in exc_str
+            or "resource_exhausted" in exc_str
+            or "rate" in exc_str
+            or "token" in exc_str
+            or "quota" in exc_str
+            or "limit" in exc_str
+            or "tpm" in exc_str
+            or "rpm" in exc_str
+        ):
+            if "quota" in exc_str or ("token" in exc_str and "rate" not in exc_str and "rpm" not in exc_str):
                 return _make(
                     ProviderErrorType.QUOTA_EXCEEDED,
                     provider_name,
@@ -242,8 +255,21 @@ def classify_gemini_error(
                 ProviderErrorType.RATE_LIMIT_ERROR, provider_name, exc, _GEMINI_MESSAGES
             )
 
-        # 503 / 502 service unavailable
-        if "503" in exc_str or "502" in exc_str or "unavailable" in exc_str:
+        # 503 / 502 service unavailable / high demand
+        if (
+            "503" in exc_str
+            or "502" in exc_str
+            or "unavailable" in exc_str
+            or "high demand" in exc_str
+            or "overloaded" in exc_str
+        ):
+            if "high demand" in exc_str or "capacity" in exc_str:
+                return _make(
+                    ProviderErrorType.RATE_LIMIT_ERROR,
+                    provider_name,
+                    exc,
+                    _GEMINI_MESSAGES,
+                )
             return _make(
                 ProviderErrorType.NETWORK_ERROR, provider_name, exc, _GEMINI_MESSAGES
             )
@@ -280,8 +306,18 @@ def classify_gemini_error(
             exc,
             _GEMINI_MESSAGES,
         )
-    if "429" in exc_str or "resource_exhausted" in exc_str or "rate limit" in exc_str:
-        if "quota" in exc_str:
+    if (
+        "429" in exc_str
+        or "resource_exhausted" in exc_str
+        or "rate limit" in exc_str
+        or "token" in exc_str
+        or "quota" in exc_str
+        or "high demand" in exc_str
+    ):
+        if (
+            "quota" in exc_str
+            or ("token" in exc_str and "rate" not in exc_str and "rpm" not in exc_str)
+        ):
             return _make(
                 ProviderErrorType.QUOTA_EXCEEDED,
                 provider_name,

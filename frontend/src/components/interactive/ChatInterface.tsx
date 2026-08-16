@@ -144,7 +144,7 @@ const CodeBlock: React.FC<{ inline?: boolean; className?: string; children: Reac
     <div className="my-3 border border-border rounded-xl overflow-hidden bg-surface-1 shadow-card flex flex-col w-full fade-up">
       <div className="flex items-center justify-between px-4 py-2.5 bg-surface-2 border-b border-border/80 text-[10px] font-mono text-text-muted select-none shrink-0">
         <div className="flex items-center gap-2">
-          <span className="h-2 w-2 rounded-full bg-primary/70 animate-pulse"></span>
+          <span className="h-2 w-2 rounded-full bg-primary/70"></span>
           <span>{lang || 'code'}</span>
         </div>
         <div className="flex items-center gap-3.5">
@@ -241,33 +241,57 @@ const TypingIndicator: React.FC = () => (
   </div>
 );
 
-/** Citations and sources container */
-const SourcesPanel: React.FC<{ sources: string[]; confidence: number; fallbackMode: boolean }> = ({
+/** Citations, Grounded Evidence, and Structural Sources container */
+const SourcesPanel: React.FC<{ sources: string[]; confidence: number; fallbackMode: boolean; activeRepo?: string }> = ({
   sources,
   confidence,
   fallbackMode,
+  activeRepo,
 }) => {
-  const [open, setOpen] = useState(false);
+  const [open, setOpen] = useState(true);
 
   const displayConfidence = Math.min(Math.max(Math.round(confidence), 0), 100);
 
+  const handleNavigateToGraph = (filePath: string) => {
+    if (typeof window !== 'undefined') {
+      const [owner, repo] = (activeRepo || '').split('/');
+      window.dispatchEvent(
+        new CustomEvent('aria-open-graph', {
+          detail: {
+            owner: owner || undefined,
+            repo: repo || undefined,
+            file: filePath,
+            path: filePath,
+            source: 'chat',
+          },
+        })
+      );
+      // If we are on standalone /chat, offer direct link
+      if (window.location.pathname === '/chat' && activeRepo) {
+        if (owner && repo) {
+          window.location.href = `/analysis?owner=${owner}&repo=${repo}&tab=graph&file=${encodeURIComponent(filePath)}`;
+        }
+      }
+    }
+  };
+
   return (
-    <div className="border border-border/80 rounded-xl overflow-hidden bg-surface-1/40 text-[10px] font-sans shadow-card fade-up select-none">
+    <div className="border border-white/[0.08] rounded-xl overflow-hidden bg-surface-1 text-[11px] font-sans shadow-card fade-up select-none">
       <button
         type="button"
         onClick={() => setOpen((o) => !o)}
-        className="w-full flex items-center justify-between px-3.5 py-2.5 hover:bg-canvas/50 transition-colors focus-visible:outline-none"
+        className="w-full flex items-center justify-between px-3.5 py-2.5 bg-surface-2/70 hover:bg-surface-2 transition-colors focus-visible:outline-none border-b border-white/[0.04]"
       >
         <div className="flex items-center gap-3">
-          <span className="font-mono font-bold text-text flex items-center gap-1.5">
-            <FileCode className="h-3.5 w-3.5 text-primary" /> Sources ({sources.length})
+          <span className="font-mono text-xs font-bold text-text flex items-center gap-1.5">
+            <FileCode className="h-3.5 w-3.5 text-primary" /> Grounded Evidence ({sources.length})
           </span>
           {fallbackMode ? (
-            <span className="text-amber-500 font-mono font-semibold">Fallback Mode</span>
+            <span className="text-amber-400 font-mono text-[10px] font-semibold">Fallback Mode</span>
           ) : (
-            <span className="text-text-muted">
-              Confidence:{' '}
-              <span className="font-mono font-bold text-primary">{displayConfidence}%</span>
+            <span className="text-text-subtle text-[10px] font-mono">
+              Retrieval Grounding:{' '}
+              <span className="font-bold text-emerald-400">{displayConfidence}% Confidence</span>
             </span>
           )}
         </div>
@@ -275,18 +299,41 @@ const SourcesPanel: React.FC<{ sources: string[]; confidence: number; fallbackMo
       </button>
 
       {open && (
-        <div className="p-3 bg-canvas/30 border-t border-border/40 grid grid-cols-1 sm:grid-cols-2 gap-2 max-h-40 overflow-y-auto">
-          {sources.map((src, i) => (
-            <div
-              key={i}
-              className="flex items-center gap-2 p-2 bg-card rounded-lg border border-border/50 truncate hover:border-primary/20 transition-all"
-            >
-              <FileCode className="h-3 w-3 text-text-muted shrink-0" />
-              <span className="font-mono text-text-muted truncate select-all" title={src}>
-                {src.split('/').pop() || src}
-              </span>
-            </div>
-          ))}
+        <div className="p-3 bg-canvas/60 space-y-2 max-h-56 overflow-y-auto">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+            {sources.map((src, i) => {
+              const fileName = src.split('/').pop() || src;
+              const dir = src.includes('/') ? src.substring(0, src.lastIndexOf('/')) : '';
+              return (
+                <div
+                  key={i}
+                  className="flex items-center justify-between gap-2 p-2 rounded-lg border border-white/[0.06] bg-surface-1/90 hover:border-primary/40 transition-all group"
+                >
+                  <div className="min-w-0 pr-1 flex items-center gap-2">
+                    <FileCode className="h-3.5 w-3.5 text-primary/70 shrink-0 group-hover:text-primary transition-colors" />
+                    <div className="truncate">
+                      <p className="font-mono text-[11px] font-semibold text-text truncate" title={src}>
+                        {fileName}
+                      </p>
+                      {dir && (
+                        <p className="font-mono text-[9px] text-text-subtle truncate" title={dir}>
+                          {dir}/
+                        </p>
+                      )}
+                    </div>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => handleNavigateToGraph(src)}
+                    className="shrink-0 text-[9px] font-mono font-semibold px-2 py-1 rounded bg-primary/10 border border-primary/20 text-primary hover:bg-primary hover:text-white transition-colors"
+                    title={`View ${fileName} in Structural Graph`}
+                  >
+                    View in Graph →
+                  </button>
+                </div>
+              );
+            })}
+          </div>
         </div>
       )}
     </div>
@@ -305,7 +352,19 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState('');
   const [isStreaming, setIsStreaming] = useState(false);
-  const [activeRepo, setActiveRepo] = useState(repoName);
+  const [activeRepo, setActiveRepo] = useState<string>(() => {
+    if (repoName) return repoName;
+    if (typeof window !== 'undefined') {
+      const urlParams = new URLSearchParams(window.location.search);
+      const owner = urlParams.get('owner');
+      const repo = urlParams.get('repo');
+      if (owner && repo) return `${owner}/${repo}`;
+      if (urlParams.get('repo')) return urlParams.get('repo')!;
+      const stored = localStorage.getItem('activeRepo');
+      if (stored) return stored;
+    }
+    return '';
+  });
   const [copiedAnswerId, setCopiedAnswerId] = useState<string | null>(null);
   const [noRepoError, setNoRepoError] = useState(false);
 
@@ -320,7 +379,7 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({
     'What is the architectural overview of this repository?',
   ];
 
-  // Sync active repo changes
+  // Sync active repo changes from prop
   useEffect(() => {
     if (repoName) {
       setActiveRepo(repoName);
@@ -328,12 +387,36 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({
     }
   }, [repoName]);
 
+  // Fallback: If still no activeRepo on mount, look up recent analyzed repos from the backend
+  useEffect(() => {
+    if (!activeRepo) {
+      fetch(apiUrl('/api/v1/repos/recent'))
+        .then((res) => res.json())
+        .then((data) => {
+          if (Array.isArray(data) && data.length > 0 && data[0].name) {
+            const foundRepo = data[0].name;
+            setActiveRepo(foundRepo);
+            if (typeof window !== 'undefined') {
+              localStorage.setItem('activeRepo', foundRepo);
+              window.dispatchEvent(new CustomEvent('active-repo-changed', { detail: foundRepo }));
+            }
+          } else {
+            setNoRepoError(true);
+          }
+        })
+        .catch(() => {
+          setNoRepoError(true);
+        });
+    }
+  }, [activeRepo]);
+
   // Window events
   useEffect(() => {
     const handleRepoChanged = (e: Event) => {
       const customEvent = e as CustomEvent<string>;
       if (customEvent.detail) {
         setActiveRepo(customEvent.detail);
+        setNoRepoError(false);
       }
     };
     const handleRepoCleared = () => {
@@ -347,7 +430,7 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({
       window.removeEventListener('active-repo-changed', handleRepoChanged);
       window.removeEventListener('active-repo-cleared', handleRepoCleared);
     };
-  }, [activeRepo]);
+  }, []);
 
   // Reset conversation on active repo change
   useEffect(() => {
@@ -584,7 +667,7 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({
       {/* Header */}
       <div className="flex items-center justify-between px-5 py-3.5 border-b border-border bg-card/45 shrink-0 select-none">
         <div className="flex items-center gap-2">
-          <MessageSquareCode className="h-4 w-4 text-primary animate-pulse" />
+          <MessageSquareCode className="h-4 w-4 text-primary" />
           <span className="font-mono text-xs font-bold text-text uppercase tracking-wider">
             Codebase Companion
           </span>
@@ -612,7 +695,7 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({
       {/* Empty State Welcome Dashboard */}
       {!noRepoError && messages.length === 0 && (
         <div className="flex-grow flex flex-col items-center justify-center p-6 gap-6 text-center max-w-xl mx-auto my-auto fade-up">
-          <div className="h-12 w-12 rounded-full bg-primary/10 border border-primary/20 flex items-center justify-center text-primary animate-pulse select-none">
+          <div className="h-12 w-12 rounded-full bg-primary/10 border border-primary/20 flex items-center justify-center text-primary select-none">
             <Sparkles className="h-6 w-6" />
           </div>
           <div className="space-y-2">
@@ -738,7 +821,7 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({
                   </div>
                 )}
 
-                {/* Collapsible citations grid card */}
+                {/* Collapsible citations & grounded evidence panel */}
                 {msg.sender === 'assistant' &&
                   msg.sources &&
                   msg.sources.length > 0 && (
@@ -746,6 +829,7 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({
                       sources={msg.sources}
                       confidence={msg.confidence ?? 0}
                       fallbackMode={msg.fallbackMode ?? false}
+                      activeRepo={activeRepo}
                     />
                   )}
               </div>
@@ -760,7 +844,7 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({
                 onClick={handleStop}
                 className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-red-500/25 bg-red-500/5 text-red-500 hover:bg-red-500/10 text-[10px] font-mono uppercase tracking-wider font-bold transition-all focus-visible:outline-none"
               >
-                <StopCircle className="h-3.5 w-3.5 animate-pulse" />
+                <StopCircle className="h-3.5 w-3.5" />
                 Stop Generation
               </button>
             </div>

@@ -13,42 +13,42 @@ export const PanControls: React.FC = () => {
   return (
     <div className="absolute bottom-4 left-16 z-10 flex flex-col items-center gap-1 nodrag nopan select-none">
       {/* Up Button */}
-      <div className="bg-surface-2 border border-border rounded-lg shadow-float">
+      <div className="bg-zinc-950/80 border border-zinc-800/80 rounded-md shadow-lg backdrop-blur-sm">
         <button
           type="button"
           onClick={() => handlePan(0, 150)}
-          className="w-7.5 h-7.5 flex items-center justify-center hover:bg-canvas text-text-muted hover:text-text transition-colors rounded-lg focus:outline-none"
+          className="w-7 h-7 flex items-center justify-center hover:bg-zinc-900 text-zinc-400 hover:text-zinc-100 transition-colors rounded-md focus:outline-none"
           title="Pan Up"
         >
-          <ArrowUp className="h-4 w-4" />
+          <ArrowUp className="h-3.5 w-3.5" />
         </button>
       </div>
 
       {/* Row 2: Left, Down, Right */}
-      <div className="flex bg-surface-2 border border-border rounded-lg shadow-float divide-x divide-border">
+      <div className="flex bg-zinc-950/80 border border-zinc-800/80 rounded-md shadow-lg backdrop-blur-sm divide-x divide-zinc-800/80">
         <button
           type="button"
           onClick={() => handlePan(150, 0)}
-          className="w-7.5 h-7.5 flex items-center justify-center hover:bg-canvas text-text-muted hover:text-text transition-colors rounded-l-lg focus:outline-none"
+          className="w-7 h-7 flex items-center justify-center hover:bg-zinc-900 text-zinc-400 hover:text-zinc-100 transition-colors rounded-l-md focus:outline-none"
           title="Pan Left"
         >
-          <ArrowLeft className="h-4 w-4" />
+          <ArrowLeft className="h-3.5 w-3.5" />
         </button>
         <button
           type="button"
           onClick={() => handlePan(0, -150)}
-          className="w-7.5 h-7.5 flex items-center justify-center hover:bg-canvas text-text-muted hover:text-text transition-colors focus:outline-none"
+          className="w-7 h-7 flex items-center justify-center hover:bg-zinc-900 text-zinc-400 hover:text-zinc-100 transition-colors focus:outline-none"
           title="Pan Down"
         >
-          <ArrowDown className="h-4 w-4" />
+          <ArrowDown className="h-3.5 w-3.5" />
         </button>
         <button
           type="button"
           onClick={() => handlePan(-150, 0)}
-          className="w-7.5 h-7.5 flex items-center justify-center hover:bg-canvas text-text-muted hover:text-text transition-colors rounded-r-lg focus:outline-none"
+          className="w-7 h-7 flex items-center justify-center hover:bg-zinc-900 text-zinc-400 hover:text-zinc-100 transition-colors rounded-r-md focus:outline-none"
           title="Pan Right"
         >
-          <ArrowRight className="h-4 w-4" />
+          <ArrowRight className="h-3.5 w-3.5" />
         </button>
       </div>
     </div>

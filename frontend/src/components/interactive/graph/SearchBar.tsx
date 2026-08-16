@@ -19,22 +19,17 @@ export const SearchBar: React.FC<SearchBarProps> = ({
   matchCount,
   onChange,
   onClear,
-  placeholder = 'Search files (e.g. api, auth, service)…',
+  placeholder = 'Search files, modules, symbols…',
 }) => {
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const handleInput = (e: React.ChangeEvent<HTMLInputElement>) => {
     const raw = e.target.value;
-    // Immediately update controlled value for visual feedback
     onChange(raw);
-    // Debounce the actual search trigger — parent handles the API call
     if (debounceRef.current) clearTimeout(debounceRef.current);
-    debounceRef.current = setTimeout(() => {
-      // Parent receives the same value but now triggers the fetch
-    }, 300);
+    debounceRef.current = setTimeout(() => {}, 300);
   };
 
-  // Cleanup on unmount
   useEffect(() => {
     return () => {
       if (debounceRef.current) clearTimeout(debounceRef.current);
@@ -44,37 +39,41 @@ export const SearchBar: React.FC<SearchBarProps> = ({
   const hasValue = value.trim().length > 0;
 
   return (
-    <div className="flex items-center gap-2 flex-grow max-w-sm">
+    <div className="flex items-center gap-2 flex-grow max-w-xs">
       <div className="relative flex-grow">
         {/* Search icon */}
-        <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-text-muted pointer-events-none" />
+        <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-zinc-500 pointer-events-none" />
 
         <input
           type="text"
           value={value}
           onChange={handleInput}
           placeholder={placeholder}
-          className="w-full bg-canvas border border-border rounded pl-8 pr-8 py-1.5 text-xs font-mono focus:outline-none focus:border-primary/80 text-text placeholder:text-text-muted/50"
+          className="w-full bg-zinc-900/90 border border-zinc-800 rounded-md pl-8 pr-12 py-1 text-xs font-mono focus:outline-none focus:border-indigo-500/80 text-zinc-100 placeholder:text-zinc-500/70 transition-colors"
         />
 
         {/* Match count badge */}
         {hasValue && matchCount !== null && (
-          <span className="absolute right-7 top-1/2 -translate-y-1/2 text-[9px] font-mono text-primary bg-primary/10 border border-primary/20 px-1 rounded">
+          <span className="absolute right-7 top-1/2 -translate-y-1/2 text-[9px] font-mono text-indigo-400 bg-indigo-500/10 border border-indigo-500/30 px-1 rounded">
             {matchCount}
           </span>
         )}
 
-        {/* Clear button */}
-        {hasValue && (
+        {/* Shortcut badge / Clear button */}
+        {hasValue ? (
           <button
             type="button"
             onClick={onClear}
             aria-label="Clear search"
-            className="absolute right-2 top-1/2 -translate-y-1/2 text-text-muted hover:text-text rounded focus-visible:outline-none focus-visible:shadow-ring"
+            className="absolute right-2 top-1/2 -translate-y-1/2 text-zinc-400 hover:text-zinc-100 rounded focus-visible:outline-none"
             title="Clear search"
           >
             <X className="h-3.5 w-3.5" aria-hidden="true" />
           </button>
+        ) : (
+          <kbd className="absolute right-2 top-1/2 -translate-y-1/2 text-[9px] font-mono text-zinc-500 bg-zinc-950 border border-zinc-800 px-1.5 py-0.5 rounded pointer-events-none">
+            /
+          </kbd>
         )}
       </div>
     </div>

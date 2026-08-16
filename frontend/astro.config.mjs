@@ -20,4 +20,9 @@ export default defineConfig({
       },
     },
   },
+  vite: {
+    optimizeDeps: {
+      include: ['reactflow', 'dagre', 'react-markdown', 'remark-gfm', 'lucide-react', 'framer-motion'],
+    },
+  },
 });

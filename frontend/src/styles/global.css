@@ -5,30 +5,33 @@
 /* ---------------------------------------------------------------------------
  * Design tokens — single source of truth.
  * Dark theme is the default and only theme. No light variant.
+ * ARIA Cinematic Design System — Phase 1
  * ------------------------------------------------------------------------- */
 
 :root {
-  /* surfaces — deep canvas with layered elevation above it */
-  --canvas:        #010102;
-  --surface-1:     #111114;
-  --surface-2:     #17181c;
-  --surface-3:     #1e1f24;
+  /* surfaces — deep cinematic near-black canvas */
+  --canvas:        #020204;
+  --canvas-subtle: #050609;
+  --surface-1:     #08090d;
+  --surface-2:     #0d0e14;
+  --surface-3:     #13141c;
 
-  /* borders */
-  --border:        #23252a;
-  --border-strong: #2f3138;
-  --border-subtle: rgba(35,37,42,0.5);
+  /* borders — ultra subtle hairlines */
+  --border:        rgba(255, 255, 255, 0.06);
+  --border-strong: rgba(255, 255, 255, 0.12);
+  --border-subtle: rgba(255, 255, 255, 0.035);
+  --border-dim:    rgba(255, 255, 255, 0.02);
 
-  /* text — --text-subtle raised from #6b6f78 to #80848e for WCAG AA */
-  --text:          #f7f8f8;
-  --text-muted:    #9ca3af;
-  --text-subtle:   #80848e;
+  /* text — warm off-white, cool muted grays */
+  --text:          #ededed;
+  --text-muted:    #8e939e;
+  --text-subtle:   #525660;
 
-  /* brand */
+  /* brand — restrained electric indigo */
   --primary:        #5e6ad2;
   --primary-hover:  #4d5ac0;
-  --primary-soft:   rgba(94,106,210,0.10);
-  --primary-ring:   rgba(94,106,210,0.35);
+  --primary-soft:   rgba(94, 106, 210, 0.08);
+  --primary-ring:   rgba(94, 106, 210, 0.35);
 
   /* semantic */
   --success: #10b981;
@@ -47,30 +50,30 @@
   --ease-in-out:  cubic-bezier(0.4,  0, 0.2, 1);
 
   /* shadows */
-  --shadow-card:   0 1px 0 rgba(255,255,255,0.03) inset, 0 1px 2px rgba(0,0,0,0.5);
-  --shadow-raised: 0 4px 12px rgba(0,0,0,0.4), 0 1px 2px rgba(0,0,0,0.6);
-  --shadow-float:  0 8px 32px rgba(0,0,0,0.5), 0 2px 8px rgba(0,0,0,0.4);
+  --shadow-card:   0 1px 0 rgba(255,255,255,0.02) inset, 0 1px 3px rgba(0,0,0,0.7);
+  --shadow-raised: 0 4px 20px rgba(0,0,0,0.6), 0 1px 3px rgba(0,0,0,0.8);
+  --shadow-float:  0 12px 40px rgba(0,0,0,0.7), 0 2px 8px rgba(0,0,0,0.6);
   --shadow-ring:   0 0 0 1px var(--primary), 0 0 0 4px var(--primary-ring);
 
   /* shadcn-style vars kept for back-compat */
-  --background: 240 10% 4%;
-  --foreground: 0 0% 97%;
-  --card: 240 10% 6%;
-  --card-foreground: 0 0% 97%;
-  --popover: 240 10% 8%;
-  --popover-foreground: 0 0% 97%;
+  --background: 240 10% 2%;
+  --foreground: 0 0% 93%;
+  --card: 240 10% 4%;
+  --card-foreground: 0 0% 93%;
+  --popover: 240 10% 5%;
+  --popover-foreground: 0 0% 93%;
   --primary-h: 234 59% 60%;
   --primary-foreground: 0 0% 100%;
-  --secondary: 240 5% 10%;
-  --secondary-foreground: 0 0% 97%;
-  --muted: 240 5% 12%;
-  --muted-foreground: 240 5% 65%;
+  --secondary: 240 5% 8%;
+  --secondary-foreground: 0 0% 93%;
+  --muted: 240 5% 10%;
+  --muted-foreground: 240 5% 60%;
   --accent: 234 59% 60%;
-  --accent-foreground: 0 0% 97%;
+  --accent-foreground: 0 0% 93%;
   --destructive: 0 62.8% 30.6%;
-  --destructive-foreground: 0 0% 97%;
+  --destructive-foreground: 0 0% 93%;
   --ring: 234 59% 60%;
-  --radius: 0.5rem;
+  --radius: 0.375rem;
 }
 
 /* Lock the document into dark theme */
@@ -94,54 +97,82 @@ html.dark, html { color-scheme: dark; }
  * ------------------------------------------------------------------------- */
 
 @layer components {
-  /* Surface containers */
+  /* Surface containers — quiet, restrained */
   .card {
-    border: 1px solid var(--border);
+    border: 1px solid rgba(255, 255, 255, 0.05);
     background-color: var(--surface-1);
-    border-radius: 0.75rem;
-    box-shadow: 0 1px 0 rgba(255,255,255,0.03) inset, 0 1px 2px rgba(0,0,0,0.5);
-  }
-  .card-padded { @apply card p-5; }
-  .card-flat {
-    border: 1px solid var(--border);
-    background-color: rgba(17,17,20,0.6);
     border-radius: 0.5rem;
+    box-shadow: var(--shadow-card);
+  }
+  .card-padded { @apply card p-6; }
+  .card-flat {
+    border: 1px solid rgba(255, 255, 255, 0.035);
+    background-color: rgba(8, 9, 13, 0.7);
+    border-radius: 0.375rem;
+  }
+  .instrument-panel {
+    border: 1px solid rgba(255, 255, 255, 0.06);
+    background: linear-gradient(180deg, rgba(13, 14, 20, 0.8) 0%, rgba(8, 9, 13, 0.95) 100%);
+    backdrop-filter: blur(16px);
+    border-radius: 0.5rem;
+    box-shadow: var(--shadow-float);
   }
 
-  /* Section titles */
+  /* Section titles & editorial markers */
   .panel-title {
     @apply text-xs font-bold uppercase tracking-wider font-mono flex items-center gap-1.5;
     color: var(--text-muted);
   }
 
+  /* Section label — editorial eyebrow */
+  .section-label {
+    @apply text-[11px] font-mono font-medium uppercase tracking-[0.25em];
+    color: var(--text-subtle);
+  }
+
+  .editorial-headline {
+    font-size: clamp(2.25rem, 5vw, 4.5rem);
+    line-height: 1.0;
+    letter-spacing: -0.04em;
+    font-weight: 800;
+  }
+
+  .editorial-sub {
+    font-size: clamp(1rem, 2vw, 1.25rem);
+    line-height: 1.5;
+    color: var(--text-muted);
+    font-weight: 400;
+  }
+
   /* Buttons */
   .btn-primary {
-    @apply inline-flex items-center justify-center gap-2 text-sm font-semibold
-           rounded-md px-4 py-2 transition-colors
+    @apply inline-flex items-center justify-center gap-2 text-xs font-semibold
+           rounded-md px-4 py-2 transition-all duration-200
            focus-visible:outline-none
            disabled:cursor-not-allowed;
     background-color: var(--primary);
     color: var(--text);
   }
   .btn-primary:hover:not(:disabled) { background-color: var(--primary-hover); }
-  .btn-primary:focus-visible        { box-shadow: 0 0 0 1px var(--primary), 0 0 0 4px var(--primary-ring); }
-  .btn-primary:disabled             { background-color: rgba(94,106,210,0.4); }
+  .btn-primary:focus-visible        { box-shadow: var(--shadow-ring); }
+  .btn-primary:disabled             { background-color: rgba(94, 106, 210, 0.3); }
 
   .btn-ghost {
-    @apply inline-flex items-center justify-center gap-2 text-sm font-medium
-           rounded-md px-3 py-1.5 transition-colors
+    @apply inline-flex items-center justify-center gap-2 text-xs font-medium
+           rounded-md px-3 py-1.5 transition-all duration-200
            focus-visible:outline-none
            disabled:opacity-50 disabled:cursor-not-allowed;
     background-color: transparent;
     color: var(--text-muted);
-    border: 1px solid var(--border);
+    border: 1px solid rgba(255, 255, 255, 0.05);
   }
   .btn-ghost:hover:not(:disabled) {
     color: var(--text);
-    border-color: rgba(94,106,210,0.4);
+    border-color: rgba(255, 255, 255, 0.12);
+    background-color: rgba(255, 255, 255, 0.025);
   }
   .btn-ghost:focus-visible {
-    box-shadow: 0 0 0 1px var(--primary), 0 0 0 4px var(--primary-ring);
+    box-shadow: var(--shadow-ring);
   }
 
   /* Form controls */
@@ -150,7 +181,7 @@ html.dark, html { color-scheme: dark; }
            focus:outline-none focus:ring-1;
     background-color: var(--canvas);
     color: var(--text);
-    border: 1px solid var(--border);
+    border: 1px solid rgba(255, 255, 255, 0.06);
   }
   .input::placeholder { color: var(--text-subtle); }
   .input:focus {
@@ -160,38 +191,38 @@ html.dark, html { color-scheme: dark; }
 
   /* Badges */
   .badge {
-    @apply inline-flex items-center gap-1 text-[10px] font-bold uppercase
-           tracking-wider font-mono px-2 py-0.5 rounded-md;
+    @apply inline-flex items-center gap-1 text-[10px] font-medium uppercase
+           tracking-wider font-mono px-2 py-0.5 rounded;
     border: 1px solid transparent;
   }
   .badge-success {
     @apply badge;
     color: var(--success);
-    border-color: rgba(16,185,129,0.30);
-    background-color: rgba(16,185,129,0.10);
+    border-color: rgba(16, 185, 129, 0.25);
+    background-color: rgba(16, 185, 129, 0.06);
   }
   .badge-warn {
     @apply badge;
     color: var(--warn);
-    border-color: rgba(245,158,11,0.30);
-    background-color: rgba(245,158,11,0.10);
+    border-color: rgba(245, 158, 11, 0.25);
+    background-color: rgba(245, 158, 11, 0.06);
   }
   .badge-danger {
     @apply badge;
     color: var(--danger);
-    border-color: rgba(239,68,68,0.30);
-    background-color: rgba(239,68,68,0.10);
+    border-color: rgba(239, 68, 68, 0.25);
+    background-color: rgba(239, 68, 68, 0.06);
   }
   .badge-info {
     @apply badge;
     color: var(--info);
-    border-color: rgba(59,130,246,0.30);
-    background-color: rgba(59,130,246,0.10);
+    border-color: rgba(59, 130, 246, 0.25);
+    background-color: rgba(59, 130, 246, 0.06);
   }
   .badge-neutral {
     @apply badge;
     color: var(--text-muted);
-    border-color: var(--border);
+    border-color: rgba(255, 255, 255, 0.05);
     background-color: var(--surface-2);
   }
 }
@@ -199,9 +230,9 @@ html.dark, html { color-scheme: dark; }
 /* Scrollbars */
 ::-webkit-scrollbar { width: 6px; height: 6px; }
 ::-webkit-scrollbar-track { background: var(--canvas); }
-::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
-::-webkit-scrollbar-thumb:hover { background: var(--primary); }
-* { scrollbar-width: thin; scrollbar-color: var(--border) var(--canvas); }
+::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.08); border-radius: 3px; }
+::-webkit-scrollbar-thumb:hover { background: rgba(255,255,255,0.14); }
+* { scrollbar-width: thin; scrollbar-color: rgba(255,255,255,0.08) var(--canvas); }
 
 /* ---------------------------------------------------------------------------
  * Skeleton shimmer
@@ -214,9 +245,9 @@ html.dark, html { color-scheme: dark; }
   background:
     linear-gradient(
       90deg,
-      rgba(35,37,42,0.5) 0%,
-      rgba(47,49,56,0.9) 50%,
-      rgba(35,37,42,0.5) 100%
+      rgba(255,255,255,0.03) 0%,
+      rgba(255,255,255,0.06) 50%,
+      rgba(255,255,255,0.03) 100%
     );
   background-size: 200% 100%;
   animation: skeleton-shimmer 1.8s linear infinite;
@@ -255,6 +286,173 @@ html.dark, html { color-scheme: dark; }
 .animate-blink { animation: blink 0.8s infinite; }
 
 /* ---------------------------------------------------------------------------
+ * Hero — cinematic entrance sequence
+ * ------------------------------------------------------------------------- */
+@keyframes navWake {
+  from {
+    opacity: 0;
+    filter: blur(6px);
+    transform: translate3d(0, -6px, 0);
+  }
+  to {
+    opacity: 1;
+    filter: blur(0);
+    transform: translate3d(0, 0, 0);
+  }
+}
+.nav-wake {
+  animation: navWake 1.1s cubic-bezier(0.16, 1, 0.3, 1) 80ms both;
+}
+
+@keyframes brandSignalWake {
+  0% { transform: scale(0.6); opacity: 0; }
+  50% { transform: scale(1.4); opacity: 1; box-shadow: 0 0 12px rgba(94, 106, 210, 0.9); }
+  100% { transform: scale(1); opacity: 0.95; box-shadow: 0 0 6px rgba(94, 106, 210, 0.45); }
+}
+.brand-signal {
+  animation: brandSignalWake 1.4s cubic-bezier(0.16, 1, 0.3, 1) 200ms both;
+}
+
+@keyframes heroFadeIn {
+  from { opacity: 0; transform: translateY(14px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes heroEyebrowWake {
+  from {
+    opacity: 0;
+    filter: blur(5px);
+    transform: translate3d(0, 8px, 0);
+  }
+  to {
+    opacity: 1;
+    filter: blur(0);
+    transform: translate3d(0, 0, 0);
+  }
+}
+
+@keyframes heroEnterBody {
+  from {
+    opacity: 0;
+    filter: blur(5px);
+    transform: translate3d(0, 12px, 0);
+  }
+  to {
+    opacity: 1;
+    filter: blur(0);
+    transform: translate3d(0, 0, 0);
+  }
+}
+
+@keyframes telemetrySignal {
+  from {
+    opacity: 0;
+    filter: blur(4px);
+    transform: translate3d(-6px, 0, 0);
+  }
+  to {
+    opacity: 1;
+    filter: blur(0);
+    transform: translate3d(0, 0, 0);
+  }
+}
+
+@keyframes heroGraphFade {
+  from { opacity: 0; transform: scale(0.98); }
+  to   { opacity: 0.7; transform: scale(1); }
+}
+
+.hero-enter-bg      { animation: heroFadeIn 0.8s cubic-bezier(0.16, 1, 0.3, 1) 0ms both; }
+.hero-enter-graph   { animation: heroGraphFade 1.2s cubic-bezier(0.16, 1, 0.3, 1) 120ms both; }
+.hero-enter-eyebrow { animation: heroEyebrowWake 1.0s cubic-bezier(0.16, 1, 0.3, 1) 180ms both; }
+.hero-enter-head1   { animation: heroFadeIn 0.8s cubic-bezier(0.16, 1, 0.3, 1) 380ms both; }
+.hero-enter-head2   { animation: heroFadeIn 0.8s cubic-bezier(0.16, 1, 0.3, 1) 520ms both; }
+.hero-enter-body    { animation: heroEnterBody 1.1s cubic-bezier(0.16, 1, 0.3, 1) 3200ms both; }
+.hero-enter-cta     { animation: heroFadeIn 0.8s cubic-bezier(0.16, 1, 0.3, 1) 780ms both; }
+.hero-enter-meta    { animation: heroEnterBody 1.1s cubic-bezier(0.16, 1, 0.3, 1) 3500ms both; }
+
+/* Backwards compatibility aliases */
+.hero-fade-in       { animation: heroFadeIn 0.8s cubic-bezier(0.16, 1, 0.3, 1) 240ms both; }
+.hero-fade-in-d1    { animation: heroFadeIn 0.8s cubic-bezier(0.16, 1, 0.3, 1) 380ms both; }
+.hero-fade-in-d2    { animation: heroFadeIn 0.8s cubic-bezier(0.16, 1, 0.3, 1) 520ms both; }
+.hero-fade-in-d3    { animation: heroFadeIn 0.8s cubic-bezier(0.16, 1, 0.3, 1) 780ms both; }
+.hero-fade-in-d4    { animation: heroFadeIn 0.8s cubic-bezier(0.16, 1, 0.3, 1) 880ms both; }
+
+/* Pipeline traveling light pulse animation */
+@keyframes pipelinePulse {
+  0% { left: 0%; opacity: 0; }
+  10% { opacity: 1; }
+  90% { opacity: 1; }
+  100% { left: 100%; opacity: 0; }
+}
+.animate-pipeline-pulse {
+  display: none !important;
+}
+
+/* Subtle scroll cue light travel */
+@keyframes scrollCueTravel {
+  0%   { transform: translate3d(0, -100%, 0); opacity: 0; }
+  30%  { opacity: 1; }
+  70%  { opacity: 1; }
+  100% { transform: translate3d(0, 100%, 0); opacity: 0; }
+}
+.scroll-cue {
+  animation: scrollCueTravel 2.6s cubic-bezier(0.4, 0, 0.2, 1) infinite;
+}
+
+/* Technical instrument crosses & ticks */
+.tech-cross {
+  position: absolute;
+  width: 9px;
+  height: 9px;
+  pointer-events: none;
+  opacity: 0.22;
+}
+.tech-cross::before,
+.tech-cross::after {
+  content: '';
+  position: absolute;
+  background-color: var(--primary);
+}
+.tech-cross::before {
+  top: 4px;
+  left: 0;
+  right: 0;
+  height: 1px;
+}
+.tech-cross::after {
+  left: 4px;
+  top: 0;
+  bottom: 0;
+  width: 1px;
+}
+
+/* Subtle live signal pulse */
+@keyframes signalPulse {
+  0%, 100% { transform: scale(1); opacity: 0.8; }
+  50% { transform: scale(1.35); opacity: 1; }
+}
+.animate-signal {
+  animation: signalPulse 2.4s ease-in-out infinite;
+}
+
+/* Hero headline — cinematic editorial scale */
+.hero-headline {
+  font-size: 3.25rem;
+  line-height: 1.02;
+  letter-spacing: -0.04em;
+}
+@media (min-width: 640px) {
+  .hero-headline { font-size: 4.75rem; }
+}
+@media (min-width: 1024px) {
+  .hero-headline { font-size: 6.25rem; }
+}
+@media (min-width: 1280px) {
+  .hero-headline { font-size: 7.5rem; }
+}
+
+/* ---------------------------------------------------------------------------
  * Table polish — opt-in via .table-base
  * ------------------------------------------------------------------------- */
 .table-base {
@@ -280,27 +478,35 @@ html.dark, html { color-scheme: dark; }
 }
 .table-base tbody td {
   padding: 0.75rem;
-  border-bottom: 1px solid rgba(35,37,42,0.5);
+  border-bottom: 1px solid rgba(255,255,255,0.04);
   color: var(--text);
   font-family: ui-monospace, 'JetBrains Mono', monospace;
 }
 .table-base tbody tr:hover { background: rgba(94,106,210,0.04); }
-.table-base tbody tr:nth-child(even) { background: rgba(17,17,20,0.4); }
+.table-base tbody tr:nth-child(even) { background: rgba(7,8,10,0.4); }
 .table-base tbody tr:nth-child(even):hover { background: rgba(94,106,210,0.06); }
 
 .table-scroll {
   overflow: auto;
   max-height: 520px;
-  border: 1px solid var(--border);
+  border: 1px solid rgba(255,255,255,0.06);
   border-radius: 0.5rem;
-  background: rgba(1,1,2,0.5);
+  background: rgba(3,3,3,0.5);
 }
 
 /* ---------------------------------------------------------------------------
- * Utility — gradient text for landing hero
+ * Utility — gradient text for hero
  * ------------------------------------------------------------------------- */
 .text-gradient-brand {
-  background: linear-gradient(135deg, #f7f8f8 0%, #b5bce8 50%, var(--primary) 100%);
+  background: linear-gradient(135deg, #f0f0f0 0%, #b5bce8 50%, var(--primary) 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+  color: transparent;
+}
+
+.text-gradient-hero {
+  background: linear-gradient(180deg, #f0f0f0 0%, rgba(138,143,152,0.7) 100%);
   -webkit-background-clip: text;
   background-clip: text;
   -webkit-text-fill-color: transparent;
@@ -312,22 +518,24 @@ html.dark, html { color-scheme: dark; }
   .skeleton { animation: none; }
   .fade-up, .fade-up-delay { animation: none; }
   .animate-pop-in { animation: none; }
+  .hero-fade-in, .hero-fade-in-d1, .hero-fade-in-d2,
+  .hero-fade-in-d3, .hero-fade-in-d4 { animation: none; }
   .svg-donut-ring { transition: none !important; }
   .animated-number { animation: none !important; }
 }
 
 /* Legacy glass utility kept for back-compat */
 .glass-panel {
-  background: rgba(17, 17, 20, 0.7);
+  background: rgba(7, 8, 10, 0.7);
   backdrop-filter: blur(12px);
   -webkit-backdrop-filter: blur(12px);
-  border: 1px solid var(--border);
+  border: 1px solid rgba(255,255,255,0.06);
 }
 
 /* Custom React Flow Dark Theme Polishing */
 .react-flow__controls {
   background: var(--surface-1) !important;
-  border: 1px solid var(--border) !important;
+  border: 1px solid rgba(255,255,255,0.06) !important;
   border-radius: 8px !important;
   box-shadow: var(--shadow-float) !important;
   overflow: hidden;
@@ -338,7 +546,7 @@ html.dark, html { color-scheme: dark; }
 }
 .react-flow__controls-button {
   background: transparent !important;
-  border-bottom: 1px solid var(--border) !important;
+  border-bottom: 1px solid rgba(255,255,255,0.04) !important;
   color: var(--text-muted) !important;
   fill: currentColor !important;
   transition: all 0.2s !important;
@@ -358,4 +566,3034 @@ html.dark, html { color-scheme: dark; }
 .react-flow__controls-button svg {
   width: 12px !important;
   height: 12px !important;
+}
+/* ===========================================================================
+ * ARIA STORY SYSTEM — editorial landing experience
+ * A restrained, cinematic type + motion layer used by the landing story.
+ * Everything here is additive: existing app surfaces are untouched.
+ * ========================================================================= */
+
+/* ── Display typography ──────────────────────────────────────────────────── */
+/* Minimums are set so the longest line in each tier ("ANY CODEBASE.",
+ * "IN THE RIGHT ORDER.") still fits a 375px viewport without clipping or
+ * wrapping. Raising them will overflow small screens. */
+.display-hero {
+  font-family: 'Inter', ui-sans-serif, system-ui, sans-serif;
+  font-weight: 800;
+  /*
+    Reduced from 11.5vw / 11rem. At 1440px the old coefficient produced ~165px,
+    which left the headline filling the frame with nothing around it — dominant
+    by brute force rather than by composition. 10vw gives ~144px at 1440 and
+    ~128px at 1280: still by far the loudest element, with room for the metadata
+    line beneath it.
+
+    The 2.35rem floor is unchanged, and because 10vw at 375px (37.5px) now falls
+    just below it, small screens render at the floor instead of above it — so the
+    "ANY CODEBASE." fits-375px guarantee is strengthened, not weakened.
+  */
+  font-size: clamp(2.35rem, 10vw, 8.75rem);
+  line-height: 0.86;
+  letter-spacing: -0.055em;
+  text-transform: uppercase;
+}
+
+.display-1 {
+  font-weight: 800;
+  font-size: clamp(1.75rem, 7.4vw, 6.25rem);
+  line-height: 0.92;
+  letter-spacing: -0.05em;
+  text-transform: uppercase;
+}
+
+.display-2 {
+  font-weight: 800;
+  font-size: clamp(1.6rem, 5.2vw, 4.25rem);
+  line-height: 0.95;
+  letter-spacing: -0.045em;
+  text-transform: uppercase;
+}
+
+.display-3 {
+  font-weight: 700;
+  font-size: clamp(1.15rem, 2.6vw, 2rem);
+  line-height: 1.15;
+  letter-spacing: -0.03em;
+}
+
+/* Level 2 — Product Thesis (compact editorial statement, non-competing with Level 1) */
+.product-thesis {
+  font-family: 'Inter', ui-sans-serif, system-ui, sans-serif;
+  font-weight: 700;
+  font-size: clamp(1.35rem, 2.4vw, 2.25rem);
+  line-height: 1.18;
+  letter-spacing: -0.025em;
+  max-width: 720px;
+}
+
+/*
+  Secondary line of a two-line display headline. Lifted from #55585f, which sat
+  at roughly 3.1:1 on the near-black canvas and read as switched-off rather than
+  as deliberately quieter. #6f737c is ~4.4:1 — still clearly subordinate to the
+  white first line, but legible.
+*/
+.display-dim { color: #6f737c; }
+
+/* Lead paragraph beneath a display headline */
+.story-lead {
+  font-size: clamp(0.95rem, 1.35vw, 1.2rem);
+  line-height: 1.65;
+  color: var(--text-muted);
+  max-width: 46ch;
+}
+
+/* Small uppercase mono metadata label */
+.mono-label {
+  font-family: 'JetBrains Mono', ui-monospace, monospace;
+  font-size: 10px;
+  font-weight: 500;
+  letter-spacing: 0.28em;
+  text-transform: uppercase;
+  color: rgba(255, 255, 255, 0.48);
+}
+.mono-label-accent { color: var(--primary); }
+
+/* Numeric / path monospace detail */
+.mono-detail {
+  font-family: 'JetBrains Mono', ui-monospace, monospace;
+  font-size: 11px;
+  letter-spacing: 0.02em;
+  color: var(--text-muted);
+}
+
+/* Chapter marker rule used at the top of each story section */
+.chapter-rule {
+  display: flex;
+  align-items: center;
+  gap: 0.875rem;
+}
+.chapter-rule::after {
+  content: '';
+  flex: 1;
+  height: 1px;
+  background: linear-gradient(90deg, rgba(255, 255, 255, 0.09), transparent);
+}
+
+/* ── Page backdrop layers ────────────────────────────────────────────────── */
+.story-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  overflow: hidden;
+}
+
+.story-grid {
+  position: absolute;
+  inset: -1px;
+  background-image:
+    linear-gradient(to right, rgba(255, 255, 255, 0.028) 1px, transparent 1px),
+    linear-gradient(to bottom, rgba(255, 255, 255, 0.028) 1px, transparent 1px);
+  background-size: 96px 96px;
+  mask-image: radial-gradient(ellipse 90% 60% at 50% 32%, #000 25%, transparent 78%);
+  -webkit-mask-image: radial-gradient(ellipse 90% 60% at 50% 32%, #000 25%, transparent 78%);
+}
+
+.story-noise {
+  position: absolute;
+  inset: 0;
+  opacity: 0.03;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='160' height='160' filter='url(%23n)'/%3E%3C/svg%3E");
+}
+
+.story-vignette {
+  position: absolute;
+  inset: 0;
+  background:
+    radial-gradient(ellipse 60% 45% at 72% 8%, rgba(94, 106, 210, 0.055), transparent 70%),
+    radial-gradient(ellipse 50% 40% at 12% 82%, rgba(94, 106, 210, 0.03), transparent 72%),
+    linear-gradient(180deg, rgba(2, 2, 4, 0) 60%, rgba(2, 2, 4, 0.7) 100%);
+}
+
+/* Faint architectural graph lines drawn behind the whole page */
+.story-lines {
+  position: absolute;
+  inset: 0;
+  opacity: 0.5;
+}
+
+/* Sparse glowing node */
+.story-node {
+  position: absolute;
+  height: 3px;
+  width: 3px;
+  border-radius: 9999px;
+  background: rgba(140, 152, 240, 0.8);
+  box-shadow: 0 0 10px 1px rgba(94, 106, 210, 0.45);
+  animation: nodeBreathe 7s ease-in-out infinite;
+}
+
+@keyframes nodeBreathe {
+  0%, 100% { opacity: 0.16; transform: scale(1); }
+  50%      { opacity: 0.7;  transform: scale(1.25); }
+}
+
+/* ── Structure transformation stage (chapter 02) ──────────────────────────
+ * The list→graph switch is a discrete mode, so type and node scale transition
+ * through CSS instead of being written on every scroll frame.
+ * --------------------------------------------------------------------------- */
+/* ── Structural transformation stage (landing chapter 02) ─────────────────────
+ * Three node tiers, so "file", "symbol" and "the symbol under discussion" are
+ * distinguishable by shape and size rather than by colour alone. Files are
+ * square (a listable artefact), symbols are round (a declaration), and the focus
+ * symbol carries the same restrained indigo ring the analysis workspace uses.
+ * ------------------------------------------------------------------------- */
+.structure-file,
+.structure-symbol,
+.structure-module { will-change: transform, opacity; }
+
+.structure-symbol {
+  height: 7px;
+  width: 7px;
+  background-color: rgba(94, 106, 210, 0.85);
+  transition: box-shadow 420ms ease, background-color 420ms ease;
+}
+
+.structure-symbol--focus {
+  height: 10px;
+  width: 10px;
+  background-color: #ffffff;
+}
+
+/* The focus ring only arrives once direction exists — before that there is
+   nothing for the reader to be focused on. */
+.structure-stage[data-mode='directed'] .structure-symbol--focus {
+  box-shadow: 0 0 0 3px rgba(94, 106, 210, 0.28), 0 0 18px 2px rgba(94, 106, 210, 0.45);
+}
+
+.structure-module { transition: color 420ms ease; }
+
+@media (prefers-reduced-motion: reduce) {
+  .structure-symbol,
+  .structure-symbol--focus,
+  .structure-module { transition: none; }
+}
+
+/* ── Scroll reveal primitives (IntersectionObserver driven) ───────────────── */
+[data-reveal] {
+  opacity: 0;
+  transform: translate3d(0, 22px, 0);
+  /* Duration is overridable: the story reveals slowly (900ms default), the
+   * Analysis instrument resolves faster via --reveal-duration. */
+  transition:
+    opacity var(--reveal-duration, 900ms) cubic-bezier(0.16, 1, 0.3, 1) var(--reveal-delay, 0ms),
+    transform var(--reveal-duration, 900ms) cubic-bezier(0.16, 1, 0.3, 1) var(--reveal-delay, 0ms);
+  will-change: opacity, transform;
+}
+[data-reveal].is-revealed {
+  opacity: 1;
+  transform: translate3d(0, 0, 0);
+}
+
+/*
+  Masked rise — text rises out of a clipping mask.
+
+  The observed element is the MASK, and the child is what moves. This is not a
+  stylistic preference, it is a correctness requirement: an
+  IntersectionObserver's intersection rect is clipped by ancestor overflow, so a
+  line translated 100% down inside `overflow: hidden` reports ratio 0 and can
+  never be revealed by the observer whose job is to reveal it. Putting
+  `data-reveal` on the moving child silently hid every display headline on the
+  page — it only appeared to work where the child was `display: inline`, because
+  transforms do not apply to inline boxes, so the line never actually left the
+  mask.
+
+  The mask therefore neutralises the shared [data-reveal] treatment and passes
+  the animation down to its child.
+*/
+.reveal-mask {
+  overflow: hidden;
+  display: block;
+  padding-bottom: 0.06em;
+}
+
+[data-reveal='line'] {
+  opacity: 1;
+  transform: none;
+  transition: none;
+}
+[data-reveal='line'] > * {
+  display: block;
+  opacity: 0;
+  transform: translate3d(0, 100%, 0);
+  transition:
+    opacity var(--reveal-duration, 900ms) cubic-bezier(0.16, 1, 0.3, 1) var(--reveal-delay, 0ms),
+    transform var(--reveal-duration, 900ms) cubic-bezier(0.16, 1, 0.3, 1) var(--reveal-delay, 0ms);
+  will-change: opacity, transform;
+}
+[data-reveal='line'].is-revealed > * {
+  opacity: 1;
+  transform: translate3d(0, 0, 0);
+}
+
+[data-reveal='fade'] {
+  transform: none;
+}
+
+/* Progressive rule that draws itself horizontally */
+[data-reveal='rule'] {
+  opacity: 1;
+  transform: scaleX(0);
+  transform-origin: left center;
+  transition: transform 1100ms cubic-bezier(0.16, 1, 0.3, 1) var(--reveal-delay, 0ms);
+}
+[data-reveal='rule'].is-revealed { transform: scaleX(1); }
+
+/* Vertical variant — used by the seams between chapters */
+[data-reveal='rule-y'] {
+  opacity: 1;
+  transform: scaleY(0);
+  transform-origin: top center;
+  transition: transform 1100ms cubic-bezier(0.16, 1, 0.3, 1) var(--reveal-delay, 0ms);
+}
+[data-reveal='rule-y'].is-revealed { transform: scaleY(1); }
+
+/* ── Section framing ─────────────────────────────────────────────────────── */
+.story-section {
+  position: relative;
+  z-index: 1;
+  /* Tightened from 14vh: with bridges between every chapter the old value left
+   * a dead screen either side of each section. */
+  padding-top: clamp(4rem, 9vh, 7rem);
+  padding-bottom: clamp(4rem, 9vh, 7rem);
+}
+/* Reference-style sections earn less air than narrative ones. */
+.story-section--tight {
+  padding-top: clamp(3rem, 6vh, 4.5rem);
+  padding-bottom: clamp(3rem, 6vh, 4.5rem);
+}
+.story-shell {
+  width: 100%;
+  max-width: 84rem;
+  margin-inline: auto;
+  padding-inline: 1.25rem;
+}
+@media (min-width: 640px) { .story-shell { padding-inline: 2rem; } }
+@media (min-width: 1024px) { .story-shell { padding-inline: 3rem; } }
+
+/* Quiet panel — used sparingly for genuinely structured data */
+.spec-panel {
+  border: 1px solid rgba(255, 255, 255, 0.055);
+  background: linear-gradient(180deg, rgba(11, 12, 17, 0.72) 0%, rgba(4, 5, 8, 0.72) 100%);
+  backdrop-filter: blur(10px);
+}
+
+.hair-t { border-top: 1px solid rgba(255, 255, 255, 0.055); }
+.hair-b { border-bottom: 1px solid rgba(255, 255, 255, 0.055); }
+.hair-l { border-left: 1px solid rgba(255, 255, 255, 0.055); }
+
+/* ── Graph node labels double as hit targets (chapter 03) ─────────────────
+ * The label sits under its circle; a pseudo-element extends the target upward
+ * so the circle itself is clickable without overlaying the SVG.
+ * --------------------------------------------------------------------------- */
+.graph-node-btn {
+  font-size: 10px;
+  line-height: 1;
+  letter-spacing: 0.01em;
+  padding: 4px 6px;
+  /* --mx/--my are the magnetic offset, written per frame while the pointer is
+   * inside the figure. Composed here so the centring offset stays in one place. */
+  transform: translate(-50%, 14px) translate3d(var(--mx, 0px), var(--my, 0px), 0);
+  transition: color 320ms ease, opacity 500ms ease;
+  cursor: pointer;
+  background: none;
+  border: 0;
+}
+@media (min-width: 768px) {
+  .graph-node-btn {
+    font-size: 11px;
+    transform: translate(-50%, 16px) translate3d(var(--mx, 0px), var(--my, 0px), 0);
+  }
+}
+.graph-node-btn::before {
+  content: '';
+  position: absolute;
+  left: 50%;
+  bottom: 100%;
+  transform: translateX(-50%);
+  width: 46px;
+  height: 32px;
+}
+.graph-node-btn:focus-visible {
+  color: #ffffff;
+  box-shadow: 0 0 0 1px rgba(94, 106, 210, 0.9);
+}
+
+/* SVG transforms need an explicit box, or scaling flings the shape across the
+ * user-space origin instead of pulsing in place. */
+.svg-pulse {
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: statusPulse 3.2s ease-in-out infinite;
+}
+
+/* ── Scroll-linked geometry driven by --p (written outside React) ─────────── */
+.change-spine {
+  height: calc(var(--p, 0) * 100%);
+  max-height: calc(100% - 2.5rem);
+  background: linear-gradient(180deg, #5e6ad2, rgba(94, 106, 210, 0.25));
+}
+
+.pipeline-track-fill {
+  transform: scaleX(var(--p, 0));
+  transform-origin: left center;
+  background: linear-gradient(90deg, rgba(94, 106, 210, 0.35), #8f9bf5);
+}
+.pipeline-track-fill-y {
+  transform: scaleY(var(--p, 0));
+  transform-origin: top center;
+  background: linear-gradient(180deg, rgba(94, 106, 210, 0.35), #8f9bf5);
+}
+
+/* The point travelling along the pipeline track */
+.pipeline-head {
+  left: calc(var(--p, 0) * 100%);
+  transform: translate(-50%, -50%);
+}
+.pipeline-head-y {
+  top: calc(var(--p, 0) * 100%);
+  transform: translate(-50%, -50%);
+}
+
+/* ── Micro-interactions ──────────────────────────────────────────────────── */
+.link-arrow svg,
+.link-arrow .arrow { transition: transform 260ms cubic-bezier(0.16, 1, 0.3, 1); }
+.link-arrow:hover svg,
+.link-arrow:hover .arrow { transform: translateX(3px); }
+
+.lift {
+  transition: transform 280ms cubic-bezier(0.16, 1, 0.3, 1),
+              border-color 280ms ease, background-color 280ms ease;
+}
+.lift:hover { transform: translateY(-2px); }
+
+/* Slow status pulse for "● ANALYZING STRUCTURE" style indicators */
+@keyframes statusPulse {
+  0%, 100% { opacity: 0.35; transform: scale(0.9); }
+  50%      { opacity: 1;    transform: scale(1.1); }
+}
+.status-dot { animation: statusPulse 3.2s ease-in-out infinite; }
+
+/* Caret for the terminal-style repository input */
+@keyframes caretBlink { 0%, 45% { opacity: 1; } 55%, 100% { opacity: 0; } }
+.caret-blink { animation: caretBlink 1.15s steps(1) infinite; }
+
+/* SVG self-drawing stroke */
+.draw-line {
+  stroke-dasharray: var(--dash, 400);
+  stroke-dashoffset: var(--dash, 400);
+  transition: stroke-dashoffset 1400ms cubic-bezier(0.16, 1, 0.3, 1) var(--reveal-delay, 0ms);
+}
+.is-revealed .draw-line,
+.draw-line.is-revealed { stroke-dashoffset: 0; }
+
+/* Never allow the story to scroll sideways.
+ * `clip` rather than `hidden`: hidden turns the element into a scroll container,
+ * which breaks the pinned sections. Browsers without `clip` fall back to hidden. */
+html, body {
+  max-width: 100%;
+  overflow-x: hidden;
+  overflow-x: clip;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  [data-reveal],
+  [data-reveal='line'],
+  [data-reveal='line'] > *,
+  [data-reveal='rule'],
+  [data-reveal='rule-y'] {
+    opacity: 1 !important;
+    transform: none !important;
+    transition: none !important;
+  }
+  .draw-line { stroke-dashoffset: 0 !important; transition: none !important; }
+  .story-node, .status-dot, .caret-blink, .svg-pulse,
+  .animate-pipeline-pulse, .animate-signal { animation: none !important; }
+  .animate-pipeline-pulse { opacity: 0 !important; }
+  .lift:hover { transform: none; }
+}
+
+/* ── Hero entrance (chapter 01) ───────────────────────────────────────────── */
+@keyframes heroLineRise {
+  from { transform: translate3d(0, 108%, 0); opacity: 0; }
+  to   { transform: translate3d(0, 0, 0);    opacity: 1; }
+}
+.hero-line {
+  display: block;
+  animation: heroLineRise 1.15s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+/* Repository paths surfacing and receding behind the headline — scroll displacement only, no timer loops */
+.hero-path {
+  opacity: calc(0.35 * (1 - var(--hero-p, 0)));
+  transform: translate3d(0, calc(var(--hero-p, 0) * -36px), 0);
+  transition: opacity 300ms ease;
+  will-change: transform, opacity;
+}
+
+/* Scroll cue — a slow travelling stroke */
+@keyframes scrollCue {
+  0%       { transform: scaleY(0); transform-origin: top; opacity: 0; }
+  35%      { transform: scaleY(1); transform-origin: top; opacity: 1; }
+  36%      { transform: scaleY(1); transform-origin: bottom; }
+  75%, 100% { transform: scaleY(0); transform-origin: bottom; opacity: 0; }
+}
+.scroll-cue { animation: scrollCue 3.4s cubic-bezier(0.4, 0, 0.2, 1) infinite; }
+
+@media (prefers-reduced-motion: reduce) {
+  .hero-line { animation: none; }
+  .hero-path { animation: none; opacity: 0.3; }
+  .scroll-cue { animation: none; }
+}
+
+/* ===========================================================================
+ * ARIA INSTRUMENT SURFACE — the Analysis page.
+ *
+ * Same visual language as the landing story (near-black canvas, hairlines,
+ * mono metadata, restrained indigo) but denser and quieter: the landing page is
+ * the story, this is the instrument. Reuses .mono-label / .mono-detail /
+ * .hair-* / .spec-panel rather than introducing a parallel vocabulary.
+ * ========================================================================= */
+
+/* Page container — the Analysis page was previously edge-to-edge. */
+.instrument-shell {
+  width: 100%;
+  max-width: 112rem;
+  margin-inline: auto;
+  padding-inline: 1.25rem;
+}
+@media (min-width: 640px) { .instrument-shell { padding-inline: 1.75rem; } }
+@media (min-width: 1024px) { .instrument-shell { padding-inline: 2.5rem; } }
+
+/* Structural group separation: air between groups, compact spacing inside. */
+.instrument-group + .instrument-group {
+  margin-top: clamp(2.25rem, 4vh, 3.5rem);
+  padding-top: clamp(2.25rem, 4vh, 3.5rem);
+  border-top: 1px solid rgba(255, 255, 255, 0.055);
+}
+
+/* A readout cell in a horizontal rail. Separators are drawn with hairlines and
+ * disappear at the start of each wrapped row. */
+.readout {
+  min-width: 0;
+  padding-left: 1.25rem;
+  border-left: 1px solid rgba(255, 255, 255, 0.055);
+}
+.readout--lead { border-left-color: rgba(94, 106, 210, 0.55); }
+
+/* Value type for instrument read-outs — large, mono, tabular. */
+.readout-value {
+  font-family: 'JetBrains Mono', ui-monospace, monospace;
+  font-variant-numeric: tabular-nums;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  line-height: 1;
+  color: var(--text);
+  font-size: clamp(1.25rem, 1.9vw, 1.75rem);
+}
+.readout-value--lead { font-size: clamp(1.75rem, 3vw, 2.75rem); }
+
+/* Quiet interactive row: used for spec lists, entry points, relationships. */
+.spec-row {
+  transition: background-color 200ms ease, border-color 200ms ease, color 200ms ease;
+}
+.spec-row:hover { background-color: rgba(255, 255, 255, 0.018); }
+
+/* A severity meter — one thin line, no gauges. */
+.meter {
+  position: relative;
+  height: 2px;
+  width: 100%;
+  background: rgba(255, 255, 255, 0.07);
+  overflow: hidden;
+}
+.meter > span {
+  position: absolute;
+  inset: 0;
+  transform-origin: left center;
+  transition: transform 900ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+/* Horizontal scroll regions that must never leak to the document. */
+.inner-scroll-x {
+  overflow-x: auto;
+  overscroll-behavior-x: contain;
+  scrollbar-width: none;
+}
+.inner-scroll-x::-webkit-scrollbar { height: 0; display: none; }
+
+/* Thin guide lines for the workspace tree. */
+.tree-guide {
+  border-left: 1px solid rgba(255, 255, 255, 0.055);
+  margin-left: 0.4rem;
+  padding-left: 0.6rem;
+}
+
+/* Connector used by the architecture relationship topology. */
+.topo-line {
+  position: absolute;
+  left: 0;
+  width: 1px;
+  background: linear-gradient(180deg, rgba(94, 106, 210, 0.5), rgba(94, 106, 210, 0.12));
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .meter > span { transition: none; }
+  .spec-row { transition: none; }
+}
+
+/* ---------------------------------------------------------------------------
+ * Analysis page — final polish. Interaction is CSS-only: no component holds
+ * hover state, and only transform / opacity / colour are animated.
+ * ------------------------------------------------------------------------- */
+
+/* Group seam — a hairline that carries a label naming the transition. */
+.seam {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+}
+.seam::after {
+  content: '';
+  flex: 1;
+  height: 1px;
+  /*
+    Carries across the full content width rather than fading to nothing by the
+    midpoint — a seam that disappears halfway reads as unexplained whitespace
+    instead of a deliberate division.
+  */
+  background: linear-gradient(
+    90deg,
+    rgba(255, 255, 255, 0.11),
+    rgba(255, 255, 255, 0.05) 55%,
+    rgba(255, 255, 255, 0.032)
+  );
+  /* Draws itself when the seam is revealed. */
+  transform: scaleX(0);
+  transform-origin: left center;
+}
+
+/* ── Diagnostic Metric Entrance (Staggered 75ms) ────────────────────────── */
+@keyframes metricEnter {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.metric-enter   { animation: metricEnter 580ms cubic-bezier(0.16, 1, 0.3, 1) both; }
+.metric-enter-1 { animation: metricEnter 580ms cubic-bezier(0.16, 1, 0.3, 1) 0ms both; }
+.metric-enter-2 { animation: metricEnter 580ms cubic-bezier(0.16, 1, 0.3, 1) 75ms both; }
+.metric-enter-3 { animation: metricEnter 580ms cubic-bezier(0.16, 1, 0.3, 1) 150ms both; }
+.metric-enter-4 { animation: metricEnter 580ms cubic-bezier(0.16, 1, 0.3, 1) 225ms both; }
+.metric-enter-5 { animation: metricEnter 580ms cubic-bezier(0.16, 1, 0.3, 1) 300ms both; }
+
+/* Insight rows shift 2.5px toward the reader on hover/focus. */
+.spec-row--slide {
+  transition: transform 200ms cubic-bezier(0.16, 1, 0.3, 1), background-color 200ms ease;
+}
+.spec-row--slide:hover,
+.spec-row--slide:focus-within {
+  transform: translateX(2.5px);
+}
+.spec-row--slide:hover h3,
+.spec-row--slide:focus-within h3 {
+  color: #ffffff;
+}
+.spec-row--slide:hover svg,
+.spec-row--slide:focus-within svg {
+  filter: brightness(1.25);
+}
+.spec-row--slide:hover .insight-rule,
+.spec-row--slide:focus-within .insight-rule {
+  filter: brightness(1.4);
+  opacity: 1;
+}
+
+/* Centrality row hover: path brightens, degree brightens, bar expands slightly with subtle indigo emphasis. */
+.hub-row {
+  transition: background-color 200ms ease;
+}
+.hub-row .meter {
+  transform-origin: left center;
+  transition: transform 200ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+.hub-row:hover .meter,
+.hub-row:focus-within .meter {
+  transform: scaleX(1.04) scaleY(1.25);
+}
+.hub-row:hover .meter > span,
+.hub-row:focus-within .meter > span {
+  box-shadow: 0 0 8px rgba(94, 106, 210, 0.35);
+}
+/* The hub name is now a FilePath, so brighten its parts rather than the wrapper
+ * (whose colour the children would otherwise override). */
+.hub-row .hub-name .fp-name,
+.hub-row .hub-name .fp-dir {
+  transition: color 200ms ease;
+}
+.hub-row:hover .hub-name .fp-name,
+.hub-row:focus-within .hub-name .fp-name {
+  color: #ffffff;
+}
+.hub-row:hover .hub-name .fp-dir,
+.hub-row:focus-within .hub-name .fp-dir {
+  color: var(--text-muted);
+}
+.hub-row .mono-detail {
+  transition: color 200ms ease;
+}
+.hub-row:hover .mono-detail,
+.hub-row:focus-within .mono-detail {
+  color: #ffffff;
+}
+
+/* ── Relationship timeline ────────────────────────────────────────────────
+ * One continuous spine. On hover the node, connector, label and target all
+ * brighten together so the row reads as a single step in a chain.
+ * ----------------------------------------------------------------------- */
+.topo-item .topo-node {
+  border-color: rgba(94, 106, 210, 0.45);
+  background-color: var(--canvas);
+  transition: border-color 200ms ease, box-shadow 200ms ease, transform 200ms var(--ease-spring);
+}
+.topo-item:hover .topo-node,
+.topo-item:focus-within .topo-node {
+  border-color: #8f9bf5;
+  box-shadow: 0 0 0 3px rgba(94, 106, 210, 0.15);
+  transform: scale(1.15);
+}
+
+.topo-item .topo-edge {
+  background: linear-gradient(90deg, rgba(94, 106, 210, 0.28), transparent);
+  transition: background 200ms ease;
+}
+.topo-item:hover .topo-edge,
+.topo-item:focus-within .topo-edge {
+  background: linear-gradient(90deg, rgba(143, 155, 245, 0.85), transparent);
+}
+
+.topo-item .topo-type { color: var(--text-subtle); transition: color 200ms ease; }
+.topo-item:hover .topo-type,
+.topo-item:focus-within .topo-type { color: var(--primary); font-weight: 600; }
+
+.topo-item .topo-target { transition: color 200ms ease; }
+.topo-item:hover .topo-target,
+.topo-item:focus-within .topo-target { color: #ffffff; }
+
+.topo-item .topo-source { transition: color 200ms ease; }
+.topo-item:hover .topo-source,
+.topo-item:focus-within .topo-source { color: #ffffff; }
+
+/* Diagnostic instruments share one baseline for their label, value and rule. */
+.diagnostic { display: flex; flex-direction: column; min-width: 0; }
+.diagnostic > .diagnostic-body { flex: 1; }
+
+@media (prefers-reduced-motion: reduce) {
+  .metric-enter,
+  .metric-enter-1,
+  .metric-enter-2,
+  .metric-enter-3,
+  .metric-enter-4,
+  .metric-enter-5 { animation: none; }
+  .spec-row--slide:hover,
+  .spec-row--slide:focus-within,
+  .hub-row:hover .meter,
+  .hub-row:focus-within .meter,
+  .topo-item:hover .topo-node,
+  .topo-item:focus-within .topo-node { transform: none; }
+  .spec-row--slide, .hub-row .meter, .topo-item .topo-node,
+  .topo-item .topo-edge, .topo-item .topo-type, .topo-item .topo-target { transition: none; }
+}
+
+/* ---------------------------------------------------------------------------
+ * Analysis page — motion.
+ *
+ * Reveals reuse the landing page's [data-reveal] definitions. What follows is
+ * only what the instrument needs on top: panel entry when a tab activates, a
+ * sticky tab rail, and staggered row entry. All transform/opacity.
+ * ------------------------------------------------------------------------- */
+
+/* Tab panel entry. The class is present only on the active panel, so switching
+ * tabs removes it from the old panel and adds it to the new one — which is what
+ * re-triggers the animation. */
+@keyframes panelEnter {
+  from { opacity: 0; transform: translate3d(0, 10px, 0); }
+  to   { opacity: 1; transform: translate3d(0, 0, 0); }
+}
+.panel-enter {
+  animation: panelEnter 420ms cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+/* Sticky analysis tab rail — stays reachable while a long panel scrolls.
+ * Solid canvas rather than a blurred layer: backdrop-filter is expensive to
+ * repaint on every scroll frame. */
+.tab-rail-sticky {
+  position: sticky;
+  top: 3rem; /* navbar height */
+  z-index: 20;
+  background-color: var(--canvas);
+}
+
+/* ── Impact graph canvas ──────────────────────────────────────────────────────
+ * Scoped rather than global: the file and call graphs keep their own control
+ * chrome. Here the controls recede so the topology stays the loudest thing on
+ * the surface.
+ * ------------------------------------------------------------------------- */
+.impact-canvas .react-flow__controls {
+  box-shadow: none !important;
+  background: rgba(255, 255, 255, 0.02) !important;
+  border: 1px solid rgba(255, 255, 255, 0.055) !important;
+  border-radius: 2px !important;
+}
+.impact-canvas .react-flow__controls-button {
+  border-bottom: 1px solid rgba(255, 255, 255, 0.045) !important;
+  color: var(--text-subtle) !important;
+}
+.impact-canvas .react-flow__controls-button:hover {
+  background: rgba(255, 255, 255, 0.04) !important;
+  color: var(--text) !important;
+}
+.impact-canvas .react-flow__minimap {
+  border-radius: 2px !important;
+}
+.impact-canvas .react-flow__attribution {
+  background: transparent !important;
+  font-size: 9px !important;
+}
+.impact-canvas .react-flow__attribution a { color: var(--text-subtle) !important; }
+
+/* ── Tab rail edge cue ────────────────────────────────────────────────────────
+ * The rail is an internal scroll region with no visible scrollbar, so without a
+ * cue a half-scrolled rail just looks like a clipped tab. The mask is applied
+ * only on the side that actually has more tabs off-screen, so a rail that fits
+ * is never faded. Toggled by classes rather than measured in CSS.
+ * ------------------------------------------------------------------------- */
+.tab-rail { --tab-fade: 1.75rem; }
+
+.tab-rail.is-overflow-start.is-overflow-end {
+  -webkit-mask-image: linear-gradient(90deg, transparent 0, #000 var(--tab-fade),
+    #000 calc(100% - var(--tab-fade)), transparent 100%);
+  mask-image: linear-gradient(90deg, transparent 0, #000 var(--tab-fade),
+    #000 calc(100% - var(--tab-fade)), transparent 100%);
+}
+.tab-rail.is-overflow-end:not(.is-overflow-start) {
+  -webkit-mask-image: linear-gradient(90deg, #000 calc(100% - var(--tab-fade)), transparent 100%);
+  mask-image: linear-gradient(90deg, #000 calc(100% - var(--tab-fade)), transparent 100%);
+}
+.tab-rail.is-overflow-start:not(.is-overflow-end) {
+  -webkit-mask-image: linear-gradient(90deg, transparent 0, #000 var(--tab-fade));
+  mask-image: linear-gradient(90deg, transparent 0, #000 var(--tab-fade));
+}
+
+/* ── Issue command console ────────────────────────────────────────────────────
+ * Input surfaces that read as a source/log field rather than a form widget:
+ * near-transparent, hairline bordered, indigo on focus.
+ * ------------------------------------------------------------------------- */
+.console-field {
+  width: 100%;
+  min-width: 0;
+  background: rgba(255, 255, 255, 0.012);
+  border: 1px solid rgba(255, 255, 255, 0.07);
+  border-radius: 2px;
+  color: var(--text);
+  padding: 0.55rem 0.7rem;
+  transition: border-color 180ms ease, background-color 180ms ease, box-shadow 180ms ease;
+}
+.console-field::placeholder { color: var(--text-subtle); }
+.console-field:hover:not(:disabled):not(:focus) { border-color: rgba(255, 255, 255, 0.12); }
+.console-field:focus {
+  outline: none;
+  border-color: rgba(94, 106, 210, 0.75);
+  background: rgba(94, 106, 210, 0.045);
+  box-shadow: 0 0 0 3px rgba(94, 106, 210, 0.14);
+}
+.console-field:disabled { opacity: 0.45; cursor: not-allowed; }
+
+/* The log field is literally code/output, so it stays monospace. */
+textarea.console-field {
+  resize: vertical;
+  min-height: 7.5rem;
+  font-family: 'JetBrains Mono', ui-monospace, monospace;
+  font-size: 11.5px;
+  line-height: 1.65;
+}
+
+/* A single indigo sweep while a request is in flight — transform only, and it
+ * occupies no layout so the button beneath it never shifts. */
+.activity-line {
+  position: relative;
+  height: 1px;
+  overflow: hidden;
+  background-color: rgba(94, 106, 210, 0.14);
+}
+.activity-line::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(90deg, transparent, var(--primary), transparent);
+  animation: activitySweep 1.15s linear infinite;
+}
+@keyframes activitySweep {
+  from { transform: translateX(-100%); }
+  to   { transform: translateX(100%); }
+}
+
+/*
+  The command console stays beside a long plan, but only where the viewport is
+  tall enough to hold it — below that it returns to normal flow rather than
+  becoming a sticky element taller than the screen. No inner scroll, so browser
+  scrolling and focus order are untouched.
+*/
+@media (min-width: 1024px) and (min-height: 720px) {
+  .issue-command-sticky { position: sticky; top: 4.75rem; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .console-field { transition: none; }
+  .activity-line::after { animation: none; opacity: 0.55; }
+}
+
+/* Staggered row entry, used by insight and spec lists. Rows start hidden and
+ * are revealed by [data-reveal]; this only supplies the cascade. */
+.stagger > * { --reveal-delay: 0ms; }
+.stagger > *:nth-child(2) { --reveal-delay: 60ms; }
+.stagger > *:nth-child(3) { --reveal-delay: 120ms; }
+.stagger > *:nth-child(4) { --reveal-delay: 180ms; }
+.stagger > *:nth-child(5) { --reveal-delay: 240ms; }
+.stagger > *:nth-child(6) { --reveal-delay: 300ms; }
+.stagger > *:nth-child(n + 7) { --reveal-delay: 360ms; }
+
+/* Section seam label fades its rule in as the seam is revealed. */
+.seam.is-revealed::after { animation: seamRule 900ms cubic-bezier(0.16, 1, 0.3, 1) both; }
+@keyframes seamRule {
+  from { transform: scaleX(0); transform-origin: left center; }
+  to   { transform: scaleX(1); transform-origin: left center; }
+}
+
+/* Smooth in-page jumps, but never for visitors who asked for less motion. */
+@media (prefers-reduced-motion: no-preference) {
+  html { scroll-behavior: smooth; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .panel-enter { animation: none; }
+  /* No draw-on animation, so the rule must already be at full width. */
+  .seam::after,
+  .seam.is-revealed::after { animation: none; transform: scaleX(1); }
+  .meter > span { transition: none !important; }
+}
+
+/* ---------------------------------------------------------------------------
+ * Workspace continuity — carrying the upper page's language into the workspace.
+ * Flat surfaces, hairlines, small technical labels. No filled chips or cards.
+ * ------------------------------------------------------------------------- */
+
+/* Action row: transparent, thin indigo border, nudges on hover. */
+.action-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.45rem 0.85rem;
+  background: transparent;
+  border: 1px solid rgba(94, 106, 210, 0.28);
+  color: var(--text-muted);
+  font-family: 'JetBrains Mono', ui-monospace, monospace;
+  font-size: 10px;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  transition: transform 200ms var(--ease-spring), border-color 200ms ease, color 200ms ease;
+}
+.action-chip:hover {
+  transform: translateY(-2px);
+  border-color: rgba(94, 106, 210, 0.7);
+  color: var(--text);
+}
+.action-chip:focus-visible {
+  outline: none;
+  border-color: var(--primary);
+  box-shadow: 0 0 0 3px rgba(94, 106, 210, 0.16);
+}
+.action-chip svg { transition: transform 200ms var(--ease-spring); }
+.action-chip:hover svg { transform: translateX(2px); }
+
+/* Explorer rows: airier, slightly tighter type, no filled selection. */
+.tree-row {
+  position: relative;
+  letter-spacing: -0.01em;
+  transition: color 180ms ease, background-color 180ms ease;
+}
+.tree-row:hover { background-color: rgba(255, 255, 255, 0.022); }
+/* Selection is a rule, not a fill. */
+.tree-row[data-selected='true']::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 0.15rem;
+  bottom: 0.15rem;
+  width: 1px;
+  background: var(--primary);
+}
+
+/* Relationship spine — slightly more present than before, still quiet. */
+.topo-line {
+  background: linear-gradient(180deg, rgba(94, 106, 210, 0.7), rgba(94, 106, 210, 0.18));
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .action-chip, .action-chip svg, .tree-row { transition: none; }
+  .action-chip:hover { transform: none; }
+  .action-chip:hover svg { transform: none; }
+}
+
+/* ===========================================================================
+ * ARIA FILE LANGUAGE
+ *
+ * One visual definition for a file path, used wherever a path appears so the
+ * same file reads as the same entity across the explorer, centrality rail,
+ * relationship timeline, inspector and entry points.
+ *
+ *   directory prefix → recedes
+ *   filename         → carries the emphasis
+ *   trailing meta    → dim
+ *
+ * Long paths wrap; the filename is never truncated and never overflows.
+ * ========================================================================= */
+
+.fp {
+  display: inline;
+  min-width: 0;
+  max-width: 100%;
+  font-family: 'JetBrains Mono', ui-monospace, monospace;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.012em;
+  overflow-wrap: anywhere;
+  text-align: left;
+  background: none;
+  border: 0;
+  padding: 0;
+}
+
+.fp-dir { color: var(--text-subtle); font-weight: 400; }
+.fp-name { color: var(--text); font-weight: 600; }
+.fp-trailing {
+  margin-left: 0.55rem;
+  color: var(--text-subtle);
+  font-size: 0.85em;
+  font-weight: 400;
+}
+
+/* A quiet directional glyph — the distinction between a source and something
+ * it reaches, without a decorative icon per row. */
+.fp-marker {
+  margin-right: 0.5rem;
+  color: rgba(94, 106, 210, 0.75);
+  font-weight: 400;
+}
+
+/* ── Tones ──────────────────────────────────────────────────────────────── */
+.fp--primary .fp-name { color: var(--text); font-weight: 600; }
+.fp--primary .fp-dir { color: var(--text-subtle); }
+
+.fp--secondary .fp-name { color: var(--text-muted); font-weight: 500; }
+.fp--secondary .fp-dir { color: rgba(82, 86, 96, 0.75); }
+
+.fp--metadata .fp-name { color: var(--text-subtle); font-weight: 400; }
+.fp--metadata .fp-dir { color: rgba(82, 86, 96, 0.6); }
+
+/* ── Sizes ──────────────────────────────────────────────────────────────── */
+.fp--sm { font-size: 11px; line-height: 1.5; }
+.fp--md { font-size: 13px; line-height: 1.45; }
+.fp--lg { font-size: 15px; line-height: 1.35; }
+@media (min-width: 640px) {
+  .fp--lg { font-size: 1.0625rem; }
+}
+
+/* ── Interactive ────────────────────────────────────────────────────────── */
+.fp--interactive {
+  cursor: pointer;
+  transition: color 180ms cubic-bezier(0.16, 1, 0.3, 1),
+    transform 180ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+.fp--interactive .fp-name,
+.fp--interactive .fp-dir {
+  transition: color 180ms cubic-bezier(0.16, 1, 0.3, 1),
+    box-shadow 180ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+.fp--interactive:hover { transform: translateX(2px); }
+.fp--interactive:hover .fp-name {
+  color: #ffffff;
+  /* A hairline edge under the filename only — not a full underline. */
+  box-shadow: inset 0 -1px 0 rgba(94, 106, 210, 0.8);
+}
+.fp--interactive:hover .fp-dir { color: var(--text-muted); }
+
+.fp--interactive:focus-visible {
+  outline: none;
+  /* No layout movement on focus. */
+  box-shadow: 0 0 0 1px rgba(94, 106, 210, 0.9), 0 0 0 4px rgba(94, 106, 210, 0.16);
+}
+
+/* Selected / active — restrained indigo, paired with aria-current. */
+.fp--active .fp-name { color: var(--primary); }
+.fp--active .fp-dir { color: rgba(94, 106, 210, 0.55); }
+
+@media (prefers-reduced-motion: reduce) {
+  .fp--interactive,
+  .fp--interactive .fp-name,
+  .fp--interactive .fp-dir { transition: none; }
+  .fp--interactive:hover { transform: none; }
+}
+
+/* Symbol rows in the file intelligence panel. Not buttons — they are telemetry,
+ * so they brighten on hover without pretending to be interactive. */
+.symbol-row .symbol-name,
+.symbol-row .symbol-line {
+  transition: color 180ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+.symbol-row:hover .symbol-name { color: #ffffff; }
+.symbol-row:hover .symbol-line { color: var(--primary); }
+
+@media (prefers-reduced-motion: reduce) {
+  .symbol-row .symbol-name,
+  .symbol-row .symbol-line { transition: none; }
+}
+
+/* ---------------------------------------------------------------------------
+ * API Surface inventory rows.
+ * Dense, hairline-separated, scannable. No card per symbol.
+ * ------------------------------------------------------------------------- */
+
+.api-row { transition: background-color 180ms ease; }
+.api-row:hover { background-color: rgba(255, 255, 255, 0.018); }
+
+/*
+  A path inside an evidence row responds with the row: the filename resolves to
+  white and the directory prefix picks up indigo, so hovering confirms which
+  record you are reading without a fill or a border change.
+*/
+.api-row .fp-name,
+.api-row .fp-dir,
+.topo-item .fp-name,
+.topo-item .fp-dir { transition: color 180ms ease; }
+.api-row:hover .fp-name,
+.api-row:focus-within .fp-name,
+.topo-item:hover .fp-name,
+.topo-item:focus-within .fp-name { color: #ffffff; }
+.api-row:hover .fp-dir,
+.api-row:focus-within .fp-dir,
+.topo-item:hover .fp-dir,
+.topo-item:focus-within .fp-dir { color: rgba(94, 106, 210, 0.85); }
+
+/*
+  Specification strip — term/value cells split by vertical hairlines. Hover
+  emphasises the value alone; the cell never fills, lifts or moves. Values
+  carrying a semantic colour opt out by omitting `strip-value`.
+*/
+.spec-strip .strip-value { transition: color 180ms ease; }
+.spec-strip > div:hover .strip-value { color: #ffffff; }
+.api-row:has(> button[aria-expanded='true']) {
+  background-color: rgba(94, 106, 210, 0.04);
+}
+
+/* Expanded evidence sits slightly inset from the row that opened it. */
+.api-evidence {
+  animation: panelEnter 200ms cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+/* Search field: a rule, not a boxed input. */
+.api-search::-webkit-search-cancel-button { display: none; }
+
+/* Evidence actions — quiet, mono, arrow nudges on hover. */
+.api-action {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-family: 'JetBrains Mono', ui-monospace, monospace;
+  font-size: 11px;
+  color: var(--text-muted);
+  transition: color 180ms ease;
+}
+.api-action:hover { color: var(--text); }
+.api-action:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 1px rgba(94, 106, 210, 0.9), 0 0 0 4px rgba(94, 106, 210, 0.16);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .api-row, .api-action { transition: none; }
+  .api-row .fp-name, .api-row .fp-dir,
+  .topo-item .fp-name, .topo-item .fp-dir,
+  .spec-strip .strip-value { transition: none; }
+  .api-evidence { animation: none; }
+}
+
+/* ===========================================================================
+ * ARIA LIGHTING SYSTEM — the landing story's art direction layer.
+ *
+ * One metaphor, applied everywhere: the page is dark, and intelligence makes
+ * light. Nothing here glows continuously. Light appears when the system
+ * discovers something, travels once when it traces a relationship, and recedes
+ * when a chapter stops being the subject.
+ *
+ * Every animation below is transform / opacity / filter only, is triggered by a
+ * class or a custom property written outside React, and answers one of:
+ *   discovery · connection · tracing · understanding · chapter change
+ * ========================================================================= */
+
+:root {
+  /*
+    ── Lighting scale ──────────────────────────────────────────────────────────
+    Four levels, and only the last is genuinely luminous:
+
+      ATMOSPHERE  grid, hairlines, distant traces          (void / grid / hairline)
+      CONTEXT     type, structural lines, metadata         (muted)
+      FOCUS       the currently relevant node or phrase    (indigo / indigo-soft)
+      DISCOVERY   a short-lived reveal event               (white / edge)
+
+    Semantic tones stay exactly where the product already uses them: emerald for
+    inbound structural relationships, amber for cycles and attention, rose only
+    for genuine exceptional states. They are declared here so nothing hardcodes a
+    second copy — not so that the landing page starts colouring things in.
+  */
+  --lumen-void:         #030305;
+  --lumen-grid:         rgba(255, 255, 255, 0.028);
+  --lumen-hairline:     rgba(255, 255, 255, 0.055);
+  --lumen-muted:        rgba(255, 255, 255, 0.42);
+  --lumen-indigo-soft:  rgba(94, 106, 210, 0.16);
+  --lumen-indigo:       rgba(94, 106, 210, 0.34);
+  --lumen-edge:         rgba(143, 155, 245, 0.85);
+  --lumen-white:        rgba(232, 236, 255, 0.9);
+  --lumen-emerald:      rgba(52, 211, 153, 0.8);
+  --lumen-amber:        rgba(245, 158, 11, 0.8);
+  --lumen-rose:         rgba(244, 63, 94, 0.8);
+
+  /* Back-compat aliases for the first pass of the lighting layer. */
+  --lumen-soft: var(--lumen-indigo-soft);
+  --lumen-mid:  var(--lumen-indigo);
+
+  /*
+    ── Motion cadence ─────────────────────────────────────────────────────────
+    One vocabulary for the whole page. Anything that needs an easing curve picks
+    from these five rather than inventing a sixth:
+
+      cine    the house curve — reveals, chapter motion, headline entrances
+      reveal  a touch softer, for staggered content arriving in sequence
+      settle  arrives and stops dead, for values and selections resolving
+      snap    short and decisive, for micro-interactions under ~200ms
+      slow    long crossfades — scene changes and atmosphere
+  */
+  --ease-cine:   cubic-bezier(0.16, 1, 0.3, 1);
+  --ease-reveal: cubic-bezier(0.22, 1, 0.36, 1);
+  --ease-settle: cubic-bezier(0.33, 1, 0.68, 1);
+  --ease-snap:   cubic-bezier(0.4, 0, 0.2, 1);
+  --ease-slow:   cubic-bezier(0.4, 0, 0.35, 1);
+}
+
+/* ── Wide composition shell ───────────────────────────────────────────────
+ * Occasional full-width graph moments. Same gutters, more canvas, so the page
+ * is not a single column of equal-width rectangles.
+ * ------------------------------------------------------------------------- */
+.story-shell--wide { max-width: 96rem; }
+
+/*
+  Editorial offset — breaks the left-aligned column without ever creating a
+  horizontal scroll. Deliberately padding rather than margin: `.story-shell` is
+  width:100%, so a left margin would push its right edge past the viewport. This
+  overrides the shell's `padding-inline` on one side only, and stays inside the
+  box at every width.
+*/
+@media (min-width: 1024px) {
+  .story-offset { padding-left: 8%; }
+  .story-offset-r { padding-right: 8%; }
+}
+
+/* ── Chapter markers draw themselves in ──────────────────────────────────── */
+.chapter-rule::after {
+  transform: scaleX(0);
+  transform-origin: left center;
+  transition: transform 1100ms var(--ease-cine) var(--reveal-delay, 0ms);
+}
+.chapter-rule.is-revealed::after { transform: scaleX(1); }
+
+/* Right-aligned chapters mirror the marker, so the rule always runs away from
+ * the type rather than colliding with it. */
+@media (min-width: 1024px) {
+  .chapter-rule--right { flex-direction: row-reverse; }
+  .chapter-rule--right::after {
+    background: linear-gradient(270deg, rgba(255, 255, 255, 0.09), transparent);
+    transform-origin: right center;
+  }
+}
+
+/* ── Pointer language ─────────────────────────────────────────────────────
+ * A single element, moved with transforms. It is invisible until the pointer is
+ * over something that responds, so the page never carries a decorative cursor.
+ *   default    → nothing
+ *   responsive → small indigo halo
+ *   precision  → crosshair reticle over a topology surface
+ * ------------------------------------------------------------------------- */
+.pointer-light {
+  position: fixed;
+  left: 0;
+  top: 0;
+  z-index: 60;
+  height: 26px;
+  width: 26px;
+  margin: -13px 0 0 -13px;
+  border-radius: 9999px;
+  pointer-events: none;
+  opacity: 0;
+  will-change: transform, opacity;
+  transition: opacity 240ms ease, width 240ms var(--ease-cine),
+    height 240ms var(--ease-cine), margin 240ms var(--ease-cine);
+}
+.pointer-light::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background: radial-gradient(circle, var(--lumen-mid) 0%, transparent 70%);
+}
+/* Centre dot — the "system is pointing at this" mark. */
+.pointer-light::after {
+  content: '';
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  height: 3px;
+  width: 3px;
+  margin: -1.5px 0 0 -1.5px;
+  border-radius: 9999px;
+  background: var(--lumen-edge);
+  transition: opacity 240ms ease;
+}
+.pointer-light.is-visible { opacity: 1; }
+
+/* Over a graph: the halo resolves into a targeting reticle. */
+.pointer-light.is-precision {
+  height: 40px;
+  width: 40px;
+  margin: -20px 0 0 -20px;
+}
+.pointer-light.is-precision::before {
+  background: radial-gradient(circle, var(--lumen-soft) 0%, transparent 68%);
+  border: 1px solid rgba(94, 106, 210, 0.45);
+}
+
+/* The repository command surface gets the quietest state — the field itself
+ * already carries a focus treatment, so the pointer only confirms the target. */
+.pointer-light.is-command { height: 18px; width: 18px; margin: -9px 0 0 -9px; }
+
+@media (hover: none), (pointer: coarse) {
+  .pointer-light { display: none; }
+}
+
+/* ── Attention propagation ────────────────────────────────────────────────
+ * A light travels a relationship exactly once, when ARIA re-targets. This is a
+ * semantic animation, not traffic: it never repeats, and it never runs on hover.
+ * The element is keyed on the selection in React, so a new selection remounts it
+ * and the animation plays from the start.
+ * ------------------------------------------------------------------------- */
+@keyframes attnTravel {
+  0%   { stroke-dashoffset: 0.16; opacity: 0; }
+  12%  { opacity: 1; }
+  82%  { opacity: 1; }
+  100% { stroke-dashoffset: -0.86; opacity: 0; }
+}
+.attn-trace {
+  /* pathLength is normalised to 1, so the dash is a fraction of the edge. */
+  stroke-dasharray: 0.16 0.84;
+  stroke-dashoffset: 0.16;
+  opacity: 0;
+  animation: attnTravel 1100ms var(--ease-cine) var(--trace-delay, 0ms) 1 both;
+}
+
+/* The edge itself brightens as the light passes, then returns to rest. */
+@keyframes attnEdgeLift {
+  0%, 100% { stroke-opacity: 0.55; }
+  40%      { stroke-opacity: 1; }
+}
+.attn-edge { animation: attnEdgeLift 1100ms ease var(--trace-delay, 0ms) 1 both; }
+
+/* ── Node attention ──────────────────────────────────────────────────────
+ * Nodes do not pulse. When one becomes important a ring expands out of it once
+ * and a local bloom settles in behind it.
+ * ------------------------------------------------------------------------- */
+@keyframes nodeRing {
+  0%   { transform: scale(0.35); opacity: 0; }
+  25%  { opacity: 0.75; }
+  100% { transform: scale(1); opacity: 0; }
+}
+.node-ring {
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: nodeRing 1200ms var(--ease-cine) 1 both;
+}
+
+@keyframes nodeBloom {
+  from { opacity: 0; transform: scale(0.7); }
+  to   { opacity: 1; transform: scale(1); }
+}
+.node-bloom {
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: nodeBloom 700ms var(--ease-cine) 1 both;
+}
+
+/* ── Inspector resolve ───────────────────────────────────────────────────
+ * The inspector does not slide in like a modal. It resolves, as though the
+ * system has just finished identifying the module.
+ * ------------------------------------------------------------------------- */
+@keyframes inspectorResolve {
+  from { opacity: 0; transform: translate3d(16px, 0, 0); filter: blur(4px); }
+  to   { opacity: 1; transform: translate3d(0, 0, 0);    filter: blur(0); }
+}
+.inspector-resolve { animation: inspectorResolve 400ms var(--ease-cine) 1 both; }
+
+/* ── Stage activation wave ───────────────────────────────────────────────
+ * Used by the pipeline: one stage wakes, and a pulse leaves it toward the next.
+ * Fires once per advance, keyed on the stage index.
+ * ------------------------------------------------------------------------- */
+@keyframes stageWake {
+  0%   { transform: scale(0.4); opacity: 0; }
+  30%  { opacity: 0.9; }
+  100% { transform: scale(2.6); opacity: 0; }
+}
+.stage-wake {
+  animation: stageWake 900ms var(--ease-cine) 1 both;
+}
+
+/* ── Repository memory: temporal language ─────────────────────────────────
+ * Time runs left to right. Churn is carried by width and luminance, never by a
+ * fabricated number. Hotspots illuminate once as the chapter is read.
+ * ------------------------------------------------------------------------- */
+.era-axis {
+  height: 1px;
+  background: linear-gradient(
+    90deg,
+    rgba(255, 255, 255, 0.04),
+    rgba(255, 255, 255, 0.14) 45%,
+    rgba(94, 106, 210, 0.6)
+  );
+  transform: scaleX(var(--p, 0));
+  transform-origin: left center;
+}
+
+/* One file's activity across the timeline. Width is the span it was touched
+ * over; luminance is how much it changed. */
+.churn-bar {
+  position: relative;
+  height: 2px;
+  transform: scaleX(var(--reach, 0));
+  transform-origin: left center;
+  transition: transform 1100ms var(--ease-cine) var(--reveal-delay, 0ms),
+    opacity 700ms ease var(--reveal-delay, 0ms);
+}
+
+/* A hotspot marker: architectural churn concentrating in one place. */
+@keyframes hotspotSettle {
+  0%   { transform: scale(0.5); opacity: 0; }
+  45%  { opacity: 1; }
+  100% { transform: scale(1); opacity: 0.55; }
+}
+.hotspot { animation: hotspotSettle 900ms var(--ease-cine) var(--reveal-delay, 0ms) 1 both; }
+
+/* ── Reading path as a route ──────────────────────────────────────────────
+ * The ranked files are joined by a faint route that lights segment by segment,
+ * so the list reads as a way through the repository.
+ * ------------------------------------------------------------------------- */
+.route-seg {
+  transform: scaleY(0);
+  transform-origin: top center;
+  transition: transform 700ms var(--ease-cine), background-color 500ms ease;
+}
+.route-seg.is-lit { transform: scaleY(1); }
+
+/* ── Closing statement: a slow topology pass ──────────────────────────────
+ * 90 seconds for one traverse. Transform only, so it composites off the main
+ * thread and never triggers layout.
+ * ------------------------------------------------------------------------- */
+@keyframes statementDrift {
+  from { transform: translate3d(-4%, 0, 0) scale(1.04); }
+  to   { transform: translate3d(4%, 0, 0) scale(1.04); }
+}
+.statement-drift {
+  animation: statementDrift 90s ease-in-out infinite alternate;
+  will-change: transform;
+}
+
+/* ── Terminal command surface ─────────────────────────────────────────────
+ * The one input on the page. It reads as a system command fused with editorial
+ * type: a prompt glyph, a hairline frame, and light that arrives on focus.
+ * ------------------------------------------------------------------------- */
+.command-surface {
+  position: relative;
+  transition: border-color 500ms ease, background-color 500ms ease,
+    box-shadow 500ms ease;
+}
+/* The focus line — draws across the bottom edge rather than ringing the box. */
+.command-surface::after {
+  content: '';
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: -1px;
+  height: 1px;
+  background: linear-gradient(90deg, var(--primary), rgba(94, 106, 210, 0.15));
+  transform: scaleX(0);
+  transform-origin: left center;
+  transition: transform 620ms var(--ease-cine);
+}
+.command-surface.is-focused::after { transform: scaleX(1); }
+.command-surface.is-focused {
+  box-shadow: 0 0 50px -12px rgba(94, 106, 210, 0.5);
+}
+
+/* Submit handoff: the surface reports what it is doing before the page changes.
+ * These labels are driven by real state — a resolve step the client genuinely
+ * performs, then the first status the analysis stream reports. */
+.command-phase {
+  opacity: 0;
+  transform: translate3d(0, 4px, 0);
+  transition: opacity 300ms ease, transform 300ms var(--ease-cine);
+}
+.command-phase.is-shown {
+  opacity: 1;
+  transform: translate3d(0, 0, 0);
+}
+
+/* ── Micro-interactions ──────────────────────────────────────────────────── */
+
+/* Specification rows in the technology chapter: a hairline of light on the
+ * leading edge, nothing more. */
+.spec-item { position: relative; }
+.spec-item::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 12%;
+  bottom: 12%;
+  width: 1px;
+  background: var(--primary);
+  transform: scaleY(0);
+  transform-origin: center;
+  transition: transform 280ms var(--ease-cine);
+}
+.spec-item:hover::before { transform: scaleY(1); }
+
+/* Quiet luminance response, for links and secondary rows. */
+.lumen-hover { transition: color 240ms ease, opacity 240ms ease; }
+.lumen-hover:hover { color: #ffffff; }
+
+/* ── Reduced motion ──────────────────────────────────────────────────────
+ * Choreography, travelling light, drift and staged movement all go. Topology,
+ * hierarchy and every piece of content stay exactly as they are.
+ * ------------------------------------------------------------------------- */
+@media (prefers-reduced-motion: reduce) {
+  .pointer-light { display: none !important; }
+
+  /*
+    Tailwind's own looping utilities were never covered by the opt-outs above, so
+    a reduced-motion visitor still met a breathing offline indicator and any
+    indeterminate bar that used them. Indeterminate state is carried by its label
+    and colour, which survive without the animation.
+  */
+  .animate-pulse,
+  .animate-ping,
+  .animate-bounce { animation: none !important; }
+  /*
+    `animate-spin` deliberately survives: it is on loading indicators, and a
+    frozen spinner reads as a hung interface rather than as restraint.
+  */
+
+  .chapter-rule::after,
+  .chapter-rule.is-revealed::after {
+    transform: scaleX(1);
+    transition: none;
+  }
+
+  .attn-trace { display: none !important; }
+  .attn-edge,
+  .node-ring,
+  .node-bloom,
+  .stage-wake,
+  .hotspot,
+  .statement-drift { animation: none !important; }
+
+  .node-ring { display: none !important; }
+  .stage-wake { display: none !important; }
+  .hotspot { opacity: 0.55; transform: none; }
+  .node-bloom { opacity: 1; transform: none; }
+
+  .inspector-resolve { animation: none !important; filter: none; }
+
+  .era-axis { transform: scaleX(1); }
+  .churn-bar { transition: none; }
+  .route-seg { transform: scaleY(1); transition: none; }
+
+  .command-surface,
+  .command-surface::after { transition: none; }
+  .command-surface::after { transform: scaleX(0); }
+  .command-surface.is-focused::after { transform: scaleX(1); }
+
+  .command-phase { transition: none; }
+  .spec-item::before { transition: none; }
+  .lumen-hover { transition: none; }
+}
+
+/* ===========================================================================
+ * ARIA HERO — the opening frame.
+ *
+ * A codebase awakening: the topology is nearly absent, a soft light sits behind
+ * the type, and the headline is revealed rather than dropped onto the page.
+ * `--hero-p` is written by a scroll handler (rAF-gated, no layout reads) and is
+ * the only per-frame value; everything else is a one-shot entrance.
+ * ========================================================================= */
+
+/* Soft light source behind the typography. Two overlapping radials, offset from
+ * each other so the falloff is not a perfect circle, drifting on a very slow
+ * cycle and rising slightly as the visitor scrolls away. */
+.hero-bloom {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  opacity: calc(0.35 - var(--hero-p, 0) * 0.3);
+  background:
+    radial-gradient(
+      ellipse 46% 38% at 26% 74%,
+      rgba(94, 106, 210, 0.2) 0%,
+      rgba(94, 106, 210, 0.06) 42%,
+      transparent 72%
+    ),
+    radial-gradient(
+      ellipse 30% 26% at 16% 66%,
+      rgba(226, 232, 255, 0.07) 0%,
+      transparent 70%
+    );
+  transform: translate3d(0, calc(var(--hero-p, 0) * -6%), 0);
+  will-change: transform, opacity;
+}
+
+/* The drift is a separate element so the scroll-linked transform above and the
+ * ambient animation below never fight over the same property. */
+@keyframes heroBloomDrift {
+  from { transform: translate3d(-3%, 1%, 0) scale(1); }
+  to   { transform: translate3d(3%, -1%, 0) scale(1.06); }
+}
+.hero-bloom-drift {
+  animation: heroBloomDrift 26s ease-in-out infinite alternate;
+}
+
+/*
+  Topology, in two nested layers so the two things acting on it never fight over
+  one property:
+    outer — scroll-linked, recedes as the reader leaves the frame
+    inner — a one-shot emergence, from almost nothing to its resting presence
+*/
+.hero-topology {
+  opacity: calc(1 - var(--hero-p, 0) * 0.9);
+  transform: translate3d(0, calc(var(--hero-p, 0) * -3%), 0);
+  will-change: transform, opacity;
+}
+.hero-topology-emerge {
+  opacity: 0.02;
+  transform: scale(1.06);
+  transition: opacity 2800ms var(--ease-cine) 400ms,
+    transform 3600ms var(--ease-cine) 400ms;
+}
+.hero-topology-emerge.is-emerged {
+  opacity: 0.42;
+  transform: scale(1);
+}
+
+/* ── Headline: two lines, deliberately not the same motion ────────────────
+ * UNDERSTAND rises out of its mask through a short blur, arriving sharp and at
+ * full strength. ANY CODEBASE. is delayed, starts muted, and brightens as the
+ * scene resolves — the second half of a sentence being completed, not a second
+ * element animating in.
+ * ------------------------------------------------------------------------- */
+@keyframes heroLead {
+  from {
+    transform: translate3d(0, 104%, 0);
+    opacity: 0;
+    filter: blur(9px);
+  }
+  60% { filter: blur(1.5px); }
+  to {
+    transform: translate3d(0, 0, 0);
+    opacity: 1;
+    filter: blur(0);
+  }
+}
+.hero-line--lead {
+  display: block;
+  animation: heroLead 1.35s var(--ease-cine) both;
+  will-change: transform, opacity, filter;
+}
+
+@keyframes heroResolve {
+  from {
+    transform: translate3d(0, 96%, 0);
+    opacity: 0;
+    color: #3a3d45;
+    filter: blur(6px);
+  }
+  55% { filter: blur(1px); }
+  to {
+    transform: translate3d(0, 0, 0);
+    opacity: 1;
+    color: #6f737c;
+    filter: blur(0);
+  }
+}
+.hero-line--resolve {
+  display: block;
+  animation: heroResolve 1.5s var(--ease-cine) both;
+  will-change: transform, opacity, filter;
+}
+
+/* ── Hero telemetry ──────────────────────────────────────────────────────
+ * The capability list reads as system output: each phrase arrives on its own
+ * beat, tightly spaced, and then stops. No looping.
+ * ------------------------------------------------------------------------- */
+.hero-telemetry {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  /* Row gap matters: at 375px the five phrases wrap onto three lines, and
+   * without it they sit on top of each other. */
+  gap: 0.45rem 0.5rem;
+}
+.hero-telemetry > span {
+  opacity: 0;
+  animation: heroFadeIn 620ms var(--ease-cine) var(--tel-delay, 0ms) both;
+}
+.hero-telemetry .tel-sep { color: rgba(94, 106, 210, 0.55); }
+
+@media (prefers-reduced-motion: reduce) {
+  .hero-bloom,
+  .hero-topology {
+    transform: none;
+    opacity: 0.5;
+  }
+  .hero-topology-emerge,
+  .hero-topology-emerge.is-emerged {
+    opacity: 0.5;
+    transform: none;
+    transition: none;
+  }
+  .hero-bloom-drift { animation: none; }
+  .hero-line--lead,
+  .hero-line--resolve {
+    animation: none;
+    filter: none;
+    opacity: 1;
+    transform: none;
+  }
+  .hero-line--resolve { color: #6f737c; }
+  .hero-telemetry > span { animation: none; opacity: 1; }
+}
+
+/* ===========================================================================
+ * ARIA SCENE SYSTEM — the background becomes one evolving visual argument.
+ *
+ * The backdrop is not decoration that happens to sit behind ten sections. It is
+ * a single topology that changes state as the chapter changes, so the page reads
+ * as one intelligence system rather than as a stack of separate visuals:
+ *
+ *   latent      hero. Almost nothing — a void with a few distant points.
+ *   awakening   points resolve, the first traces appear.
+ *   structural  clusters form; the grid firms up.
+ *   relational  topology becomes the dominant layer, directional.
+ *   propagation traces activate and run outward.
+ *   historical  topology dims; temporal tracks become dominant.
+ *   retrieval   almost everything recedes; a narrow context remains.
+ *   route       one path through the field is lit.
+ *   pipeline    topology flattens into an execution rail.
+ *   spec        the field quiets to a measured, blueprint-like ground.
+ *   cta         everything contracts toward the command surface.
+ *
+ * Implementation: a `data-scene` attribute on the backdrop sets a handful of
+ * custom properties, and each layer derives its own opacity/transform from them
+ * with a long transition. So a scene change is one attribute write, no layout,
+ * no per-frame work, and no layer needs to know which chapter is on screen.
+ * ========================================================================= */
+
+.story-backdrop {
+  /* Layer presence, 0→1. Defaults are the latent (hero) state. */
+  --bd-grid: 0.12;
+  --bd-topology: 0.15;
+  --bd-clusters: 0;
+  --bd-traces: 0;
+  --bd-temporal: 0;
+  --bd-rail: 0;
+  --bd-ticks: 0.06;
+  --bd-fog: 0.75;
+  /* How tightly the field is drawn in toward the centre. */
+  --bd-contract: 0;
+  /* Parallax offset in raw pixels, written by the scroll controller. */
+  --par: 0;
+}
+
+.story-backdrop[data-scene='hero'] {
+  --bd-grid: 0.42;
+  --bd-topology: 0.48;
+  --bd-ticks: 0.28;
+  --bd-fog: 0.5;
+}
+
+.story-backdrop[data-scene='thesis'] {
+  --bd-grid: 0.25;
+  --bd-topology: 0.3;
+  --bd-ticks: 0.15;
+  --bd-fog: 0.65;
+}
+.story-backdrop[data-scene='structure'] {
+  --bd-grid: 1;
+  --bd-topology: 0.7;
+  --bd-clusters: 1;
+  --bd-ticks: 0.7;
+  --bd-fog: 0.35;
+}
+.story-backdrop[data-scene='architecture'] {
+  --bd-grid: 0.25;
+  --bd-topology: 1;
+  --bd-clusters: 0.3;
+  --bd-traces: 0.45;
+  --bd-ticks: 0.5;
+  --bd-fog: 0.5;
+}
+.story-backdrop[data-scene='impact'] {
+  --bd-grid: 0.18;
+  --bd-topology: 0.3;
+  --bd-traces: 1;
+  --bd-ticks: 0.4;
+  --bd-fog: 0.55;
+}
+.story-backdrop[data-scene='memory'] {
+  --bd-grid: 0.15;
+  --bd-topology: 0.2;
+  --bd-temporal: 1;
+  --bd-ticks: 0.85;
+  --bd-fog: 0.6;
+}
+.story-backdrop[data-scene='retrieval'] {
+  /* Irrelevant topology drops away; only a narrow context is left lit. */
+  --bd-grid: 0.2;
+  --bd-topology: 0.16;
+  --bd-clusters: 0.3;
+  --bd-ticks: 0.3;
+  --bd-fog: 0.8;
+  --bd-contract: 0.5;
+}
+.story-backdrop[data-scene='route'] {
+  --bd-grid: 0.4;
+  --bd-topology: 0.35;
+  --bd-traces: 0.7;
+  --bd-ticks: 0.5;
+  --bd-fog: 0.45;
+}
+.story-backdrop[data-scene='pipeline'] {
+  --bd-grid: 0.35;
+  --bd-topology: 0.15;
+  --bd-rail: 1;
+  --bd-ticks: 0.6;
+  --bd-fog: 0.45;
+}
+.story-backdrop[data-scene='technology'] {
+  --bd-grid: 0.85;
+  --bd-topology: 0.2;
+  --bd-ticks: 1;
+  --bd-fog: 0.4;
+}
+/*
+  The closing statement is the darkest frame on the page: the topology all but
+  disappears so nothing competes with the type. §20 — a small silence.
+*/
+.story-backdrop[data-scene='statement'] {
+  --bd-grid: 0.04;
+  --bd-topology: 0.03;
+  --bd-ticks: 0.02;
+  --bd-fog: 0.92;
+  --bd-contract: 0.7;
+}
+
+/* Then the field returns, faintly, contracted toward the command surface. */
+.story-backdrop[data-scene='command'] {
+  --bd-grid: 0.3;
+  --bd-topology: 0.4;
+  --bd-ticks: 0.25;
+  --bd-fog: 0.65;
+  --bd-contract: 1;
+}
+
+/* ── Layer bindings ───────────────────────────────────────────────────────
+ * Each layer reads the scene properties and crossfades. Long durations on
+ * purpose: a scene change should feel like a camera settling, not a toggle.
+ * ------------------------------------------------------------------------- */
+.story-grid {
+  opacity: var(--bd-grid);
+  transition: opacity 1400ms var(--ease-slow);
+  /* Parallax layer 01 — the slowest. */
+  transform: translate3d(0, calc(var(--par) * -0.012px), 0);
+}
+
+/*
+  Layer 02. Parallax and scene contraction are deliberately on two different
+  elements: a transform that tracks scroll must never be transitioned, or it
+  interpolates toward each frame's target and the whole field rubber-bands behind
+  the content. So the wrapper owns the slow scene scale, and the topology itself
+  owns the immediate parallax offset.
+*/
+.bd-topology-scale {
+  position: absolute;
+  inset: 0;
+  transform: scale(calc(1 - var(--bd-contract) * 0.12));
+  transition: transform 1400ms var(--ease-slow);
+}
+
+.story-lines {
+  /* Was a flat 0.5; now the topology's presence is the chapter's business. */
+  opacity: var(--bd-topology);
+  transition: opacity 1400ms var(--ease-slow);
+  /* Moves a little more than the grid — depth, not motion. */
+  transform: translate3d(0, calc(var(--par) * -0.026px), 0);
+}
+
+.story-node {
+  /* Distant points belong to the topology layer. */
+  opacity: calc(var(--bd-topology) * 0.9);
+  transition: opacity 1400ms var(--ease-slow);
+}
+
+/* Cluster fields — soft module regions, only meaningful once grouping exists. */
+.bd-clusters {
+  position: absolute;
+  inset: 0;
+  opacity: var(--bd-clusters);
+  transition: opacity 1400ms var(--ease-slow);
+  background:
+    radial-gradient(circle 22vw at 22% 34%, rgba(94, 106, 210, 0.05), transparent 68%),
+    radial-gradient(circle 18vw at 74% 26%, rgba(94, 106, 210, 0.045), transparent 68%),
+    radial-gradient(circle 20vw at 52% 78%, rgba(94, 106, 210, 0.04), transparent 68%);
+  transform: translate3d(0, calc(var(--par) * -0.02px), 0);
+}
+
+/* Directional traces — the field acquires direction. */
+.bd-traces {
+  position: absolute;
+  inset: 0;
+  opacity: var(--bd-traces);
+  transition: opacity 1400ms var(--ease-slow);
+  transform: translate3d(0, calc(var(--par) * -0.034px), 0);
+}
+
+/* Temporal tracks — horizontal time, dominant only in the history chapter. */
+.bd-temporal {
+  position: absolute;
+  inset: 0;
+  opacity: var(--bd-temporal);
+  transition: opacity 1400ms var(--ease-slow);
+  background-image: repeating-linear-gradient(
+    to bottom,
+    rgba(255, 255, 255, 0.035) 0px,
+    rgba(255, 255, 255, 0.035) 1px,
+    transparent 1px,
+    transparent 74px
+  );
+  mask-image: linear-gradient(90deg, transparent, #000 18%, #000 72%, transparent),
+    radial-gradient(ellipse 80% 60% at 50% 50%, #000 30%, transparent 80%);
+  -webkit-mask-image: linear-gradient(90deg, transparent, #000 18%, #000 72%, transparent),
+    radial-gradient(ellipse 80% 60% at 50% 50%, #000 30%, transparent 80%);
+  mask-composite: intersect;
+  -webkit-mask-composite: source-in;
+  transform: translate3d(0, calc(var(--par) * -0.018px), 0);
+}
+
+/* Execution rail — disabled to avoid horizontal light passing across the viewport */
+.bd-rail {
+  display: none !important;
+}
+
+/*
+  Blueprint measurement marks. A graphic device, not a HUD: ticks along the top
+  and left edges that make the canvas read as a measured surface. Strongest in
+  the specification chapter, where the page is at its most technical.
+*/
+.bd-ticks {
+  position: absolute;
+  inset: 0;
+  opacity: var(--bd-ticks);
+  transition: opacity 1400ms var(--ease-slow);
+}
+.bd-ticks::before,
+.bd-ticks::after {
+  content: '';
+  position: absolute;
+  background-repeat: repeat;
+}
+.bd-ticks::before {
+  left: 0;
+  right: 0;
+  top: 0;
+  height: 7px;
+  background-image: repeating-linear-gradient(
+    to right,
+    rgba(255, 255, 255, 0.11) 0px,
+    rgba(255, 255, 255, 0.11) 1px,
+    transparent 1px,
+    transparent 48px
+  );
+  mask-image: linear-gradient(90deg, transparent, #000 25%, #000 75%, transparent);
+  -webkit-mask-image: linear-gradient(90deg, transparent, #000 25%, #000 75%, transparent);
+}
+.bd-ticks::after {
+  top: 0;
+  bottom: 0;
+  left: 0;
+  width: 7px;
+  background-image: repeating-linear-gradient(
+    to bottom,
+    rgba(255, 255, 255, 0.09) 0px,
+    rgba(255, 255, 255, 0.09) 1px,
+    transparent 1px,
+    transparent 48px
+  );
+  mask-image: linear-gradient(180deg, transparent, #000 25%, #000 75%, transparent);
+  -webkit-mask-image: linear-gradient(180deg, transparent, #000 25%, #000 75%, transparent);
+}
+
+/* Depth fog — the far end of the field falls away. */
+.bd-fog {
+  position: absolute;
+  inset: 0;
+  opacity: var(--bd-fog);
+  transition: opacity 1400ms var(--ease-slow);
+  background:
+    radial-gradient(ellipse 70% 55% at 50% 42%, transparent 30%, rgba(3, 3, 5, 0.55) 85%),
+    linear-gradient(180deg, rgba(3, 3, 5, 0.5) 0%, transparent 22%, transparent 78%, rgba(3, 3, 5, 0.6) 100%);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  /*
+    Scene changes still happen — the composition of each chapter is content, not
+    decoration — but nothing crossfades or parallaxes to get there.
+  */
+  .story-grid,
+  .story-lines,
+  .story-node,
+  .bd-clusters,
+  .bd-traces,
+  .bd-temporal,
+  .bd-rail,
+  .bd-ticks,
+  .bd-fog { transition: none; }
+  .bd-topology-scale { transition: none; }
+  .story-grid,
+  .story-lines,
+  .bd-clusters,
+  .bd-traces,
+  .bd-temporal { transform: none; }
+}
+
+/* ===========================================================================
+ * STATEMENT MOTION VOCABULARY
+ *
+ * The four full-viewport typographic moments should not all enter the same way —
+ * repeating one entrance makes the page feel templated, and using a different
+ * bespoke animation each time makes it feel arbitrary. So: a small closed
+ * vocabulary, applied deliberately, never twice in a row.
+ *
+ *   line        masked rise            "Structure is hidden."
+ *   line-blur   out of focus → sharp   "Every change has a shadow."
+ *   line-clip   horizontal wipe        "Stop reading the codebase."
+ *   line-lumen  luminance emergence    "Let ARIA map it first."
+ *
+ * All four ride the existing [data-reveal] IntersectionObserver, so they cost no
+ * new JavaScript and inherit --reveal-delay for line-by-line timing.
+ * ========================================================================= */
+
+/* Out of focus, then sharp. Blur is on text only, a handful of elements. */
+[data-reveal='line-blur'] {
+  opacity: 0;
+  transform: translate3d(0, 34%, 0);
+  filter: blur(14px);
+  transition:
+    opacity 1000ms var(--ease-cine) var(--reveal-delay, 0ms),
+    transform 1200ms var(--ease-cine) var(--reveal-delay, 0ms),
+    filter 1100ms var(--ease-cine) var(--reveal-delay, 0ms);
+}
+[data-reveal='line-blur'].is-revealed {
+  opacity: 1;
+  transform: translate3d(0, 0, 0);
+  filter: blur(0);
+}
+
+/*
+  A horizontal wipe.
+
+  The clip lives on an inner element, never on the observed one. Chrome computes
+  an IntersectionObserver's intersection rect against the target's *clipped*
+  visual rect, so an element wearing `clip-path: inset(0 100% 0 0)` reports
+  ratio 0 forever — it can never be seen by the observer whose job is to un-clip
+  it. Clipping the child keeps the observed box at full size and the deadlock
+  cannot happen.
+
+  Also resets the base transform: the shared [data-reveal] rule offsets by 22px,
+  which this entrance does not want and would otherwise snap away on reveal,
+  since the transition here only covers clip-path.
+*/
+[data-reveal='line-clip'] {
+  opacity: 1;
+  transform: none;
+}
+[data-reveal='line-clip'] > span {
+  display: block;
+  clip-path: inset(0 100% 0 0);
+  transition: clip-path 1150ms var(--ease-cine) var(--reveal-delay, 0ms);
+}
+[data-reveal='line-clip'].is-revealed > span {
+  clip-path: inset(0 0 0 0);
+}
+
+/* Luminance emergence — the words are already in position and brighten out of
+ * the canvas, which is the closing statement's whole argument. */
+[data-reveal='line-lumen'] {
+  opacity: 1;
+  /* Never clipped and never moved — the words are already in position, which is
+   * the whole point of this entrance, and it keeps the observer's geometry real. */
+  clip-path: none;
+  transform: none;
+  color: #14151a;
+  transition: color 1300ms var(--ease-slow) var(--reveal-delay, 0ms);
+}
+[data-reveal='line-lumen'].is-revealed { color: var(--text); }
+[data-reveal='line-lumen'].is-dim.is-revealed { color: #6f737c; }
+
+@media (prefers-reduced-motion: reduce) {
+  [data-reveal='line-blur'],
+  [data-reveal='line-clip'],
+  [data-reveal='line-clip'] > span,
+  [data-reveal='line-lumen'] {
+    opacity: 1 !important;
+    transform: none !important;
+    filter: none !important;
+    clip-path: none !important;
+    transition: none !important;
+  }
+  [data-reveal='line-lumen'] { color: var(--text); }
+  [data-reveal='line-lumen'].is-dim { color: #6f737c; }
+}
+
+/* ===========================================================================
+ * GRAPH STATE DEPTH
+ *
+ * Six node states and one discovery event, shared by both graph surfaces so a
+ * node means the same thing wherever it appears.
+ *
+ *   resting     the topology at rest
+ *   hover       the pointer is over it
+ *   selected    ARIA's current subject
+ *   related     participates in the current focus
+ *   background  present, but not part of the focus
+ *   discovery   a one-shot luminance peak when it is first identified
+ *
+ * Resting through background are already expressed by the existing className
+ * logic in each canvas. What was missing is discovery — the brief moment that
+ * makes a selection feel like a finding rather than a highlight.
+ * ========================================================================= */
+
+@keyframes nodeIdentified {
+  0%   { box-shadow: 0 0 0 0 rgba(143, 155, 245, 0.5), 0 0 0 0 rgba(94, 106, 210, 0); }
+  35%  { box-shadow: 0 0 0 5px rgba(143, 155, 245, 0.18), 0 0 26px 6px rgba(94, 106, 210, 0.3); }
+  100% { box-shadow: 0 0 0 12px rgba(143, 155, 245, 0), 0 0 20px 2px rgba(94, 106, 210, 0.12); }
+}
+/*
+  Applied only to the focused node, and keyed to the focus, so it re-runs exactly
+  once per selection change and never on any other node. `both` holds the settled
+  ring rather than snapping back to nothing.
+*/
+.gnode-identified {
+  animation: nodeIdentified 780ms var(--ease-settle) 1 both;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .gnode-identified { animation: none; }
+}
+
+/* ===========================================================================
+ * EVIDENCE SURFACES
+ *
+ * An inspector is not a dashboard drawer. It should read as "ARIA found
+ * something and is explaining it": the panel resolves out of a blur, a vertical
+ * hairline appears, then identity, metadata, relationships and actions arrive in
+ * that order.
+ *
+ * The stagger is purely positional (nth-child), so no component has to know its
+ * own index and nothing needs JavaScript to sequence it.
+ * ========================================================================= */
+
+@keyframes evidenceResolve {
+  from { opacity: 0; transform: translate3d(14px, 0, 0); filter: blur(5px); }
+  to   { opacity: 1; transform: translate3d(0, 0, 0);    filter: blur(0); }
+}
+.evidence-surface {
+  position: relative;
+  animation: evidenceResolve 420ms var(--ease-cine) 1 both;
+}
+/* The hairline that marks it as an attached finding rather than a floating card. */
+.evidence-surface::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: 1px;
+  background: linear-gradient(180deg, var(--primary), rgba(94, 106, 210, 0.05));
+  transform: scaleY(0);
+  transform-origin: top center;
+  animation: evidenceRule 620ms var(--ease-cine) 120ms 1 both;
+}
+@keyframes evidenceRule {
+  to { transform: scaleY(1); }
+}
+
+@keyframes evidenceRow {
+  from { opacity: 0; transform: translate3d(0, 6px, 0); }
+  to   { opacity: 1; transform: translate3d(0, 0, 0); }
+}
+/* Identity → metadata → relationships → actions. */
+.evidence-stack > * {
+  animation: evidenceRow 380ms var(--ease-reveal) 1 both;
+}
+.evidence-stack > *:nth-child(1) { animation-delay: 90ms; }
+.evidence-stack > *:nth-child(2) { animation-delay: 160ms; }
+.evidence-stack > *:nth-child(3) { animation-delay: 230ms; }
+.evidence-stack > *:nth-child(4) { animation-delay: 300ms; }
+.evidence-stack > *:nth-child(n + 5) { animation-delay: 370ms; }
+
+@media (prefers-reduced-motion: reduce) {
+  .evidence-surface,
+  .evidence-stack > * { animation: none; }
+  .evidence-surface::before { animation: none; transform: scaleY(1); }
+}
+
+/* ===========================================================================
+ * TEMPORAL FIELD DEVICES  ·  GROUNDING  ·  MICRO-INTERACTIONS
+ * ========================================================================= */
+
+/* Minor ticks under the history axis — quarters between the year markers. */
+.era-ticks {
+  height: 4px;
+  background-image: repeating-linear-gradient(
+    to right,
+    rgba(255, 255, 255, 0.13) 0px,
+    rgba(255, 255, 255, 0.13) 1px,
+    transparent 1px,
+    transparent 12.5%
+  );
+  opacity: calc(var(--p, 0) * 0.9);
+  transition: opacity 900ms var(--ease-slow);
+}
+
+/* A faint vertical field behind the tracks, so a span is read against time. */
+.era-field {
+  background-image: repeating-linear-gradient(
+    to right,
+    rgba(255, 255, 255, 0.022) 0px,
+    rgba(255, 255, 255, 0.022) 1px,
+    transparent 1px,
+    transparent 12.5%
+  );
+}
+
+/*
+  The grounding line: evidence physically connects to the answer, so "grounded"
+  is something the reader sees rather than a word in a label. Draws once.
+*/
+.grounding-line {
+  transform: scaleY(0);
+  transform-origin: top center;
+  transition: transform 760ms var(--ease-cine);
+}
+.grounding-line.is-grounded { transform: scaleY(1); }
+
+/* Buttons: 1px of movement, a border that activates, a soft focus ring. */
+.lumen-button {
+  transition: transform 180ms var(--ease-snap), border-color 180ms var(--ease-snap),
+    color 180ms var(--ease-snap), box-shadow 180ms var(--ease-snap);
+}
+.lumen-button:hover { transform: translateY(-1px); border-color: rgba(94, 106, 210, 0.7); }
+.lumen-button:active { transform: translateY(0); }
+.lumen-button:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 1px rgba(94, 106, 210, 0.9), 0 0 0 4px rgba(94, 106, 210, 0.16);
+}
+
+/* Corner brackets — a measured frame around a topology figure. */
+.data-brackets { position: relative; }
+.data-brackets::before,
+.data-brackets::after {
+  content: '';
+  position: absolute;
+  height: 10px;
+  width: 10px;
+  pointer-events: none;
+  border-color: rgba(94, 106, 210, 0.45);
+}
+.data-brackets::before {
+  left: -1px;
+  top: -1px;
+  border-left: 1px solid;
+  border-top: 1px solid;
+}
+.data-brackets::after {
+  right: -1px;
+  bottom: -1px;
+  border-right: 1px solid;
+  border-bottom: 1px solid;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .era-ticks { opacity: 0.9; transition: none; }
+  .grounding-line { transform: scaleY(1); transition: none; }
+  .lumen-button { transition: none; }
+  .lumen-button:hover { transform: none; }
+}
+
+/* ===========================================================================
+ * CHAPTER RAIL — the page as an instrument.
+ *
+ * A fixed vertical index at the edge of the frame: one tick per chapter, the
+ * current one extended and named, and a fill showing how far through the story
+ * the reader is. It is a graphic device, but it carries real information —
+ * where you are, how much is left, and what this chapter is called.
+ *
+ * Wide viewports only, and `aria-hidden`: the navigation and the chapter markers
+ * already expose this structure to assistive technology, so the rail must not
+ * make a screen reader read the table of contents twice.
+ * ========================================================================= */
+
+.chapter-rail {
+  position: fixed;
+  left: 1.5rem;
+  top: 50%;
+  transform: translateY(-50%);
+  z-index: 30;
+  display: none;
+  pointer-events: none;
+}
+@media (min-width: 1280px) {
+  .chapter-rail { display: block; }
+}
+
+/* Progress spine — how far through the story we are. */
+.rail-spine {
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: 1px;
+  background: rgba(255, 255, 255, 0.07);
+}
+.rail-spine::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  transform: scaleY(var(--rail-p, 0));
+  transform-origin: top center;
+  background: linear-gradient(180deg, var(--primary), rgba(94, 106, 210, 0.25));
+}
+
+.rail-tick {
+  display: flex;
+  align-items: center;
+  gap: 0.7rem;
+  height: 1.5rem;
+  padding-left: 1px;
+}
+.rail-tick i {
+  display: block;
+  height: 1px;
+  width: 9px;
+  flex: none;
+  background: rgba(255, 255, 255, 0.18);
+  transition: width 420ms var(--ease-cine), background-color 420ms ease;
+}
+.rail-tick b {
+  font-family: 'JetBrains Mono', ui-monospace, monospace;
+  font-size: 9px;
+  font-weight: 500;
+  letter-spacing: 0.24em;
+  text-transform: uppercase;
+  white-space: nowrap;
+  color: var(--text-subtle);
+  opacity: 0;
+  transform: translateX(-5px);
+  transition: opacity 420ms var(--ease-cine), transform 420ms var(--ease-cine),
+    color 420ms ease;
+}
+
+/* Chapters already read stay marked; the current one is named. */
+.rail-tick.is-past i { background: rgba(94, 106, 210, 0.55); }
+.rail-tick.is-active i { width: 24px; background: var(--primary); }
+.rail-tick.is-active b {
+  opacity: 1;
+  transform: translateX(0);
+  color: var(--text);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .rail-tick i,
+  .rail-tick b { transition: none; }
+}
+
+/* ===========================================================================
+ * SCROLL-REACTIVE DISPLAY TYPE
+ *
+ * The largest statements gain a fractional scale as they cross the frame, so the
+ * typography feels physically connected to the scroll rather than pasted onto it.
+ * Deliberately tiny — 1.2% — and transform-only, so it composites and never
+ * reflows. `--tp` is written by the scene controller from cached offsets.
+ * ========================================================================= */
+.type-scroll {
+  transform: scale(calc(0.988 + var(--tp, 0) * 0.012));
+  transform-origin: left center;
+  will-change: transform;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .type-scroll { transform: none; will-change: auto; }
+}
+
+/* ===========================================================================
+ * SEAM PULSE — the chapter transition carries something across
+ *
+ * A single point travels the seam once as it comes into view, so the gap between
+ * chapters reads as a connection being made rather than as blank space. One-shot,
+ * transform and opacity only.
+ * ========================================================================= */
+[data-reveal='pulse'] {
+  opacity: 0;
+  transform: none;
+  transition: none;
+}
+[data-reveal='pulse'].is-revealed {
+  animation: seamTravel 1200ms var(--ease-cine) 260ms 1 both;
+}
+@keyframes seamTravel {
+  0%   { opacity: 0; transform: translate3d(0, 0, 0) scale(0.6); }
+  18%  { opacity: 1; transform: translate3d(0, 18%, 0) scale(1); }
+  82%  { opacity: 1; }
+  100% { opacity: 0; transform: translate3d(0, 100%, 0) scale(0.6); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  [data-reveal='pulse'] { display: none; }
+}
+
+/* ===========================================================================
+ * MAGNETIC ATTENTION
+ *
+ * Graph labels lean very slightly toward the pointer. It is the smallest possible
+ * signal that the topology is aware of you, and it makes the field feel
+ * responsive rather than printed. Transform is written by one rAF loop; the CSS
+ * only declares the smoothing and the resting state.
+ * ========================================================================= */
+.mag {
+  /* No transition on transform: the loop already smooths it, and transitioning
+   * would fight the per-frame writes. */
+  will-change: transform;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  /*
+    Zero the offset rather than clearing `transform`: the transform also carries
+    the label's centring, so removing it outright would move every label off its
+    node. The loop does not run under reduced motion anyway; this is belt and
+    braces if the preference changes mid-session.
+  */
+  .mag {
+    --mx: 0px;
+    --my: 0px;
+    will-change: auto;
+  }
+}
+
+/* ===========================================================================
+ * HERO POINTER LIGHT
+ *
+ * A soft indigo wash that follows the pointer across the opening frame. The
+ * topology canvas beneath it already reacts to the pointer by displacing nodes;
+ * this gives that reaction a light source, so moving the mouse over the hero
+ * feels like illuminating a dark system rather than nudging particles.
+ *
+ * Restrained on purpose: 8% alpha at the centre, gone by 70% of the radius. It
+ * fades in only while the pointer is actually over the hero.
+ * ========================================================================= */
+.hero-pointer {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 700ms var(--ease-slow);
+  background: radial-gradient(
+    circle 20rem at var(--mx, 50%) var(--my, 55%),
+    rgba(94, 106, 210, 0.08),
+    rgba(94, 106, 210, 0.03) 42%,
+    transparent 70%
+  );
+}
+.hero-stage.is-lit .hero-pointer { opacity: 1; }
+
+@media (hover: none), (pointer: coarse) {
+  .hero-pointer { display: none; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .hero-pointer { display: none; }
+}
+
+/* ===========================================================================
+ * SPECIFICATION WALL
+ *
+ * The technology chapter is a spec sheet, not a logo wall. Each column gets a
+ * measured gutter: a hairline, an index, and a count — the same language a
+ * datasheet uses. Hover activates one row's leading edge and nothing else.
+ * ========================================================================= */
+.spec-gutter {
+  font-family: 'JetBrains Mono', ui-monospace, monospace;
+  font-size: 9px;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  color: var(--text-subtle);
+  transition: color 240ms ease;
+}
+.spec-item:hover .spec-gutter { color: var(--primary); }
+
+@media (prefers-reduced-motion: reduce) {
+  .spec-gutter { transition: none; }
+}
+
+/* ===========================================================================
+ * CINEMATIC SCENE SYSTEM
+ *
+ * The page is a sequence of scenes with a visual bridge between each pair. Three
+ * custom properties, written by the scene director, drive everything here:
+ *
+ *   --scene-p   0→1 through the scene that currently owns the stage
+ *   --trans-p   0→1 through the bridge to the next scene
+ *   --exit      0→1 as a scene releases the stage
+ *
+ * All three are functions of scroll position, never of a clock. That is what makes
+ * the bridge obey the reader: stop scrolling and a glimpse holds mid-formation;
+ * scroll back and it un-forms. There is no timeline to fall behind and nothing to
+ * cancel on a fast scroll.
+ * ========================================================================= */
+
+/* ── Scene exit ────────────────────────────────────────────────────────────
+ * A scene does not simply scroll away. Supporting material dissolves first, the
+ * subject holds longest, and the whole plane recedes very slightly — a camera
+ * pulling back rather than a section ending.
+ * ------------------------------------------------------------------------- */
+/*
+  Scenes are marked `data-stage`, deliberately not `data-scene`. The backdrop and
+  each rail tick also carry `data-scene` (they react to which scene is active), so
+  a bare `[data-scene] > *` rule would capture the backdrop's parallax layers and
+  the rail's own marks and overwrite their transforms. One attribute names the
+  active scene; another marks the elements that own the stage.
+*/
+[data-stage] {
+  --exit: 0;
+}
+
+[data-stage] > * {
+  /* Recedes and cools. Transform and opacity only. */
+  opacity: calc(1 - var(--exit, 0) * 0.85);
+  transform: translate3d(0, calc(var(--exit, 0) * -2.5vh), 0)
+    scale(calc(1 - var(--exit, 0) * 0.025));
+  transform-origin: center top;
+}
+
+/*
+  The subject outlasts its supporting material: headlines and chapter markers stay
+  legible while telemetry and figures have already gone. §10 — important elements
+  dissolve last.
+*/
+[data-stage] h1,
+[data-stage] h2,
+[data-stage] .display-1,
+[data-stage] .display-2,
+[data-stage] .product-thesis,
+[data-stage] .chapter-rule {
+  opacity: calc(1 - var(--exit, 0) * 0.45);
+}
+
+/* ── Scene-specific exits ─────────────────────────────────────────────────
+ * Not every scene should leave the same way. Typography scenes dissolve
+ * without spatial movement; the closing statement fades to absolute black.
+ * ------------------------------------------------------------------------ */
+[data-stage="thesis"] > *,
+[data-stage="statement"] > * {
+  /* Pure dissolve: no spatial recession for type-only scenes */
+  transform: none;
+}
+
+[data-stage="statement"] > * {
+  /* Faster fade to black */
+  opacity: calc(1 - var(--exit, 0) * 1.2);
+}
+
+/* ── Creation order ────────────────────────────────────────────────────────
+ * `data-create` elements build in sequence as the scene's progress advances, so
+ * the reader watches the scene come into existence. Pure CSS: the step's own
+ * progress is derived from --scene-p, its index and the scene's step count, so no
+ * element needs a script and nothing is written per frame per element.
+ * ------------------------------------------------------------------------- */
+[data-create] {
+  --step: clamp(
+    0,
+    calc(var(--scene-p, 1) / 0.7 * var(--create-total, 5) - var(--create-index, 0)),
+    1
+  );
+  opacity: var(--step);
+  transform: translate3d(0, calc((1 - var(--step)) * 14px), 0);
+  will-change: opacity, transform;
+}
+
+/* ── Glimpse layer ────────────────────────────────────────────────────────── */
+.glimpse-layer {
+  position: fixed;
+  inset: 0;
+  z-index: 20;
+  pointer-events: none;
+  overflow: hidden;
+  /* Peaks in the middle of the bridge: dim → light → new world. */
+  --peak: calc(1 - abs(var(--trans-p, 0) * 2 - 1));
+}
+
+/*
+  `abs()` is recent; without it --peak resolves to an invalid value and every
+  glimpse would sit at full strength. This fallback computes the same triangle
+  from two clamps, and is overridden by the rule above where abs() is supported.
+*/
+@supports not (width: abs(1px)) {
+  .glimpse-layer {
+    --peak: min(
+      calc(var(--trans-p, 0) * 2),
+      calc((1 - var(--trans-p, 0)) * 2)
+    );
+  }
+}
+
+/* Every primitive is hidden until its name appears in `data-glimpse`. */
+.gl {
+  position: absolute;
+  inset: 0;
+  opacity: 0;
+  visibility: hidden;
+}
+.glimpse-layer[data-glimpse~='node-field'] .gl-node-field,
+.glimpse-layer[data-glimpse~='edge-trace'] .gl-edge-trace,
+.glimpse-layer[data-glimpse~='collapse'] .gl-collapse,
+.glimpse-layer[data-glimpse~='expand'] .gl-expand,
+.glimpse-layer[data-glimpse~='scan'] .gl-scan,
+.glimpse-layer[data-glimpse~='grid'] .gl-grid,
+.glimpse-layer[data-glimpse~='blueprint'] .gl-blueprint,
+.glimpse-layer[data-glimpse~='bracket'] .gl-bracket,
+.glimpse-layer[data-glimpse~='arc'] .gl-arc,
+.glimpse-layer[data-glimpse~='horizon'] .gl-horizon,
+.glimpse-layer[data-glimpse~='trace-memory'] .gl-trace-memory,
+.glimpse-layer[data-glimpse~='lumen'] .gl-lumen {
+  visibility: visible;
+  opacity: 1;
+}
+
+/* A · NODE FIELD — points resolve out of darkness, staggered by index. */
+.gl-node-field span {
+  position: absolute;
+  height: 3px;
+  width: 3px;
+  margin: -1.5px 0 0 -1.5px;
+  border-radius: 9999px;
+  background: var(--lumen-edge);
+  /* Each node has its own slice of the bridge. */
+  --t: clamp(0, calc(var(--trans-p, 0) * 12 - var(--i)), 1);
+  opacity: calc(var(--t) * 0.85);
+  transform: scale(calc(0.4 + var(--t) * 0.6));
+  box-shadow: 0 0 8px 1px rgba(94, 106, 210, 0.35);
+}
+
+/* B · EDGE TRACE — draws itself source to destination. */
+.gl-edge-trace {
+  stroke: var(--lumen-edge);
+  stroke-width: 1.25;
+  vector-effect: non-scaling-stroke;
+  opacity: 1;
+}
+.gl-edge-trace path {
+  stroke: var(--lumen-edge);
+  stroke-width: 1.25;
+  vector-effect: non-scaling-stroke;
+  stroke-dasharray: 1;
+  stroke-dashoffset: calc(1 - var(--trans-p, 0));
+  opacity: calc(var(--peak) * 0.7);
+}
+
+/* C · TOPOLOGY COLLAPSE — the field converges on one point. */
+.gl-collapse span {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  height: 3px;
+  width: 3px;
+  margin: -1.5px 0 0 -1.5px;
+  border-radius: 9999px;
+  background: var(--lumen-edge);
+  --t: clamp(0, calc(var(--trans-p, 0) * 1.6 - var(--i) * 0.04), 1);
+  /* Travels from its own position to the centre. */
+  transform: translate3d(
+    calc((var(--x) - 50%) * (1 - var(--t))),
+    calc((var(--y) - 50%) * (1 - var(--t))),
+    0
+  );
+  opacity: calc((1 - var(--t)) * 0.7 + var(--peak) * 0.3);
+}
+
+/* D · TOPOLOGY EXPANSION — one point branches outward. */
+.gl-expand path {
+  stroke: var(--lumen-edge);
+  stroke-width: 1;
+  vector-effect: non-scaling-stroke;
+  stroke-dasharray: 1;
+  stroke-dashoffset: clamp(0, calc(1 - (var(--trans-p, 0) * 1.8 - var(--i) * 0.12)), 1);
+  opacity: calc(var(--peak) * 0.6);
+}
+
+/* E · SCAN LINE — disabled to eliminate light sweeps */
+.gl-scan {
+  display: none !important;
+}
+
+/* F · GRID REVEAL — the measured ground firms up, then goes. */
+.gl-grid {
+  background-image:
+    linear-gradient(to right, rgba(255, 255, 255, 0.05) 1px, transparent 1px),
+    linear-gradient(to bottom, rgba(255, 255, 255, 0.05) 1px, transparent 1px);
+  background-size: 64px 64px;
+  mask-image: radial-gradient(ellipse 70% 55% at 50% 50%, #000 20%, transparent 78%);
+  -webkit-mask-image: radial-gradient(ellipse 70% 55% at 50% 50%, #000 20%, transparent 78%);
+  opacity: calc(var(--peak) * 0.9);
+  transform: scale(calc(1.06 - var(--trans-p, 0) * 0.06));
+}
+
+/* G · BLUEPRINT DRAW — drafting marks arrive in order. */
+.gl-blueprint path {
+  stroke: rgba(255, 255, 255, 0.14);
+  stroke-width: 1;
+  vector-effect: non-scaling-stroke;
+  stroke-dasharray: 1;
+  stroke-dashoffset: clamp(0, calc(1 - (var(--trans-p, 0) * 2 - var(--i) * 0.16)), 1);
+  opacity: var(--peak);
+}
+
+/* H · DATA BRACKET — the stage is briefly measured. */
+.gl-bracket span {
+  position: absolute;
+  height: 22px;
+  width: 22px;
+  border-color: rgba(94, 106, 210, 0.5);
+  opacity: var(--peak);
+}
+.gl-bracket span:nth-child(1) {
+  left: 6%; top: 16%;
+  border-left: 1px solid; border-top: 1px solid;
+  transform: translate3d(calc((1 - var(--peak)) * -12px), calc((1 - var(--peak)) * -12px), 0);
+}
+.gl-bracket span:nth-child(2) {
+  right: 6%; top: 16%;
+  border-right: 1px solid; border-top: 1px solid;
+  transform: translate3d(calc((1 - var(--peak)) * 12px), calc((1 - var(--peak)) * -12px), 0);
+}
+.gl-bracket span:nth-child(3) {
+  left: 6%; bottom: 16%;
+  border-left: 1px solid; border-bottom: 1px solid;
+  transform: translate3d(calc((1 - var(--peak)) * -12px), calc((1 - var(--peak)) * 12px), 0);
+}
+.gl-bracket span:nth-child(4) {
+  right: 6%; bottom: 16%;
+  border-right: 1px solid; border-bottom: 1px solid;
+  transform: translate3d(calc((1 - var(--peak)) * 12px), calc((1 - var(--peak)) * 12px), 0);
+}
+
+/* I · CONNECTION ARC — one relationship curves into the next scene. */
+.gl-arc path {
+  stroke: var(--lumen-edge);
+  stroke-width: 1;
+  vector-effect: non-scaling-stroke;
+  stroke-dasharray: 1;
+  stroke-dashoffset: calc(1 - var(--trans-p, 0));
+  opacity: calc(var(--peak) * 0.55);
+}
+
+/* J · HORIZON LINE — disabled to eliminate horizontal line light passing */
+.gl-horizon {
+  display: none !important;
+}
+
+/* K · TRACE MEMORY — disabled */
+.gl-trace-memory {
+  display: none !important;
+}
+
+/* L · LUMEN BURST — a small local illumination marks the new subject. */
+.gl-lumen {
+  background: radial-gradient(
+    circle 16rem at 50% 50%,
+    rgba(94, 106, 210, 0.16),
+    rgba(94, 106, 210, 0.05) 40%,
+    transparent 72%
+  );
+  opacity: var(--peak);
+  transform: scale(calc(0.7 + var(--peak) * 0.3));
+}
+
+/* ── Flash of information — disabled to remove floating text appearances ── */
+.glimpse-flash {
+  display: none !important;
+}
+
+/* ── Reduced motion ──────────────────────────────────────────────────────
+ * No bridges, no receding scenes, no staged creation. Every scene is simply
+ * present and complete, and no information is lost.
+ * ------------------------------------------------------------------------- */
+@media (prefers-reduced-motion: reduce) {
+  .glimpse-layer { display: none; }
+
+  [data-stage] > *,
+  [data-stage] h1,
+  [data-stage] h2,
+  [data-stage] .display-1,
+  [data-stage] .display-2,
+  [data-stage] .product-thesis,
+  [data-stage] .chapter-rule {
+    opacity: 1;
+    transform: none;
+  }
+
+  [data-create] {
+    opacity: 1;
+    transform: none;
+    will-change: auto;
+  }
+}
+
+/* ===========================================================================
+ * PINNED CINEMATIC STAGES
+ *
+ * The presentation model: the viewport is a stage, and scrolling changes which
+ * scene occupies it. Each scene is a tall scroll space containing one
+ * `position: sticky` stage, so the scene holds the frame while its scroll space
+ * passes, and the next scene takes the same position when it does.
+ *
+ * Sticky rather than a single fixed container, deliberately:
+ *
+ *   · native scrolling, scrollbar, keyboard and touch all keep working — there is
+ *     no wheel hijacking and no scroll trapping (§27)
+ *   · no z-index war between twelve fixed layers, and no scene ever needs to be
+ *     unmounted or remounted, so heavy React islands stay alive (§23)
+ *   · the browser does the pinning on the compositor
+ *
+ * `overflow-x: clip` on the document is what makes this possible: unlike
+ * `hidden`, it does not turn the body into a scroll container, so `top: 0` still
+ * resolves against the viewport.
+ *
+ * ── The clipping problem, and the honest answer ────────────────────────────
+ *
+ * A pinned stage is exactly one viewport tall. Any scene whose content is taller
+ * would have the overflow permanently unreachable — the reader cannot scroll
+ * within a pinned frame. Rather than shrink type or drop content, the director
+ * measures each stage against the viewport and switches pinning OFF for scenes
+ * that do not fit, at which point they scroll normally and stay complete. So the
+ * cinematic model applies wherever it can, and legibility wins wherever it
+ * cannot.
+ * ========================================================================= */
+
+[data-stage] {
+  position: relative;
+  z-index: 1;
+}
+
+/*
+  Pinned. The scroll space is as tall as the scene's authored duration, and the
+  stage inside it holds the viewport for that whole distance.
+*/
+[data-stage][data-pin='on'] {
+  height: calc(var(--scene-vh, 1.4) * 100svh);
+}
+[data-stage][data-pin='on'] > .scene-stage {
+  position: sticky;
+  top: 0;
+  height: 100svh;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  /* The stage is the frame: nothing may spill out of it while it is pinned. */
+  overflow: hidden;
+}
+
+[data-pin='on'] > .scene-stage {
+  padding-top: max(4vh, 2rem);
+  padding-bottom: max(4vh, 2rem);
+}
+
+/*
+  Deliberately no "scale the scene down to fit" escape hatch.
+
+  It was tried and removed. Scaling the stage scales its clip region with it, so
+  the frame stops meeting the viewport edges; compensating for that needs either a
+  taller box with a negative sticky offset or an extra wrapper in every scene, and
+  both trade real complexity for one or two additional pinned scenes. A scene that
+  cannot fit the frame honestly is better off scrolling — see `data-pin='off'`.
+*/
+
+/*
+  Not pinned — either the content is taller than the viewport, or the reader asked
+  for reduced motion. The scene keeps its own height and scrolls normally, so
+  every word remains reachable.
+*/
+[data-stage][data-pin='off'] {
+  height: auto;
+}
+[data-stage][data-pin='off'] > .scene-stage {
+  position: static;
+  height: auto;
+  overflow: visible;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  padding-top: clamp(3rem, 7vh, 5rem);
+  padding-bottom: clamp(3rem, 7vh, 5rem);
+}
+
+/*
+  An unpinned scene still owns a frame's worth of travel.
+
+  `height: auto` alone made a scene's scroll distance equal to its content height,
+  which discarded the authored per-scene duration entirely. The two shortest scenes
+  — the hero and the closing statement — ended up with 0.7 viewports of travel, so
+  they were over before the reader had registered them, and the closing statement
+  was short enough that centring it landed the active scene on the CTA instead.
+
+  A one-viewport floor restores the pacing without adding the dead space that
+  reserving the *full* authored duration would create under already-tall scenes.
+  Not applied under reduced motion, where the page should read as a plain document
+  with no engineered air.
+*/
+@media (prefers-reduced-motion: no-preference) {
+  [data-stage][data-pin='off'] { min-height: 100svh; }
+  [data-stage][data-pin='off'] > .scene-stage { min-height: calc(100svh - 2px); }
+}
+
+/*
+  StructureTransform pins itself: it has driven its own 260vh sticky stage since
+  long before this system existed, and wrapping it in a second pinned stage would
+  give it two competing pins.
+
+  Deliberately NO height rule here. An earlier `height: auto` on this selector won
+  the cascade against the component's own `h-[260vh]` and silently cut the
+  five-stage transformation's scroll travel from 2.6 viewports to 1.1 — the five
+  stages still ran, but flew past in under half the distance they were authored
+  for. `data-pin='self'` never matches the pinned-stage rules above, so it needs no
+  height of its own; the component owns it.
+*/
+
+/* ── Chapter title — disabled to remove floating text appearances ──────── */
+.chapter-title {
+  display: none !important;
+}
+.chapter-title.is-showing {
+  display: none !important;
+  animation: chapterTitle 1800ms var(--ease-cine) 1 both;
+}
+@keyframes chapterTitle {
+  0%   { opacity: 0; transform: translateX(-50%) translateY(-6px); letter-spacing: 0.52em; }
+  18%  { opacity: 0; transform: translateX(-50%) translateY(0); }
+  70%  { opacity: 0; }
+  100% { opacity: 0; letter-spacing: 0.42em; }
+}
+
+/* ── Scene counter ───────────────────────────────────────────────────────
+ * A film chapter marker rather than a carousel indicator: the scene number, a
+ * hairline, and the total.
+ * ------------------------------------------------------------------------- */
+.scene-counter {
+  display: flex;
+  align-items: center;
+  gap: 0.55rem;
+  margin-bottom: 0.9rem;
+  padding-left: 1px;
+  font-family: 'JetBrains Mono', ui-monospace, monospace;
+  font-size: 10px;
+  letter-spacing: 0.16em;
+  font-variant-numeric: tabular-nums;
+  color: var(--text-subtle);
+}
+.scene-counter b { color: var(--text); font-weight: 600; }
+.scene-counter i {
+  display: block;
+  height: 1px;
+  width: 14px;
+  background: rgba(255, 255, 255, 0.18);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  /*
+    No pinning at all. Every scene returns to normal flow and simply reads as a
+    document — the content, order and hierarchy are identical, only the cinematic
+    presentation is dropped.
+  */
+  [data-stage][data-pin='on'] { height: auto; }
+  [data-stage][data-pin='on'] > .scene-stage {
+    position: static;
+    height: auto;
+    overflow: visible;
+    padding-top: clamp(4rem, 9vh, 7rem);
+    padding-bottom: clamp(4rem, 9vh, 7rem);
+  }
+  .chapter-title { display: none; }
+}
+
+/* ===========================================================================
+ * AMBIENT MOTION IS SCOPED TO ITS OWN SCENE
+ *
+ * The hero's light drift, its surfacing file paths, its scroll cue and the closing
+ * statement's topology pass were all animating for the entire visit — including
+ * while their scene was ten viewports away and could not be seen. That is wasted
+ * compositor work on every frame of every scroll, and it inflated the page's
+ * simultaneous-motion count well past what any single scene actually shows.
+ *
+ * `animation-play-state` rather than `animation: none`: the animation keeps its
+ * position, so returning to the scene resumes it instead of restarting it.
+ * ========================================================================= */
+html:not([data-scene='hero']) .hero-bloom-drift,
+html:not([data-scene='hero']) .hero-path,
+html:not([data-scene='hero']) .scroll-cue {
+  animation-play-state: paused;
+}
+html:not([data-scene='statement']) .statement-drift {
+  animation-play-state: paused;
 }

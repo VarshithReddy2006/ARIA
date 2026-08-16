@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { apiUrl } from '../../lib/api';
+import { FilePath } from '../ui/FilePath';
 import { 
   BookOpen, 
   Clock, 
@@ -208,7 +209,7 @@ export const ReadingOrderTimeline: React.FC<TimelineProps> = ({
   if (error) {
     return (
       <div className="flex flex-col items-center justify-center py-16 font-mono text-xs text-text-muted gap-3 border border-border bg-card/5 rounded-lg p-6 text-center">
-        <Info className="h-6 w-6 text-primary animate-pulse" />
+        <Info className="h-6 w-6 text-primary" />
         <span>{error}</span>
         <button
           onClick={() => window.location.reload()}
@@ -415,7 +416,7 @@ export const ReadingOrderTimeline: React.FC<TimelineProps> = ({
                 {/* Connecting Arrow (omitted on the last element) */}
                 {idx < totalFiles - 1 && (
                   <div className="flex justify-center w-full py-1.5">
-                    <ArrowDown className="h-4 w-4 text-zinc-800 animate-pulse" />
+                    <ArrowDown className="h-4 w-4 text-zinc-800" />
                   </div>
                 )}
               </div>
@@ -426,67 +427,84 @@ export const ReadingOrderTimeline: React.FC<TimelineProps> = ({
 
       {/* File Intelligence Drawer Panel */}
       {selectedFile && (
-        <div className="lg:col-span-5 xl:col-span-5 bg-surface-1 border border-border-strong rounded-xl p-5 md:p-6 flex flex-col justify-between shadow-float h-fit sticky top-6 fade-up">
-          <div className="space-y-5">
-            <div className="flex justify-between items-start border-b border-border/40 pb-3">
-              <div className="space-y-0.5 min-w-0 pr-2">
-                <span className="text-[10px] font-bold text-primary uppercase tracking-wider font-mono">
-                  File Intelligence
-                </span>
-                <h3 className="text-sm font-mono font-semibold text-text truncate break-all block">
+        <div className="lg:col-span-5 xl:col-span-5 spec-panel p-5 md:p-6 flex flex-col justify-between max-h-[calc(100vh-5rem)] overflow-y-auto overscroll-contain sticky top-16 fade-up min-w-0">
+          <div>
+            {/* Filename is the strongest element; everything else is telemetry */}
+            <div className="flex justify-between items-start gap-3 pb-4 hair-b">
+              <div className="min-w-0">
+                <span className="mono-label mono-label-accent block mb-2">FILE INTELLIGENCE</span>
+                <h3 className="font-mono text-[15px] sm:text-base font-semibold text-text leading-snug break-words">
                   {selectedFile.file_path.split('/').pop()}
                 </h3>
               </div>
               <button
+                type="button"
                 onClick={() => setSelectedFile(null)}
-                className="text-text-muted hover:text-text rounded p-0.5"
+                aria-label="Close file intelligence panel"
+                className="shrink-0 text-text-subtle hover:text-text transition-colors
+                           focus-visible:outline-none focus-visible:shadow-ring"
               >
-                <X className="h-4 w-4" />
+                <X className="h-4 w-4" aria-hidden="true" />
               </button>
             </div>
 
-            <div className="space-y-4 font-mono text-xs">
-              <div>
-                <span className="text-text-muted block text-[10px] uppercase">Path</span>
-                <span className="text-text font-semibold break-all text-xs block mt-1">{selectedFile.file_path}</span>
+            <div>
+              <div className="py-4 hair-b min-w-0">
+                <span className="mono-label block mb-2">PATH</span>
+                <FilePath path={selectedFile.file_path} tone="secondary" size="sm" />
               </div>
 
-              <div>
-                <span className="text-text-muted block text-[10px] uppercase">Importance Score</span>
-                <span className="text-text text-sm font-bold block mt-1">{selectedFile.score.toFixed(2)}</span>
+              {/* Importance and read time read as paired instrument values */}
+              <div className="grid grid-cols-2 gap-4 py-4 hair-b">
+                <div className="min-w-0">
+                  <span className="mono-label block mb-2">IMPORTANCE</span>
+                  <span className="font-mono text-xl text-text tabular-nums leading-none">
+                    {selectedFile.score.toFixed(2)}
+                  </span>
+                </div>
+                <div className="min-w-0">
+                  <span className="mono-label block mb-2">READ TIME</span>
+                  <span className="font-mono text-xl text-text tabular-nums leading-none">
+                    {getFileReadingTime(selectedFile.score)}
+                    <span className="text-text-subtle text-sm"> min</span>
+                  </span>
+                </div>
               </div>
 
-              <div>
-                <span className="text-text-muted block text-[10px] uppercase">Estimated Read Time</span>
-                <span className="text-text text-xs font-semibold block mt-1">{getFileReadingTime(selectedFile.score)} minutes</span>
-              </div>
-
-              <div>
-                <span className="text-text-muted block text-[10px] uppercase">Category Tier</span>
-                <span className={`inline-block text-[9px] font-bold uppercase px-2 py-0.5 rounded border mt-1.5 ${
-                  selectedFile.tier === 'entry_point' ? 'bg-success/10 border-success/30 text-success' :
-                  selectedFile.tier === 'core' ? 'bg-info/10 border-info/30 text-info' :
-                  selectedFile.tier === 'service' ? 'bg-primary/10 border-primary/30 text-primary' :
-                  selectedFile.tier === 'utility' ? 'bg-warn/10 border-warn/30 text-warn' :
-                  'bg-surface-2 border-border text-text-muted'
-                }`}>
+              <div className="py-4 hair-b">
+                <span className="mono-label block mb-2">CATEGORY</span>
+                <span
+                  className={`font-mono text-[11px] uppercase tracking-[0.18em] ${
+                    selectedFile.tier === 'entry_point'
+                      ? 'text-success'
+                      : selectedFile.tier === 'core'
+                        ? 'text-info'
+                        : selectedFile.tier === 'service'
+                          ? 'text-primary'
+                          : selectedFile.tier === 'utility'
+                            ? 'text-warn'
+                            : 'text-text-muted'
+                  }`}
+                >
                   {selectedFile.tier.replace('_', ' ')}
                 </span>
               </div>
 
-              <div>
-                <span className="text-text-muted block text-[10px] uppercase">Architectural Context</span>
-                <p className="text-text-muted leading-relaxed font-sans mt-1 bg-canvas/30 border border-border p-2.5 rounded">
+              <div className="py-4 hair-b">
+                <span className="mono-label block mb-2">ARCHITECTURAL CONTEXT</span>
+                <p className="text-[12px] text-text-muted leading-relaxed">
                   {selectedFile.reason}
                 </p>
               </div>
 
               {/* Symbols defined in this file — from the AST symbol index */}
-              <div>
-                <div className="flex items-center justify-between gap-2">
-                  <span className="text-text-muted block text-[10px] uppercase">Defined Symbols</span>
+              <div className="py-4 hair-b">
+                <div className="flex items-baseline justify-between gap-2 mb-2">
+                  <span className="mono-label">DEFINED SYMBOLS</span>
                   {symbolState === 'ready' && symbols.length > 0 && (
-                    <span className="text-[10px] text-text-subtle">{symbols.length}</span>
+                    <span className="mono-detail tabular-nums" style={{ fontSize: 10 }}>
+                      {symbols.length}
+                    </span>
                   )}
                 </div>
 
@@ -498,27 +516,30 @@ export const ReadingOrderTimeline: React.FC<TimelineProps> = ({
                 )}
 
                 {symbolState === 'ready' && symbols.length > 0 && (
-                  <ul className="mt-1.5 space-y-1 max-h-40 overflow-y-auto pr-1 list-none">
+                  /* Type is a tiny muted label, the name carries the emphasis */
+                  <ul className="max-h-40 overflow-y-auto pr-1 list-none">
                     {symbols.slice(0, 40).map((symbol) => (
                       <li
                         key={`${symbol.type}-${symbol.name}-${symbol.line_number}`}
-                        className="flex items-center gap-2 min-w-0"
+                        className="symbol-row flex items-baseline gap-2.5 min-w-0 py-1"
                       >
                         <span
-                          className={`text-[8px] font-bold uppercase px-1 py-0.5 rounded border shrink-0 ${
-                            symbol.type === 'class' || symbol.type === 'interface'
-                              ? 'border-info/30 bg-info/10 text-info'
-                              : symbol.type === 'method'
-                                ? 'border-primary/30 bg-primary/10 text-primary'
-                                : 'border-border bg-surface-2 text-text-muted'
-                          }`}
+                          className="mono-label shrink-0 w-8"
+                          style={{ letterSpacing: '0.14em' }}
                         >
-                          {symbol.type.slice(0, 4)}
+                          {symbol.type.slice(0, 3)}
                         </span>
-                        <span className="text-text truncate" title={symbol.parent_class ? `${symbol.parent_class}.${symbol.name}` : symbol.name}>
+                        <span
+                          className="symbol-name font-mono text-[12px] text-text truncate"
+                          title={
+                            symbol.parent_class
+                              ? `${symbol.parent_class}.${symbol.name}`
+                              : symbol.name
+                          }
+                        >
                           {symbol.name}
                         </span>
-                        <span className="text-text-subtle text-[10px] shrink-0 ml-auto">
+                        <span className="symbol-line mono-detail shrink-0 ml-auto tabular-nums" style={{ fontSize: 10 }}>
                           L{symbol.line_number}
                         </span>
                       </li>
@@ -527,21 +548,21 @@ export const ReadingOrderTimeline: React.FC<TimelineProps> = ({
                 )}
 
                 {symbolState === 'ready' && symbols.length === 0 && (
-                  <p className="text-text-subtle text-[10px] font-sans mt-1.5 leading-relaxed">
+                  <p className="text-[11px] text-text-subtle leading-relaxed">
                     No named symbols indexed — often a config, asset, or data file.
                   </p>
                 )}
 
                 {symbolState === 'unavailable' && (
-                  <p className="text-text-subtle text-[10px] font-sans mt-1.5 leading-relaxed">
+                  <p className="text-[11px] text-text-subtle leading-relaxed">
                     Symbol index unavailable for this repository.
                   </p>
                 )}
               </div>
 
               {/* Dependency neighbourhood — from the dependency graph */}
-              <div>
-                <span className="text-text-muted block text-[10px] uppercase">Dependencies</span>
+              <div className="py-4">
+                <span className="mono-label block mb-2">DEPENDENCIES</span>
 
                 {depsState === 'loading' && (
                   <div className="mt-1.5 space-y-1.5" aria-hidden="true">
@@ -551,53 +572,56 @@ export const ReadingOrderTimeline: React.FC<TimelineProps> = ({
                 )}
 
                 {depsState === 'ready' && (deps.imports.length > 0 || deps.importedBy.length > 0) && (
-                  <div className="mt-1.5 space-y-2.5">
-                    <div>
-                      <span className="text-[10px] text-text-subtle">
-                        Imports ({deps.imports.length})
+                  <div className="space-y-4">
+                    {/* Outgoing — this file reaches these */}
+                    <div className="min-w-0">
+                      <span className="mono-detail block mb-1.5" style={{ fontSize: 10 }}>
+                        IMPORTS · {deps.imports.length}
                       </span>
                       {deps.imports.length > 0 ? (
-                        <ul className="mt-1 space-y-0.5 max-h-24 overflow-y-auto pr-1 list-none">
+                        <ul className="max-h-24 overflow-y-auto pr-1 list-none min-w-0">
                           {deps.imports.map((path) => (
-                            <li key={`out-${path}`} className="text-text truncate text-[11px]" title={path}>
-                              → {path.split('/').pop()}
+                            <li key={`out-${path}`} className="py-0.5 min-w-0">
+                              <FilePath path={path} tone="secondary" size="sm" marker="import" />
                             </li>
                           ))}
                         </ul>
                       ) : (
-                        <p className="text-text-subtle text-[10px] font-sans mt-0.5">None</p>
+                        <p className="text-[11px] text-text-subtle">None</p>
                       )}
                     </div>
 
-                    <div>
-                      <span className="text-[10px] text-text-subtle">
-                        Imported by ({deps.importedBy.length})
+                    {/* Incoming — these reach this file */}
+                    <div className="min-w-0">
+                      <span className="mono-detail block mb-1.5" style={{ fontSize: 10 }}>
+                        IMPORTED BY · {deps.importedBy.length}
                       </span>
                       {deps.importedBy.length > 0 ? (
-                        <ul className="mt-1 space-y-0.5 max-h-24 overflow-y-auto pr-1 list-none">
+                        <ul className="max-h-24 overflow-y-auto pr-1 list-none min-w-0">
                           {deps.importedBy.map((path) => (
-                            <li key={`in-${path}`} className="text-text truncate text-[11px]" title={path}>
-                              ← {path.split('/').pop()}
+                            <li key={`in-${path}`} className="flex items-baseline gap-2 py-0.5 min-w-0">
+                              <span className="fp-marker shrink-0" aria-hidden="true">
+                                ←
+                              </span>
+                              <FilePath path={path} tone="secondary" size="sm" />
                             </li>
                           ))}
                         </ul>
                       ) : (
-                        <p className="text-text-subtle text-[10px] font-sans mt-0.5">
-                          Nothing imports this file
-                        </p>
+                        <p className="text-[11px] text-text-subtle">Nothing imports this file</p>
                       )}
                     </div>
                   </div>
                 )}
 
                 {depsState === 'ready' && deps.imports.length === 0 && deps.importedBy.length === 0 && (
-                  <p className="text-text-subtle text-[10px] font-sans mt-1.5 leading-relaxed">
+                  <p className="text-[11px] text-text-subtle leading-relaxed">
                     Isolated in the dependency graph — no import edges either direction.
                   </p>
                 )}
 
                 {depsState === 'unavailable' && (
-                  <p className="text-text-subtle text-[10px] font-sans mt-1.5 leading-relaxed">
+                  <p className="text-[11px] text-text-subtle leading-relaxed">
                     This file is not present in the dependency graph.
                   </p>
                 )}
@@ -606,7 +630,7 @@ export const ReadingOrderTimeline: React.FC<TimelineProps> = ({
           </div>
 
           {/* File actions */}
-          <div className="border-t border-border/40 pt-4 mt-6 space-y-2">
+          <div className="hair-t pt-4 mt-6 space-y-2">
             <a
               href={`https://github.com/${repoName}/blob/HEAD/${selectedFile.file_path}`}
               target="_blank"

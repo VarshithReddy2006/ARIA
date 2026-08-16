@@ -1,0 +1,106 @@
+---
+/**
+ * SceneGlimpse — the transition bridge layer.
+ *
+ * One fixed, decorative overlay holding every glimpse primitive. The scene
+ * director sets `data-glimpse` to a space-separated list of the primitives the
+ * current bridge wants, and writes `--trans-p` (0→1 through the bridge). CSS does
+ * the rest, so a transition costs one attribute write and one property write per
+ * frame regardless of how elaborate it looks.
+ *
+ * Every primitive is driven by `--trans-p`, not by its own animation, which is
+ * what makes the bridge obey the scroll: stop moving and the glimpse holds
+ * mid-formation; scroll back and it un-forms.
+ *
+ * `aria-hidden` throughout — these graphics carry no information that is not
+ * already in the chapter content, and a screen reader must never be read
+ * animation state.
+ */
+---
+
+<div class="glimpse-layer" data-glimpse-layer data-glimpse="" aria-hidden="true">
+  {/*
+    A · NODE FIELD — small nodes emerge from darkness. Positions are deliberate
+    rather than random so the field reads as a structure appearing, not noise.
+  */}
+  <div class="gl gl-node-field">
+    {[
+      [22, 34], [38, 22], [54, 40], [70, 26], [82, 46],
+      [30, 62], [48, 74], [66, 58], [78, 70], [16, 50],
+    ].map(([x, y], i) => (
+      <span style={`left:${x}%;top:${y}%;--i:${i}`}></span>
+    ))}
+  </div>
+
+  {/*
+    B · EDGE TRACE — a line draws from source to destination. The one glimpse that
+    literally shows causality, so it is reserved for architecture → impact.
+  */}
+  <svg class="gl gl-edge-trace" viewBox="0 0 100 100" preserveAspectRatio="none" fill="none">
+    <path d="M18 62 L44 44 L72 52 L88 34" pathLength="1" />
+  </svg>
+
+  {/* C · TOPOLOGY COLLAPSE — nodes converge toward a single point. */}
+  <div class="gl gl-collapse">
+    {[
+      [14, 26], [34, 16], [58, 22], [80, 30], [90, 54],
+      [72, 76], [46, 84], [24, 70], [10, 48],
+    ].map(([x, y], i) => (
+      <span style={`--x:${x}%;--y:${y}%;--i:${i}`}></span>
+    ))}
+  </div>
+
+  {/* D · TOPOLOGY EXPANSION — one point branches into relationships. */}
+  <svg class="gl gl-expand" viewBox="0 0 100 100" preserveAspectRatio="none" fill="none">
+    <g pathLength="1">
+      <path d="M50 50 L22 30" pathLength="1" style="--i:0" />
+      <path d="M50 50 L78 32" pathLength="1" style="--i:1" />
+      <path d="M50 50 L26 70" pathLength="1" style="--i:2" />
+      <path d="M50 50 L76 72" pathLength="1" style="--i:3" />
+      <path d="M50 50 L50 22" pathLength="1" style="--i:4" />
+    </g>
+  </svg>
+
+  <!-- E · SCAN LINE — one thin light sweep crosses the viewport, once. -->
+  <div class="gl gl-scan"></div>
+
+  <!-- F · GRID REVEAL — an architectural grid firms up. -->
+  <div class="gl gl-grid"></div>
+
+  {/* G · BLUEPRINT DRAW — thin technical marks draw into place. */}
+  <svg class="gl gl-blueprint" viewBox="0 0 100 100" preserveAspectRatio="none" fill="none">
+    <g pathLength="1">
+      <path d="M20 30 L80 30" pathLength="1" style="--i:0" />
+      <path d="M20 50 L80 50" pathLength="1" style="--i:1" />
+      <path d="M20 70 L80 70" pathLength="1" style="--i:2" />
+      <path d="M33 24 L33 76" pathLength="1" style="--i:3" />
+      <path d="M67 24 L67 76" pathLength="1" style="--i:4" />
+    </g>
+  </svg>
+
+  <!-- H · DATA BRACKET — corners and measurement ticks briefly frame the stage. -->
+  <div class="gl gl-bracket">
+    <span></span><span></span><span></span><span></span>
+  </div>
+
+  {/* I · CONNECTION ARC — one relationship curves into the next scene. */}
+  <svg class="gl gl-arc" viewBox="0 0 100 100" preserveAspectRatio="none" fill="none">
+    <path d="M12 70 Q50 6 88 62" pathLength="1" />
+  </svg>
+
+  <!-- J · HORIZON LINE — a line expands from the centre outward. -->
+  <div class="gl gl-horizon"></div>
+
+  <!-- K · TRACE MEMORY — the leaving scene leaves one faint line behind. -->
+  <div class="gl gl-trace-memory"></div>
+
+  <!-- L · LUMEN BURST — a small local illumination marks the next focal point. -->
+  <div class="gl gl-lumen"></div>
+
+  {/*
+    Flash of information. A system label at the luminance peak of the bridge —
+    mono, wide, and gone again. Text is set by the director from the transition,
+    so it always names the chapter actually being entered.
+  */}
+  <span class="glimpse-flash" data-glimpse-flash></span>
+</div>

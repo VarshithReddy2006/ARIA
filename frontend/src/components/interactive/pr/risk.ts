@@ -29,6 +29,35 @@ export function riskTextClass(level: RiskLevel): string {
   }
 }
 
+/**
+ * Text tone for a PR size bucket. Same thresholds as `sizeBadgeClass`, for
+ * places that carry the reading as coloured text rather than a filled badge.
+ */
+export function sizeTextClass(size: string): string {
+  switch ((size || '').toUpperCase()) {
+    case 'XL': return 'text-danger';
+    case 'L':  return 'text-warn';
+    case 'M':  return 'text-yellow-400';
+    case 'S':  return 'text-success';
+    default:   return 'text-text-muted';
+  }
+}
+
+/**
+ * Text tone for a blast radius. Kept separate from `riskTextClass` because the
+ * blast vocabulary tops out at EXTREME, which would otherwise fall through to
+ * the green default and report the most severe reading as healthy.
+ */
+export function blastTextClass(level: string): string {
+  switch ((level || '').toUpperCase()) {
+    case 'EXTREME': return 'text-danger';
+    case 'HIGH':    return 'text-warn';
+    case 'MEDIUM':  return 'text-yellow-400';
+    case 'LOW':     return 'text-success';
+    default:        return 'text-text-muted';
+  }
+}
+
 export function sizeBadgeClass(size: string): string {
   switch ((size || '').toUpperCase()) {
     case 'XL': return 'bg-danger/10 text-danger border-danger/30';

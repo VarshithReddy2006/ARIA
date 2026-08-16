@@ -8,7 +8,8 @@
     "build": "astro build",
     "preview": "astro preview",
     "astro": "astro",
-    "lint": "tsc --noEmit"
+    "lint": "tsc --noEmit",
+    "test": "node --experimental-strip-types --test tests/**/*.test.ts"
   },
   "dependencies": {
     "@astrojs/react": "^3.0.10",
@@ -29,6 +30,7 @@
   },
   "devDependencies": {
     "@types/dagre": "^0.7.54",
+    "@types/node": "^26.2.0",
     "@types/react": "^18.2.66",
     "@types/react-dom": "^18.2.22",
     "typescript": "^5.4.3"

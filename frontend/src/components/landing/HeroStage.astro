@@ -1,0 +1,256 @@
+---
+import HeroGraph from '../interactive/HeroGraph';
+import { scene } from './sceneModel';
+
+/** Scroll duration for the opening scene, from the shared model. */
+const heroScene = scene('hero');
+
+/**
+ * HeroStage — chapter 01.
+ *
+ * The opening frame of a codebase awakening. The repository starts opaque: a
+ * soft indigo light behind the type, a topology at almost no presence, and a
+ * headline that is revealed rather than dropped onto the page.
+ *
+ * No repository input here by design — the visitor meets the idea first and is
+ * asked for a repository only in the final chapter, where the command surface
+ * carries the full terminal treatment.
+ */
+
+/** Paths that surface and recede behind the headline, on their own cadence. */
+const paths = [
+  { text: 'services/analysis_orchestrator.py', top: '22%', right: '6%', delay: '0s' },
+  { text: 'core/dependency_graph.py', top: '38%', right: '14%', delay: '3.6s' },
+  { text: 'models/schemas.py', top: '64%', right: '9%', delay: '7.2s' },
+  { text: 'mcp/tools/search_tools.py', top: '78%', right: '20%', delay: '10.8s' },
+];
+
+/**
+ * Capability telemetry. Every entry is a technique ARIA genuinely implements, so
+ * the headline's claim and the product are connected before the visitor scrolls.
+ */
+const telemetry = [
+  'AST PARSING',
+  'DEPENDENCY GRAPHS',
+  'CALL GRAPHS',
+  'RAG',
+  'IMPACT ANALYSIS',
+];
+---
+
+{/*
+  Scene 01. The section is the scroll space; `.scene-stage` inside it is the pinned
+  frame. The hero's own layers (topology, bloom, pointer light) live on the stage
+  so they are clipped to the frame rather than to the whole scroll space.
+*/}
+<section
+  id="hero"
+  data-stage="hero"
+  data-pin="on"
+  style={`--scene-vh:${heroScene.vh};--scene-vh-compact:${heroScene.vhCompact}`}
+  aria-labelledby="hero-heading"
+>
+<div
+  class="hero-stage scene-stage relative overflow-hidden"
+>
+  {/*
+    Repository topology. The outer layer answers scroll, the inner one performs
+    the emergence, so neither transform fights the other.
+  */}
+  <div class="hero-topology absolute inset-0 z-0" aria-hidden="true">
+    <div class="hero-topology-emerge h-full w-full" data-hero-topology>
+      <HeroGraph client:only="react" className="w-full h-full" />
+    </div>
+  </div>
+
+  <!-- Cinematic light behind the typography -->
+  <div class="hero-bloom z-0" aria-hidden="true">
+    <div class="hero-bloom-drift h-full w-full"></div>
+  </div>
+
+  {/*
+    Pointer light. The topology beneath already displaces its nodes around the
+    cursor; this gives that reaction a source, so moving across the hero reads as
+    illuminating a dark system.
+  */}
+  <div class="hero-pointer z-0" aria-hidden="true"></div>
+
+  <!-- File paths surfacing in the background — scroll displacement -->
+  <div class="absolute inset-0 z-0 hidden md:block pointer-events-none" aria-hidden="true">
+    {paths.map((p) => (
+      <span
+        class="hero-path absolute font-mono text-[11px] tracking-wide text-text-subtle whitespace-nowrap"
+        style={`top:${p.top};right:${p.right};`}
+      >
+        {p.text}
+      </span>
+    ))}
+  </div>
+
+  <!-- Technical instrument corner marks -->
+  <span class="tech-cross top-6 left-6 hidden md:block" aria-hidden="true"></span>
+  <span class="tech-cross top-6 right-6 hidden md:block" aria-hidden="true"></span>
+  <span class="tech-cross bottom-6 left-6 hidden md:block" aria-hidden="true"></span>
+  <span class="tech-cross bottom-6 right-6 hidden md:block" aria-hidden="true"></span>
+
+  <!-- Content -->
+  {/*
+    The stage centres its content, so the asymmetric top padding this carried from
+    when the hero was bottom-aligned only pushed the scene past the frame it now
+    has to fit inside.
+  */}
+  <div class="story-shell relative z-10 py-4 sm:py-6">
+    <!-- Eyebrow -->
+    <div class="hero-enter-eyebrow flex items-center gap-4 mb-4 sm:mb-6">
+      <span class="h-px w-8 bg-primary/60" aria-hidden="true"></span>
+      <span class="mono-label">REPOSITORY INTELLIGENCE</span>
+      <span class="mono-label text-[9px] text-text-subtle/40 hidden sm:inline-block ml-auto tracking-[0.25em]" aria-hidden="true">SYS.ID // ARIA-TOPO-01</span>
+    </div>
+
+    {/*
+      Display headline. The two lines move differently on purpose: the first
+      arrives sharp and at full strength, the second is delayed and brightens out
+      of the dark as the scene resolves. Not bounce — one cinematic ease.
+    */}
+    <h1 id="hero-heading" class="display-hero text-text">
+      <span class="reveal-mask">
+        <span class="hero-line--lead" style="animation-delay:1900ms">Understand</span>
+      </span>
+      <span class="reveal-mask">
+        <span class="hero-line--resolve" style="animation-delay:2350ms">Any codebase.</span>
+      </span>
+    </h1>
+
+    <!-- Capability telemetry — grouped inline-flex elements with subtle signal points -->
+    <p class="hero-telemetry mono-label mt-5 sm:mt-6 flex flex-wrap items-center gap-x-2.5 sm:gap-x-3 gap-y-1.5 max-w-4xl" style="letter-spacing:0.2em">
+      {telemetry.map((item, i) => (
+        <span class="inline-flex items-center gap-2.5 sm:gap-3 shrink-0">
+          {i > 0 && (
+            <span
+              class="tel-sep text-text-subtle/60"
+              style={`--tel-delay:${2800 + i * 130 - 60}ms`}
+              aria-hidden="true">·</span>
+          )}
+          <span class="telemetry-signal-item inline-flex items-center gap-2" style={`--tel-delay:${2800 + i * 130}ms`}>
+            <span class="h-1 w-1 rounded-full bg-primary/70 shrink-0" aria-hidden="true"></span>
+            <span>{item}</span>
+          </span>
+        </span>
+      ))}
+    </p>
+
+    <!-- Supporting text + status, held on one editorial baseline -->
+    <div class="mt-5 sm:mt-6 flex flex-col lg:flex-row lg:items-end lg:justify-between gap-5 sm:gap-7">
+      <p class="hero-enter-body story-lead">
+        ARIA transforms complex software repositories into structured,
+        searchable engineering intelligence.
+      </p>
+
+      <div class="hero-enter-meta flex items-center gap-8 shrink-0">
+        {/*
+          Names the technique rather than asserting live activity: nothing is
+          being analysed while the visitor reads the hero, so a breathing dot
+          labelled with a progressive verb claimed otherwise.
+        */}
+        <div class="flex items-center gap-2.5">
+          <span class="h-1.5 w-1.5 rounded-full bg-primary" aria-hidden="true"></span>
+          <span class="mono-label">DETERMINISTIC ANALYSIS</span>
+        </div>
+
+        <!-- Scroll cue -->
+        <div class="hidden lg:flex flex-col items-center gap-3">
+          <span class="mono-label" style="letter-spacing:0.3em">SCROLL</span>
+          <span class="h-10 w-px bg-white/[0.08] relative overflow-hidden" aria-hidden="true">
+            <span class="scroll-cue absolute inset-0 bg-primary/70 block"></span>
+          </span>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+</section>
+
+<script>
+  /**
+   * Hero scroll response.
+   *
+   * `--hero-p` is 0 at the top of the page and 1 once the hero has been scrolled
+   * fully past. It drives the light source and the topology recession through
+   * CSS, so nothing here touches layout: no getBoundingClientRect, no reads
+   * inside the listener, and a rAF gate so the work happens once per frame at
+   * most.
+   */
+  function initHero() {
+    const hero = document.querySelector<HTMLElement>('.hero-stage');
+    if (!hero || hero.dataset.bound === 'true') return;
+    hero.dataset.bound = 'true';
+
+    const topology = hero.querySelector<HTMLElement>('[data-hero-topology]');
+    const reduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+    // The topology emerges once, shortly after the headline begins to resolve.
+    if (topology) {
+      if (reduced) topology.classList.add('is-emerged');
+      else requestAnimationFrame(() => topology.classList.add('is-emerged'));
+    }
+
+    if (reduced) return;
+
+    let raf = 0;
+
+    const apply = () => {
+      raf = 0;
+      // Height of the hero is ~1 viewport, so viewport-relative scroll is a good
+      // enough proxy and costs no layout read.
+      const p = Math.min(1, Math.max(0, window.scrollY / (window.innerHeight || 1)));
+      hero.style.setProperty('--hero-p', p.toFixed(4));
+    };
+
+    const onScroll = () => {
+      if (!raf) raf = requestAnimationFrame(apply);
+    };
+
+    apply();
+    window.addEventListener('scroll', onScroll, { passive: true });
+    window.addEventListener('resize', onScroll, { passive: true });
+
+    /*
+      Pointer light. Percentages rather than pixels, so the gradient needs no
+      knowledge of the hero's size and a resize cannot desynchronise it. One rAF
+      gate, two property writes, and one layout read per pointer event — which is
+      unavoidable for a position relative to a specific element, and is confined
+      to the hero.
+    */
+    if (window.matchMedia('(hover: hover) and (pointer: fine)').matches) {
+      let mRaf = 0;
+      let mx = 50;
+      let my = 55;
+
+      const paint = () => {
+        mRaf = 0;
+        hero.style.setProperty('--mx', `${mx.toFixed(2)}%`);
+        hero.style.setProperty('--my', `${my.toFixed(2)}%`);
+      };
+
+      hero.addEventListener(
+        'pointermove',
+        (event) => {
+          const r = hero.getBoundingClientRect();
+          if (r.width === 0 || r.height === 0) return;
+          mx = ((event.clientX - r.left) / r.width) * 100;
+          my = ((event.clientY - r.top) / r.height) * 100;
+          hero.classList.add('is-lit');
+          if (!mRaf) mRaf = requestAnimationFrame(paint);
+        },
+        { passive: true }
+      );
+
+      hero.addEventListener('pointerleave', () => hero.classList.remove('is-lit'), {
+        passive: true,
+      });
+    }
+  }
+
+  initHero();
+  document.addEventListener('astro:page-load', initHero);
+</script>

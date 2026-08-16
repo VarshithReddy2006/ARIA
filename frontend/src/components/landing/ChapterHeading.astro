@@ -1,0 +1,76 @@
+---
+/**
+ * ChapterHeading — the editorial opener shared by every story chapter.
+ *
+ * Deliberately not a card: a chapter marker, a two-line display headline that
+ * reveals line by line, and an optional lead paragraph. Composition varies per
+ * section via `align` and `width` so sections don't all look identical.
+ */
+
+interface Props {
+  /** e.g. "02 — CHANGE SURFACE" */
+  marker?: string;
+  /** Display headline, one entry per rendered line. */
+  lines?: string[];
+  /** Index at which lines switch to the muted secondary treatment. */
+  dimFrom?: number;
+  lead?: string;
+  size?: '1' | '2' | 'thesis' | 'compact';
+  align?: 'left' | 'right';
+  /** Applied to the <h2> so the owning section can reference it. */
+  headingId?: string;
+  class?: string;
+}
+
+const {
+  marker,
+  lines,
+  dimFrom = lines ? lines.length : 0,
+  lead,
+  size = '1',
+  align = 'left',
+  headingId,
+  class: className = '',
+} = Astro.props;
+
+const isCompact = size === 'thesis' || size === 'compact' || !lines || lines.length === 0;
+const displayClass = size === '1' ? 'display-1' : size === '2' ? 'display-2' : 'product-thesis';
+const alignClass = align === 'right' ? 'lg:text-right lg:ml-auto lg:items-end' : '';
+/** The marker rule runs away from the type, so it mirrors with the alignment. */
+const ruleClass = align === 'right' ? 'chapter-rule chapter-rule--right' : 'chapter-rule';
+/** Marker reveals first, then each headline line, then the lead. */
+const lineCount = lines ? lines.length : 0;
+const lineDelay = (i: number) => 80 + i * 110;
+---
+
+<header class={`flex flex-col ${alignClass} ${className}`}>
+  {marker && (
+    <div class={`${ruleClass} ${isCompact ? 'mb-2 sm:mb-2.5' : 'mb-5 sm:mb-7'} w-full`} data-reveal="fade" style="--reveal-delay:0ms">
+      {(!lines || lines.length === 0) && headingId ? (
+        <h2 id={headingId} class="mono-label mono-label-accent whitespace-nowrap">{marker}</h2>
+      ) : (
+        <span class="mono-label mono-label-accent whitespace-nowrap">{marker}</span>
+      )}
+    </div>
+  )}
+
+  {lines && lines.length > 0 && (
+    <h2 id={headingId} class={`${displayClass} text-text`}>
+      {lines.map((line, i) => (
+        <span class="reveal-mask" data-reveal="line" style={`--reveal-delay:${lineDelay(i)}ms`}>
+          <span class={i >= dimFrom ? 'display-dim' : ''}>{line}</span>
+        </span>
+      ))}
+    </h2>
+  )}
+
+  {lead && (
+    <p
+      class={`story-lead ${isCompact ? 'mt-1.5 sm:mt-2 text-[13px] sm:text-sm text-text-muted leading-relaxed max-w-2xl' : 'mt-4 sm:mt-6'}`}
+      data-reveal
+      style={`--reveal-delay:${lineDelay(lineCount) + 60}ms`}
+    >
+      {lead}
+    </p>
+  )}
+</header>

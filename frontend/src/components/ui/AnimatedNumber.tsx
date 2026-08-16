@@ -1,4 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
+import { observeOnce } from './useReveal';
 
 interface AnimatedNumberProps {
   /** Target value to count up to */
@@ -11,6 +12,11 @@ interface AnimatedNumberProps {
   suffix?: string;
   /** Optional prefix prepended before the number (e.g. "$") */
   prefix?: string;
+  /**
+   * Wait until the number scrolls into view before counting. Without this a
+   * metric below the fold finishes animating before it is ever seen.
+   */
+  startOnView?: boolean;
   className?: string;
 }
 
@@ -25,17 +31,33 @@ export const AnimatedNumber: React.FC<AnimatedNumberProps> = ({
   decimals = 0,
   suffix = '',
   prefix = '',
+  startOnView = false,
   className = '',
 }) => {
   const [display, setDisplay] = useState(0);
   const rafRef = useRef<number | null>(null);
   const startTimeRef = useRef<number | null>(null);
+  const spanRef = useRef<HTMLSpanElement>(null);
+  const [armed, setArmed] = useState(!startOnView);
   const prefersReduced =
     typeof window !== 'undefined'
       ? window.matchMedia('(prefers-reduced-motion: reduce)').matches
       : false;
 
+  // Arm the count-up when the digits reach the viewport.
   useEffect(() => {
+    if (!startOnView || armed) return;
+    const el = spanRef.current;
+    if (!el) return;
+    if (prefersReduced) {
+      setArmed(true);
+      return;
+    }
+    return observeOnce(el, () => setArmed(true));
+  }, [startOnView, armed, prefersReduced]);
+
+  useEffect(() => {
+    if (!armed) return;
     if (prefersReduced) {
       setDisplay(value);
       return;
@@ -61,14 +83,18 @@ export const AnimatedNumber: React.FC<AnimatedNumberProps> = ({
     return () => {
       if (rafRef.current !== null) cancelAnimationFrame(rafRef.current);
     };
-  }, [value, duration, prefersReduced]);
+  }, [value, duration, prefersReduced, armed]);
 
   const formatted = decimals === 0
     ? Math.round(display).toLocaleString()
     : display.toFixed(decimals);
 
   return (
-    <span className={`animated-number tabular-nums ${className}`} aria-label={`${prefix}${value}${suffix}`}>
+    <span
+      ref={spanRef}
+      className={`animated-number tabular-nums ${className}`}
+      aria-label={`${prefix}${value}${suffix}`}
+    >
       {prefix}{formatted}{suffix}
     </span>
   );

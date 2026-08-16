@@ -1,0 +1,585 @@
+---
+/**
+ * StoryBackdrop — the single continuous environment the whole story sits inside,
+ * and the reason the page reads as one intelligence system rather than ten
+ * sections.
+ *
+ * It is not a static decoration. A scene controller sets `data-scene` from the
+ * chapter currently on screen, and every layer derives its own presence from
+ * that one attribute (see the scene system in global.css). So the same topology
+ * evolves — clusters form, direction appears, traces activate, the field becomes
+ * temporal, then contracts toward the repository input.
+ *
+ * Layers, back to front:
+ *   01 grid        measured ground
+ *   02 topology    architectural lines + distant nodes
+ *   03 clusters    module regions
+ *   04 traces      directional relationships
+ *   05 temporal    horizontal time tracks
+ *   06 rail        execution line
+ *   07 ticks       blueprint measurement marks
+ *   08 fog         depth falloff
+ *
+ * Pure CSS/SVG. No particles, no canvas, no WebGL. Fixed to the viewport.
+ */
+
+/** Sparse nodes placed on deliberate intersections, not randomly scattered. */
+const nodes = [
+  { left: '14%', top: '18%', delay: '0s' },
+  { left: '38%', top: '9%', delay: '1.4s' },
+  { left: '72%', top: '24%', delay: '2.6s' },
+  { left: '88%', top: '52%', delay: '0.7s' },
+  { left: '26%', top: '61%', delay: '3.4s' },
+  { left: '57%', top: '78%', delay: '2.1s' },
+  { left: '8%', top: '86%', delay: '4.2s' },
+];
+---
+
+<div class="story-backdrop" data-scene="latent" data-story-backdrop aria-hidden="true">
+  <div class="story-grid"></div>
+
+  <!-- 03 · Module regions — only meaningful once grouping exists -->
+  <div class="bd-clusters"></div>
+
+  {/*
+    02 · Faint architectural graph: long diagonals + a few connective nodes.
+    The wrapper carries the slow scene contraction; the svg carries the immediate
+    parallax offset. Separating them keeps the field locked to the scroll.
+  */}
+  <div class="bd-topology-scale">
+  <svg
+    class="story-lines"
+    viewBox="0 0 1440 900"
+    preserveAspectRatio="xMidYMid slice"
+    fill="none"
+  >
+    <defs>
+      <linearGradient id="bd-line" x1="0" y1="0" x2="1" y2="1">
+        <stop offset="0%" stop-color="#5e6ad2" stop-opacity="0" />
+        <stop offset="50%" stop-color="#5e6ad2" stop-opacity="0.22" />
+        <stop offset="100%" stop-color="#5e6ad2" stop-opacity="0" />
+      </linearGradient>
+      <linearGradient id="bd-line-soft" x1="0" y1="1" x2="1" y2="0">
+        <stop offset="0%" stop-color="#ffffff" stop-opacity="0" />
+        <stop offset="50%" stop-color="#ffffff" stop-opacity="0.06" />
+        <stop offset="100%" stop-color="#ffffff" stop-opacity="0" />
+      </linearGradient>
+    </defs>
+
+    <g stroke="url(#bd-line)" stroke-width="1">
+      <path d="M-60 210 L520 420 L1010 300 L1500 470" />
+      <path d="M-60 640 L400 520 L860 690 L1500 560" />
+      <path d="M300 -40 L520 420 L610 900" />
+      <path d="M1120 -40 L1010 300 L1180 900" />
+    </g>
+
+    <g stroke="url(#bd-line-soft)" stroke-width="1">
+      <path d="M-60 400 L1500 250" />
+      <path d="M-60 790 L1500 840" />
+      <path d="M760 -40 L760 940" />
+    </g>
+
+    <g fill="#5e6ad2" opacity="0.35">
+      <circle cx="520" cy="420" r="2.5" />
+      <circle cx="1010" cy="300" r="2.5" />
+      <circle cx="400" cy="520" r="2" />
+      <circle cx="860" cy="690" r="2" />
+    </g>
+  </svg>
+  </div>
+
+  {/*
+    04 · Directional traces. The same four spines as the topology above, but
+    arrowed and brighter — so when the chapter turns to propagation the field
+    acquires direction instead of a new unrelated animation appearing.
+  */}
+  <svg
+    class="bd-traces"
+    viewBox="0 0 1440 900"
+    preserveAspectRatio="xMidYMid slice"
+    fill="none"
+  >
+    <defs>
+      <marker
+        id="bd-head"
+        viewBox="0 0 8 8"
+        refX="7"
+        refY="4"
+        markerWidth="4"
+        markerHeight="4"
+        orient="auto-start-reverse"
+        markerUnits="strokeWidth"
+      >
+        <path d="M0,1 L7,4 L0,7 z" fill="rgba(129,140,248,0.55)" />
+      </marker>
+    </defs>
+    <g stroke="rgba(129,140,248,0.28)" stroke-width="1" marker-end="url(#bd-head)">
+      <path d="M520 420 L1010 300" />
+      <path d="M520 420 L400 520" />
+      <path d="M1010 300 L1180 760" />
+      <path d="M400 520 L860 690" />
+    </g>
+  </svg>
+
+  <!-- 05 · Temporal tracks -->
+  <div class="bd-temporal"></div>
+
+  <!-- 06 · Execution rail -->
+  <div class="bd-rail"></div>
+
+  <!-- 02 · Distant points -->
+  {nodes.map((n) => (
+    <span class="story-node" style={`left:${n.left};top:${n.top};animation-delay:${n.delay}`}></span>
+  ))}
+
+  <!-- 07 · Blueprint measurement marks -->
+  <div class="bd-ticks"></div>
+
+  <!-- 08 · Depth -->
+  <div class="bd-fog"></div>
+  <div class="story-noise"></div>
+  <div class="story-vignette"></div>
+</div>
+
+{/*
+  Pointer light. Sits outside `.story-backdrop` because that layer is clipped and
+  pinned behind the content, and this has to sit above it. Never interactive.
+*/}
+<div class="pointer-light" data-pointer-light aria-hidden="true"></div>
+
+{/*
+  Chapter title. Appears in the frame for a moment as a scene takes the stage, then
+  dissolves into the scene rather than sitting over it permanently. Decorative: the
+  chapter is already named in the scene's own heading.
+*/}
+<span class="chapter-title" data-chapter-title aria-hidden="true"></span>
+
+{/*
+  The accessible equivalent of the chapter rail and the scene counter, which are
+  both decorative. Without this a screen-reader user would have no way to know the
+  experience is chaptered, or how far through it they are.
+*/}
+<p class="sr-only" role="status" aria-live="polite" data-scene-announce></p>
+
+<script>
+  /**
+   * Scene director.
+   *
+   * Turns one scroll offset into the whole state of the stage: which scene owns
+   * the viewport, how far it has been built, whether a bridge to the next scene is
+   * in play, which glimpse that bridge uses, and how far the outgoing scene has
+   * receded. Everything is published as attributes and custom properties; all the
+   * animation itself is CSS.
+   *
+   * Design rules this obeys, and why they matter:
+   *
+   *   ONE rAF          a single scheduled frame does scene state, glimpse, exit,
+   *                    creation, parallax, rail and scroll-linked type.
+   *   NO LAYOUT READS  every offset is measured on load and resize only, so the
+   *                    scroll path never touches getBoundingClientRect.
+   *   NO TIMERS        all progress is a function of position, so a fast scroll
+   *                    cannot build an animation backlog and there is nothing to
+   *                    cancel. Stop scrolling and the bridge holds where it is.
+   *   NO REACT STATE   nothing here re-renders a component.
+   *
+   * The scene vocabulary lives in sceneModel.ts, which is pure and unit-tested.
+   */
+  import {
+    MIN_STAGE_VIEWPORT,
+    SCENES,
+    isReverse,
+    resolveHandoff,
+    stageAt,
+    type SceneBand,
+    type SceneId,
+  } from './sceneModel';
+
+  function initScenes() {
+    const backdrop = document.querySelector<HTMLElement>('[data-story-backdrop]');
+    if (!backdrop || backdrop.dataset.sceneBound === 'true') return;
+
+    // Scenes are marked `data-stage`; `data-scene` names the *active* scene and is
+    // also carried by the backdrop and the rail, so it cannot double as the marker.
+    const sections = Array.from(document.querySelectorAll<HTMLElement>('[data-stage]'));
+    if (sections.length === 0) return;
+
+    backdrop.dataset.sceneBound = 'true';
+
+    const reduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+    /** The edge index, if present. Driven from here so it ships no script. */
+    const rail = document.querySelector<HTMLElement>('[data-chapter-rail]');
+    const ticks = rail ? Array.from(rail.querySelectorAll<HTMLElement>('.rail-tick')) : [];
+    const order = ticks.length > 0 ? ticks.map((t) => t.dataset.scene ?? '') : SCENES.map((s) => s.id);
+
+    /**
+     * Statements whose scale tracks their progress across the frame. Measured
+     * alongside the scene bands so the scroll path stays free of layout reads.
+     */
+    const typeTargets = Array.from(document.querySelectorAll<HTMLElement>('[data-type-scroll]'));
+
+    const glimpse = document.querySelector<HTMLElement>('[data-glimpse-layer]');
+    const flash = document.querySelector<HTMLElement>('[data-glimpse-flash]');
+    const title = document.querySelector<HTMLElement>('[data-chapter-title]');
+    const counter = document.querySelector<HTMLElement>('[data-scene-counter]');
+    const announce = document.querySelector<HTMLElement>('[data-scene-announce]');
+
+    /*
+      ── Pin fitness ──────────────────────────────────────────────────────────
+
+      A pinned stage is exactly one viewport tall and a reader cannot scroll
+      inside a pinned frame, so any scene whose content is taller would have the
+      overflow permanently unreachable. Rather than shrink type or drop content,
+      measure each stage and turn pinning off where it does not fit.
+
+      Measured here and on resize only — never in the scroll path. `scrollHeight`
+      on the pinned stage reports the content's real height even though the box is
+      clamped to the viewport, which is exactly the number needed.
+    */
+    /*
+      ── Which scenes are staged ──────────────────────────────────────────────
+
+      Pin state is decided from the scene's own declaration plus the viewport
+      height, and — crucially — it is only ever decided when the reader is not
+      moving. Earlier revisions measured content height and flipped pinning on the
+      result; because pinning changes a section's height, that moved every scene
+      boundary below it *mid-scroll*, and the active scene oscillated
+      (…memory → impact → retrieval → memory…). Declaring the decision removes the
+      feedback entirely.
+
+      A single safety pass afterwards may still take pinning *away* from a scene
+      whose content does not fit — never grant it — so a layout surprise degrades
+      to a normally scrolling scene rather than to unreachable content.
+    */
+    const applyPinPolicy = () => {
+      const tall = window.innerHeight >= MIN_STAGE_VIEWPORT;
+      for (const section of sections) {
+        if (section.dataset.pin === 'self') continue;
+        const id = section.dataset.stage as SceneId;
+        const declared = SCENES.find((s) => s.id === id)?.stageable ?? false;
+        section.dataset.pin = declared && tall && !reduced ? 'on' : 'off';
+      }
+    };
+
+    /** One-off: unpin anything that turns out not to fit. Never the reverse. */
+    const unpinOverflowing = () => {
+      const vh = window.innerHeight || 1;
+      for (const section of sections) {
+        if (section.dataset.pin !== 'on') continue;
+        const stage = section.querySelector<HTMLElement>('.scene-stage');
+        if (stage && stage.scrollHeight > vh + 2) section.dataset.pin = 'off';
+      }
+    };
+
+    /*
+      Creation order. Each scene's `data-create` children are numbered once, and
+      told how many steps the scene has, so the CSS can derive each step's own
+      progress from the scene's. Authored order in the markup is the creation order.
+    */
+    for (const section of sections) {
+      const steps = Array.from(section.querySelectorAll<HTMLElement>('[data-create]'));
+      steps.forEach((el, i) => {
+        el.style.setProperty('--create-index', String(i));
+        el.style.setProperty('--create-total', String(steps.length));
+      });
+    }
+
+    /** Offsets measured outside the scroll path. */
+    let bands: (SceneBand & { el: HTMLElement })[] = [];
+    let typeBands: { el: HTMLElement; top: number; height: number }[] = [];
+
+    const measure = () => {
+      const pageY = window.scrollY;
+      bands = sections.map((el) => {
+        const r = el.getBoundingClientRect();
+        return {
+          el,
+          id: (el.dataset.stage ?? 'hero') as SceneId,
+          top: r.top + pageY,
+          bottom: r.bottom + pageY,
+        };
+      });
+      typeBands = typeTargets.map((el) => {
+        const r = el.getBoundingClientRect();
+        return { el, top: r.top + pageY, height: r.height };
+      });
+    };
+
+    let current = '';
+    /** Previous active scene, so direction of travel is known. */
+    let previous: SceneId | undefined;
+    let raf = 0;
+
+    const clamp01 = (n: number) => (n < 0 ? 0 : n > 1 ? 1 : n);
+
+    const apply = () => {
+      raf = 0;
+      const vh = window.innerHeight || 1;
+      const scrollY = window.scrollY;
+      const mid = scrollY + vh / 2;
+
+      /*
+        The scene that owns the stage, how far through it we are, and whether a
+        bridge to the next scene is in play — all from the pure model, so the same
+        logic is unit-tested without a browser.
+      */
+      const stage = stageAt(mid, bands, previous);
+      const scene = stage.active;
+
+      if (scene !== current) {
+        const from = current as SceneId;
+        previous = from || undefined;
+
+        /*
+          A jump resolves to ONE handoff rather than replaying every bridge in
+          between. `resolveHandoff` shortens it and borrows the glimpse of the
+          transition that arrives at the destination, so a fast scroll still says
+          something true about where the reader landed.
+        */
+        const bridge = from ? resolveHandoff(from, scene) : null;
+
+        backdrop.dataset.scene = scene;
+        // Published on the root so any surface can respond to the chapter.
+        document.documentElement.dataset.scene = scene;
+        // Direction is decided at the moment of change, from the pair involved.
+        document.documentElement.dataset.direction =
+          from && isReverse(from, scene) ? 'up' : 'down';
+        if (bridge) document.documentElement.dataset.transition = bridge.style;
+
+        const index = order.indexOf(scene);
+        ticks.forEach((tick, i) => {
+          tick.classList.toggle('is-active', i === index);
+          tick.classList.toggle('is-past', index > -1 && i < index);
+        });
+
+        const meta = index > -1 ? SCENES[index] : null;
+
+        /*
+          The chapter title appears briefly in the frame as the scene takes the
+          stage, then dissolves into the scene. Re-adding the class restarts the
+          one-shot animation; a forced reflow between removing and adding is what
+          makes the restart reliable.
+        */
+        if (title && meta && !reduced) {
+          title.textContent = meta.title;
+          title.classList.remove('is-showing');
+          void title.offsetWidth;
+          title.classList.add('is-showing');
+        }
+
+        // A film chapter marker: where am I, and how far into ARIA.
+        if (counter && index > -1) {
+          counter.innerHTML =
+            '<b>' + String(index + 1).padStart(2, '0') + '</b><i></i>' +
+            String(SCENES.length).padStart(2, '0');
+        }
+
+        /*
+          The accessible equivalent of the rail and the counter. The rail itself is
+          decorative, so without this a screen-reader user would have no way to
+          know the experience is chaptered at all.
+        */
+        if (announce && meta) {
+          announce.textContent =
+            `Scene ${index + 1} of ${SCENES.length}: ${meta.title}`;
+        }
+
+        current = scene;
+      }
+
+      /*
+        The bridge. `data-glimpse` names which primitives are on stage and
+        `--trans-p` drives them; both are derived from position, so pausing mid
+        transition holds the glimpse mid-formation instead of finishing without the
+        reader. Cleared the moment the window ends, so nothing lingers.
+      */
+      if (glimpse && !reduced) {
+        const bridge = stage.transition;
+        const names = bridge ? bridge.glimpses.join(' ') : '';
+        if (glimpse.dataset.glimpse !== names) glimpse.dataset.glimpse = names;
+        glimpse.style.setProperty('--trans-p', stage.transitionProgress.toFixed(4));
+        if (flash) {
+          const label = bridge?.flash ?? '';
+          if (flash.textContent !== label) flash.textContent = label;
+        }
+      }
+
+      if (rail) {
+        const max = document.documentElement.scrollHeight - vh;
+        rail.style.setProperty('--rail-p', max > 0 ? clamp01(scrollY / max).toFixed(4) : '0');
+      }
+
+      if (!reduced) {
+        backdrop.style.setProperty('--par', String(Math.round(scrollY)));
+
+        /*
+          Per-scene build and exit.
+
+          build  starts as the scene enters from the bottom of the viewport and
+                 completes before it reaches the middle, so a scene is assembled by
+                 the time it is being read.
+          exit   ramps only over the last third of the viewport, so a scene recedes
+                 as its final content rises off the top — never while it is still
+                 the thing being read.
+        */
+        for (const band of bands) {
+          const span = band.bottom - band.top || 1;
+          const build = clamp01((scrollY + vh - band.top) / (span * 0.85));
+          band.el.style.setProperty('--scene-p', build.toFixed(4));
+
+          const visibleBottom = band.bottom - scrollY;
+          const exit = clamp01((vh * 0.35 - visibleBottom) / (vh * 0.35));
+          band.el.style.setProperty('--exit', exit.toFixed(4));
+        }
+
+        // Fractional scale on the big statements, from cached offsets only.
+        for (const t of typeBands) {
+          const travelled = scrollY + vh - t.top;
+          const span = t.height + vh;
+          t.el.style.setProperty('--tp', clamp01(span > 0 ? travelled / span : 0).toFixed(4));
+        }
+      }
+    };
+
+    const onScroll = () => {
+      if (!raf) raf = requestAnimationFrame(apply);
+    };
+
+    const onResize = () => {
+      measure();
+      onScroll();
+    };
+
+    applyPinPolicy();
+    measure();
+    apply();
+
+    window.addEventListener('scroll', onScroll, { passive: true });
+    window.addEventListener('resize', onResize, { passive: true });
+
+    /*
+      Re-measure when the *viewport* changes, and when late work changes content
+      height — lazily hydrated islands and web fonts both do.
+
+      Deliberately not a ResizeObserver on the body: deciding which scenes pin
+      changes the document height, which would retrigger the observer, which could
+      decide differently, which changes the height again. That feedback loop moved
+      band offsets underneath the reader mid-scroll and made the active scene
+      oscillate. Viewport-keyed re-measurement cannot feed back on itself.
+    */
+    let lastW = window.innerWidth;
+    let lastH = window.innerHeight;
+    const onViewportChange = () => {
+      if (window.innerWidth === lastW && window.innerHeight === lastH) return;
+      lastW = window.innerWidth;
+      lastH = window.innerHeight;
+      // A new viewport can change which scenes are stageable at all.
+      applyPinPolicy();
+      unpinOverflowing();
+      onResize();
+    };
+    window.addEventListener('resize', onViewportChange, { passive: true });
+    window.addEventListener('orientationchange', onViewportChange, { passive: true });
+
+    window.addEventListener('load', onResize);
+    if (document.fonts?.ready) document.fonts.ready.then(() => onResize()).catch(() => {});
+
+    /*
+      One settle pass, early, while the reader is still at the top of the page: fonts
+      have loaded and the staged scenes are all typographic, so their height is
+      final by now. Deliberately not repeated and deliberately not tied to
+      hydration — re-deciding later is what moved boundaries mid-scroll.
+    */
+    window.setTimeout(() => {
+      unpinOverflowing();
+      onResize();
+    }, 700);
+  }
+
+  /**
+   * Pointer language.
+   *
+   * One element, moved with a transform inside a rAF gate. It is invisible until
+   * the pointer is over something that actually responds, so the page never
+   * carries a decorative cursor:
+   *
+   *   interactive element        → small indigo halo
+   *   topology surface           → precision reticle
+   *   repository command surface → tightened halo
+   *
+   * Mode changes ride `pointerover`, which fires only when the pointer crosses
+   * an element boundary, so the `closest()` walk does not run per movement.
+   * Coordinates ride `pointermove`, which does nothing but store two numbers.
+   */
+  function initPointerLight() {
+    const light = document.querySelector<HTMLElement>('[data-pointer-light]');
+    if (!light || light.dataset.bound === 'true') return;
+
+    // Touch and coarse pointers get nothing at all, and neither does anyone who
+    // asked for less motion.
+    if (
+      !window.matchMedia('(hover: hover) and (pointer: fine)').matches ||
+      window.matchMedia('(prefers-reduced-motion: reduce)').matches
+    ) {
+      return;
+    }
+
+    light.dataset.bound = 'true';
+
+    const PRECISION = '[data-pointer="precision"]';
+    const COMMAND = '[data-pointer="command"]';
+    const INTERACTIVE = 'a[href], button:not([disabled]), input, [data-pointer="target"]';
+
+    let x = 0;
+    let y = 0;
+    let raf = 0;
+    let visible = false;
+
+    const paint = () => {
+      raf = 0;
+      light.style.transform = `translate3d(${x}px, ${y}px, 0)`;
+    };
+
+    const onMove = (event: PointerEvent) => {
+      x = event.clientX;
+      y = event.clientY;
+      if (!raf) raf = requestAnimationFrame(paint);
+    };
+
+    const onOver = (event: PointerEvent) => {
+      const target = event.target as Element | null;
+      if (!target || typeof target.closest !== 'function') return;
+
+      const precision = target.closest(PRECISION);
+      const command = precision ? null : target.closest(COMMAND);
+      const interactive = precision || command ? null : target.closest(INTERACTIVE);
+
+      const next = Boolean(precision || command || interactive);
+      light.classList.toggle('is-precision', Boolean(precision));
+      light.classList.toggle('is-command', Boolean(command));
+
+      if (next !== visible) {
+        visible = next;
+        light.classList.toggle('is-visible', next);
+      }
+    };
+
+    const hide = () => {
+      visible = false;
+      light.classList.remove('is-visible', 'is-precision', 'is-command');
+    };
+
+    document.addEventListener('pointermove', onMove, { passive: true });
+    document.addEventListener('pointerover', onOver, { passive: true });
+    document.addEventListener('pointerdown', onOver, { passive: true });
+    window.addEventListener('blur', hide);
+    document.addEventListener('pointerleave', hide);
+  }
+
+  initScenes();
+  initPointerLight();
+  document.addEventListener('astro:page-load', () => {
+    initScenes();
+    initPointerLight();
+  });
+</script>

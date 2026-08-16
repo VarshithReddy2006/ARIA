@@ -1,7 +1,5 @@
 import React, { useMemo } from 'react';
-import { Code2 } from 'lucide-react';
-import { EmptyState } from '../ui/EmptyState';
-import { groupTech, TONE_CHIP, TONE_DOT } from '../../lib/techCategories';
+import { groupTech, TONE_DOT } from '../../lib/techCategories';
 
 interface TechStackPanelProps {
   techStack: string[];
@@ -9,72 +7,74 @@ interface TechStackPanelProps {
 }
 
 /**
- * Renders the detected stack grouped by architectural category instead of a
- * single undifferentiated chip cloud, so the reader can tell backend from
- * frontend from data layer at a glance.
+ * Detected stack as an engineering specification.
+ *
+ * Numbered hairline rows grouped by architectural category, instead of a cloud
+ * of pills — the reader can still tell backend from frontend from data layer,
+ * but the section reads as a spec sheet rather than as decoration.
  */
 export const TechStackPanel: React.FC<TechStackPanelProps> = ({ techStack, className = '' }) => {
   const groups = useMemo(() => groupTech(techStack), [techStack]);
-  const total = useMemo(
-    () => groups.reduce((sum, group) => sum + group.items.length, 0),
-    [groups],
-  );
+  const total = useMemo(() => groups.reduce((sum, g) => sum + g.items.length, 0), [groups]);
 
   return (
-    <div className={`card p-5 space-y-5 ${className}`}>
-      <div className="flex items-center justify-between gap-3">
-        <h2 className="panel-title">
-          <Code2 className="h-4 w-4 text-primary" aria-hidden="true" /> Technology Stack
+    <section className={`min-w-0 ${className}`} aria-labelledby="tech-stack-heading">
+      <div className="flex items-baseline justify-between gap-4 pb-3 hair-b">
+        <h2 id="tech-stack-heading" className="mono-label">
+          TECHNOLOGY STACK
         </h2>
         {total > 0 && (
-          <span className="text-[10px] font-mono text-text-subtle shrink-0">
-            {total} {total === 1 ? 'technology' : 'technologies'} · {groups.length}{' '}
-            {groups.length === 1 ? 'category' : 'categories'}
+          <span className="mono-detail shrink-0 tabular-nums" style={{ fontSize: 10 }}>
+            {total} DETECTED · {groups.length}{' '}
+            {groups.length === 1 ? 'CATEGORY' : 'CATEGORIES'}
           </span>
         )}
       </div>
 
       {groups.length === 0 ? (
-        <EmptyState
-          compact
-          icon={<Code2 className="h-5 w-5" aria-hidden="true" />}
-          title="No technologies detected"
-          description="The indexer did not find recognisable framework or language manifests in this repository."
-          secondaryHelp="Manifests such as package.json, pyproject.toml, go.mod, or Cargo.toml improve detection."
-        />
+        <div className="py-5">
+          <p className="text-[13px] text-text-muted leading-relaxed">
+            No technologies detected. The indexer found no recognisable framework or language
+            manifests.
+          </p>
+          <p className="mono-detail mt-2.5" style={{ fontSize: 10 }}>
+            Detection improves with package.json · pyproject.toml · go.mod · Cargo.toml
+          </p>
+        </div>
       ) : (
-        <div className="space-y-4">
+        <div className="mt-1">
           {groups.map(({ meta, items }) => (
-            <div key={meta.id} className="space-y-2">
-              <div className="flex items-center gap-2">
+            <div key={meta.id} className="min-w-0">
+              <div className="flex items-center gap-2 pt-4 pb-1.5">
                 <span
-                  className={`h-1.5 w-1.5 rounded-full shrink-0 ${TONE_DOT[meta.tone]}`}
+                  className={`h-1 w-1 rounded-full shrink-0 ${TONE_DOT[meta.tone]}`}
                   aria-hidden="true"
                 />
-                <h3 className="text-[10px] font-mono font-bold uppercase tracking-wider text-text-muted">
-                  {meta.label}
-                </h3>
-                <span className="text-[10px] font-mono text-text-subtle">{items.length}</span>
+                <h3 className="mono-label">{meta.label}</h3>
+                <span className="mono-detail tabular-nums" style={{ fontSize: 10 }}>
+                  · {String(items.length).padStart(2, '0')}
+                </span>
                 <span className="sr-only">{meta.description}</span>
               </div>
 
-              <ul className="flex flex-wrap gap-1.5 list-none pl-3.5">
-                {items.map((item) => (
-                  <li key={item}>
-                    <span
-                      className={`inline-block text-xs font-mono px-2.5 py-1 rounded-md border
-                                  transition-colors duration-150 hover:border-primary/50 ${TONE_CHIP[meta.tone]}`}
-                    >
-                      {item}
+              <ol className="min-w-0">
+                {items.map((item, i) => (
+                  <li
+                    key={item}
+                    className="spec-row group flex items-baseline gap-3.5 py-2 hair-t min-w-0"
+                  >
+                    <span className="font-mono text-[11px] text-text-muted/80 group-hover:text-primary shrink-0 tabular-nums transition-colors" style={{ letterSpacing: '0.14em' }}>
+                      {String(i + 1).padStart(2, '0')}
                     </span>
+                    <span className="font-mono text-[12px] text-text-muted group-hover:text-text truncate transition-colors">{item}</span>
                   </li>
                 ))}
-              </ul>
+              </ol>
             </div>
           ))}
         </div>
       )}
-    </div>
+    </section>
   );
 };
 

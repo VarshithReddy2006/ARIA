@@ -16,10 +16,10 @@ from .provider_errors import classify_deepseek_error, ProviderErrorType
 logger = logging.getLogger(__name__)
 
 _RETRY_STATUS_CODES = {429, 500, 502, 503, 504}
-_DEFAULT_MAX_RETRIES = 2  # reduced for MVP — fail fast on sustained 429
-_DEFAULT_INITIAL_DELAY = 5.0
+_DEFAULT_MAX_RETRIES = 1  # Fail fast on streaming so user gets fast response or immediate fallback
+_DEFAULT_INITIAL_DELAY = 2.0
 _DEFAULT_BACKOFF_FACTOR = 2.0
-_DEFAULT_TIMEOUT = 120.0
+_DEFAULT_TIMEOUT = 45.0
 _HEALTH_CHECK_TIMEOUT = 10.0  # /models is cheap
 
 
@@ -274,10 +274,13 @@ class DeepSeekProvider(BaseLLMProvider):
             "model": self.model,
             "messages": messages,
             "stream": False,
+            "max_tokens": 4096,
+            "temperature": 0.2,
         }
 
         try:
-            async with httpx.AsyncClient() as client:
+            timeout_cfg = httpx.Timeout(connect=15.0, read=self.timeout, write=15.0, pool=15.0)
+            async with httpx.AsyncClient(timeout=timeout_cfg) as client:
                 response = await self._post_with_retry(client, payload)
         except Exception as exc:
             error = classify_deepseek_error(exc, "deepseek")
@@ -313,6 +316,8 @@ class DeepSeekProvider(BaseLLMProvider):
             "model": self.model,
             "messages": messages,
             "stream": True,
+            "max_tokens": 4096,
+            "temperature": 0.2,
         }
 
         url = f"{self.base_url}/chat/completions"
@@ -332,7 +337,8 @@ class DeepSeekProvider(BaseLLMProvider):
             first_token = True
 
             try:
-                async with httpx.AsyncClient(timeout=self.timeout) as client:
+                timeout_cfg = httpx.Timeout(connect=15.0, read=self.timeout, write=15.0, pool=15.0)
+                async with httpx.AsyncClient(timeout=timeout_cfg) as client:
                     async with client.stream(
                         "POST", url, json=payload, headers=self._headers()
                     ) as response:

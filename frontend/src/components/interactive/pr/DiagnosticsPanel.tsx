@@ -1,6 +1,6 @@
 import React from 'react';
-import { Settings, ShieldCheck, ShieldAlert } from 'lucide-react';
 import type { HealthStatus } from './usePrerequisites';
+import { LeaderRow, StatusText } from './instrument';
 
 interface Props {
   title?: string;
@@ -10,67 +10,72 @@ interface Props {
 }
 
 /**
- * Shared diagnostics panel — used by PR Intelligence and Architecture Drift.
+ * Shared diagnostics readout — used by PR Intelligence and Architecture Drift.
+ *
+ * A hairline label→value readout rather than a card of badges. Each reading
+ * reports only what `usePrerequisites` actually returns: an absent rate limit
+ * shows NOT AVAILABLE rather than implying a healthy quota, and nothing here
+ * claims security or performance state.
  */
 export const DiagnosticsPanel: React.FC<Props> = ({
-  title = 'Diagnostics & Status',
+  title = 'DIAGNOSTICS',
   healthStatus,
   description,
   showSymbolIndex = true,
-}) => (
-  <div className="card-padded flex flex-col gap-4">
-    <div className="flex items-center gap-2.5">
-      <Settings className="w-5 h-5 text-primary" aria-hidden="true" />
-      <h3 className="text-base font-semibold text-text">{title}</h3>
-    </div>
+}) => {
+  const rateLimit = healthStatus?.rate_limit_remaining;
+  const hasRateLimit = rateLimit !== undefined && rateLimit !== null;
 
-    <dl className="flex flex-col gap-3 text-sm">
-      <Row label="GitHub Token Status">
-        {healthStatus?.github_token ? (
-          <span className="badge-success">
-            <ShieldCheck className="w-3.5 h-3.5" aria-hidden="true" /> Active
-          </span>
-        ) : (
-          <span className="badge-danger">
-            <ShieldAlert className="w-3.5 h-3.5" aria-hidden="true" /> Inactive
-          </span>
+  return (
+    <div className="min-w-0">
+      <h3 className="mono-label pb-3 hair-b">{title}</h3>
+
+      <dl className="mt-1 min-w-0">
+        <LeaderRow label="GITHUB TOKEN" first>
+          {healthStatus?.github_token ? (
+            <StatusText tone="text-success">ACTIVE</StatusText>
+          ) : (
+            <StatusText tone="text-danger">INACTIVE</StatusText>
+          )}
+        </LeaderRow>
+
+        <LeaderRow label="GITHUB RATE LIMIT">
+          {hasRateLimit ? (
+            <span className="font-mono text-[11px] text-text tabular-nums">
+              {rateLimit}
+              <span className="text-text-subtle"> left</span>
+            </span>
+          ) : (
+            <StatusText tone="text-text-subtle">NOT AVAILABLE</StatusText>
+          )}
+        </LeaderRow>
+
+        <LeaderRow label="DEPENDENCY GRAPH">
+          {healthStatus?.graph_available ? (
+            <StatusText tone="text-success">AVAILABLE</StatusText>
+          ) : (
+            <StatusText tone="text-text-subtle">UNAVAILABLE</StatusText>
+          )}
+        </LeaderRow>
+
+        {showSymbolIndex && (
+          <LeaderRow label="SYMBOL INDEX">
+            {healthStatus?.symbol_index_available ? (
+              <StatusText tone="text-success">AVAILABLE</StatusText>
+            ) : (
+              <StatusText tone="text-text-subtle">UNAVAILABLE</StatusText>
+            )}
+          </LeaderRow>
         )}
-      </Row>
+      </dl>
 
-      <Row label="GitHub Rate Limit">
-        <span className="text-text font-mono text-xs">
-          {healthStatus?.rate_limit_remaining ?? '—'} left
-        </span>
-      </Row>
-
-      <Row label="Dependency Graph">
-        {healthStatus?.graph_available
-          ? <span className="badge-success">Available</span>
-          : <span className="badge-neutral">Unavailable</span>}
-      </Row>
-
-      {showSymbolIndex && (
-        <Row label="Symbol Index">
-          {healthStatus?.symbol_index_available
-            ? <span className="badge-success">Available</span>
-            : <span className="badge-neutral">Unavailable</span>}
-        </Row>
+      {description && (
+        <p className="text-[12px] text-text-subtle leading-relaxed mt-5 max-w-sm">
+          {description}
+        </p>
       )}
-    </dl>
-
-    {description && (
-      <p className="text-xs text-text-subtle leading-relaxed font-sans">
-        {description}
-      </p>
-    )}
-  </div>
-);
-
-const Row: React.FC<{ label: string; children: React.ReactNode }> = ({ label, children }) => (
-  <div className="flex justify-between items-center py-1.5 border-b border-border/60 last:border-b-0">
-    <dt className="text-text-muted font-medium text-xs">{label}</dt>
-    <dd>{children}</dd>
-  </div>
-);
+    </div>
+  );
+};
 
 export default DiagnosticsPanel;

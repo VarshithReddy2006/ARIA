@@ -1,76 +1,97 @@
-import React, { useState } from 'react';
-import { Folder, FolderOpen, FileCode, ChevronRight, ChevronDown } from 'lucide-react';
+import React, { useMemo, useState } from 'react';
+import { ChevronRight, FileCode } from 'lucide-react';
+import { FilePath } from '../ui/FilePath';
 
 interface FileTreeProps {
   structure: Record<string, string[]>;
   onFileSelect?: (filePath: string) => void;
 }
 
+/**
+ * Workspace navigator.
+ *
+ * A quiet left rail rather than a bordered card: a mono section label, thin
+ * guide lines for depth, and a clear selected state. Behaviour is unchanged —
+ * folders toggle, files call `onFileSelect` with the same full path as before.
+ */
 export const FileTree: React.FC<FileTreeProps> = ({ structure, onFileSelect }) => {
   const [openFolders, setOpenFolders] = useState<Record<string, boolean>>({
-    'root': true,
-    'src': true,
+    root: true,
+    src: true,
   });
   const [selectedFile, setSelectedFile] = useState<string | null>(null);
 
   const toggleFolder = (folder: string) => {
-    setOpenFolders(prev => ({
-      ...prev,
-      [folder]: !prev[folder]
-    }));
+    setOpenFolders((prev) => ({ ...prev, [folder]: !prev[folder] }));
   };
 
   const handleFileClick = (path: string) => {
     setSelectedFile(path);
-    if (onFileSelect) {
-      onFileSelect(path);
-    }
+    onFileSelect?.(path);
   };
 
-  // Extract all directories
-  const directories = Object.keys(structure).sort((a, b) => {
-    if (a === 'root' || a === '.') return -1;
-    if (b === 'root' || b === '.') return 1;
-    return a.localeCompare(b);
-  });
+  const directories = useMemo(
+    () =>
+      Object.keys(structure).sort((a, b) => {
+        if (a === 'root' || a === '.') return -1;
+        if (b === 'root' || b === '.') return 1;
+        return a.localeCompare(b);
+      }),
+    [structure]
+  );
+
+  const fileCount = useMemo(
+    () => Object.values(structure).reduce((sum, files) => sum + files.length, 0),
+    [structure]
+  );
 
   return (
-    <div className="border border-border bg-card/30 rounded-lg p-4 font-mono text-sm h-[500px] overflow-y-auto w-full max-w-sm">
-      <div className="text-xs uppercase tracking-wider text-text-muted font-bold mb-3 border-b border-border pb-2">
-        Workspace Explorer
+    <nav aria-label="Workspace files" className="min-w-0">
+      <div className="flex items-baseline justify-between gap-3 pb-3 hair-b">
+        <span className="mono-label">WORKSPACE</span>
+        <span className="mono-detail shrink-0 tabular-nums" style={{ fontSize: 10 }}>
+          {fileCount} {fileCount === 1 ? 'FILE' : 'FILES'}
+        </span>
       </div>
-      
-      <div className="space-y-1">
+
+      <div className="mt-2 max-h-[32rem] overflow-y-auto overflow-x-hidden pr-1">
         {directories.map((dir) => {
           const files = structure[dir] || [];
           const isRoot = dir === 'root' || dir === '.';
           const isOpen = openFolders[dir];
 
           return (
-            <div key={dir} className="space-y-0.5">
-              {/* Folder Header */}
+            <div key={dir} className="min-w-0">
               {!isRoot && (
                 <button
                   type="button"
                   onClick={() => toggleFolder(dir)}
                   aria-expanded={isOpen}
-                  className="w-full flex items-center gap-1.5 py-1 px-1.5 rounded text-left
-                             hover:bg-border/40 text-text-muted select-none transition-colors
+                  className="tree-row group w-full flex items-center gap-2 py-2.5 pr-2 text-left min-w-0
                              focus-visible:outline-none focus-visible:shadow-ring"
                 >
-                  {isOpen
-                    ? <ChevronDown className="h-3.5 w-3.5" aria-hidden="true" />
-                    : <ChevronRight className="h-3.5 w-3.5" aria-hidden="true" />}
-                  {isOpen
-                    ? <FolderOpen className="h-4 w-4 text-primary" aria-hidden="true" />
-                    : <Folder className="h-4 w-4 text-primary" aria-hidden="true" />}
-                  <span className="text-text font-medium text-xs">{dir}</span>
+                  <ChevronRight
+                    className={`h-3 w-3 shrink-0 text-text-subtle transition-transform duration-200 ${
+                      isOpen ? 'rotate-90' : ''
+                    }`}
+                    aria-hidden="true"
+                  />
+                  {/* Directories carry more weight than the files inside them */}
+                  <span
+                    className={`font-mono text-[11px] font-semibold uppercase tracking-[0.06em] truncate ${
+                      isOpen ? 'text-text' : 'text-text-muted group-hover:text-text'
+                    }`}
+                  >
+                    {dir}
+                  </span>
+                  <span className="mono-detail ml-auto shrink-0 tabular-nums" style={{ fontSize: 9 }}>
+                    {files.length}
+                  </span>
                 </button>
               )}
 
-              {/* Folder Contents */}
               {(isRoot || isOpen) && (
-                <div className={`${isRoot ? '' : 'pl-4 border-l border-border/30 ml-2'} space-y-0.5`}>
+                <div className={isRoot ? 'min-w-0' : 'tree-guide min-w-0'}>
                   {files.map((file) => {
                     const fullPath = isRoot ? file : `${dir}/${file}`;
                     const isSelected = selectedFile === fullPath;
@@ -81,15 +102,26 @@ export const FileTree: React.FC<FileTreeProps> = ({ structure, onFileSelect }) =
                         type="button"
                         onClick={() => handleFileClick(fullPath)}
                         aria-pressed={isSelected}
-                        className={`w-full flex items-center gap-2 py-1 px-2 rounded select-none text-xs text-left
-                                    transition-colors focus-visible:outline-none focus-visible:shadow-ring ${
-                          isSelected
-                            ? 'bg-primary/15 text-primary border-l-2 border-primary'
-                            : 'hover:bg-border/30 text-text-muted hover:text-text'
-                        }`}
+                        title={fullPath}
+                        data-selected={isSelected ? 'true' : 'false'}
+                        aria-current={isSelected ? 'true' : undefined}
+                        className="tree-row group w-full flex items-center gap-2 py-2 pl-3 pr-2
+                                   text-left min-w-0 focus-visible:outline-none focus-visible:shadow-ring"
                       >
-                        <FileCode className={`h-3.5 w-3.5 ${isSelected ? 'text-primary' : 'text-text-muted/60'}`} aria-hidden="true" />
-                        <span>{file}</span>
+                        <FileCode
+                          className={`h-3 w-3 shrink-0 ${
+                            isSelected ? 'text-primary' : 'text-text-subtle'
+                          }`}
+                          aria-hidden="true"
+                        />
+                        {/* Shared file language — the row shows the leaf name */}
+                        <FilePath
+                          path={file}
+                          size="sm"
+                          tone={isSelected ? 'primary' : 'secondary'}
+                          active={isSelected}
+                          className="truncate"
+                        />
                       </button>
                     );
                   })}
@@ -99,7 +131,7 @@ export const FileTree: React.FC<FileTreeProps> = ({ structure, onFileSelect }) =
           );
         })}
       </div>
-    </div>
+    </nav>
   );
 };
 

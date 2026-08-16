@@ -1,23 +1,17 @@
 ---
 import Layout from '../layouts/Layout.astro';
 import IssueMapper from '../components/interactive/IssueMapper';
-import { Target } from 'lucide-react';
 ---
 
 <Layout title="Issue Mapping — ARIA">
-  <div class="space-y-6 w-full py-4">
-    {/* Page Header */}
-    <div class="border-b border-border pb-4">
-      <h1 class="text-xl font-semibold text-text flex items-center gap-2 font-mono">
-        <Target class="h-5 w-5 text-primary" />
-        <span>Issue Mapping & Plan Generation</span>
-      </h1>
-      <p class="text-xs text-text-muted mt-1 font-sans">
-        Trace issues to source code modules and generate step-by-step implementation plans automatically.
-      </p>
+  {/*
+    The header now lives inside IssueMapper so the standalone page and the
+    Analysis tab present the same surface. `overflow-x-clip` guarantees no child
+    can produce a document-level horizontal scrollbar.
+  */}
+  <div class="flex-grow flex flex-col w-full overflow-x-clip">
+    <div class="instrument-shell py-6 sm:py-8">
+      <IssueMapper client:load />
     </div>
-
-    {/* React Interface Component */}
-    <IssueMapper client:load />
   </div>
 </Layout>

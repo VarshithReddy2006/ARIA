@@ -35,25 +35,55 @@ export function apiUrl(path: string): string {
   return `${API_BASE_URL}${normalized}`;
 }
 
+export type EngineState = 'ready' | 'analyzing' | 'indexed' | 'degraded' | 'offline';
+
+export interface EngineStatusResult {
+  state: EngineState;
+  label: string;
+  uptimeSeconds?: number;
+  provider?: string;
+  model?: string;
+}
+
 /**
- * Lightweight backend liveness probe used by the navbar status indicator.
- *
- * Returns `true` only when the backend answers `GET /health` with a 2xx
- * response before the timeout elapses; never throws.
+ * Contextual backend engine status probe.
+ * Returns a rich status object distinguishing between ready, indexed, degraded, and offline.
  */
-export async function checkBackendHealth(timeoutMs = 4000): Promise<boolean> {
+export async function getEngineStatus(timeoutMs = 4000): Promise<EngineStatusResult> {
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), timeoutMs);
   try {
     const response = await fetch(apiUrl('/health'), {
       signal: controller.signal,
     });
-    return response.ok;
+    if (!response.ok) {
+      return { state: 'degraded', label: 'DEGRADED' };
+    }
+    const data = await response.json().catch(() => ({}));
+    
+    // Check if active repository is in localStorage
+    const hasActiveRepo = typeof window !== 'undefined' && Boolean(localStorage.getItem('activeRepo'));
+    
+    return {
+      state: hasActiveRepo ? 'indexed' : 'ready',
+      label: hasActiveRepo ? 'INDEXED' : 'ENGINE READY',
+      uptimeSeconds: data.uptime_seconds,
+      provider: data.llm_provider,
+      model: data.llm_model,
+    };
   } catch {
-    return false;
+    return { state: 'offline', label: 'OFFLINE' };
   } finally {
     clearTimeout(timer);
   }
+}
+
+/**
+ * Lightweight backend liveness probe used by backward-compatible callers.
+ */
+export async function checkBackendHealth(timeoutMs = 4000): Promise<boolean> {
+  const status = await getEngineStatus(timeoutMs);
+  return status.state !== 'offline';
 }
 
 /**

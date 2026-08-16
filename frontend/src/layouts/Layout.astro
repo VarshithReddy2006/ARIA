@@ -9,8 +9,8 @@ interface Props {
 }
 
 const {
-  title = 'ARIA — AI-Powered Repository Intelligence Agent',
-  description = 'Understand any codebase in minutes with ARIA, an AI-powered repository intelligence agent.',
+  title = 'ARIA — Repository Intelligence Agent',
+  description = 'Understand any codebase in minutes. ARIA transforms complex repositories into structured, searchable engineering intelligence.',
 } = Astro.props;
 
 const year = new Date().getFullYear();
@@ -25,7 +25,7 @@ const canonical = Astro.url.href;
 
     <title>{title}</title>
     <meta name="description" content={description} />
-    <meta name="theme-color" content="#010102" />
+    <meta name="theme-color" content="#030303" />
 
     <!-- Canonical / Social -->
     <link rel="canonical" href={canonical} />
@@ -35,24 +35,26 @@ const canonical = Astro.url.href;
     <meta property="og:url" content={canonical} />
     <meta name="twitter:card" content="summary" />
 
-    <!-- Favicon -->
+    <!--
+      Favicon. SVG only: the .ico alternate pointed at a file that has never
+      existed in this project, so every page load logged a 404.
+    -->
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
-    <link rel="alternate icon" href="/favicon.ico" />
 
-    <!-- Fonts — preload Inter to eliminate FOUT -->
+    <!-- Fonts — preload Inter + JetBrains Mono to eliminate FOUT -->
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link
       rel="preload"
       as="style"
-      href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;600&display=swap"
+      href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;600&display=swap"
     />
     <link
-      href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;600&display=swap"
+      href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;600&display=swap"
       rel="stylesheet"
     />
   </head>
-  <body class="bg-canvas text-text min-h-screen flex flex-col selection:bg-primary/30">
+  <body class="bg-canvas text-text min-h-screen flex flex-col selection:bg-primary/20 selection:text-white">
     <!-- Skip link for keyboard/screen-reader users -->
     <a
       href="#main-content"
@@ -63,17 +65,22 @@ const canonical = Astro.url.href;
       Skip to main content
     </a>
 
-    <Navbar />
-    <RepoContextBar />
+    <div id="sticky-header-shell" class="sticky top-0 z-50 w-full">
+      <Navbar />
+      <RepoContextBar />
+    </div>
 
-    <main id="main-content" class="flex-grow flex flex-col w-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
+    <main id="main-content" class="flex-grow flex flex-col w-full">
       <slot />
     </main>
 
-    <footer class="w-full border-t border-border py-4 mt-12 bg-canvas">
-      <div class="max-w-7xl mx-auto px-4 flex flex-col sm:flex-row justify-between items-center text-xs text-text-muted font-mono">
-        <p>© {year} ARIA.</p>
-        <p class="mt-2 sm:mt-0">Built with Astro + FastAPI + Gemini 2.5</p>
+    <footer class="w-full border-t border-white/[0.08] py-6 mt-16 bg-surface-1/40 backdrop-blur-sm">
+      <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex flex-col sm:flex-row justify-between items-center gap-3 text-xs text-text-muted font-mono tracking-wider">
+        <p class="text-text-muted hover:text-text transition-colors duration-200">© {year} ARIA</p>
+        <p class="flex items-center gap-2 text-text-muted hover:text-text transition-colors duration-200">
+          <span class="inline-block h-1.5 w-1.5 rounded-full bg-primary shadow-[0_0_8px_rgba(94,106,210,0.6)]" aria-hidden="true"></span>
+          REPOSITORY INTELLIGENCE
+        </p>
       </div>
     </footer>
   </body>

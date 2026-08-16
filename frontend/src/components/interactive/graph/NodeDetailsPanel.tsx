@@ -78,21 +78,40 @@ export const NodeDetailsPanel: React.FC<NodeDetailsPanelProps> = ({
   const renderValue = (value: string | number | null | undefined, suffix = ''): string =>
     value === null || value === undefined || value === '' ? '—' : `${value}${suffix}`;
 
+  /*
+    One absent-data marker for the whole workspace: mono, uppercase and quiet,
+    matching the diagnostics panels and the impact readout. Italic sans read as
+    prose here and made a missing field look like a comment.
+  */
   const UNAVAILABLE = (
-    <span className="text-[10px] text-text-muted italic">Unavailable</span>
+    <span className="font-mono text-[10px] uppercase tracking-[0.14em] text-text-subtle">
+      NOT AVAILABLE
+    </span>
   );
 
+  /*
+    An evidence surface, not a dashboard drawer: the panel resolves out of a blur,
+    a vertical hairline attaches it to the finding it is explaining, and the body
+    arrives in order — identity, then metadata, then relationships, then actions.
+
+    The root element is keyed on the node so re-targeting replays the resolve.
+    This is ARIA explaining something it has just identified, and it should read
+    that way every time, not only the first time the panel opens.
+  */
   return (
     <div
       role="dialog"
       aria-label={`Node details: ${fileName}`}
-      className={`${positionClass} bg-zinc-950 border-t md:border-t-0 md:border-l border-border flex flex-col z-20 shadow-2xl font-mono`}
+      key={node.id}
+      className={`${positionClass} evidence-surface bg-zinc-950/95 border-t md:border-t-0 md:border-l border-zinc-800 flex flex-col z-20 shadow-2xl font-mono`}
     >
       {/* Header */}
-      <div className="flex items-start justify-between px-4 pt-4 pb-3 border-b border-border bg-canvas/30 shrink-0 select-none">
+      <div className="flex items-start justify-between px-4 pt-4 pb-3 border-b border-zinc-800 bg-zinc-950 shrink-0 select-none">
         <div className="space-y-0.5 min-w-0 pr-2">
-          <span className="text-[9px] font-bold text-primary uppercase tracking-wider block flex items-center gap-1">
-            <Sparkles className="h-3 w-3 text-primary" /> Architecture Inspector v2
+          <span className="text-[9px] font-bold text-indigo-400 uppercase tracking-wider block flex items-center gap-1">
+            {/* Network, not a sparkle: this inspector reports topology, and the
+                internal "v2" tag was never meant to reach the interface. */}
+            <Network className="h-3 w-3 text-indigo-400" aria-hidden="true" /> Architecture Inspector
           </span>
           <h3 className="text-xs font-semibold text-text truncate block" title={node.id}>
             {fileName}
@@ -141,7 +160,12 @@ export const NodeDetailsPanel: React.FC<NodeDetailsPanelProps> = ({
       {/* Content Body */}
       <div className="px-4 py-3 space-y-4 text-xs flex-grow overflow-y-auto">
         {tab === 'overview' && (
-          <div className="space-y-3">
+          /*
+            `evidence-stack` sequences its direct children: what the module is,
+            then how it is classified, then what you can do with it, then how to
+            traverse from it. Positional stagger, so no child knows its own index.
+          */
+          <div className="evidence-stack space-y-3">
             {/* Business Responsibility */}
             <div className="p-3 bg-canvas/40 border border-primary/20 rounded-lg space-y-1">
               <span className="text-[9px] font-bold text-primary uppercase tracking-wider block">
@@ -187,11 +211,47 @@ export const NodeDetailsPanel: React.FC<NodeDetailsPanelProps> = ({
                   {copied ? <Check className="h-3 w-3 text-emerald-400" /> : <Copy className="h-3 w-3 text-text-muted" />} Copy Path
                 </button>
               </div>
+
+              {/* Cross-Surface Intelligence Actions */}
+              <div className="grid grid-cols-2 gap-2">
+                <button
+                  onClick={() => {
+                    if (typeof window !== 'undefined') {
+                      window.dispatchEvent(
+                        new CustomEvent('aria-open-chat', {
+                          detail: { prompt: `Explain the architecture, callers, and dependencies of module ${node.id}` },
+                        })
+                      );
+                    }
+                  }}
+                  className="flex items-center justify-center gap-1.5 bg-primary/10 hover:bg-primary/20 border border-primary/30 text-primary font-bold px-2.5 py-2 rounded text-[10px] transition-all"
+                  title="Ask ARIA Chat to explain this module"
+                >
+                  <Sparkles className="h-3.5 w-3.5" /> Ask ARIA
+                </button>
+
+                <button
+                  onClick={() => {
+                    if (typeof window !== 'undefined') {
+                      window.dispatchEvent(
+                        new CustomEvent('aria-open-impact', {
+                          detail: { file: node.id },
+                        })
+                      );
+                    }
+                  }}
+                  className="flex items-center justify-center gap-1.5 bg-rose-500/10 hover:bg-rose-500/20 border border-rose-500/30 text-rose-400 font-bold px-2.5 py-2 rounded text-[10px] transition-all"
+                  title="Inspect blast radius and change impact"
+                >
+                  <Zap className="h-3.5 w-3.5" /> Blast Radius
+                </button>
+              </div>
+
               <button
                 onClick={() => onOpenDiagramModal(node.id)}
-                className="w-full flex items-center justify-center gap-2 bg-primary/10 hover:bg-primary/20 border border-primary/30 text-primary font-bold px-3 py-2 rounded text-[11px] transition-all"
+                className="w-full flex items-center justify-center gap-2 bg-canvas hover:bg-surface-2 border border-border text-text font-bold px-3 py-1.5 rounded text-[10px] transition-all"
               >
-                <Workflow className="h-3.5 w-3.5" /> Generate Diagrams & ADR
+                <Workflow className="h-3.5 w-3.5 text-primary" /> Generate Diagrams & ADR
               </button>
             </div>
 

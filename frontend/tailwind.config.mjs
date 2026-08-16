@@ -7,56 +7,56 @@ export default {
   theme: {
     extend: {
       colors: {
-        canvas: '#010102',
+        canvas: '#020204',
+        'canvas-subtle': '#050609',
         surface: {
-          1: '#111114',
-          2: '#17181c',
-          3: '#1e1f24',
+          1: '#08090d',
+          2: '#0d0e14',
+          3: '#13141c',
         },
         border: {
-          DEFAULT: '#23252a',
-          strong: '#2f3138',
-          subtle: '#1a1c20',
+          DEFAULT: 'rgba(255, 255, 255, 0.06)',
+          strong: 'rgba(255, 255, 255, 0.12)',
+          subtle: 'rgba(255, 255, 255, 0.035)',
+          dim: 'rgba(255, 255, 255, 0.02)',
         },
         text: {
-          DEFAULT: '#f7f8f8',
-          muted: '#9ca3af',
-          subtle: '#80848e',
+          DEFAULT: '#ededed',
+          muted: '#8e939e',
+          subtle: '#525660',
         },
         primary: {
           DEFAULT: '#5e6ad2',
           hover: '#4d5ac0',
-          soft: 'rgba(94,106,210,0.10)',
-          ring: 'rgba(94,106,210,0.35)',
+          soft: 'rgba(94, 106, 210, 0.08)',
+          ring: 'rgba(94, 106, 210, 0.35)',
           foreground: '#f7f8f8',
         },
         card: {
-          DEFAULT: '#111114',
-          hover: '#17181c',
-          foreground: '#f7f8f8',
+          DEFAULT: '#08090d',
+          hover: '#0d0e14',
+          foreground: '#ededed',
         },
         popover: {
-          DEFAULT: '#17181c',
-          foreground: '#f7f8f8',
+          DEFAULT: '#0d0e14',
+          foreground: '#ededed',
         },
-        // semantic tokens — use these instead of raw emerald/red/orange/blue
         success: {
           DEFAULT: '#10b981',
-          soft: 'rgba(16,185,129,0.10)',
+          soft: 'rgba(16, 185, 129, 0.08)',
         },
         warn: {
           DEFAULT: '#f59e0b',
-          soft: 'rgba(245,158,11,0.10)',
+          soft: 'rgba(245, 158, 11, 0.08)',
         },
         danger: {
           DEFAULT: '#ef4444',
-          soft: 'rgba(239,68,68,0.10)',
+          soft: 'rgba(239, 68, 68, 0.08)',
         },
         info: {
           DEFAULT: '#3b82f6',
-          soft: 'rgba(59,130,246,0.10)',
+          soft: 'rgba(59, 130, 246, 0.08)',
         },
-        // back-compat shims for invented slate stops used by older Phase-2 code
         slate: {
           850: '#172033',
           750: '#2a374b',
@@ -65,16 +65,40 @@ export default {
         },
       },
       fontFamily: {
-        sans: ['Inter', 'ui-sans-serif', 'system-ui'],
-        mono: ['JetBrains Mono', 'Fira Code', 'monospace'],
+        sans: ['Inter', 'ui-sans-serif', 'system-ui', '-apple-system', 'sans-serif'],
+        display: ['Inter', 'ui-sans-serif', 'system-ui', 'sans-serif'],
+        mono: ['JetBrains Mono', 'Fira Code', 'ui-monospace', 'monospace'],
+      },
+      fontSize: {
+        'hero-sm': ['2.75rem', { lineHeight: '1.02', letterSpacing: '-0.035em', fontWeight: '800' }],
+        'hero-md': ['4rem', { lineHeight: '1.01', letterSpacing: '-0.04em', fontWeight: '800' }],
+        'hero-lg': ['5.5rem', { lineHeight: '0.98', letterSpacing: '-0.045em', fontWeight: '800' }],
+        'hero-xl': ['7rem', { lineHeight: '0.96', letterSpacing: '-0.05em', fontWeight: '800' }],
+        'editorial-1': ['2.25rem', { lineHeight: '1.1', letterSpacing: '-0.035em', fontWeight: '700' }],
+        'editorial-2': ['3.25rem', { lineHeight: '1.05', letterSpacing: '-0.04em', fontWeight: '700' }],
+      },
+      spacing: {
+        'hero': '100vh',
+        'section': '9rem',
+        'section-lg': '14rem',
       },
       animation: {
-        'pulse-slow': 'pulse 4s cubic-bezier(0.4, 0, 0.6, 1) infinite',
-        'spin-slow': 'spin 4s linear infinite',
+        'pulse-slow': 'pulse 5s cubic-bezier(0.4, 0, 0.6, 1) infinite',
+        'spin-slow': 'spin 6s linear infinite',
+        'hero-fade-in': 'heroFadeIn 0.9s cubic-bezier(0.16, 1, 0.3, 1) both',
+      },
+      keyframes: {
+        heroFadeIn: {
+          '0%': { opacity: '0', transform: 'translateY(16px)' },
+          '100%': { opacity: '1', transform: 'translateY(0)' },
+        },
       },
       boxShadow: {
-        card: '0 1px 0 rgba(255,255,255,0.03) inset, 0 1px 2px rgba(0,0,0,0.5)',
+        card: '0 1px 0 rgba(255,255,255,0.02) inset, 0 1px 3px rgba(0,0,0,0.7)',
         ring: '0 0 0 1px rgba(94,106,210,0.55), 0 0 0 4px rgba(94,106,210,0.18)',
+        raised: '0 4px 20px rgba(0,0,0,0.6), 0 1px 3px rgba(0,0,0,0.8)',
+        float: '0 12px 40px rgba(0,0,0,0.7), 0 2px 8px rgba(0,0,0,0.6)',
+        subtle: '0 0 0 1px rgba(255,255,255,0.04)',
       },
     },
   },

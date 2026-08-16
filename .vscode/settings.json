@@ -1,2 +1,14 @@
 {
+  // `@tailwind` / `@apply` are Tailwind directives, not standard CSS, so VS Code's
+  // built-in CSS validator reports them as "Unknown at rule". PostCSS strips them
+  // at build time, so the warning is cosmetic — silence it rather than changing
+  // the stylesheet.
+  "css.lint.unknownAtRules": "ignore",
+  "scss.lint.unknownAtRules": "ignore",
+  "less.lint.unknownAtRules": "ignore",
+
+  // Treat Tailwind's custom at-rules as known in the CSS language service.
+  "files.associations": {
+    "*.css": "tailwindcss"
+  }
 }

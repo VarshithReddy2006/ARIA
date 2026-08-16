@@ -4,7 +4,15 @@ import AnalysisDashboard from '../components/interactive/AnalysisDashboard';
 ---
 
 <Layout title="Repository Analysis — ARIA">
-  <div class="flex-grow flex flex-col">
-    <AnalysisDashboard client:only="react" />
+  {/*
+    The dashboard was previously edge-to-edge. `instrument-shell` gives it the
+    same measured gutters as the landing story and caps the line length at wide
+    desktop widths, while `overflow-x-clip` guarantees no child can produce a
+    document-level horizontal scrollbar.
+  */}
+  <div class="flex-grow flex flex-col w-full overflow-x-clip">
+    <div class="instrument-shell py-6 sm:py-8">
+      <AnalysisDashboard client:only="react" />
+    </div>
   </div>
 </Layout>

@@ -60,29 +60,48 @@ export const DependencyExplorer: React.FC<DependencyExplorerProps> = ({
   };
 
   return (
-    <div className={`card p-5 space-y-4 ${className}`}>
+    <section className={`min-w-0 ${className}`} aria-labelledby="dependencies-heading">
       {/* Header */}
-      <div className="flex items-center justify-between gap-3">
-        <h2 className="panel-title">
-          <Box className="h-4 w-4 text-primary" aria-hidden="true" /> Dependencies
+      <div className="flex items-baseline justify-between gap-4 pb-3 hair-b">
+        <h2 id="dependencies-heading" className="mono-label">
+          DEPENDENCIES
         </h2>
-        <span className="text-[10px] font-mono text-text-subtle shrink-0">
+        <span className="mono-detail shrink-0 tabular-nums" style={{ fontSize: 10 }}>
           {trimmedQuery
-            ? `${matchCount} of ${totalCount} match`
-            : `${totalCount} ${totalCount === 1 ? 'package' : 'packages'}`}
+            ? `${matchCount} OF ${totalCount} MATCH`
+            : `${totalCount} ${totalCount === 1 ? 'PACKAGE' : 'PACKAGES'}`}
         </span>
       </div>
 
       {totalCount === 0 ? (
-        <EmptyState
-          compact
-          icon={<Box className="h-5 w-5" aria-hidden="true" />}
-          title="No dependencies detected"
-          description="No dependency manifest was resolved for this repository, or it declares no external packages."
-          secondaryHelp="Supported manifests include package.json, requirements.txt, pyproject.toml, go.mod, and Cargo.toml."
-        />
+        /* Compact empty state — the old one occupied a full card of dead space. */
+        <div className="py-5">
+          <p className="text-[13px] text-text-muted leading-relaxed max-w-md">
+            No dependency manifest resolved.
+          </p>
+
+          <div className="mt-5">
+            <span className="mono-label block mb-2.5">SUPPORTED MANIFESTS</span>
+            <ul className="min-w-0">
+              {[
+                'package.json',
+                'requirements.txt',
+                'pyproject.toml',
+                'go.mod',
+                'Cargo.toml',
+              ].map((manifest) => (
+                <li
+                  key={manifest}
+                  className="font-mono text-[11px] text-text-subtle py-1.5 hair-t last:border-b last:border-white/[0.055] truncate"
+                >
+                  {manifest}
+                </li>
+              ))}
+            </ul>
+          </div>
+        </div>
       ) : (
-        <>
+        <div className="space-y-4 mt-4">
           {/* Search */}
           <div className="relative">
             <label htmlFor="dependency-search" className="sr-only">
@@ -203,9 +222,9 @@ export const DependencyExplorer: React.FC<DependencyExplorerProps> = ({
               })}
             </div>
           )}
-        </>
+        </div>
       )}
-    </div>
+    </section>
   );
 };
 

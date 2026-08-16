@@ -3,17 +3,18 @@ import React from 'react';
 interface Props {
   /** 0-100 score */
   score: number;
-  /** Visible label above the ring (e.g. "Architecture Risk Score") */
+  /** Visible label above the ring (e.g. "ARCHITECTURE RISK") */
   label: string;
   /** Optional level text rendered as the aria-label suffix and visible under the ring */
   level?: string;
+  /** Tailwind text class for the level line. */
+  levelTone?: string;
   /** Override stroke color — default derives from score */
   stroke?: string;
-  icon?: React.ReactNode;
   caption?: React.ReactNode;
 }
 
-const RADIUS = 60;
+const RADIUS = 46;
 const CIRC = 2 * Math.PI * RADIUS;
 
 function scoreColor(score: number): string {
@@ -24,48 +25,61 @@ function scoreColor(score: number): string {
 }
 
 /**
- * Accessible circular gauge — replaces 4 hand-rolled rings across
- * PRIntelligence / ArchitectureDrift / DeadCodeAnalyzer.
+ * Accessible score ring, sized to anchor a diagnostic band rather than to fill a
+ * KPI card. No container, no centring and no padding of its own — the caller
+ * places it, so the same gauge works beside a signal list on PR Risk and beside
+ * a second gauge on PR Drift.
+ *
+ * Score thresholds and colour mapping are unchanged.
  */
 export const RiskGauge: React.FC<Props> = ({
-  score, label, level, stroke, icon, caption,
+  score, label, level, levelTone = 'text-text-muted', stroke, caption,
 }) => {
   const clamped = Math.max(0, Math.min(100, Math.round(score)));
   const color = stroke ?? scoreColor(clamped);
 
   return (
-    <div className="card-padded flex flex-col items-center text-center">
-      <div className="panel-title mb-4">
-        {icon}
-        <span>{label}</span>
-      </div>
-
+    <div className="flex items-center gap-5 min-w-0">
       <div
         role="img"
         aria-label={`${label}: ${clamped} of 100${level ? `, ${level}` : ''}`}
-        className="relative w-36 h-36 mb-3"
+        className="relative h-[104px] w-[104px] shrink-0"
       >
-        <svg className="w-full h-full -rotate-90" viewBox="0 0 144 144">
+        <svg className="h-full w-full -rotate-90" viewBox="0 0 104 104">
           <circle
-            cx="72" cy="72" r={RADIUS}
-            stroke="#1e293b" strokeWidth="10" fill="transparent"
+            cx="52" cy="52" r={RADIUS}
+            stroke="rgba(255,255,255,0.07)" strokeWidth="6" fill="transparent"
           />
           <circle
-            cx="72" cy="72" r={RADIUS}
-            stroke={color} strokeWidth="10" fill="transparent"
+            cx="52" cy="52" r={RADIUS}
+            stroke={color} strokeWidth="6" fill="transparent"
             strokeLinecap="round"
             strokeDasharray={CIRC}
             strokeDashoffset={CIRC - (CIRC * clamped) / 100}
-            className="transition-all duration-700 ease-out"
+            className="transition-[stroke-dashoffset] duration-700 ease-out motion-reduce:transition-none"
           />
         </svg>
         <div className="absolute inset-0 flex flex-col items-center justify-center">
-          <span className="text-3xl font-extrabold text-text font-mono tracking-tight">{clamped}</span>
-          <span className="text-[10px] uppercase font-bold text-text-subtle tracking-wider">of 100</span>
+          <span className="font-mono text-[26px] font-semibold text-text tabular-nums leading-none">
+            {clamped}
+          </span>
+          <span className="mono-label mt-1" style={{ fontSize: 9 }}>
+            / 100
+          </span>
         </div>
       </div>
 
-      {caption}
+      <div className="min-w-0">
+        <span className="mono-label block mb-2">{label}</span>
+        {level && (
+          <span
+            className={`block font-mono text-[13px] uppercase tracking-[0.14em] ${levelTone}`}
+          >
+            {level}
+          </span>
+        )}
+        {caption}
+      </div>
     </div>
   );
 };
