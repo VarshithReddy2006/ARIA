@@ -7,7 +7,7 @@
 ### AI-Powered Repository Intelligence Agent
 
 <p>
-ARIA is an AI-powered repository intelligence platform built on the <strong>Repository Intelligence Architecture (RIA)</strong> — a modular, layered architecture designed for AI-native repository understanding. ARIA combines AST analysis, dependency graphs, semantic search, AI repository chat, PR intelligence, and a VS Code extension to help developers understand unfamiliar repositories faster. v1.5.0 introduces production-ready <strong>Model Context Protocol (MCP)</strong> servers, enabling AI coding assistants such as Cursor, Claude Desktop, VS Code MCP clients, and MCP Inspector to interact with repository intelligence directly over JSON-RPC 2.0.
+ARIA is an AI-powered repository intelligence platform built on the <strong>Repository Intelligence Architecture (RIA)</strong> — a modular, layered architecture designed for AI-native repository understanding. ARIA combines AST analysis, dependency graphs, call graphs, semantic search, AI repository chat, PR intelligence, and a VS Code extension to help developers understand unfamiliar repositories faster. v1.5.0 introduces production-ready <strong>Model Context Protocol (MCP)</strong> servers, enabling AI coding assistants such as Cursor, Claude Desktop, VS Code MCP clients, and MCP Inspector to interact with repository intelligence directly over JSON-RPC 2.0.
 </p>
 
 <br/>
@@ -18,7 +18,7 @@ ARIA is an AI-powered repository intelligence platform built on the <strong>Repo
 [![GitHub Forks](https://img.shields.io/github/forks/VarshithReddy2006/Repo-Intelligence-Agent?style=for-the-badge)](https://github.com/VarshithReddy2006/Repo-Intelligence-Agent/network/members)
 [![Release](https://img.shields.io/github/v/release/VarshithReddy2006/Repo-Intelligence-Agent?style=for-the-badge)](https://github.com/VarshithReddy2006/Repo-Intelligence-Agent/releases)
 ![License](https://img.shields.io/badge/license-MIT-blue?style=for-the-badge)
-![Tests](https://img.shields.io/badge/tests-2505%20passing-brightgreen?style=for-the-badge)
+![Tests](https://img.shields.io/badge/tests-2780+%20passing-brightgreen?style=for-the-badge)
 ![Version](https://img.shields.io/badge/release-v1.5.0-blue?style=for-the-badge)
 ![RIA](https://img.shields.io/badge/Architecture-RIA-purple?style=for-the-badge)
 
@@ -57,14 +57,17 @@ Version **v1.5.0** represents the largest architectural evolution of the project
 ### Highlights
 
 - 🏗️ Repository Intelligence Architecture (RIA v1)
+- 🌌 Interactive Repository Topology & Scene-Based Product Experience
 - 🤖 Production Model Context Protocol (MCP) Integration Layer
 - ⚡ Dual MCP Server Architecture (Legacy JSON-RPC + FastMCP)
-- 🔍 Graph-based Repository Intelligence
-- 🧠 AI Repository Chat v2
-- 📊 Intelligence Reports & Health Scorecards
-- 🗺️ Dependency Graph & Call Graph Intelligence
-- 💻 Enhanced VS Code Extension
-- 🧪 Production validation across Windows, Linux, and macOS
+- 🔍 Graph-Based Repository Intelligence (Directed Dependency Graph, AST Call Graph, Impact Analysis)
+- 🧠 AI Repository Chat v2 & Grounded Semantic Retrieval
+- 📊 Intelligence Reports & Multi-Axis Health Scorecards
+- 🗺️ Centrality-Ranked Onboarding Reading Paths & Executive Insights
+- 🛡️ Resilient Dual LLM Provider Architecture with Deterministic Error Classification
+- 💻 Enhanced VS Code Extension Integration
+- 🧪 Comprehensive Test Suite (2,780+ Passing Automated Tests across Python and Frontend)
+- 🌐 Cross-Platform Production Validation (Windows, Linux, macOS)
 
 ---
 
@@ -103,7 +106,7 @@ ARIA is built around five engineering principles:
 - **Structure Before Semantics** — structural understanding precedes AI reasoning.
 - **Graph-First Intelligence** — dependency graphs and call graphs are first-class knowledge sources.
 - **AI-Native Architecture** — every subsystem is designed for intelligent developer tooling.
-- **Incremental Computation** — recompute only what changes.
+- **Incremental Computation** — recompute only what changes via content-hash detection.
 - **Production-Ready Interfaces** — every capability is exposed consistently through APIs, MCP, and IDE integrations.
 
 ---
@@ -198,7 +201,7 @@ Repository
  ├── BGE-small-en-v1.5 ────────→  ChromaDB (semantic search)
  └── Git history mining ───────→  churn scores · hotspot files
                                                │
-                               Gemini 2.5 Flash / DeepSeek V4 Flash
+                                Gemini 2.5 Flash / DeepSeek V4 Flash
                                                │
                                    Structurally grounded answers
 ```
@@ -272,9 +275,13 @@ Traditional RAG tools index text. This tool indexes **your codebase's structure.
 
 <br/>
 
-**Architecture Graph** — Interactive React Flow dependency graph with search filtering, node neighborhood inspection, and forward/backward BFS reachability traces. Visualizes the import topology of the repository.
+**Architecture Graph** — Interactive React Flow dependency graph with search filtering, node neighborhood inspection, forward/backward BFS reachability traces, and DAG/hierarchical layout options. Visualizes the full import topology of the repository.
 
-**Call Graph** — Function-level call graph built from AST analysis. Supports callers, callees, hierarchy walks, and blast-radius estimation per function — useful for understanding the reach of any proposed change.
+**Call Graph** — Function-level call graph built from AST analysis. Distinguishes callers from callees with explicit edge directionality, supports call hierarchy walks, and computes blast-radius estimation per function.
+
+**Impact Analysis Graph** — Change-propagation graph tracing how modifications in a specific file or symbol ripple outward to downstream components and automated test suites.
+
+**Shared Edge Semantics** — Cohesive visual and directional edge language distinguishing composition, imports, dependencies, function invocations, and change propagation.
 
 </details>
 
@@ -288,6 +295,8 @@ Traditional RAG tools index text. This tool indexes **your codebase's structure.
 | **Repository Chat** | Streaming chat over any indexed repository via Server-Sent Events. Nine intent types are detected by a rule-based classifier — **no LLM call is made for routing.** Each response includes source citations and a confidence score. |
 | **PR Intelligence** | Risk-scores pull requests by size (XS → XL) and blast radius (LOW → EXTREME). Detects architectural drift by delta-patching the dependency graph against the PR's changed files. |
 | **Issue Mapper** | Maps GitHub issues to source files using embedding retrieval and two targeted LLM calls — one to rank candidate files, one to generate an implementation plan. Results are cached to avoid redundant API calls. |
+| **Executive Insights** | Derives plain-language architectural findings directly from repository metrics — highlighting circular dependencies, density, onboarding effort, test presence, and documentation depth. |
+| **Reading Order Timeline** | Generates a centrality-ranked, step-by-step reading sequence optimized for rapid onboarding to an unfamiliar codebase. |
 
 </details>
 
@@ -616,12 +625,13 @@ Each repository analysis runs through **eight sequential stages.** Incremental m
 |-----------|----------|
 | Architecture | Repository Intelligence Architecture (RIA v1) |
 | Languages | Python, TypeScript, JavaScript |
-| AI Providers | Gemini, DeepSeek |
+| AI Providers | Google Gemini, DeepSeek (via NVIDIA NIM) |
 | Knowledge Layer | AST + Dependency Graph + Call Graph + Symbol Index |
-| Retrieval | ChromaDB + Semantic Search |
+| Retrieval | ChromaDB + Local Semantic Search (BGE-small) |
 | AI Interfaces | REST API + Production MCP Integration Layer |
 | IDE Integration | VS Code Extension |
-| Dashboard | Astro + React |
+| Dashboard | Astro 4 + React 18 (with Interactive Software Topology) |
+| Automated Tests | 2,780+ Passing Tests (2,531 Python + 248 Frontend) |
 
 ---
 
@@ -629,19 +639,20 @@ Each repository analysis runs through **eight sequential stages.** Incremental m
 
 | Layer | Technology | Purpose |
 |---|---|---|
-| Frontend | Astro 4 + React | Dashboard, chat UI, report viewer |
-| Graph UI | React Flow | Architecture and call graph visualization |
+| Frontend | Astro 4 + React 18 | Dashboard, interactive topology, chat UI, report viewer |
+| Graph UI | React Flow + Dagre | Architecture, call graph, and impact graph visualization |
 | Backend | FastAPI | Async API gateway, middleware stack, Server-Sent Events |
-| AST Parsing | Tree-sitter | Language-agnostic symbol and import extraction |
-| Embeddings | BAAI/bge-small-en-v1.5 | Code chunk encoding — runs locally, **no API cost** |
-| Vector Store | ChromaDB | Local vector search and retrieval with persistence |
-| Graph Engine | NetworkX | Dependency graph, BFS traversal, centrality |
-| Primary LLM | Gemini 2.5 Flash | Reasoning and generation |
-| Fallback LLM | DeepSeek V4 Flash (NVIDIA NIM) | Circuit-breaker secondary provider |
-| Persistence | SQLite + JSON snapshots | Reports, analysis state |
-| Metrics | Prometheus | HTTP and build pipeline observability |
+| AST Parsing | Tree-sitter | Language-agnostic symbol, import, and call site extraction |
+| Embeddings | BAAI/bge-small-en-v1.5 | Local code chunk vector encoding — **no external API cost** |
+| Vector Store | ChromaDB | Persistent local vector search and similarity retrieval |
+| Graph Engine | NetworkX | Directed graphs, BFS traversal, centrality ranking, cycle detection |
+| Primary LLM | Gemini 2.5 Flash | Structured reasoning, explanation, and grounded answers |
+| Fallback LLM | DeepSeek V4 Flash (NVIDIA NIM) | Secondary provider managed via circuit-breaker failover |
+| Error Classification | Deterministic ProviderErrorType | Classifies SDK errors into 9 actionable categories with remediation guidance |
+| Persistence | SQLite + JSON snapshots | Reports, workspace caches, and analysis snapshots |
+| Metrics | Prometheus | HTTP request metrics and build pipeline histograms |
 | MCP | Model Context Protocol | JSON-RPC 2.0 tool server for AI coding assistants (Cursor, Claude Desktop, VS Code) |
-| Testing | pytest + Mocha | 2505 tests (backend + extension + MCP) — isolated from LLM and GitHub APIs |
+| Testing & Quality | pytest + Node Test Runner | 2,780+ automated tests across backend, frontend, and MCP suites |
 
 <details>
 <summary><strong>View directory layout</strong></summary>
@@ -670,6 +681,7 @@ Repo-Intelligence-Agent/
 │   ├── llm/
 │   │   ├── gemini_provider.py     # Gemini 2.5 Flash integration
 │   │   ├── deepseek_provider.py   # DeepSeek V4 Flash via NVIDIA NIM
+│   │   ├── provider_errors.py     # Deterministic ProviderError classification
 │   │   └── provider_factory.py    # Singleton, hot-reload, startup validation
 │   ├── report/
 │   │   ├── composer.py            # Assembles ReportDataModel from all services
@@ -701,8 +713,8 @@ Repo-Intelligence-Agent/
 ├── memory/                        # ChromaStore adapter
 ├── models/                        # Pydantic domain models
 ├── storage/                       # JsonSnapshotStore, SQLite migrations
-├── frontend/                      # Astro 4 + React dashboard
-├── tests/                         # 2505 passing tests (backend + extension + MCP), no API quota required
+├── frontend/                      # Astro 4 + React dashboard & interactive topology
+├── tests/                         # 2,780+ passing tests (backend + frontend + extension + MCP)
 └── docs/                          # Extended documentation
 ```
 
@@ -1125,6 +1137,7 @@ Built to be operated, not just installed. Released in v1.5.0 — production cert
 | **Traceback Sanitization** | Server errors return client-safe messages — internal tracebacks never leak to MCP clients |
 | | **Reliability** |
 | **LLM circuit breaker** | ProviderManager tracks LLM health and fails over to DeepSeek on provider errors |
+| **Error Classification** | ProviderError system with deterministic error categories (Missing, Auth, Rate Limit, Timeout) |
 | **Fallback renderer** | If both LLM providers are unavailable, structured responses render without LLM |
 | **Race-condition Safety** | Asynchronous operations are wrapped in thread executors to help prevent ASGI loop blockage |
 | **Memory Isolation** | Capacity limits and TTL-based evictions protect caches from memory bloat |
@@ -1141,7 +1154,7 @@ Built to be operated, not just installed. Released in v1.5.0 — production cert
 | **MCP Behavioral Parity** | Legacy and FastMCP servers produce equivalent results for all shared tools |
 | **JSON-RPC Compliance** | Full protocol conformance including error codes, notifications, and method dispatch |
 | | **Testing** |
-| **Quality Gate** | **2505 automated tests** (backend + extension + MCP) providing automated coverage |
+| **Quality Gate** | **2,780+ automated tests** (2,531 Python + 248 Frontend + extension + MCP) |
 | **Packaging Validation** | Automated VSIX packaging validations help prevent publishing failures |
 | **Clean Profile Testing** | Extension validated against isolated clean VS Code profiles to help prevent activation leaks |
 | **Regression Protection** | Automated tests help protect against regressions in Digital Twin mapping and AST processing |
@@ -1154,13 +1167,18 @@ Built to be operated, not just installed. Released in v1.5.0 — production cert
 ## 🧪 Testing
 
 ```bash
-pytest tests/ -v                                      # Full suite
-pytest tests/ --cov=. --cov-report=term-missing      # With coverage
+# Python backend & RIA tests
+pytest tests/ -v
+pytest tests/ --cov=. --cov-report=term-missing
+
+# Frontend tests
+cd frontend
+npm test
 ```
 
-- **2505 tests** across backend, extension, and MCP suites
+- **2,780+ passing automated tests** across Python backend/RIA suites (2,531 tests) and Frontend suites (248 tests across 46 suites)
 - LLM and GitHub API boundaries are **isolated with mock adapters** — the full suite runs without consuming any API quota
-- GitHub Actions runs the full test suite, lint check, and format check on every pull request
+- GitHub Actions runs the full test suite, lint check (`ruff check`, `tsc --noEmit`), and format check (`ruff format --check`) on every pull request
 - **MCP transport tests** — stdio subprocess integration tests validating full JSON-RPC round-trips
 - **Behavioral parity tests** — verify Legacy MCP and FastMCP produce identical results for all shared tools
 - **SDK compatibility tests** — validate FastMCP server construction and tool registration across pydantic versions
@@ -1179,15 +1197,17 @@ pytest tests/ --cov=. --cov-report=term-missing      # With coverage
 - [x] Repository Intelligence Architecture (RIA) — layered, modular production architecture
 - [x] Full structural analysis pipeline with incremental hash-based rebuilds
 - [x] Digital Twin (AST parser) & Knowledge Graph (import topology) representation
+- [x] Interactive Repository Topology with scene-based cinematic storytelling
 - [x] Repository Chat v2 with 9 intent types and rule-based routing
-- [x] Interactive Graph Navigation (React Flow canvas graphs)
-- [x] Engineering Findings (dead code, circular dependencies, smells)
+- [x] Interactive Graph Navigation (React Flow canvas graphs for Dependencies, Call Graphs, and Impact Analysis)
+- [x] Engineering Findings (dead code sweeps, circular dependencies, smells)
 - [x] Health Scorecards & Intelligence Reports (HTML, PDF, Markdown)
 - [x] AI Advisor Dashboard (prioritized roadmaps & recommendations)
 - [x] Execution Planner (AEA² task batches & rollback checkpoints)
 - [x] Workspace APIs (consolidated snapshot endpoints)
 - [x] VS Code Extension Integration (symbol hovers, CodeLenses, sidebar panels)
-- [x] LLM Failover Management (Gemini to DeepSeek circuit breakers)
+- [x] LLM Failover Management (Gemini 2.5 Flash to DeepSeek V4 Flash circuit breakers)
+- [x] Deterministic Provider Error Classification (`ProviderErrorType`)
 - [x] Self Diagnostics & Startup Health Verifications
 - [x] Repository Review Command Actions
 - [x] AI Repository Intelligence (graph-based code understanding)
@@ -1198,7 +1218,7 @@ pytest tests/ --cov=. --cov-report=term-missing      # With coverage
 - [x] Cursor Compatibility
 - [x] Claude Desktop Compatibility
 - [x] Cross-platform support (Windows, Linux, macOS)
-- [x] Production validation (2505 automated tests)
+- [x] Production validation (2,780+ passing automated tests)
 
 ### Planned (v1.6.0)
 
@@ -1241,6 +1261,7 @@ pytest tests/ --cov=. --cov-report=term-missing             # With coverage
 - [ ] ruff check . passes
 - [ ] ruff format --check . passes
 - [ ] pytest tests/ -v passes with no new failures
+- [ ] cd frontend && npm test passes
 - [ ] New behavior is covered by at least one test
 - [ ] Public API changes are reflected in docs/API_REFERENCE.md 
 - [ ] Breaking changes are noted in the PR description
