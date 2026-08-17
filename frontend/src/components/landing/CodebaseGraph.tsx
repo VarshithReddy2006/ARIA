@@ -582,7 +582,13 @@ export const CodebaseGraph: React.FC = () => {
                     top: `${(node.y / viewH) * 100}%`,
                     opacity: inView ? (dim ? 0.14 : 1) : 0,
                     transition: 'opacity 500ms ease',
-                    color: isActive ? '#ededed' : isNeighbour ? '#8e939e' : '#5a5d66',
+                    /* Tokens rather than literals, so the label tiers track the
+                     * design system instead of drifting from it. */
+                    color: isActive
+                      ? 'var(--text)'
+                      : isNeighbour
+                        ? 'var(--text-muted)'
+                        : '#5a5d66',
                     fontWeight: isActive ? 600 : 400,
                   }}
                 >

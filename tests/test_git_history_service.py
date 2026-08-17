@@ -160,10 +160,12 @@ class TestNormalise:
         raw_ownership = GitHistoryService._aggregate_ownership(commits)
         records = GitHistoryService._normalise(raw_churn, raw_ownership)
         # services/auth.py: alice=2, bob=1 → alice is 67% — no bus risk
-        auth_rec = next(r for r in records if r.file_path == "services/auth.py")
+        auth_rec = next((r for r in records if r.file_path == "services/auth.py"), None)
+        assert auth_rec is not None
         assert auth_rec.bus_factor_risk is False
         # models/user.py: only alice=1 → 100% — bus risk
-        user_rec = next(r for r in records if r.file_path == "models/user.py")
+        user_rec = next((r for r in records if r.file_path == "models/user.py"), None)
+        assert user_rec is not None
         assert user_rec.bus_factor_risk is True
 
     def test_empty_input_returns_empty(self):
@@ -344,3 +346,245 @@ class TestGetFileRecord:
         )
         service._save("owner/repo", 365, summary)
         assert service.get_file_record("owner/repo", "no/such/file.py", 365) is None
+
+
+# ---------------------------------------------------------------------------
+# Generator & Asyncio / to_thread Regression Tests
+# ---------------------------------------------------------------------------
+
+
+class TestGeneratorAsyncioSafety:
+    """Regression tests verifying generators executed via asyncio.to_thread do not leak StopIteration into Futures."""
+
+    @pytest.mark.asyncio
+    async def test_advance_generator_captures_completion(self):
+        from backend.routers.git_history import _advance_generator
+
+        def sample_gen():
+            yield {"status": "step1"}
+            yield {"status": "step2"}
+            return "final_summary"
+
+        gen = sample_gen()
+        is_done, val = _advance_generator(gen)
+        assert is_done is False
+        assert val == {"status": "step1"}
+
+        is_done, val = _advance_generator(gen)
+        assert is_done is False
+        assert val == {"status": "step2"}
+
+        is_done, val = _advance_generator(gen)
+        assert is_done is True
+        assert val == "final_summary"
+
+    @pytest.mark.asyncio
+    async def test_asyncio_to_thread_does_not_raise_stop_iteration_runtime_error(self):
+        import asyncio
+        from backend.routers.git_history import _advance_generator
+
+        def sample_gen():
+            yield {"status": "mining"}
+            yield {"status": "computing"}
+            return "done_value"
+
+        gen = sample_gen()
+        events = []
+        result = None
+
+        while True:
+            is_done, value = await asyncio.to_thread(_advance_generator, gen)
+            if is_done:
+                result = value
+                break
+            events.append(value)
+
+        assert len(events) == 2
+        assert events[0] == {"status": "mining"}
+        assert events[1] == {"status": "computing"}
+        assert result == "done_value"
+
+    @pytest.mark.asyncio
+    async def test_build_generator_runs_through_asyncio_to_thread(self, tmp_path):
+        import asyncio
+        from unittest.mock import patch
+        from backend.routers.git_history import _advance_generator
+
+        service = make_service(str(tmp_path))
+
+        with (
+            patch("os.path.isdir", return_value=True),
+            patch.object(
+                service,
+                "_mine_commits",
+                return_value=(
+                    GitHistoryService._parse_git_log(SAMPLE_GIT_LOG),
+                    None,
+                ),
+            ),
+            patch.object(service, "_count_all_commits", return_value=100),
+        ):
+            gen = service.build("owner/repo", since_days=365)
+            events = []
+            summary = None
+
+            while True:
+                is_done, val = await asyncio.to_thread(_advance_generator, gen)
+                if is_done:
+                    summary = val
+                    break
+                events.append(val)
+
+            assert len(events) > 0
+            assert isinstance(summary, ChurnSummary)
+            assert summary.total_commits == 4
+            assert len(summary.hotspots) > 0
+
+
+# ---------------------------------------------------------------------------
+# API Router SSE Regression Tests
+# ---------------------------------------------------------------------------
+
+
+class TestGitHistoryRouterRegression:
+    """Regression tests for POST /api/v1/churn/analyze SSE endpoint."""
+
+    @pytest.mark.asyncio
+    async def test_churn_analyze_sse_success_with_history(self, tmp_path):
+        from unittest.mock import patch
+        from fastapi import FastAPI
+        from httpx import AsyncClient, ASGITransport
+        from backend.routers.git_history import router as git_history_router
+
+        test_app = FastAPI()
+        test_app.include_router(git_history_router, prefix="/api/v1")
+
+        mock_service = make_service(str(tmp_path))
+        with (
+            patch("os.path.isdir", return_value=True),
+            patch.object(
+                mock_service,
+                "_mine_commits",
+                return_value=(
+                    GitHistoryService._parse_git_log(SAMPLE_GIT_LOG),
+                    None,
+                ),
+            ),
+            patch.object(mock_service, "_count_all_commits", return_value=100),
+            patch(
+                "backend.routers.git_history.git_history_service",
+                mock_service,
+            ),
+        ):
+            transport = ASGITransport(app=test_app)
+            async with AsyncClient(transport=transport, base_url="http://test") as ac:
+                response = await ac.post(
+                    "/api/v1/churn/analyze",
+                    json={"repo": "owner/repo", "since_days": 365},
+                )
+                assert response.status_code == 200
+
+                lines = response.text.split("\n\n")
+                events = []
+                for line in lines:
+                    line = line.strip()
+                    if line.startswith("data: "):
+                        events.append(json.loads(line[6:]))
+
+                # Verify no StopIteration / RuntimeError error event was sent
+                error_events = [e for e in events if e.get("status") == "error"]
+                assert not error_events, f"Unexpected error events: {error_events}"
+
+                # Verify result event contains populated ChurnSummary
+                result_events = [e for e in events if e.get("status") == "result"]
+                assert len(result_events) == 1
+                data = result_events[0]["data"]
+                assert data["repo"] == "owner/repo"
+                assert data["total_commits"] == 4
+                assert len(data["hotspots"]) > 0
+
+                # Verify done event
+                done_events = [e for e in events if e.get("status") == "done"]
+                assert len(done_events) == 1
+
+    @pytest.mark.asyncio
+    async def test_churn_analyze_sse_empty_history(self, tmp_path):
+        from unittest.mock import patch
+        from fastapi import FastAPI
+        from httpx import AsyncClient, ASGITransport
+        from backend.routers.git_history import router as git_history_router
+
+        test_app = FastAPI()
+        test_app.include_router(git_history_router, prefix="/api/v1")
+
+        mock_service = make_service(str(tmp_path))
+        with (
+            patch("os.path.isdir", return_value=True),
+            patch.object(mock_service, "_mine_commits", return_value=([], None)),
+            patch.object(mock_service, "_count_all_commits", return_value=0),
+            patch(
+                "backend.routers.git_history.git_history_service",
+                mock_service,
+            ),
+        ):
+            transport = ASGITransport(app=test_app)
+            async with AsyncClient(transport=transport, base_url="http://test") as ac:
+                response = await ac.post(
+                    "/api/v1/churn/analyze",
+                    json={"repo": "owner/empty-repo", "since_days": 365},
+                )
+                assert response.status_code == 200
+
+                lines = response.text.split("\n\n")
+                events = []
+                for line in lines:
+                    line = line.strip()
+                    if line.startswith("data: "):
+                        events.append(json.loads(line[6:]))
+
+                error_events = [e for e in events if e.get("status") == "error"]
+                assert not error_events, f"Unexpected error events: {error_events}"
+
+                result_events = [e for e in events if e.get("status") == "result"]
+                assert len(result_events) == 1
+                data = result_events[0]["data"]
+                assert data["repo"] == "owner/empty-repo"
+                assert data["total_commits"] == 0
+                assert data["hotspots"] == []
+
+    @pytest.mark.asyncio
+    async def test_churn_analyze_sse_uncloned_repo_error(self, tmp_path):
+        from unittest.mock import patch
+        from fastapi import FastAPI
+        from httpx import AsyncClient, ASGITransport
+        from backend.routers.git_history import router as git_history_router
+
+        test_app = FastAPI()
+        test_app.include_router(git_history_router, prefix="/api/v1")
+
+        mock_service = make_service(str(tmp_path))
+        with (
+            patch("os.path.isdir", return_value=False),
+            patch(
+                "backend.routers.git_history.git_history_service",
+                mock_service,
+            ),
+        ):
+            transport = ASGITransport(app=test_app)
+            async with AsyncClient(transport=transport, base_url="http://test") as ac:
+                response = await ac.post(
+                    "/api/v1/churn/analyze",
+                    json={"repo": "owner/not-cloned", "since_days": 365},
+                )
+                assert response.status_code == 200
+
+                lines = response.text.split("\n\n")
+                events = []
+                for line in lines:
+                    line = line.strip()
+                    if line.startswith("data: "):
+                        events.append(json.loads(line[6:]))
+
+                error_events = [e for e in events if e.get("status") == "error"]
+                assert len(error_events) == 1
+                assert "not cloned locally" in error_events[0]["message"]

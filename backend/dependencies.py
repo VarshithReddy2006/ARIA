@@ -30,6 +30,8 @@ from models.schemas import (
     RepositoryAnalysis,
 )
 from memory.chroma_store import ChromaStore
+from memory.qdrant_store import QdrantStore
+from memory.vector_store import VectorStore, ProductionVectorStore
 from services.github_service import GitHubService
 from services.chunking_service import CodeChunker
 from services.embedding_service import EmbeddingService
@@ -321,6 +323,37 @@ def get_chroma_store() -> ChromaStore:
     )
 
 
+def get_qdrant_store() -> Optional[QdrantStore]:
+    try:
+        return _get_or_create(
+            "qdrant_store",
+            lambda: QdrantStore(
+                url=settings.qdrant_url,
+                grpc_port=settings.qdrant_grpc_port,
+                prefer_grpc=settings.qdrant_prefer_grpc,
+            ),
+        )
+    except (ImportError, Exception) as exc:
+        logger.warning("Failed to initialize QdrantStore: %s", exc)
+        return None
+
+
+def get_vector_store() -> VectorStore:
+    return _get_or_create(
+        "vector_store",
+        lambda: ProductionVectorStore(
+            primary_store=(
+                get_qdrant_store()
+                if settings.vector_store_backend == "qdrant"
+                else None
+            ),
+            fallback_store=get_chroma_store(),
+            settings=settings,
+            enable_fallback=settings.vector_store_enable_fallback,
+        ),
+    )
+
+
 def get_chunker() -> CodeChunker:
     return _get_or_create("chunker", lambda: CodeChunker())
 
@@ -330,7 +363,7 @@ def get_retrieval_service() -> RetrievalService:
         "retrieval_service",
         lambda: RetrievalService(
             embedding_service=get_embedding_service(),
-            chroma_store=get_chroma_store(),
+            chroma_store=get_vector_store(),
         ),
     )
 
@@ -616,7 +649,7 @@ def get_retrieval_pipeline():
 
         return RetrievalPipeline(
             embedding_service=get_embedding_service(),
-            chroma_store=get_chroma_store(),
+            chroma_store=get_vector_store(),
             arch_context_service=get_arch_context_service(),
             intent_router=router,
         )
@@ -652,6 +685,8 @@ _GETTERS = {
     "github_service": get_github_service,
     "embedding_service": get_embedding_service,
     "chroma_store": get_chroma_store,
+    "qdrant_store": get_qdrant_store,
+    "vector_store": get_vector_store,
     "chunker": get_chunker,
     "retrieval_service": get_retrieval_service,
     "architecture_service": get_architecture_service,

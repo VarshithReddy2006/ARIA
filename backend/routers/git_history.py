@@ -38,6 +38,19 @@ class ChurnAnalyzeRequest(BaseModel):
 # ---------------------------------------------------------------------------
 
 
+def _advance_generator(gen):
+    """Advance a generator by one step in a thread pool worker.
+
+    Catches StopIteration inside the thread worker and returns (True, return_value)
+    so that StopIteration never escapes into a concurrent.futures.Future / asyncio.to_thread,
+    which would raise 'RuntimeError: StopIteration interacts badly with generators and cannot be raised into a Future'.
+    """
+    try:
+        return False, next(gen)
+    except StopIteration as stop:
+        return True, stop.value
+
+
 @router.post("/churn/analyze")
 async def analyze_churn(request: ChurnAnalyzeRequest):
     """Mine git history and compute file churn scores. Streams SSE progress."""
@@ -50,12 +63,11 @@ async def analyze_churn(request: ChurnAnalyzeRequest):
             gen = git_history_service.build(repo_name, request.since_days)
             summary = None
             while True:
-                try:
-                    event = await asyncio.to_thread(next, gen)
-                    yield f"data: {json.dumps(event)}\n\n"
-                except StopIteration as stop:
-                    summary = stop.value
+                is_done, value = await asyncio.to_thread(_advance_generator, gen)
+                if is_done:
+                    summary = value
                     break
+                yield f"data: {json.dumps(value)}\n\n"
 
             if summary is not None:
                 yield f"data: {json.dumps({'status': 'result', 'data': summary.model_dump()})}\n\n"

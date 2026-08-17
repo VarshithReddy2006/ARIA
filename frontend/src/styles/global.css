@@ -22,8 +22,16 @@
   --border-subtle: rgba(255, 255, 255, 0.035);
   --border-dim:    rgba(255, 255, 255, 0.02);
 
-  /* text — warm off-white, cool muted grays */
-  --text:          #ededed;
+  /*
+    text — off-white, cool muted grays.
+
+    Primary text sits at #f5f5f5 (96% L). Lifted from #ededed (93%), which read
+    slightly grey against the near-black canvas. It deliberately stops short of
+    pure white: #ffffff is reserved for hover and active emphasis across the
+    Analysis surfaces (`.lumen-hover`, `.spec-row--slide`, `.hub-row`, `.gh-row`),
+    so the resting tone has to leave headroom for that response to be visible.
+  */
+  --text:          #f5f5f5;
   --text-muted:    #8e939e;
   --text-subtle:   #525660;
 
@@ -55,23 +63,24 @@
   --shadow-float:  0 12px 40px rgba(0,0,0,0.7), 0 2px 8px rgba(0,0,0,0.6);
   --shadow-ring:   0 0 0 1px var(--primary), 0 0 0 4px var(--primary-ring);
 
-  /* shadcn-style vars kept for back-compat */
+  /* shadcn-style vars kept for back-compat. 0 0% 96% is --text as HSL, so the
+   * two systems cannot drift apart. */
   --background: 240 10% 2%;
-  --foreground: 0 0% 93%;
+  --foreground: 0 0% 96%;
   --card: 240 10% 4%;
-  --card-foreground: 0 0% 93%;
+  --card-foreground: 0 0% 96%;
   --popover: 240 10% 5%;
-  --popover-foreground: 0 0% 93%;
+  --popover-foreground: 0 0% 96%;
   --primary-h: 234 59% 60%;
   --primary-foreground: 0 0% 100%;
   --secondary: 240 5% 8%;
-  --secondary-foreground: 0 0% 93%;
+  --secondary-foreground: 0 0% 96%;
   --muted: 240 5% 10%;
   --muted-foreground: 240 5% 60%;
   --accent: 234 59% 60%;
-  --accent-foreground: 0 0% 93%;
+  --accent-foreground: 0 0% 96%;
   --destructive: 0 62.8% 30.6%;
-  --destructive-foreground: 0 0% 93%;
+  --destructive-foreground: 0 0% 96%;
   --ring: 234 59% 60%;
   --radius: 0.375rem;
 }
@@ -3596,4 +3605,449 @@ html:not([data-scene='hero']) .scroll-cue {
 }
 html:not([data-scene='statement']) .statement-drift {
   animation-play-state: paused;
+}
+
+/* ===========================================================================
+ * GIT HISTORY — the repository's memory, read as an instrument.
+ *
+ * The Git History surface previously used the generic app idiom: four floating
+ * metric cards, a segmented pill control, a heavy amber alert card and a list of
+ * table-ish rows. Nothing was wrong with the data; the presentation just made it
+ * read as a dashboard rather than as a reading of the repository's past.
+ *
+ * This block gives that surface the same vocabulary the landing chapter on
+ * repository memory already uses — indigo luminance for churn, hairline
+ * separators instead of card borders, signal bars that resolve once and then
+ * rest — plus the instrument devices the Analysis page uses elsewhere
+ * (`.readout`, `.hair-*`, `.mono-label`, `.evidence-surface`).
+ *
+ * Everything here is CSS-only interaction: no component holds hover state, and
+ * only transform, opacity, colour and filter are animated. Every device has a
+ * reduced-motion resting state at the bottom of the block.
+ * ========================================================================= */
+
+/* ── Atmosphere ──────────────────────────────────────────────────────────
+ * A single soft indigo source behind the header, and a faint vertical field
+ * behind the hotspot list so a signal bar is read against measured width
+ * rather than floating in a row. Both are decorative and aria-hidden.
+ * ----------------------------------------------------------------------- */
+.gh-bloom {
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: 100%;
+  height: 20rem;
+  pointer-events: none;
+  background:
+    radial-gradient(ellipse 55% 100% at 10% 0%, rgba(94, 106, 210, 0.062), transparent 70%),
+    radial-gradient(ellipse 38% 78% at 88% 14%, rgba(94, 106, 210, 0.028), transparent 72%);
+}
+
+.gh-trace {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background-image: linear-gradient(
+    to right,
+    rgba(255, 255, 255, 0.022) 1px,
+    transparent 1px
+  );
+  background-size: 12.5% 100%;
+  mask-image: linear-gradient(180deg, #000 0%, #000 62%, transparent 100%);
+  -webkit-mask-image: linear-gradient(180deg, #000 0%, #000 62%, transparent 100%);
+}
+
+/* ── Analysis phase readout ──────────────────────────────────────────────
+ * Driven by the real `status` values the churn SSE stream already emits
+ * (mining → computing → graph/hotspots → saving), so the rail reports the
+ * pipeline rather than a timer.
+ * ----------------------------------------------------------------------- */
+.gh-phase {
+  transition: color 320ms ease, opacity 320ms ease;
+}
+.gh-phase-dot {
+  display: inline-block;
+  height: 3px;
+  width: 3px;
+  flex: 0 0 auto;
+  border-radius: 9999px;
+  background-color: currentColor;
+}
+
+/* Indeterminate scan: a short segment travelling a 1px rail. Length is fixed
+ * because the endpoint reports stages, not percentages — a filling bar would
+ * imply a completion figure that does not exist. */
+.gh-scan {
+  position: relative;
+  height: 1px;
+  width: 100%;
+  overflow: hidden;
+  background-color: rgba(255, 255, 255, 0.06);
+}
+.gh-scan::after {
+  content: '';
+  position: absolute;
+  inset: 0 auto 0 0;
+  width: 28%;
+  background: linear-gradient(
+    90deg,
+    rgba(94, 106, 210, 0),
+    var(--primary) 50%,
+    rgba(94, 106, 210, 0)
+  );
+  animation: ghScan 1.5s cubic-bezier(0.4, 0, 0.35, 1) infinite;
+}
+/* The segment is 28% of the rail, so 357% of its own width carries its leading
+ * edge exactly to the far end — further than that is dead time on the loop. */
+@keyframes ghScan {
+  from { transform: translate3d(-100%, 0, 0); }
+  to   { transform: translate3d(357%, 0, 0); }
+}
+
+/* ── Diagnostic notice ───────────────────────────────────────────────────
+ * A shallow clone is a caveat on the reading, not a failure, so it is annotated
+ * at the edge of the analysis rather than boxed as an alert.
+ * ----------------------------------------------------------------------- */
+.gh-notice {
+  position: relative;
+  display: flex;
+  gap: 0.65rem;
+  padding: 0.6rem 0.85rem 0.65rem 1rem;
+  border-top: 1px solid rgba(245, 158, 11, 0.13);
+  border-bottom: 1px solid rgba(245, 158, 11, 0.09);
+  background-color: rgba(245, 158, 11, 0.03);
+}
+.gh-notice::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: 1px;
+  background: linear-gradient(180deg, var(--warn), rgba(245, 158, 11, 0.14));
+}
+
+/* Same device in danger tone, for a failed run. */
+.gh-notice--error {
+  border-top-color: rgba(239, 68, 68, 0.16);
+  border-bottom-color: rgba(239, 68, 68, 0.1);
+  background-color: rgba(239, 68, 68, 0.03);
+}
+.gh-notice--error::before {
+  background: linear-gradient(180deg, var(--danger), rgba(239, 68, 68, 0.14));
+}
+
+/* ── Telemetry strip ─────────────────────────────────────────────────────
+ * One rail of read-outs divided by hairlines, not four floating cards. The
+ * separator is dropped at the start of every wrapped row so the strip never
+ * shows a leading edge with nothing to divide.
+ * ----------------------------------------------------------------------- */
+.gh-telemetry {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+.gh-metric {
+  position: relative;
+  min-width: 0;
+  padding: 0.9rem 0.9rem 1.6rem 1.1rem;
+  border-left: 1px solid rgba(255, 255, 255, 0.055);
+  border-top: 1px solid transparent;
+  transition: background-color 260ms ease, border-top-color 260ms ease;
+}
+.gh-metric:nth-child(2n + 1) { border-left-color: transparent; }
+.gh-metric:first-child       { border-left-color: rgba(94, 106, 210, 0.5); }
+
+/*
+  Narrow columns: the longest label wraps to two lines, so two lines are
+  reserved for all four. Without this one cell pushes its number down and the
+  strip stops reading as a single rail of read-outs.
+*/
+@media (max-width: 479px) {
+  .gh-metric-label { min-height: 1.65rem; align-items: flex-start; }
+}
+
+@media (min-width: 700px) {
+  .gh-telemetry { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+  .gh-metric:nth-child(2n + 1) { border-left-color: rgba(255, 255, 255, 0.055); }
+  .gh-metric:first-child       { border-left-color: rgba(94, 106, 210, 0.5); }
+}
+
+/* The telemetry response: a short signal line draws under the value. */
+.gh-metric::after {
+  content: '';
+  position: absolute;
+  left: 1.1rem;
+  right: 0.9rem;
+  bottom: 0.85rem;
+  height: 1px;
+  background: linear-gradient(90deg, rgba(94, 106, 210, 0.8), rgba(94, 106, 210, 0));
+  transform: scaleX(0);
+  transform-origin: left center;
+  transition: transform 460ms var(--ease-cine);
+}
+.gh-metric:hover,
+.gh-metric:focus-within {
+  background-color: rgba(255, 255, 255, 0.014);
+  border-top-color: rgba(255, 255, 255, 0.07);
+}
+.gh-metric:hover::after,
+.gh-metric:focus-within::after { transform: scaleX(1); }
+
+.gh-metric-value { transition: color 260ms ease; }
+.gh-metric:hover .gh-metric-value,
+.gh-metric:focus-within .gh-metric-value { color: #ffffff; }
+
+/* ── Instrument rail (view switcher) ────────────────────────────────────
+ * Switching view is switching instrument, so the control is a rail with an
+ * indicator that travels rather than three pills that fill.
+ *
+ * The indicator is positioned by `--gh-tab` (0-based index) against a fixed
+ * one-third width, so it needs no measurement and animates on the compositor.
+ * ----------------------------------------------------------------------- */
+.gh-rail {
+  position: relative;
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  border-top: 1px solid rgba(255, 255, 255, 0.055);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.055);
+}
+.gh-rail::after {
+  content: '';
+  position: absolute;
+  left: 0;
+  bottom: -1px;
+  height: 1px;
+  width: calc(100% / 3);
+  pointer-events: none;
+  background: linear-gradient(
+    90deg,
+    rgba(94, 106, 210, 0),
+    var(--primary) 22%,
+    var(--primary) 78%,
+    rgba(94, 106, 210, 0)
+  );
+  transform: translate3d(calc(var(--gh-tab, 0) * 100%), 0, 0);
+  transition: transform 360ms var(--ease-cine);
+}
+.gh-rail-item {
+  position: relative;
+  display: flex;
+  align-items: baseline;
+  gap: 0.55rem;
+  min-width: 0;
+  padding: 0.8rem 0.5rem 0.8rem 0.85rem;
+  text-align: left;
+  color: var(--text-subtle);
+  transition: color 220ms ease, background-color 260ms ease;
+}
+.gh-rail-item + .gh-rail-item { border-left: 1px solid rgba(255, 255, 255, 0.04); }
+.gh-rail-item:hover {
+  color: var(--text-muted);
+  background-color: rgba(255, 255, 255, 0.012);
+}
+.gh-rail-item[aria-selected='true'] {
+  color: var(--text);
+  background: linear-gradient(180deg, rgba(94, 106, 210, 0.055), rgba(94, 106, 210, 0));
+}
+.gh-rail-item:focus-visible {
+  outline: none;
+  box-shadow: inset 0 0 0 1px rgba(94, 106, 210, 0.85);
+}
+.gh-rail-index { transition: color 220ms ease; }
+.gh-rail-item[aria-selected='true'] .gh-rail-index { color: var(--primary); }
+
+/* ── Evidence record (hotspot row) ───────────────────────────────────────
+ * A row is a finding, not a table cell. Hovering brings the whole record
+ * forward together: rank, filename, signal bar and readings.
+ * ----------------------------------------------------------------------- */
+.gh-row {
+  position: relative;
+  border-top: 1px solid rgba(255, 255, 255, 0.045);
+  transition: background-color 240ms ease;
+}
+.gh-row:last-child { border-bottom: 1px solid rgba(255, 255, 255, 0.045); }
+.gh-row::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: 1px;
+  pointer-events: none;
+  background: linear-gradient(180deg, var(--primary), rgba(94, 106, 210, 0.07));
+  transform: scaleY(0);
+  transform-origin: top center;
+  transition: transform 300ms var(--ease-cine);
+}
+.gh-row:hover,
+.gh-row:focus-within { background-color: rgba(255, 255, 255, 0.016); }
+.gh-row:hover::before,
+.gh-row:focus-within::before { transform: scaleY(1); }
+
+.gh-rank,
+.gh-reading { transition: color 240ms ease; }
+.gh-row:hover .gh-rank,
+.gh-row:focus-within .gh-rank { color: var(--primary); }
+.gh-row:hover .gh-reading,
+.gh-row:focus-within .gh-reading { color: var(--text); }
+.gh-row:hover .fp-name,
+.gh-row:focus-within .fp-name { color: #ffffff; }
+.gh-row:hover .fp-dir,
+.gh-row:focus-within .fp-dir { color: var(--text-muted); }
+.gh-row:hover .gh-signal-fill,
+.gh-row:focus-within .gh-signal-fill { filter: brightness(1.5); }
+.gh-row button:focus-visible { outline: none; }
+
+/* The signal bar: length is the composite hotspot score relative to the
+ * strongest signal in the field, luminance is churn. Resolves once, then rests. */
+.gh-signal {
+  position: relative;
+  display: block;
+  height: 2px;
+  width: 100%;
+  overflow: hidden;
+  background-color: rgba(255, 255, 255, 0.05);
+}
+.gh-signal-fill {
+  position: absolute;
+  inset: 0;
+  transform: scaleX(var(--gh-reach, 0));
+  transform-origin: left center;
+  transition:
+    transform 900ms var(--ease-cine) var(--gh-delay, 0ms),
+    filter 240ms ease;
+}
+
+/* ── Churn intensity scale ───────────────────────────────────────────────
+ * Explains why a score reads as a hotspot: the boundaries that define the
+ * bands are drawn as ticks, and the marker sits at the measured value.
+ * ----------------------------------------------------------------------- */
+.gh-scale {
+  position: relative;
+  height: 3px;
+  width: 100%;
+}
+.gh-scale-track {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 1px;
+  height: 1px;
+  background: linear-gradient(90deg, rgba(129, 140, 248, 0.16), rgba(129, 140, 248, 0.8));
+}
+.gh-scale-tick {
+  position: absolute;
+  top: 0;
+  width: 1px;
+  height: 3px;
+  background-color: rgba(255, 255, 255, 0.16);
+}
+.gh-scale-marker {
+  position: absolute;
+  top: -3px;
+  width: 1px;
+  height: 9px;
+  background-color: var(--primary);
+  box-shadow: 0 0 7px 1px rgba(94, 106, 210, 0.45);
+  transform: translateX(-50%) scaleY(0);
+  transform-origin: center bottom;
+  animation: ghMarkerSettle 520ms var(--ease-cine) 200ms both;
+}
+@keyframes ghMarkerSettle {
+  to { transform: translateX(-50%) scaleY(1); }
+}
+
+/* ── Temporal field (timeline) ───────────────────────────────────────────
+ * One marker per weekly bucket, positioned on a measured axis. Markers rise
+ * into the field once when it is reached, then rest.
+ * ----------------------------------------------------------------------- */
+.gh-week {
+  position: relative;
+  display: flex;
+  flex: 1 1 0;
+  min-width: 2px;
+  align-items: flex-end;
+  height: 100%;
+  padding: 0;
+  border: 0;
+  background: none;
+  cursor: default;
+}
+.gh-week-bar {
+  display: block;
+  width: 100%;
+  height: 100%;
+  transform: scaleY(var(--gh-h, 0));
+  transform-origin: bottom center;
+  transition:
+    transform 620ms var(--ease-cine) var(--gh-delay, 0ms),
+    background-color 200ms ease,
+    box-shadow 200ms ease;
+}
+.gh-week:hover .gh-week-bar,
+.gh-week:focus-visible .gh-week-bar {
+  background-color: rgba(147, 158, 245, 0.95);
+  box-shadow: 0 0 10px rgba(94, 106, 210, 0.45);
+}
+.gh-week:focus-visible { outline: none; }
+.gh-week:focus-visible::after {
+  content: '';
+  position: absolute;
+  inset: -3px -1px -1px;
+  box-shadow: inset 0 0 0 1px rgba(94, 106, 210, 0.85);
+}
+
+/* Author density beneath the commit field — how many distinct people were
+ * active in each bucket, on the same horizontal scale. */
+.gh-density {
+  display: block;
+  flex: 1 1 0;
+  min-width: 2px;
+  height: 2px;
+  background-color: var(--primary);
+}
+
+/* ── Ownership rows ──────────────────────────────────────────────────────
+ * Same evidence-record treatment as a hotspot, one step quieter.
+ * ----------------------------------------------------------------------- */
+.gh-own {
+  position: relative;
+  border-top: 1px solid rgba(255, 255, 255, 0.04);
+  transition: background-color 240ms ease;
+}
+.gh-own:last-child { border-bottom: 1px solid rgba(255, 255, 255, 0.04); }
+.gh-own:hover { background-color: rgba(255, 255, 255, 0.014); }
+.gh-own:hover .gh-reading { color: var(--text); }
+.gh-own:hover .fp-name { color: #ffffff; }
+.gh-own .meter { transition: transform 200ms var(--ease-cine); }
+.gh-own:hover .meter { transform: scaleY(1.6); transform-origin: left center; }
+
+/* ── Reduced motion ──────────────────────────────────────────────────────
+ * Every device resolves to its finished state. Nothing travels, nothing
+ * settles, and no information is carried by motion alone.
+ * ----------------------------------------------------------------------- */
+@media (prefers-reduced-motion: reduce) {
+  .gh-scan::after {
+    animation: none;
+    width: 100%;
+    background: rgba(94, 106, 210, 0.55);
+  }
+  .gh-phase,
+  .gh-metric,
+  .gh-metric::after,
+  .gh-metric-value,
+  .gh-rail::after,
+  .gh-rail-item,
+  .gh-rail-index,
+  .gh-row,
+  .gh-row::before,
+  .gh-rank,
+  .gh-reading,
+  .gh-signal-fill,
+  .gh-week-bar,
+  .gh-own,
+  .gh-own .meter { transition: none; }
+
+  .gh-scale-marker { animation: none; transform: translateX(-50%) scaleY(1); }
+  .gh-own:hover .meter { transform: none; }
 }

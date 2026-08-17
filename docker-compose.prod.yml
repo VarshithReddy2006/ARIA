@@ -12,6 +12,9 @@ services:
       - APP_ENV=production
       - API_SERVER_HOST=0.0.0.0
       - API_SERVER_PORT=8001
+      - WORKER_COUNT=${WORKER_COUNT:-${ARIA_WORKERS:-${WEB_CONCURRENCY:-4}}}
+      - WEB_CONCURRENCY=${WORKER_COUNT:-${ARIA_WORKERS:-${WEB_CONCURRENCY:-4}}}
+      - ARIA_WORKERS=${WORKER_COUNT:-${ARIA_WORKERS:-${WEB_CONCURRENCY:-4}}}
 
       # ── Observability ──────────────────────────────────────────────────────
       - LOG_FORMAT=json
@@ -36,9 +39,13 @@ services:
       # ── GitHub ─────────────────────────────────────────────────────────────
       - GITHUB_TOKEN=${GITHUB_TOKEN}
 
-      # ── Storage ────────────────────────────────────────────────────────────
+      # ── Storage & Vector Store ─────────────────────────────────────────────
       - SQLITE_DB_PATH=${SQLITE_DB_PATH:-data/repo_understanding.db}
       - CHROMA_DB_PATH=${CHROMA_DB_PATH:-data/chroma_db}
+      - VECTOR_STORE_BACKEND=${VECTOR_STORE_BACKEND:-qdrant}
+      - VECTOR_STORE_ENABLE_FALLBACK=${VECTOR_STORE_ENABLE_FALLBACK:-true}
+      - QDRANT_URL=${QDRANT_URL:-http://127.0.0.1:6333}
+      - QDRANT_GRPC_PORT=${QDRANT_GRPC_PORT:-6334}
       - CLONED_REPOS_PATH=/home/appuser/.repo_intelligence/cloned_repos
 
       # ── Frontend / CORS ────────────────────────────────────────────────────

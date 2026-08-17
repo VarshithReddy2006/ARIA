@@ -258,42 +258,11 @@ async def validate_llm_providers() -> None:
 # that do `from backend.api import ANALYSIS_STORE, symbol_service, ...`
 # continue to work without modification.
 # ---------------------------------------------------------------------------
-from backend.dependencies import (  # noqa: E402, F401
-    ANALYSIS_STORE,
-    github_service,
-    embedding_service,
-    chroma_store,
-    chunker,
-    retrieval_service,
-    architecture_service,
-    graph_service,
-    graph_serializer,
-    reading_order_service,
-    impact_analysis_service,
-    arch_context_service,
-    symbol_service,
-    pr_intelligence_service,
-    architecture_drift_service,
-    dead_code_service,
-    git_history_service,
-    call_graph_service,
-    api_surface_service,
-    breaking_change_analyzer,
-    _persist_analysis_store,
-    repository_twin_builder,
-    repository_twin_navigator,
-    repository_knowledge_graph_builder,
-    repository_knowledge_graph_navigator,
-    structural_retrieval_engine,
-    engineering_reasoning_engine,
-    graph_rag_service,
-    engineering_memory_service,
-    repository_inspector,
-    continuous_monitoring_service,
-    advisor_service,
-    execution_planner_service,
-    workspace_service,
-)
+def __getattr__(name: str) -> Any:
+    import backend.dependencies as deps
+
+    return getattr(deps, name)
+
 
 # ---------------------------------------------------------------------------
 # Router registration
@@ -390,12 +359,18 @@ if __name__ == "__main__":
     import uvicorn
     from backend.settings import settings
 
+    is_dev = settings.app_env == "development"
+    workers = 1 if is_dev else settings.effective_workers
+
     uvicorn.run(
         "backend.api:app",
         host=settings.host,
         port=settings.port,
-        reload=settings.app_env == "development",
-        reload_dirs=["backend", "services", "agents", "memory", "models"],
+        reload=is_dev,
+        reload_dirs=["backend", "services", "agents", "memory", "models"]
+        if is_dev
+        else None,
+        workers=workers if not is_dev else None,
     )
 
 

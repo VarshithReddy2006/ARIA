@@ -47,6 +47,14 @@ class APISurfaceBuildRequest(BaseModel):
 # ---------------------------------------------------------------------------
 
 
+def _advance_generator(gen):
+    """Advance a generator by one step in a thread pool worker, safely capturing completion."""
+    try:
+        return False, next(gen)
+    except StopIteration as stop:
+        return True, stop.value
+
+
 @router.post("/build")
 async def build_api_surface(request: APISurfaceBuildRequest):
     """Build the API surface index for a repository. Streams SSE progress."""
@@ -80,12 +88,11 @@ async def build_api_surface(request: APISurfaceBuildRequest):
             gen = api_surface_service.build(repo_name, files)
             surface = None
             while True:
-                try:
-                    event = await asyncio.to_thread(next, gen)
-                    yield f"data: {json.dumps(event)}\n\n"
-                except StopIteration as stop:
-                    surface = stop.value
+                is_done, value = await asyncio.to_thread(_advance_generator, gen)
+                if is_done:
+                    surface = value
                     break
+                yield f"data: {json.dumps(value)}\n\n"
 
             if surface is not None:
                 yield f"data: {json.dumps({'status': 'result', 'data': surface.stats.model_dump()})}\n\n"

@@ -1,0 +1,139 @@
+{
+  "timestamp": "2026-08-17 07:39:07",
+  "phase3_1_baseline": {
+    "single_query_p50_ms": 48.57,
+    "single_query_p95_ms": 391.8,
+    "single_query_p99_ms": 391.8
+  },
+  "phase3_2_migration": {
+    "repository": "vbtgongithub/DevTrack",
+    "chroma_chunks": 4851,
+    "qdrant_chunks": 4851,
+    "active_version": "224545434e814e68834319f341e1540f",
+    "qdrant_version": "224545434e814e68834319f341e1540f",
+    "migration_duration_s": 1.91,
+    "paths_match": true,
+    "metadata_parity": true
+  },
+  "phase3_3_dual_write": {
+    "all_cases_passed": true,
+    "cases": {
+      "1_new_repo_indexing": true,
+      "2_reindexing_bump": true,
+      "3_partial_failure_handling": true,
+      "4_file_deletion": true,
+      "5_chunk_update": true,
+      "6_repository_deletion": true,
+      "7_version_atomicity": true,
+      "8_rollback_safety": true
+    }
+  },
+  "phase3_4_shadow_validation": {
+    "queries_tested": 15,
+    "average_overlap_pct": 98.7,
+    "semantic_equivalence_100pct": false
+  },
+  "phase3_7_cache_validation": {
+    "all_9_invariants_verified": true,
+    "cold_retrieval_ms": 2.06,
+    "warm_p50_ms": 0.0275
+  },
+  "phase3_8_contention": {
+    "qdrant_read_100_p50_ms": 1.52,
+    "chroma_read_100_p50_ms": 49.74,
+    "qdrant_mixed_8020_p50_ms": 1.39,
+    "chroma_mixed_8020_p50_ms": 50.9,
+    "speedup_under_writes": 36.6
+  },
+  "phase3_9_failure_recovery": {
+    "all_scenarios_passed": true,
+    "scenarios": {
+      "1_qdrant_unavailable_fallback": true,
+      "2_active_version_recovery": true,
+      "3_invalid_repo_graceful": true,
+      "4_empty_query_handling": true,
+      "5_explicit_chroma_rollback": true,
+      "6_partial_migration_safe": true,
+      "7_cache_invalidation_after_restart": true,
+      "8_active_index_version_preserved": true,
+      "9_vector_dimension_mismatch_prevented": true,
+      "10_unhandled_exception_suppression": true,
+      "11_clean_asgi_event_loop": true
+    }
+  },
+  "phase3_6_production_load": {
+    "25": {
+      "users": 25,
+      "total_requests": 25,
+      "successful": 25,
+      "failed": 0,
+      "error_rate_pct": 0.0,
+      "throughput_rps": 5.03,
+      "p50_ms": 3699.97,
+      "p95_ms": 4966.78,
+      "p99_ms": 4967.14,
+      "elapsed_s": 4.97
+    },
+    "50": {
+      "users": 50,
+      "total_requests": 50,
+      "successful": 50,
+      "failed": 0,
+      "error_rate_pct": 0.0,
+      "throughput_rps": 4.34,
+      "p50_ms": 7702.75,
+      "p95_ms": 11524.9,
+      "p99_ms": 11526.75,
+      "elapsed_s": 11.53
+    },
+    "75": {
+      "users": 75,
+      "total_requests": 75,
+      "successful": 75,
+      "failed": 0,
+      "error_rate_pct": 0.0,
+      "throughput_rps": 5.85,
+      "p50_ms": 12608.64,
+      "p95_ms": 12807.52,
+      "p99_ms": 12819.08,
+      "elapsed_s": 12.82
+    },
+    "100": {
+      "users": 100,
+      "total_requests": 100,
+      "successful": 100,
+      "failed": 0,
+      "error_rate_pct": 0.0,
+      "throughput_rps": 6.66,
+      "p50_ms": 14954.99,
+      "p95_ms": 15006.16,
+      "p99_ms": 15009.97,
+      "elapsed_s": 15.02
+    },
+    "150": {
+      "users": 150,
+      "total_requests": 150,
+      "successful": 150,
+      "failed": 0,
+      "error_rate_pct": 0.0,
+      "throughput_rps": 6.64,
+      "p50_ms": 16852.66,
+      "p95_ms": 22587.92,
+      "p99_ms": 22590.33,
+      "elapsed_s": 22.61
+    },
+    "200": {
+      "users": 200,
+      "total_requests": 200,
+      "successful": 200,
+      "failed": 0,
+      "error_rate_pct": 0.0,
+      "throughput_rps": 6.0,
+      "p50_ms": 19202.59,
+      "p95_ms": 33330.34,
+      "p99_ms": 33338.45,
+      "elapsed_s": 33.35
+    }
+  },
+  "final_decision": "GO \u2014 Qdrant Production Primary"
+}

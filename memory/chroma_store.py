@@ -219,6 +219,12 @@ class ChromaStore:
 
     def clear_database(self) -> None:
         """Deletes all collections and clears current vector index storage."""
+        try:
+            from services.chat.retrieval_cache import retrieval_cache
+
+            retrieval_cache.invalidate_all()
+        except ImportError:
+            pass
         for name in ("repository_chunks", "repository_index_versions"):
             try:
                 self.client.delete_collection(name=name)
@@ -236,7 +242,8 @@ class ChromaStore:
         repo_name: str,
         chunks: List[Dict[str, Any]],
         embeddings: List[List[float]],
-    ) -> None:
+        version: Optional[str] = None,
+    ) -> str:
         """Stage a complete repository index and publish it only after it is complete."""
         filtered_indices = [
             index
@@ -249,7 +256,7 @@ class ChromaStore:
         ):
             raise ValueError("Embeddings must be provided and aligned with chunks.")
 
-        version = uuid.uuid4().hex
+        version = version or uuid.uuid4().hex
         filtered_chunks = [chunks[index] for index in filtered_indices]
         filtered_embeddings = [embeddings[index] for index in filtered_indices]
         ids: List[str] = []
@@ -257,7 +264,7 @@ class ChromaStore:
         metadatas: List[Dict[str, Any]] = []
 
         for out_index, chunk in enumerate(filtered_chunks):
-            path = chunk.get("path", "")
+            path = chunk.get("path") or chunk.get("file_path", "")
             chunk_id = chunk.get("chunk_id", out_index)
             ids.append(
                 f"{repo_name}_{version}_{path}_{chunk_id}".replace("/", "_").replace(
@@ -318,6 +325,13 @@ class ChromaStore:
             raise
 
         logger.info("Published %d chunks for repository %s.", len(ids), repo_name)
+        try:
+            from services.chat.retrieval_cache import retrieval_cache
+
+            retrieval_cache.invalidate_repo(repo_name)
+        except ImportError:
+            pass
+        return version
 
     def _search_repository(
         self, repo_name: str, query_embedding: List[float], limit: int
@@ -374,6 +388,12 @@ class ChromaStore:
             if version is not None:
                 filters.append({"index_version": version})
             self.collection.delete(where={"$and": filters})
+        try:
+            from services.chat.retrieval_cache import retrieval_cache
+
+            retrieval_cache.invalidate_repo(repo_name)
+        except ImportError:
+            pass
 
     def delete_repository(self, repo_name: str) -> None:
         """Delete all revisions associated with a repository."""
@@ -385,3 +405,9 @@ class ChromaStore:
                 logger.debug(
                     "Repository version %s could not be deleted: %s", repo_name, exc
                 )
+        try:
+            from services.chat.retrieval_cache import retrieval_cache
+
+            retrieval_cache.invalidate_repo(repo_name)
+        except ImportError:
+            pass

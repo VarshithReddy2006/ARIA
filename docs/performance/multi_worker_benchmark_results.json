@@ -1,0 +1,235 @@
+{
+  "worker_count": 4,
+  "hardware": {
+    "os": "Windows-11-10.0.26200-SP0",
+    "cpu_physical": 8,
+    "cpu_logical": 16,
+    "total_ram_gb": 23.29
+  },
+  "capacity_thresholds": {
+    "safe_capacity_users": 10,
+    "degradation_point_users": 25,
+    "hard_limit_users": 150,
+    "peak_throughput_rps": 3.81,
+    "primary_bottleneck": "Single ASGI Event-Loop Concurrency Bound (Uvicorn 1 Worker)"
+  },
+  "comparison_table": [
+    {
+      "concurrency": 1,
+      "single_worker": {
+        "successes": 7,
+        "failures": 0,
+        "error_rate_pct": 0.0,
+        "throughput_rps": 0.8,
+        "ttft_ms": 1162.2,
+        "p50_ms": 803.1,
+        "p95_ms": 2578.0
+      },
+      "multi_worker": {
+        "workers": 4,
+        "total_requests": 9,
+        "successes": 9,
+        "failures": 0,
+        "error_rate_pct": 0.0,
+        "throughput_rps": 1.12,
+        "ttft_ms": 844.8,
+        "p50_ms": 804.4,
+        "p95_ms": 1043.6,
+        "p99_ms": 1096.1,
+        "cpu_peak_pct": 0.0,
+        "mem_rss_mb_peak": 4.08
+      },
+      "delta": {
+        "throughput_gain_x": 1.4,
+        "p95_latency_improvement_pct": 59.5,
+        "error_reduction_pct": 0.0
+      }
+    },
+    {
+      "concurrency": 5,
+      "single_worker": {
+        "successes": 14,
+        "failures": 0,
+        "error_rate_pct": 0.0,
+        "throughput_rps": 1.4,
+        "ttft_ms": 3266.8,
+        "p50_ms": 3388.8,
+        "p95_ms": 4164.1
+      },
+      "multi_worker": {
+        "workers": 4,
+        "total_requests": 30,
+        "successes": 30,
+        "failures": 0,
+        "error_rate_pct": 0.0,
+        "throughput_rps": 3.47,
+        "ttft_ms": 1360.7,
+        "p50_ms": 1027.9,
+        "p95_ms": 2353.5,
+        "p99_ms": 2641.5,
+        "cpu_peak_pct": 0.0,
+        "mem_rss_mb_peak": 4.08
+      },
+      "delta": {
+        "throughput_gain_x": 2.48,
+        "p95_latency_improvement_pct": 43.5,
+        "error_reduction_pct": 0.0
+      }
+    },
+    {
+      "concurrency": 10,
+      "single_worker": {
+        "successes": 20,
+        "failures": 0,
+        "error_rate_pct": 0.0,
+        "throughput_rps": 1.4,
+        "ttft_ms": 6842.1,
+        "p50_ms": 6881.2,
+        "p95_ms": 6909.6
+      },
+      "multi_worker": {
+        "workers": 4,
+        "total_requests": 35,
+        "successes": 35,
+        "failures": 0,
+        "error_rate_pct": 0.0,
+        "throughput_rps": 3.81,
+        "ttft_ms": 2498.1,
+        "p50_ms": 2806.0,
+        "p95_ms": 4586.0,
+        "p99_ms": 4586.6,
+        "cpu_peak_pct": 0.0,
+        "mem_rss_mb_peak": 4.05
+      },
+      "delta": {
+        "throughput_gain_x": 2.72,
+        "p95_latency_improvement_pct": 33.6,
+        "error_reduction_pct": 0.0
+      }
+    },
+    {
+      "concurrency": 25,
+      "single_worker": {
+        "successes": 25,
+        "failures": 0,
+        "error_rate_pct": 0.0,
+        "throughput_rps": 1.6,
+        "ttft_ms": 14789.5,
+        "p50_ms": 14362.7,
+        "p95_ms": 15923.7
+      },
+      "multi_worker": {
+        "workers": 4,
+        "total_requests": 43,
+        "successes": 43,
+        "failures": 0,
+        "error_rate_pct": 0.0,
+        "throughput_rps": 3.81,
+        "ttft_ms": 5862.7,
+        "p50_ms": 5488.0,
+        "p95_ms": 9604.3,
+        "p99_ms": 9604.4,
+        "cpu_peak_pct": 0.0,
+        "mem_rss_mb_peak": 4.05
+      },
+      "delta": {
+        "throughput_gain_x": 2.38,
+        "p95_latency_improvement_pct": 39.7,
+        "error_reduction_pct": 0.0
+      }
+    },
+    {
+      "concurrency": 50,
+      "single_worker": {
+        "successes": 50,
+        "failures": 0,
+        "error_rate_pct": 0.0,
+        "throughput_rps": 1.6,
+        "ttft_ms": 24472.6,
+        "p50_ms": 24837.3,
+        "p95_ms": 31390.1
+      },
+      "multi_worker": {
+        "workers": 4,
+        "total_requests": 58,
+        "successes": 58,
+        "failures": 0,
+        "error_rate_pct": 0.0,
+        "throughput_rps": 3.75,
+        "ttft_ms": 11894.4,
+        "p50_ms": 14336.2,
+        "p95_ms": 15381.0,
+        "p99_ms": 15384.1,
+        "cpu_peak_pct": 0.0,
+        "mem_rss_mb_peak": 4.05
+      },
+      "delta": {
+        "throughput_gain_x": 2.34,
+        "p95_latency_improvement_pct": 51.0,
+        "error_reduction_pct": 0.0
+      }
+    },
+    {
+      "concurrency": 75,
+      "single_worker": {
+        "successes": 75,
+        "failures": 0,
+        "error_rate_pct": 0.0,
+        "throughput_rps": 1.2,
+        "ttft_ms": 43219.9,
+        "p50_ms": 43908.8,
+        "p95_ms": 60094.5
+      },
+      "multi_worker": {
+        "workers": 4,
+        "total_requests": 75,
+        "successes": 75,
+        "failures": 0,
+        "error_rate_pct": 0.0,
+        "throughput_rps": 3.06,
+        "ttft_ms": 17548.8,
+        "p50_ms": 18811.6,
+        "p95_ms": 24626.3,
+        "p99_ms": 24629.6,
+        "cpu_peak_pct": 0.0,
+        "mem_rss_mb_peak": 4.05
+      },
+      "delta": {
+        "throughput_gain_x": 2.55,
+        "p95_latency_improvement_pct": 59.0,
+        "error_reduction_pct": 0.0
+      }
+    },
+    {
+      "concurrency": 100,
+      "single_worker": {
+        "successes": 74,
+        "failures": 26,
+        "error_rate_pct": 26.0,
+        "throughput_rps": 1.7,
+        "ttft_ms": 43758.1,
+        "p50_ms": 48155.5,
+        "p95_ms": 60047.6
+      },
+      "multi_worker": {
+        "workers": 4,
+        "total_requests": 100,
+        "successes": 100,
+        "failures": 0,
+        "error_rate_pct": 0.0,
+        "throughput_rps": 3.63,
+        "ttft_ms": 22098.1,
+        "p50_ms": 20920.9,
+        "p95_ms": 27530.4,
+        "p99_ms": 27531.4,
+        "cpu_peak_pct": 0.0,
+        "mem_rss_mb_peak": 4.05
+      },
+      "delta": {
+        "throughput_gain_x": 2.14,
+        "p95_latency_improvement_pct": 54.2,
+        "error_reduction_pct": 26.0
+      }
+    }
+  ]
+}

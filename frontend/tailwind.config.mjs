@@ -21,7 +21,8 @@ export default {
           dim: 'rgba(255, 255, 255, 0.02)',
         },
         text: {
-          DEFAULT: '#ededed',
+          // Mirrors --text in global.css. Keep the two in step.
+          DEFAULT: '#f5f5f5',
           muted: '#8e939e',
           subtle: '#525660',
         },
@@ -35,11 +36,11 @@ export default {
         card: {
           DEFAULT: '#08090d',
           hover: '#0d0e14',
-          foreground: '#ededed',
+          foreground: '#f5f5f5',
         },
         popover: {
           DEFAULT: '#0d0e14',
-          foreground: '#ededed',
+          foreground: '#f5f5f5',
         },
         success: {
           DEFAULT: '#10b981',

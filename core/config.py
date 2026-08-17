@@ -47,13 +47,41 @@ class Settings(BaseSettings):
     cache_file_path: str = Field("data/cache.json", alias="CACHE_FILE_PATH")
     cloned_repos_path: str = Field("data/cloned_repos", alias="CLONED_REPOS_PATH")
 
+    # Vector Store & Qdrant Production Config (Phase 3)
+    vector_store_backend: str = Field("qdrant", alias="VECTOR_STORE_BACKEND")
+    vector_store_enable_fallback: bool = Field(
+        True, alias="VECTOR_STORE_ENABLE_FALLBACK"
+    )
+    qdrant_url: Optional[str] = Field("http://127.0.0.1:6333", alias="QDRANT_URL")
+    qdrant_grpc_port: Optional[int] = Field(6334, alias="QDRANT_GRPC_PORT")
+    qdrant_prefer_grpc: bool = Field(True, alias="QDRANT_PREFER_GRPC")
+    qdrant_timeout: float = Field(10.0, alias="QDRANT_TIMEOUT")
+    qdrant_retry_attempts: int = Field(2, alias="QDRANT_RETRY_ATTEMPTS")
+
     # Frontend / CORS
     frontend_url: str = Field("http://localhost:4321", alias="FRONTEND_URL")
 
-    # Queue & Build
+    # Queue & Build / Worker Concurrency
     worker_count: Optional[int] = Field(None, alias="WORKER_COUNT")
+    aria_workers: Optional[int] = Field(None, alias="ARIA_WORKERS")
+    web_concurrency: Optional[int] = Field(None, alias="WEB_CONCURRENCY")
     build_timeout: int = Field(1800, alias="BUILD_TIMEOUT")  # 30 minutes
     cache_size_limit: int = Field(1000, alias="CACHE_SIZE_LIMIT")
+
+    @property
+    def effective_workers(self) -> int:
+        """Resolve effective worker count based on environment and configuration."""
+        if self.worker_count and self.worker_count > 0:
+            return self.worker_count
+        if self.aria_workers and self.aria_workers > 0:
+            return self.aria_workers
+        if self.web_concurrency and self.web_concurrency > 0:
+            return self.web_concurrency
+        if self.app_env in ("development", "test"):
+            return 1
+        # In production default safely to min(4, max(2, cpu_count // 2))
+        cpu_cnt = os.cpu_count() or 2
+        return min(4, max(2, cpu_cnt // 2))
 
     model_config = SettingsConfigDict(
         env_file=".env", env_file_encoding="utf-8", extra="ignore"

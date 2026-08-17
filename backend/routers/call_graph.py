@@ -47,6 +47,14 @@ class CallGraphBuildRequest(BaseModel):
 # ---------------------------------------------------------------------------
 
 
+def _advance_generator(gen):
+    """Advance a generator by one step in a thread pool worker, safely capturing completion."""
+    try:
+        return False, next(gen)
+    except StopIteration as stop:
+        return True, stop.value
+
+
 @router.post("/build")
 async def build_call_graph(request: CallGraphBuildRequest):
     """Build the function call graph. Streams SSE progress."""
@@ -80,12 +88,11 @@ async def build_call_graph(request: CallGraphBuildRequest):
             gen = call_graph_service.build(repo_name, files)
             summary = None
             while True:
-                try:
-                    event = await asyncio.to_thread(next, gen)
-                    yield f"data: {json.dumps(event)}\n\n"
-                except StopIteration as stop:
-                    summary = stop.value
+                is_done, value = await asyncio.to_thread(_advance_generator, gen)
+                if is_done:
+                    summary = value
                     break
+                yield f"data: {json.dumps(value)}\n\n"
 
             if summary is not None:
                 yield f"data: {json.dumps({'status': 'result', 'data': summary.model_dump()})}\n\n"

@@ -278,3 +278,4 @@ testenv/
 
 # Chrome / browser test profiles
 temp-profile/
+bin/
