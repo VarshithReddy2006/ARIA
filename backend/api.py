@@ -372,10 +372,3 @@ if __name__ == "__main__":
         else None,
         workers=workers if not is_dev else None,
     )
-
-
-def __getattr__(name: str) -> Any:
-    """Delegate attribute lookups to backend.dependencies for backward compatibility."""
-    import backend.dependencies as deps
-
-    return getattr(deps, name)
