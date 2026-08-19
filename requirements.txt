@@ -6,6 +6,7 @@ sentence-transformers>=3.0.0
 
 # Vector store
 chromadb>=0.4.0
+qdrant-client==1.18.0
 
 # Data validation and serialization.
 # Aligned with MCP SDK (>=2.8.0) and Google GenAI SDK (>=2.7.0).

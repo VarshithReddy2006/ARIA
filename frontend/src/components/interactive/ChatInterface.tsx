@@ -593,7 +593,7 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({
             msg.id === assistantId
               ? {
                   ...msg,
-                  text: 'Could not reach the agent backend. Please verify that api.py is running on port 8001.',
+                  text: 'Could not reach the agent backend. Please verify that the backend server is running and reachable.',
                   isError: true,
                 }
               : msg,

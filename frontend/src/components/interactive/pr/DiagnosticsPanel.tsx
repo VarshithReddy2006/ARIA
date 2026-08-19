@@ -31,8 +31,8 @@ export const DiagnosticsPanel: React.FC<Props> = ({
       <h3 className="mono-label pb-3 hair-b">{title}</h3>
 
       <dl className="mt-1 min-w-0">
-        <LeaderRow label="GITHUB TOKEN" first>
-          {healthStatus?.github_token ? (
+        <LeaderRow label="GITHUB AUTH" first>
+          {healthStatus?.github_auth ? (
             <StatusText tone="text-success">ACTIVE</StatusText>
           ) : (
             <StatusText tone="text-danger">INACTIVE</StatusText>

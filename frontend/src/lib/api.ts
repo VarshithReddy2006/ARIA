@@ -9,11 +9,20 @@
  * Override the target by setting `PUBLIC_API_URL` in `frontend/.env`.
  */
 
-const DEFAULT_API_BASE_URL = 'http://127.0.0.1:8001';
+const DEFAULT_DEV_API_BASE_URL = 'http://127.0.0.1:8001';
 
-/** Resolved backend origin, e.g. `http://127.0.0.1:8001` (no trailing slash). */
+/**
+ * Resolved backend origin.
+ * - In development mode (`npm run dev`), defaults to `http://127.0.0.1:8001`.
+ * - In production mode (`npm run build` / Docker), defaults to `""` (same-origin relative URLs).
+ * - Can be explicitly overridden via `PUBLIC_API_URL` environment variable.
+ */
 export const API_BASE_URL: string = (
-  import.meta.env.PUBLIC_API_URL || DEFAULT_API_BASE_URL
+  typeof import.meta.env.PUBLIC_API_URL === 'string' && import.meta.env.PUBLIC_API_URL.trim() !== ''
+    ? import.meta.env.PUBLIC_API_URL.trim()
+    : import.meta.env.DEV
+      ? DEFAULT_DEV_API_BASE_URL
+      : ''
 ).replace(/\/$/, '');
 
 /**

@@ -53,6 +53,7 @@ class Settings(BaseSettings):
         True, alias="VECTOR_STORE_ENABLE_FALLBACK"
     )
     qdrant_url: Optional[str] = Field("http://127.0.0.1:6333", alias="QDRANT_URL")
+    qdrant_api_key: Optional[str] = Field(None, alias="QDRANT_API_KEY")
     qdrant_grpc_port: Optional[int] = Field(6334, alias="QDRANT_GRPC_PORT")
     qdrant_prefer_grpc: bool = Field(True, alias="QDRANT_PREFER_GRPC")
     qdrant_timeout: float = Field(10.0, alias="QDRANT_TIMEOUT")
@@ -96,6 +97,7 @@ class Settings(BaseSettings):
         "gemini_api_key",
         "gemini_model",
         "llm_provider",
+        "qdrant_api_key",
         mode="before",
     )
     @classmethod

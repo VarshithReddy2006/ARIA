@@ -153,6 +153,8 @@ class ProductionVectorStore:
                     url=self.settings.qdrant_url,
                     grpc_port=self.settings.qdrant_grpc_port,
                     prefer_grpc=self.settings.qdrant_prefer_grpc,
+                    api_key=self.settings.qdrant_api_key,
+                    timeout=self.settings.qdrant_timeout,
                 )
             except Exception as exc:
                 logger.warning(

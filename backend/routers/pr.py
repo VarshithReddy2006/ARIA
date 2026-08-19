@@ -125,6 +125,7 @@ async def get_pr_health(
 
     return {
         "github_token": github_token_exists,
+        "github_auth": github_token_exists,
         "github_token_loaded": github_token_exists,
         # Credential material is never returned to clients; only presence is reported.
         "github_token_prefix": "configured" if token else "missing",

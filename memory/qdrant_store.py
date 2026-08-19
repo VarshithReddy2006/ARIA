@@ -25,6 +25,12 @@ try:
 except ImportError:
     QdrantClient = None
     models = None
+    Distance = None
+    FieldCondition = None
+    Filter = None
+    MatchValue = None
+    PointStruct = None
+    VectorParams = None
 
 logger = logging.getLogger(__name__)
 
@@ -43,17 +49,21 @@ class QdrantStore:
         port: Optional[int] = None,
         grpc_port: Optional[int] = None,
         prefer_grpc: bool = False,
+        api_key: Optional[str] = None,
+        timeout: Optional[float] = None,
         vector_size: int = 384,
     ) -> None:
         """Initializes the QdrantStore connection.
 
         Args:
             persist_directory: Path to local persistent storage directory (or ':memory:').
-            url: URL of standalone Qdrant server (e.g. 'http://localhost:6333').
+            url: URL of standalone Qdrant server (e.g. 'http://localhost:6333' or remote cloud URL).
             host: Hostname of standalone Qdrant server.
             port: HTTP port of standalone Qdrant server.
             grpc_port: gRPC port of standalone Qdrant server.
             prefer_grpc: Whether to prefer gRPC over HTTP for vector operations.
+            api_key: API key for remote Qdrant authentication.
+            timeout: Network request timeout in seconds.
             vector_size: Dimensionality of vector embeddings (default: 384 for BGE-small).
         """
         if QdrantClient is None:
@@ -64,18 +74,26 @@ class QdrantStore:
 
         self.persist_directory = persist_directory
         self.url = url
+        self.api_key = api_key
+        self.timeout = timeout
         self.vector_size = vector_size
         self._publication_lock = threading.RLock()
         self._version_cache: Dict[str, str] = {}
 
+        client_kwargs: Dict[str, Any] = {}
+        if api_key:
+            client_kwargs["api_key"] = api_key
+        if timeout:
+            client_kwargs["timeout"] = timeout
+
         if url:
-            self.client = QdrantClient(url=url, prefer_grpc=prefer_grpc)
+            self.client = QdrantClient(url=url, prefer_grpc=prefer_grpc, **client_kwargs)
         elif host and port:
             self.client = QdrantClient(
-                host=host, port=port, grpc_port=grpc_port, prefer_grpc=prefer_grpc
+                host=host, port=port, grpc_port=grpc_port, prefer_grpc=prefer_grpc, **client_kwargs
             )
         elif persist_directory == ":memory:":
-            self.client = QdrantClient(":memory:")
+            self.client = QdrantClient(":memory:", **client_kwargs)
         else:
             os.makedirs(str(self.persist_directory), exist_ok=True)
             self.client = QdrantClient(path=self.persist_directory)
@@ -85,50 +103,52 @@ class QdrantStore:
     def _ensure_collections(self) -> None:
         """Ensure collections and payload indexes exist."""
         try:
+            if not VectorParams or not Distance or not models:
+                return
             existing = [c.name for c in self.client.get_collections().collections]
+            if COLLECTION_CHUNKS not in existing:
+                self.client.create_collection(
+                    collection_name=COLLECTION_CHUNKS,
+                    vectors_config=VectorParams(
+                        size=self.vector_size,
+                        distance=Distance.COSINE,
+                    ),
+                )
+                # Create payload indexes for fast filtering (relevant when running client-server)
+                import warnings
+
+                for field in ("repo_name", "index_version", "file_path", "language"):
+                    try:
+                        with warnings.catch_warnings():
+                            warnings.simplefilter("ignore", UserWarning)
+                            self.client.create_payload_index(
+                                collection_name=COLLECTION_CHUNKS,
+                                field_name=field,
+                                field_schema=models.PayloadSchemaType.KEYWORD,
+                            )
+                    except Exception as exc:
+                        logger.debug("Payload index creation for %s: %s", field, exc)
+
+            # 2. Versions collection
+            if COLLECTION_VERSIONS not in existing:
+                self.client.create_collection(
+                    collection_name=COLLECTION_VERSIONS,
+                    vectors_config=VectorParams(
+                        size=1,  # Dummy vector for version tracking collection
+                        distance=Distance.DOT,
+                    ),
+                )
+                try:
+                    self.client.create_payload_index(
+                        collection_name=COLLECTION_VERSIONS,
+                        field_name="repo_name",
+                        field_schema=models.PayloadSchemaType.KEYWORD,
+                    )
+                except Exception as exc:
+                    logger.debug("Payload index creation for versions: %s", exc)
         except Exception as exc:
             logger.warning("Could not connect to Qdrant to ensure collections: %s", exc)
             return
-        if COLLECTION_CHUNKS not in existing:
-            self.client.create_collection(
-                collection_name=COLLECTION_CHUNKS,
-                vectors_config=VectorParams(
-                    size=self.vector_size,
-                    distance=Distance.COSINE,
-                ),
-            )
-            # Create payload indexes for fast filtering (relevant when running client-server)
-            import warnings
-
-            for field in ("repo_name", "index_version", "file_path", "language"):
-                try:
-                    with warnings.catch_warnings():
-                        warnings.simplefilter("ignore", UserWarning)
-                        self.client.create_payload_index(
-                            collection_name=COLLECTION_CHUNKS,
-                            field_name=field,
-                            field_schema=models.PayloadSchemaType.KEYWORD,
-                        )
-                except Exception as exc:
-                    logger.debug("Payload index creation for %s: %s", field, exc)
-
-        # 2. Versions collection
-        if COLLECTION_VERSIONS not in existing:
-            self.client.create_collection(
-                collection_name=COLLECTION_VERSIONS,
-                vectors_config=VectorParams(
-                    size=1,  # Dummy vector for version tracking collection
-                    distance=Distance.DOT,
-                ),
-            )
-            try:
-                self.client.create_payload_index(
-                    collection_name=COLLECTION_VERSIONS,
-                    field_name="repo_name",
-                    field_schema=models.PayloadSchemaType.KEYWORD,
-                )
-            except Exception as exc:
-                logger.debug("Payload index creation for version repo_name: %s", exc)
 
     def _active_version(self, repo_name: str) -> Optional[str]:
         """Fetch active index version for a repository."""

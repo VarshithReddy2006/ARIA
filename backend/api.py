@@ -110,17 +110,6 @@ register_exception_handlers(app)
 # Production Middlewares
 from backend.security_middleware import APIKeyMiddleware  # noqa: E402
 
-app.add_middleware(
-    APIKeyMiddleware,
-    api_key=settings.api_key,
-    app_env=settings.app_env,
-)
-app.add_middleware(RequestIdMiddleware)
-app.add_middleware(RateLimitMiddleware, limit=settings.rate_limit_per_minute)
-app.add_middleware(MetricsMiddleware)
-app.add_middleware(GZipMiddleware, minimum_size=1000)
-app.add_middleware(TrustedHostMiddleware, allowed_hosts=settings.allowed_hosts)
-
 _cors_origins = [settings.frontend_url]
 if settings.app_env != "production":
     # Development convenience: allow common local frontend dev server origins.
@@ -128,6 +117,24 @@ if settings.app_env != "production":
         _cors_origins.append("http://localhost:4321")
     if "localhost:5173" not in settings.frontend_url:
         _cors_origins.append("http://localhost:5173")
+
+app.add_middleware(
+    APIKeyMiddleware,
+    api_key=settings.api_key,
+    app_env=settings.app_env,
+    allowed_origins=_cors_origins,
+)
+app.add_middleware(RequestIdMiddleware)
+app.add_middleware(RateLimitMiddleware, limit=settings.rate_limit_per_minute)
+app.add_middleware(MetricsMiddleware)
+app.add_middleware(GZipMiddleware, minimum_size=1000)
+_allowed_hosts = list(settings.allowed_hosts)
+if settings.app_env != "production" and "*" not in _allowed_hosts:
+    for test_host in ("testserver", "testclient"):
+        if test_host not in _allowed_hosts:
+            _allowed_hosts.append(test_host)
+
+app.add_middleware(TrustedHostMiddleware, allowed_hosts=_allowed_hosts)
 
 app.add_middleware(
     CORSMiddleware,
@@ -350,6 +357,23 @@ app.include_router(monitoring_router, prefix="/api/v1")
 app.include_router(advisor_router, prefix="/api/v1")
 app.include_router(execution_router, prefix="/api/v1")
 app.include_router(workspace_router, prefix="/api/v1")
+
+# ---------------------------------------------------------------------------
+# Frontend static files (Astro production build)
+# ---------------------------------------------------------------------------
+from fastapi.staticfiles import StaticFiles  # noqa: E402
+
+_frontend_dist = os.path.join(
+    os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
+    "frontend",
+    "dist",
+)
+if not os.path.isdir(_frontend_dist) and os.path.isdir("/app/frontend/dist"):
+    _frontend_dist = "/app/frontend/dist"
+
+if os.path.isdir(_frontend_dist):
+    app.mount("/", StaticFiles(directory=_frontend_dist, html=True), name="frontend")
+
 
 
 # ---------------------------------------------------------------------------

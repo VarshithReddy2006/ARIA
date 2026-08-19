@@ -2,7 +2,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { apiUrl, extractErrorMessage } from '../../../lib/api';
 
 export interface HealthStatus {
-  github_token?: boolean;
+  github_auth?: boolean;
   rate_limit_remaining?: number;
   analysis_exists?: boolean;
   graph_available?: boolean;

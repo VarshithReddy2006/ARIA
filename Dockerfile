@@ -1,19 +1,40 @@
-# Stage 1: Build the Astro Frontend
+# ============================================================
+# Stage 1: Build Astro Frontend
+# ============================================================
 FROM node:20-alpine AS frontend-builder
+
 WORKDIR /app/frontend
+
 COPY frontend/package*.json ./
 RUN npm ci
+
 COPY frontend/ ./
 RUN npm run build
 
-# Stage 2: Install Python dependencies
+
+# ============================================================
+# Stage 2: Install Python Dependencies
+# ============================================================
 FROM python:3.11-slim AS backend-builder
+
 WORKDIR /app
-RUN apt-get update && apt-get install -y --no-install-recommends git gcc g++ libc-dev && rm -rf /var/lib/apt/lists/*
+
+RUN apt-get update \
+ && apt-get install -y --no-install-recommends \
+      git \
+      gcc \
+      g++ \
+      libc-dev \
+ && rm -rf /var/lib/apt/lists/*
+
 COPY requirements.txt ./
+
 RUN pip install --no-cache-dir --user -r requirements.txt
 
-# Stage 3: Production Image
+
+# ============================================================
+# Stage 3: Production
+# ============================================================
 FROM python:3.11-slim AS production
 
 ENV PYTHONDONTWRITEBYTECODE=1 \
@@ -22,31 +43,32 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
 
 WORKDIR /app
 
-# Runtime OS deps + dedicated unprivileged runtime account
+
+# ------------------------------------------------------------
+# Runtime dependencies + unprivileged user
+# ------------------------------------------------------------
 RUN apt-get update \
  && apt-get install -y --no-install-recommends git \
  && rm -rf /var/lib/apt/lists/* \
- && useradd --create-home --uid 10001 --shell /usr/sbin/nologin appuser
+ && useradd \
+      --create-home \
+      --uid 10001 \
+      --shell /usr/sbin/nologin \
+      appuser
 
-# Copy Python packages into the runtime user's home so they are readable non-root
-COPY --from=backend-builder --chown=appuser:appuser /root/.local /home/appuser/.local
+
+# ------------------------------------------------------------
+# Python dependencies
+# ------------------------------------------------------------
+COPY --from=backend-builder --chown=appuser:appuser \
+    /root/.local /home/appuser/.local
+
 ENV PATH=/home/appuser/.local/bin:$PATH
 
-# ---------------------------------------------------------------------------
-# First-party runtime packages.
-# Every package below is imported while serving traffic:
-#   backend  — FastAPI app, routers, middleware
-#   core     — config, cache, observability, build pipeline
-#   services — analysis/chat/LLM business logic
-#   models   — Pydantic schemas
-#   storage  — SQLite migrations, JSON snapshot store
-#   agents   — issue mapper / evaluator agents
-#   memory   — ChromaDB store adapter
-#   utils    — safe subprocess runner (backend.routers.repositories)
-#   ria      — composition root (backend.api) + REST exceptions
-#              (backend.exception_handlers)
-#   mcp      — MCP server exposed via `backend.cli mcp`
-# ---------------------------------------------------------------------------
+
+# ------------------------------------------------------------
+# Backend source
+# ------------------------------------------------------------
 COPY --chown=appuser:appuser backend/  ./backend
 COPY --chown=appuser:appuser core/     ./core
 COPY --chown=appuser:appuser services/ ./services
@@ -59,25 +81,46 @@ COPY --chown=appuser:appuser ria/      ./ria
 COPY --chown=appuser:appuser mcp/      ./mcp
 COPY --chown=appuser:appuser pyproject.toml ./pyproject.toml
 
-# Copy built frontend code to be served by the backend static file mount
-COPY --from=frontend-builder --chown=appuser:appuser /app/frontend/dist ./frontend/dist
 
-# Writable runtime directories (analysis store, SQLite, Chroma, clones, model cache)
-RUN mkdir -p /app/data \
-             /home/appuser/.repo_intelligence/cloned_repos \
-             /home/appuser/.cache \
+# ------------------------------------------------------------
+# Astro frontend
+# ------------------------------------------------------------
+COPY --from=frontend-builder --chown=appuser:appuser \
+    /app/frontend/dist ./frontend/dist
+
+
+# ------------------------------------------------------------
+# Runtime directories
+# ------------------------------------------------------------
+RUN mkdir -p \
+      /app/data \
+      /home/appuser/.repo_intelligence/cloned_repos \
+      /home/appuser/.cache \
  && chown -R appuser:appuser /app /home/appuser
 
-EXPOSE 8001
+
+# ------------------------------------------------------------
+# Application configuration
+# ------------------------------------------------------------
+EXPOSE 10000
+
 ENV APP_ENV=production
 ENV LOG_FORMAT=json
 
 USER appuser
 
-# Liveness probe against the public /health endpoint (no auth required).
-# start-period covers embedding-model warm-up and LLM provider validation.
-HEALTHCHECK --interval=30s --timeout=5s --start-period=180s --retries=3 \
-  CMD ["python", "-c", "import urllib.request,sys; sys.exit(0 if urllib.request.urlopen('http://127.0.0.1:8001/health', timeout=4).status == 200 else 1)"]
 
-# Startup command running the FastAPI backend via uvicorn
-CMD ["python", "-m", "uvicorn", "backend.api:app", "--host", "0.0.0.0", "--port", "8001"]
+# ------------------------------------------------------------
+# Health check
+# ------------------------------------------------------------
+HEALTHCHECK --interval=30s \
+            --timeout=5s \
+            --start-period=180s \
+            --retries=3 \
+    CMD ["sh", "-c", "python -c \"import os,urllib.request,sys; port=os.getenv('PORT','10000'); sys.exit(0 if urllib.request.urlopen(f'http://127.0.0.1:{port}/health', timeout=4).status == 200 else 1)\""]
+
+
+# ------------------------------------------------------------
+# Start FastAPI
+# ------------------------------------------------------------
+CMD ["sh", "-c", "python -m uvicorn backend.api:app --host 0.0.0.0 --port ${PORT:-10000}"]
