@@ -87,10 +87,16 @@ class QdrantStore:
             client_kwargs["timeout"] = timeout
 
         if url:
-            self.client = QdrantClient(url=url, prefer_grpc=prefer_grpc, **client_kwargs)
+            self.client = QdrantClient(
+                url=url, prefer_grpc=prefer_grpc, **client_kwargs
+            )
         elif host and port:
             self.client = QdrantClient(
-                host=host, port=port, grpc_port=grpc_port, prefer_grpc=prefer_grpc, **client_kwargs
+                host=host,
+                port=port,
+                grpc_port=grpc_port,
+                prefer_grpc=prefer_grpc,
+                **client_kwargs,
             )
         elif persist_directory == ":memory:":
             self.client = QdrantClient(":memory:", **client_kwargs)

@@ -375,7 +375,6 @@ if os.path.isdir(_frontend_dist):
     app.mount("/", StaticFiles(directory=_frontend_dist, html=True), name="frontend")
 
 
-
 # ---------------------------------------------------------------------------
 # Direct execution entry point
 # ---------------------------------------------------------------------------

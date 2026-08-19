@@ -2,7 +2,6 @@
 
 import hashlib
 import hmac
-import time
 import unittest.mock
 import pytest
 from fastapi import FastAPI
@@ -14,7 +13,6 @@ from backend.security_middleware import (
     RateLimitMiddleware,
     generate_session_token,
     verify_session_token,
-    is_valid_origin,
     is_public_path,
     SESSION_COOKIE_NAME,
     _derive_signing_key,
@@ -33,7 +31,8 @@ def create_test_app(
         APIKeyMiddleware,
         api_key=api_key,
         app_env=app_env,
-        allowed_origins=allowed_origins or ["http://localhost:4321", "https://aria.example.com"],
+        allowed_origins=allowed_origins
+        or ["http://localhost:4321", "https://aria.example.com"],
         secure_cookies=secure_cookies,
     )
 
@@ -95,8 +94,8 @@ def create_test_app(
     @app.post("/api/v1/analyze/stream")
     def analyze_stream():
         async def event_generator():
-            yield "data: {\"progress\": 50}\n\n"
-            yield "data: {\"progress\": 100, \"status\": \"done\"}\n\n"
+            yield 'data: {"progress": 50}\n\n'
+            yield 'data: {"progress": 100, "status": "done"}\n\n'
 
         return StreamingResponse(event_generator(), media_type="text/event-stream")
 
@@ -106,6 +105,7 @@ def create_test_app(
 # ===========================================================================
 # 1-6: Public Endpoints & Session Cookie Issuance
 # ===========================================================================
+
 
 def test_public_health_endpoint_is_public():
     """1. GET /health is public."""
@@ -166,6 +166,7 @@ def test_public_docs_endpoint_is_public():
 # 7-13: API Authentication Priority & Verification
 # ===========================================================================
 
+
 def test_unauthenticated_api_request_returns_401():
     """7. GET /api/v1/repos/examples without authentication returns 401."""
     app = create_test_app(api_key="prod-secret-key", app_env="production")
@@ -179,9 +180,7 @@ def test_api_request_with_valid_x_api_key_returns_200():
     """8. GET /api/v1/repos/examples with valid X-API-Key returns 200."""
     app = create_test_app(api_key="prod-secret-key", app_env="production")
     client = TestClient(app)
-    res = client.get(
-        "/api/v1/repos/examples", headers={"X-API-Key": "prod-secret-key"}
-    )
+    res = client.get("/api/v1/repos/examples", headers={"X-API-Key": "prod-secret-key"})
     assert res.status_code == 200
     assert "examples" in res.json()
 
@@ -250,6 +249,7 @@ def test_api_request_with_valid_bearer_token_returns_200():
 # 14-17: CORS Preflight, CSRF Protection, and SSE Streaming
 # ===========================================================================
 
+
 def test_options_preflight_bypasses_auth():
     """14. OPTIONS requests bypass authentication."""
     app = create_test_app(api_key="prod-secret-key", app_env="production")
@@ -262,7 +262,9 @@ def test_cookie_authenticated_post_works_with_same_origin():
     """15. Cookie-authenticated POST /api/v1/analyze works with valid same-origin request."""
     app = create_test_app(api_key="prod-secret-key", app_env="production")
     token = generate_session_token("prod-secret-key")
-    client = TestClient(app, base_url="https://aria.example.com", cookies={SESSION_COOKIE_NAME: token})
+    client = TestClient(
+        app, base_url="https://aria.example.com", cookies={SESSION_COOKIE_NAME: token}
+    )
 
     res = client.post(
         "/api/v1/analyze",
@@ -283,7 +285,9 @@ def test_cookie_authenticated_post_rejects_cross_origin():
         allowed_origins=["https://aria.example.com"],
     )
     token = generate_session_token("prod-secret-key")
-    client = TestClient(app, base_url="https://aria.example.com", cookies={SESSION_COOKIE_NAME: token})
+    client = TestClient(
+        app, base_url="https://aria.example.com", cookies={SESSION_COOKIE_NAME: token}
+    )
 
     # Cross-origin attacker attempt
     res = client.post(
@@ -301,7 +305,9 @@ def test_sse_streaming_analysis_works_with_session_cookie():
     """17. SSE/streaming analysis works with valid browser session authentication."""
     app = create_test_app(api_key="prod-secret-key", app_env="production")
     token = generate_session_token("prod-secret-key")
-    client = TestClient(app, base_url="https://aria.example.com", cookies={SESSION_COOKIE_NAME: token})
+    client = TestClient(
+        app, base_url="https://aria.example.com", cookies={SESSION_COOKIE_NAME: token}
+    )
 
     res = client.post(
         "/api/v1/analyze/stream",
@@ -315,6 +321,7 @@ def test_sse_streaming_analysis_works_with_session_cookie():
 # ===========================================================================
 # 18-22: Cryptographic Security & Leakage Invariants
 # ===========================================================================
+
 
 def test_session_token_uses_hmac_sha256():
     """18. Session token uses HMAC-SHA256."""
@@ -330,7 +337,9 @@ def test_session_token_uses_hmac_sha256():
     assert len(signature) == 64
     payload = f"{version}.{sid}.{expires_at}"
     derived_key = _derive_signing_key(secret)
-    expected_sig = hmac.new(derived_key, payload.encode("utf-8"), hashlib.sha256).hexdigest()
+    expected_sig = hmac.new(
+        derived_key, payload.encode("utf-8"), hashlib.sha256
+    ).hexdigest()
     assert signature == expected_sig
 
 
@@ -339,15 +348,21 @@ def test_session_signature_verification_uses_constant_time_comparison():
     secret = "test-secret"
     token = generate_session_token(secret)
 
-    with unittest.mock.patch("secrets.compare_digest", wraps=unittest.mock.MagicMock(return_value=True)) as mock_compare:
+    with unittest.mock.patch(
+        "secrets.compare_digest", wraps=unittest.mock.MagicMock(return_value=True)
+    ) as mock_compare:
         result = verify_session_token(token, secret)
         assert result is True
-        assert mock_compare.called, "secrets.compare_digest must be called during verification"
+        assert mock_compare.called, (
+            "secrets.compare_digest must be called during verification"
+        )
 
 
 def test_session_cookie_attributes():
     """20. Session cookie has: HttpOnly, SameSite=Lax, Path=/."""
-    app = create_test_app(api_key="prod-secret-key", app_env="production", secure_cookies=True)
+    app = create_test_app(
+        api_key="prod-secret-key", app_env="production", secure_cookies=True
+    )
     client = TestClient(app, base_url="https://aria.example.com")
     res = client.get("/")
     assert res.status_code == 200
@@ -366,7 +381,14 @@ def test_api_key_is_never_returned_in_responses():
     app = create_test_app(api_key=api_key_value, app_env="production")
     client = TestClient(app)
 
-    for path in ["/", "/health", "/docs", "/analysis", "/api/v1/repositories", "/api/v1/repos/examples"]:
+    for path in [
+        "/",
+        "/health",
+        "/docs",
+        "/analysis",
+        "/api/v1/repositories",
+        "/api/v1/repos/examples",
+    ]:
         res = client.get(path, headers={"X-API-Key": api_key_value})
         assert api_key_value not in res.text
 
@@ -386,6 +408,7 @@ def test_session_secret_is_never_returned_in_responses():
 # ===========================================================================
 # Edge Cases, Rate Limiting & Integration Tests
 # ===========================================================================
+
 
 def test_production_mode_fails_startup_without_api_key():
     app = FastAPI()
@@ -426,7 +449,9 @@ def test_frontend_serving_integration(tmp_path):
 
     analysis_dir = dist / "analysis"
     analysis_dir.mkdir()
-    (analysis_dir / "index.html").write_text("<!DOCTYPE html><html><body>Analysis</body></html>")
+    (analysis_dir / "index.html").write_text(
+        "<!DOCTYPE html><html><body>Analysis</body></html>"
+    )
 
     app = FastAPI(title="Test App")
     app.add_middleware(APIKeyMiddleware, api_key="prod-test-key", app_env="production")

@@ -5,7 +5,7 @@ import secrets
 import time
 import threading
 import urllib.parse
-from typing import Any, Dict, List, Optional, Set
+from typing import Dict, List, Optional, Set
 from starlette.middleware.base import BaseHTTPMiddleware, RequestResponseEndpoint
 from starlette.requests import Request
 from starlette.responses import Response, JSONResponse
@@ -118,7 +118,11 @@ def is_valid_origin(
 
     # 3. Determine host / scheme of current request
     proto = request.headers.get("x-forwarded-proto", request.url.scheme).lower()
-    host = request.headers.get("x-forwarded-host") or request.headers.get("host") or request.url.netloc
+    host = (
+        request.headers.get("x-forwarded-host")
+        or request.headers.get("host")
+        or request.url.netloc
+    )
     host_lower = host.lower()
 
     # Build acceptable origins
@@ -137,6 +141,7 @@ def is_valid_origin(
     # Try matching frontend_url from core config if available
     try:
         from core.config import settings
+
         if settings.frontend_url:
             acceptable.add(settings.frontend_url.rstrip("/").lower())
     except Exception:
@@ -322,7 +327,9 @@ class APIKeyMiddleware(BaseHTTPMiddleware):
             effective_secret = self.session_secret or self.api_key
             if request.method == "GET" and effective_secret:
                 existing_cookie = request.cookies.get(SESSION_COOKIE_NAME)
-                if not existing_cookie or not verify_session_token(existing_cookie, effective_secret):
+                if not existing_cookie or not verify_session_token(
+                    existing_cookie, effective_secret
+                ):
                     new_token = generate_session_token(effective_secret)
                     is_secure = (
                         self.secure_cookies
@@ -364,19 +371,29 @@ class APIKeyMiddleware(BaseHTTPMiddleware):
                     provided_key = auth_header.strip()
 
         # Validate API Key if provided
-        if provided_key and self.api_key and secrets.compare_digest(provided_key, self.api_key):
+        if (
+            provided_key
+            and self.api_key
+            and secrets.compare_digest(provided_key, self.api_key)
+        ):
             return await call_next(request)
 
         # Priority 3: HttpOnly aria_session cookie
         effective_secret = self.session_secret or self.api_key
         session_token = request.cookies.get(SESSION_COOKIE_NAME)
-        if session_token and effective_secret and verify_session_token(session_token, effective_secret):
+        if (
+            session_token
+            and effective_secret
+            and verify_session_token(session_token, effective_secret)
+        ):
             # Enforce CSRF / origin validation on state-changing methods for cookie auth
             if request.method in ("POST", "PUT", "PATCH", "DELETE"):
                 if not is_valid_origin(request, self.allowed_origins):
                     return JSONResponse(
                         status_code=403,
-                        content={"detail": "CSRF validation failed: cross-origin mutation not allowed."},
+                        content={
+                            "detail": "CSRF validation failed: cross-origin mutation not allowed."
+                        },
                     )
             return await call_next(request)
 
