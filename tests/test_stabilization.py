@@ -185,4 +185,3 @@ def test_startup_warmup_execution_production():
         assert mock_embed_model.call_count == 0
         # Tree-sitter warmup should still execute
         assert mock_ts_service.call_count >= 1
-

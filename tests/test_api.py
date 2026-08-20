@@ -237,5 +237,3 @@ def test_production_startup_skips_embedding_warmup() -> None:
         _warmup_services()
         mock_get_model.assert_not_called()
         mock_ts.assert_called_once()
-
-

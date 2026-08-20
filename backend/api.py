@@ -155,7 +155,9 @@ def _warmup_services() -> None:
 
             logger.info("Warming up embedding model and tokenizer...")
             model = _get_model()
-            model.encode(["Represent this sentence: dummy text"], show_progress_bar=False)
+            model.encode(
+                ["Represent this sentence: dummy text"], show_progress_bar=False
+            )
             logger.info("Embedding model and tokenizer warmed up successfully.")
         else:
             logger.info(
@@ -170,7 +172,6 @@ def _warmup_services() -> None:
         logger.info("Python Tree-sitter parser warmed up successfully.")
     except Exception as exc:
         logger.warning("Startup warm-up failed: %s", exc, exc_info=True)
-
 
 
 # ---------------------------------------------------------------------------
