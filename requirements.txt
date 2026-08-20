@@ -47,3 +47,7 @@ google-genai>=0.1.1
 # class entirely (replaced by mcp.server.mcpserver), so 2.x cannot import this
 # codebase's MCP layer. See docs/MCP_RELEASE_READINESS.md for the migration path.
 mcp[cli]>=1.0.0,<2
+
+# Hugging Face Spaces Gradio SDK & Telemetry
+gradio>=4.0.0
+psutil>=5.9.0
