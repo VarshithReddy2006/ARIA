@@ -180,90 +180,71 @@ def _warmup_services() -> None:
 
 
 async def validate_llm_providers() -> None:
-    """Validate LLM providers during startup before serving traffic.
+    """Verify LLM provider configuration locally during startup.
 
-    Startup policy:
-      - At least one healthy provider → proceed normally.
-      - Primary unhealthy but fallback healthy → log ERROR, proceed
-        (ProviderManager handles failover automatically).
-      - ALL providers unhealthy → log CRITICAL, abort in production,
-        warn in development.
-
-    Never logs API keys or credential values.
+    Startup performs only local configuration checks. No network/API calls are
+    made to Gemini or DeepSeek. Live provider validation is deferred to
+    explicit diagnostics or actual provider usage.
     """
     import logging as _logging
     from services.llm import ProviderFactory
 
     _logger = _logging.getLogger("backend.startup")
 
-    _logger.info("Validating LLM providers...")
+    _logger.info(
+        "Checking LLM provider configuration (local-only, zero network requests)..."
+    )
+
     try:
-        results = await ProviderFactory.validate_all_providers()
+        configs = ProviderFactory.check_configuration(settings=settings)
     except Exception as exc:
-        _logger.error(
-            "LLM provider validation raised unexpectedly: %s", exc, exc_info=True
+        _logger.critical(
+            "LLM provider configuration check failed unexpectedly: %s",
+            exc,
+            exc_info=True,
         )
         if settings.app_env == "production":
             raise RuntimeError(
-                "LLM provider validation failed during startup. "
-                "Check GEMINI_API_KEY / DEEPSEEK_API_KEY in .env"
+                "LLM provider configuration check failed during startup. "
+                "Check GEMINI_API_KEY / DEEPSEEK_API_KEY."
             ) from exc
         return
 
-    healthy_names = [name for name, h in results.items() if h.healthy]
-    unhealthy = [(name, h) for name, h in results.items() if not h.healthy]
-    primary = settings.llm_provider.lower()
+    primary = settings.llm_provider.lower().strip()
+    primary_cfg = configs.get(primary, {})
 
-    # Emit a structured log line for every configured provider
-    for name, health in results.items():
-        if health.healthy:
+    for name, cfg in configs.items():
+        if cfg.get("configured"):
             _logger.info(
-                "LLM_PROVIDER_HEALTH provider=%s model=%s healthy=true "
-                "authenticated=true latency_ms=%s",
+                "LLM_PROVIDER_CONFIG provider=%s model=%s configured=true "
+                "auth_credential_present=true (network check deferred to request time)",
                 name,
-                health.model,
-                f"{health.latency_ms:.0f}" if health.latency_ms is not None else "n/a",
+                cfg.get("model", "unknown"),
             )
         else:
-            _logger.error(
-                "LLM_PROVIDER_HEALTH provider=%s model=%s healthy=false "
-                "authenticated=%s error_type=%s message=%s recommendation=%s",
+            _logger.warning(
+                "LLM_PROVIDER_CONFIG provider=%s model=%s configured=false "
+                "auth_credential_present=false",
                 name,
-                health.model,
-                health.authenticated,
-                health.error_type,
-                health.error_message,
-                health.recommendation,
+                cfg.get("model", "unknown"),
             )
 
-    # All providers unhealthy → fail fast in production, warn in development
-    if not healthy_names:
-        msg = "No LLM providers are healthy. Chat will not work.\n" + "\n".join(
-            f"  [{name}] {h.error_type}: {h.error_message}  →  {h.recommendation}"
-            for name, h in unhealthy
+    if not primary_cfg.get("configured"):
+        msg = (
+            f"Primary LLM provider '{primary}' has no API key configured. "
+            "Check GEMINI_API_KEY / DEEPSEEK_API_KEY."
         )
+
         if settings.app_env == "production":
-            raise RuntimeError(msg)
-        else:
             _logger.critical("STARTUP WARNING — %s", msg)
+        else:
+            _logger.warning(msg)
         return
 
-    # Primary unhealthy but at least one fallback is healthy → warn, continue
-    primary_health = results.get(primary)
-    if primary_health and not primary_health.healthy:
-        _logger.error(
-            "Primary LLM provider '%s' is unhealthy. ProviderManager will "
-            "use the fallback provider automatically. Resolve this before "
-            "the fallback also becomes unavailable. "
-            "error_type=%s recommendation=%s",
-            primary,
-            primary_health.error_type,
-            primary_health.recommendation,
-        )
-
     _logger.info(
-        "LLM provider validation complete. healthy_providers=%s",
-        healthy_names,
+        "LLM configuration verified: primary provider '%s' (%s) configured.",
+        primary,
+        primary_cfg.get("model", "unknown"),
     )
 
 

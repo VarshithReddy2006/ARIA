@@ -33,6 +33,10 @@ def health() -> Dict[str, Any]:
     except Exception:
         pass
 
+    llm_configured = bool(
+        settings.gemini_api_key if provider == "gemini" else settings.deepseek_api_key
+    )
+
     return {
         "status": "healthy",
         "backend": "online",
@@ -40,6 +44,7 @@ def health() -> Dict[str, Any]:
         "python_version": sys.version.split()[0],
         "llm_provider": settings.llm_provider,
         "llm_model": active_model,
+        "llm_configured": llm_configured,
         "embedding_provider": settings.embedding_model,
         "vector_db": vector_db,
     }

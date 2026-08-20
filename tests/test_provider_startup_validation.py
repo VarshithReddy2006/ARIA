@@ -90,6 +90,14 @@ def _provider_patches(
 
 
 class TestValidateAllProviders:
+    @pytest.fixture(autouse=True)
+    def reset_factory(self):
+        from services.llm.provider_factory import ProviderFactory
+
+        ProviderFactory.reset()
+        yield
+        ProviderFactory.reset()
+
     @pytest.mark.anyio
     async def test_both_providers_healthy(self):
         """Happy path: both Gemini (primary) and DeepSeek (secondary) are healthy."""

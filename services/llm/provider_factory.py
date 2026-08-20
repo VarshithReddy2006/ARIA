@@ -13,7 +13,7 @@ Startup validation::
 """
 
 import logging
-from typing import Dict, Optional
+from typing import Any, Dict, Optional
 
 from .base_provider import BaseLLMProvider, ProviderHealth
 from .gemini_provider import GeminiProvider
@@ -28,11 +28,69 @@ _cached_provider: Optional[BaseLLMProvider] = None
 _cached_api_key: Optional[str] = None
 _last_validation_time: float = 0.0
 _cached_validation_results: Optional[Dict[str, ProviderHealth]] = None
-_validation_cache_ttl: float = 30.0  # seconds
+_validation_cache_ttl: float = 300.0  # 5 minutes cache TTL
 
 
 class ProviderFactory:
     """Creates and caches the globally configured LLM provider instance."""
+
+    @classmethod
+    def check_configuration(
+        cls, settings: Optional[Settings] = None
+    ) -> Dict[str, Dict[str, Any]]:
+        """Perform a local configuration check for all known LLM providers.
+
+        Does NOT make any network or API calls. Safe to call during startup and
+        readiness probes without consuming provider API quota.
+        """
+        from core.config import get_settings
+
+        current_settings = settings or get_settings()
+        primary_name = current_settings.llm_provider.lower().strip()
+        results: Dict[str, Dict[str, Any]] = {}
+
+        # Primary provider
+        if primary_name == "gemini":
+            has_key = bool(current_settings.gemini_api_key)
+            results["gemini"] = {
+                "provider": "gemini",
+                "model": current_settings.gemini_model,
+                "configured": has_key,
+                "is_primary": True,
+            }
+        elif primary_name == "deepseek":
+            has_key = bool(current_settings.deepseek_api_key)
+            results["deepseek"] = {
+                "provider": "deepseek",
+                "model": current_settings.deepseek_model,
+                "configured": has_key,
+                "is_primary": True,
+            }
+        else:
+            results[primary_name] = {
+                "provider": primary_name,
+                "model": "unknown",
+                "configured": False,
+                "is_primary": True,
+            }
+
+        # Secondary / fallback provider (if configured)
+        if primary_name == "gemini":
+            results["deepseek"] = {
+                "provider": "deepseek",
+                "model": current_settings.deepseek_model,
+                "configured": bool(current_settings.deepseek_api_key),
+                "is_primary": False,
+            }
+        elif primary_name == "deepseek":
+            results["gemini"] = {
+                "provider": "gemini",
+                "model": current_settings.gemini_model,
+                "configured": bool(current_settings.gemini_api_key),
+                "is_primary": False,
+            }
+
+        return results
 
     @classmethod
     def get_provider(cls, settings: Optional[Settings] = None) -> BaseLLMProvider:
@@ -107,32 +165,25 @@ class ProviderFactory:
 
     @classmethod
     async def validate_all_providers(
-        cls, settings: Optional[Settings] = None
+        cls, settings: Optional[Settings] = None, force: bool = False
     ) -> Dict[str, ProviderHealth]:
         """Run health checks on every configured LLM provider.
 
-        Called once at application startup.  Results are used to decide
-        whether the backend can serve chat requests.
-
-        Startup policy (matches ProviderManager resilience):
-          - If ALL providers are unhealthy → caller should abort startup.
-          - If at least one provider is healthy → startup proceeds with
-            a WARNING logged for every unhealthy provider.
-          - Never raises — always returns a dict.
+        Only performs live network health checks when explicitly called (e.g. by
+        diagnostic endpoints). Results are cached for `_validation_cache_ttl` (5 minutes)
+        to prevent consuming provider quota. Pass `force=True` to bypass the cache.
 
         Returns:
             Dict mapping provider_name → ProviderHealth for every provider
             that is configured (regardless of health status).
         """
         import time
-        import sys
 
         global _last_validation_time, _cached_validation_results
 
         now = time.time()
-        is_testing = "pytest" in sys.modules or "pytest" in sys.argv[0]
         if (
-            not is_testing
+            not force
             and _cached_validation_results is not None
             and (now - _last_validation_time) < _validation_cache_ttl
             and settings is None

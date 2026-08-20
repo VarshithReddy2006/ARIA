@@ -89,10 +89,11 @@ class IssueMapRequest(BaseModel):
 
 
 @router.get("/chat/health")
-async def chat_health():
+async def chat_health(force: bool = False):
     """Check LLM provider configuration, authentication, and connectivity.
 
-    Runs a live health check against every configured provider.
+    Runs a live health check against every configured provider. Results are
+    cached for 5 minutes by default. Pass `force=true` to force a live check.
     Response schema (all existing fields preserved + new fields added):
 
       status            — "ok" | "degraded" | "unhealthy" | "error"
@@ -123,7 +124,7 @@ async def chat_health():
 
     # ── Run live health checks on all configured providers ───────────────
     try:
-        all_results = await ProviderFactory.validate_all_providers()
+        all_results = await ProviderFactory.validate_all_providers(force=force)
     except Exception as exc:
         logger.error(
             "chat_health: validate_all_providers raised: %s", exc, exc_info=True
