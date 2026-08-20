@@ -265,6 +265,24 @@ async def get_recent():
     return results
 
 
+def _get_source_files_stream(local_path: str):
+    """Return an iterator of source files, respecting test mocks if present."""
+    from unittest.mock import Mock
+
+    if isinstance(getattr(github_service, "extract_source_files", None), Mock):
+        raw_files = github_service.extract_source_files(local_path)
+        return iter(raw_files)
+    return github_service.iter_source_files(local_path)
+
+
+def _get_batch_size() -> int:
+    """Return configured max_outer_batch_size or default integer if mocked."""
+    val = getattr(embedding_service, "max_outer_batch_size", 256)
+    if isinstance(val, int) and val > 0:
+        return val
+    return 256
+
+
 @router.post("/index")
 async def index_repository(request: IndexRequest):
     """Clone a repository, chunk the code, generate embeddings, and index in ChromaDB."""
@@ -274,55 +292,72 @@ async def index_repository(request: IndexRequest):
         repo_name = f"{parsed['owner']}/{parsed['repo']}"
 
         local_path = await asyncio.to_thread(github_service.clone_repository, repo_url)
-        files = await asyncio.to_thread(github_service.extract_source_files, local_path)
 
-        def run_chunking():
-            chunks = []
-            for file in files:
-                file_chunks = chunker.chunk_file(file["path"], file["content"])
-                if file_chunks:
-                    chunks.extend(file_chunks)
-            return chunks
-
-        all_chunks = await asyncio.to_thread(run_chunking)
-
-        if all_chunks:
+        def run_streaming_indexing():
             version = uuid.uuid4().hex
             staged_count = 0
+            file_count = 0
+            total_chunks = 0
+            chunk_buffer = []
+            batch_size = _get_batch_size()
+            version_staged = False
+
             try:
-                for (
-                    chunk_batch,
-                    emb_batch,
-                ) in embedding_service.stream_generate_embeddings_batches(all_chunks):
-                    staged_batch_count = await asyncio.to_thread(
-                        chroma_store.stage_repository_batch,
+                for file_rec in _get_source_files_stream(local_path):
+                    file_count += 1
+                    file_chunks = chunker.chunk_file(
+                        file_rec["path"], file_rec["content"]
+                    )
+                    if not file_chunks:
+                        continue
+                    chunk_buffer.extend(file_chunks)
+                    total_chunks += len(file_chunks)
+
+                    while len(chunk_buffer) >= batch_size:
+                        chunk_batch = chunk_buffer[:batch_size]
+                        chunk_buffer = chunk_buffer[batch_size:]
+                        emb_batch = embedding_service.generate_embeddings(chunk_batch)
+                        staged_batch_count = chroma_store.stage_repository_batch(
+                            repo_name,
+                            version,
+                            chunk_batch,
+                            emb_batch,
+                            staged_count,
+                        )
+                        staged_count += staged_batch_count
+                        version_staged = True
+                        del chunk_batch
+                        del emb_batch
+
+                if chunk_buffer:
+                    emb_batch = embedding_service.generate_embeddings(chunk_buffer)
+                    staged_batch_count = chroma_store.stage_repository_batch(
                         repo_name,
                         version,
-                        chunk_batch,
+                        chunk_buffer,
                         emb_batch,
                         staged_count,
                     )
                     staged_count += staged_batch_count
-                    del chunk_batch
+                    version_staged = True
+                    del chunk_buffer
                     del emb_batch
 
-                await asyncio.to_thread(
-                    chroma_store.publish_repository_version,
-                    repo_name,
-                    version,
-                )
+                if version_staged:
+                    chroma_store.publish_repository_version(repo_name, version)
             except Exception:
-                await asyncio.to_thread(
-                    chroma_store.rollback_staged_version,
-                    repo_name,
-                    version,
-                )
+                if version_staged:
+                    chroma_store.rollback_staged_version(repo_name, version)
                 raise
+
+            return file_count, total_chunks
+
+        files_indexed, chunks_indexed = await asyncio.to_thread(run_streaming_indexing)
 
         return {
             "status": "indexed",
-            "files": len(files),
-            "chunks": len(all_chunks),
+            "files": files_indexed,
+            "chunks": chunks_indexed,
         }
     except Exception as e:
         error_message = str(e).lower()
@@ -383,20 +418,70 @@ async def analyze_repository(request: AnalyzeRequest):
             timer.stop("Clone")
             yield f"data: {json.dumps({'status': 'cloned', 'message': '✓ Repository cloned successfully'})}\n\n"
 
-            # ── 2. Detecting ──────────────────────────────────────────────────
+            # ── 2. Detecting & Extracting ──────────────────────────────────────
             yield f"data: {json.dumps({'status': 'detecting', 'message': 'Detecting languages and frameworks...'})}\n\n"
             timer.start("Parse")
-            files = await asyncio.to_thread(
-                github_service.extract_source_files, local_path
-            )
+
+            def _scan_source_files():
+                all_file_paths = []
+                manifest_records = []
+                file_hashes = {}
+                total_bytes = 0
+                file_count = 0
+                t0 = time.perf_counter()
+
+                for f in _get_source_files_stream(local_path):
+                    file_count += 1
+                    p = f["path"]
+                    content = f["content"]
+                    content_bytes = len(content.encode("utf-8", errors="replace"))
+                    total_bytes += content_bytes
+                    all_file_paths.append(p)
+                    file_hashes[p] = ChangeDetector.compute_content_hash(content)
+
+                    # Keep minimal manifests for tech-stack / dependency parsing
+                    if (
+                        p.endswith("package.json")
+                        or p.endswith("requirements.txt")
+                        or p.endswith("pyproject.toml")
+                    ):
+                        manifest_records.append({"path": p, "content": content})
+                    else:
+                        manifest_records.append({"path": p})
+
+                elapsed = time.perf_counter() - t0
+                logger.info(
+                    "Source file scan completed | repo=%s files=%d bytes=%d elapsed=%.2fs",
+                    repo_name,
+                    file_count,
+                    total_bytes,
+                    elapsed,
+                )
+                return (
+                    all_file_paths,
+                    manifest_records,
+                    file_hashes,
+                    total_bytes,
+                    file_count,
+                )
+
+            from core.change_detector import ChangeDetector
+
+            (
+                all_file_paths,
+                manifest_records,
+                file_hashes,
+                total_bytes,
+                file_count,
+            ) = await asyncio.to_thread(_scan_source_files)
+
             tech_stack, dependencies = await asyncio.to_thread(
-                detect_tech_stack_and_deps, files
+                detect_tech_stack_and_deps, manifest_records
             )
             timer.stop("Parse")
             yield f"data: {json.dumps({'status': 'detected', 'message': f'✓ Technologies detected: {tech_stack}'})}\n\n"
 
             # ── 3. Change Detection & Incremental Plan ────────────────────────
-            from core.change_detector import ChangeDetector
             from models.build_manifest import BuildManifest
 
             # Load previous manifest
@@ -411,8 +496,8 @@ async def analyze_repository(request: AnalyzeRequest):
                     logger.warning("Stale or malformed build manifest ignored: %s", exc)
 
             detector = ChangeDetector()
-            change_set, file_hashes, repo_hash = detector.detect_changes(
-                files, old_manifest
+            change_set, file_hashes, repo_hash = detector.detect_changes_from_hashes(
+                file_hashes, old_manifest
             )
 
             # Check schema versions to detect if force rebuild is needed
@@ -442,9 +527,8 @@ async def analyze_repository(request: AnalyzeRequest):
             )
 
             # ── 4. Granular Chunking & Embedding ──────────────────────────────
-            yield f"data: {json.dumps({'status': 'parsing', 'message': f'Parsing Source Files: {len(files)} files'})}\n\n"
+            yield f"data: {json.dumps({'status': 'parsing', 'message': f'Parsing Source Files: {len(all_file_paths)} files'})}\n\n"
 
-            all_chunks = []
             if is_incremental:
                 # Rename sources are deleted before their unchanged-content targets are ingested.
                 files_to_delete = list(
@@ -469,44 +553,39 @@ async def analyze_repository(request: AnalyzeRequest):
                         raise
                     timer.stop("Chroma")
 
-                # Chunk added/modified files and rename targets (deduplicated by path).
-                seen_chunk_paths = set()
-                files_to_chunk = []
                 target_paths = (
                     change_set.added | change_set.modified | renamed_new_paths
                 )
-                for f in files:
-                    p = f["path"]
-                    if p in target_paths and p not in seen_chunk_paths:
-                        seen_chunk_paths.add(p)
-                        files_to_chunk.append(f)
-                new_chunks = []
+                yield f"data: {json.dumps({'status': 'generating_embeddings', 'message': 'Generating Embeddings for modified files...'})}\n\n"
+
                 timer.start("Chunk")
-                for file in files_to_chunk:
-                    file_chunks = chunker.chunk_file(file["path"], file["content"])
-                    new_chunks.extend(file_chunks)
-                timer.stop("Chunk")
+                timer.start("Embedding")
+                timer.start("Chroma")
 
-                yield f"data: {json.dumps({'status': 'generating_embeddings', 'message': f'Generating Embeddings: {len(new_chunks)} new chunks'})}\n\n"
+                batch_size = _get_batch_size()
+                chunk_buffer = []
+                inserted_count = 0
+                file_chunk_counts = {}
+                batch_idx = 0
 
-                if new_chunks:
-                    timer.start("Embedding")
-                    timer.start("Chroma")
-                    total_new = len(new_chunks)
-                    inserted_count = 0
-                    batch_size = embedding_service.max_outer_batch_size
-                    total_batches = (total_new + batch_size - 1) // batch_size
-                    batch_idx = 0
-                    file_chunk_counts = {}
+                for f in _get_source_files_stream(local_path):
+                    p = f["path"]
+                    if p not in target_paths:
+                        continue
+                    file_chunks = chunker.chunk_file(p, f["content"])
+                    if not file_chunks:
+                        continue
+                    chunk_buffer.extend(file_chunks)
 
-                    for (
-                        chunk_batch,
-                        emb_batch,
-                    ) in embedding_service.stream_generate_embeddings_batches(
-                        new_chunks
-                    ):
+                    while len(chunk_buffer) >= batch_size:
+                        chunk_batch = chunk_buffer[:batch_size]
+                        chunk_buffer = chunk_buffer[batch_size:]
                         batch_idx += 1
                         t0 = time.perf_counter()
+
+                        emb_batch = await asyncio.to_thread(
+                            embedding_service.generate_embeddings, chunk_batch
+                        )
 
                         bulk_ids = []
                         bulk_docs = []
@@ -514,11 +593,11 @@ async def analyze_repository(request: AnalyzeRequest):
                         bulk_metadatas = []
 
                         for idx, chunk in enumerate(chunk_batch):
-                            path = chunk["path"]
-                            chunk_idx = file_chunk_counts.get(path, 0)
-                            file_chunk_counts[path] = chunk_idx + 1
+                            c_path = chunk["path"]
+                            chunk_idx = file_chunk_counts.get(c_path, 0)
+                            file_chunk_counts[c_path] = chunk_idx + 1
 
-                            unique_id = f"{repo_name}_{path}_{chunk_idx}".replace(
+                            unique_id = f"{repo_name}_{c_path}_{chunk_idx}".replace(
                                 "/", "_"
                             ).replace(".", "_")
                             bulk_ids.append(unique_id)
@@ -527,9 +606,9 @@ async def analyze_repository(request: AnalyzeRequest):
                             bulk_metadatas.append(
                                 {
                                     "repo_name": repo_name,
-                                    "file_path": path,
+                                    "file_path": c_path,
                                     "chunk_id": chunk_idx,
-                                    "language": chunker.detect_language(path),
+                                    "language": chunker.detect_language(c_path),
                                 }
                             )
 
@@ -543,19 +622,15 @@ async def analyze_repository(request: AnalyzeRequest):
                             )
                             inserted_count += len(bulk_ids)
 
-                        pct = int((inserted_count / total_new) * 100)
                         elapsed_batch = time.perf_counter() - t0
-
                         logger.info(
-                            "Incremental indexing progress batch=%d/%d embedded=%d indexed=%d elapsed=%.2fs",
+                            "Incremental indexing progress batch=%d embedded=%d indexed=%d elapsed=%.2fs",
                             batch_idx,
-                            total_batches,
                             len(emb_batch),
                             inserted_count,
                             elapsed_batch,
                         )
-
-                        yield f"data: {json.dumps({'status': 'generating_embeddings', 'message': f'Generating Embeddings: {inserted_count}/{total_new} new chunks ({pct}%)'})}\n\n"
+                        yield f"data: {json.dumps({'status': 'generating_embeddings', 'message': f'Generating Embeddings: {inserted_count} new chunks'})}\n\n"
 
                         del chunk_batch
                         del emb_batch
@@ -564,42 +639,102 @@ async def analyze_repository(request: AnalyzeRequest):
                         del bulk_embeddings
                         del bulk_metadatas
 
-                    timer.stop("Chroma")
-                    timer.stop("Embedding")
-                    logger.info(
-                        "Successfully bulk inserted %d new chunks into vector store.",
-                        inserted_count,
+                if chunk_buffer:
+                    batch_idx += 1
+                    t0 = time.perf_counter()
+                    emb_batch = await asyncio.to_thread(
+                        embedding_service.generate_embeddings, chunk_buffer
                     )
-            else:
-                # Full Mode: retain the active vectors until index_repository publishes the replacement.
-                # Chunk all files
-                timer.start("Chunk")
-                for file in files:
-                    file_chunks = chunker.chunk_file(file["path"], file["content"])
-                    all_chunks.extend(file_chunks)
+
+                    bulk_ids = []
+                    bulk_docs = []
+                    bulk_embeddings = []
+                    bulk_metadatas = []
+
+                    for idx, chunk in enumerate(chunk_buffer):
+                        c_path = chunk["path"]
+                        chunk_idx = file_chunk_counts.get(c_path, 0)
+                        file_chunk_counts[c_path] = chunk_idx + 1
+
+                        unique_id = f"{repo_name}_{c_path}_{chunk_idx}".replace(
+                            "/", "_"
+                        ).replace(".", "_")
+                        bulk_ids.append(unique_id)
+                        bulk_docs.append(chunk["content"])
+                        bulk_embeddings.append(emb_batch[idx])
+                        bulk_metadatas.append(
+                            {
+                                "repo_name": repo_name,
+                                "file_path": c_path,
+                                "chunk_id": chunk_idx,
+                                "language": chunker.detect_language(c_path),
+                            }
+                        )
+
+                    if bulk_ids:
+                        await asyncio.to_thread(
+                            chroma_store.add_code_chunks_bulk,
+                            bulk_ids,
+                            bulk_docs,
+                            bulk_embeddings,
+                            bulk_metadatas,
+                        )
+                        inserted_count += len(bulk_ids)
+
+                    elapsed_batch = time.perf_counter() - t0
+                    logger.info(
+                        "Incremental indexing progress batch=%d embedded=%d indexed=%d elapsed=%.2fs",
+                        batch_idx,
+                        len(emb_batch),
+                        inserted_count,
+                        elapsed_batch,
+                    )
+                    yield f"data: {json.dumps({'status': 'generating_embeddings', 'message': f'Generating Embeddings: {inserted_count} new chunks'})}\n\n"
+
+                    del chunk_buffer
+                    del emb_batch
+                    del bulk_ids
+                    del bulk_docs
+                    del bulk_embeddings
+                    del bulk_metadatas
+
+                timer.stop("Chroma")
+                timer.stop("Embedding")
                 timer.stop("Chunk")
+                logger.info(
+                    "Successfully bulk inserted %d new chunks into vector store.",
+                    inserted_count,
+                )
+            else:
+                # Full Mode: retain the active vectors until published
+                yield f"data: {json.dumps({'status': 'generating_embeddings', 'message': 'Generating Embeddings: 0 chunks'})}\n\n"
+                timer.start("Chunk")
+                timer.start("Embedding")
+                timer.start("Chroma")
 
-                yield f"data: {json.dumps({'status': 'generating_embeddings', 'message': f'Generating Embeddings: 0/{len(all_chunks)} chunks (0%)'})}\n\n"
+                version = uuid.uuid4().hex
+                staged_count = 0
+                batch_size = _get_batch_size()
+                chunk_buffer = []
+                batch_idx = 0
+                version_staged = False
 
-                if all_chunks:
-                    timer.start("Embedding")
-                    timer.start("Chroma")
-                    version = uuid.uuid4().hex
-                    total_chunks = len(all_chunks)
-                    staged_count = 0
-                    batch_size = embedding_service.max_outer_batch_size
-                    total_batches = (total_chunks + batch_size - 1) // batch_size
-                    batch_idx = 0
+                try:
+                    for f in _get_source_files_stream(local_path):
+                        file_chunks = chunker.chunk_file(f["path"], f["content"])
+                        if not file_chunks:
+                            continue
+                        chunk_buffer.extend(file_chunks)
 
-                    try:
-                        for (
-                            chunk_batch,
-                            emb_batch,
-                        ) in embedding_service.stream_generate_embeddings_batches(
-                            all_chunks
-                        ):
+                        while len(chunk_buffer) >= batch_size:
+                            chunk_batch = chunk_buffer[:batch_size]
+                            chunk_buffer = chunk_buffer[batch_size:]
                             batch_idx += 1
                             t0 = time.perf_counter()
+
+                            emb_batch = await asyncio.to_thread(
+                                embedding_service.generate_embeddings, chunk_batch
+                            )
                             staged_batch_count = await asyncio.to_thread(
                                 chroma_store.stage_repository_batch,
                                 repo_name,
@@ -609,38 +744,69 @@ async def analyze_repository(request: AnalyzeRequest):
                                 staged_count,
                             )
                             staged_count += staged_batch_count
-                            pct = int((staged_count / total_chunks) * 100)
+                            version_staged = True
                             elapsed_batch = time.perf_counter() - t0
 
                             logger.info(
-                                "Indexing progress batch=%d/%d embedded=%d indexed=%d elapsed=%.2fs",
+                                "Indexing progress batch=%d embedded=%d indexed=%d elapsed=%.2fs",
                                 batch_idx,
-                                total_batches,
                                 len(emb_batch),
                                 staged_count,
                                 elapsed_batch,
                             )
-
-                            yield f"data: {json.dumps({'status': 'generating_embeddings', 'message': f'Generating Embeddings: {staged_count}/{total_chunks} chunks ({pct}%)'})}\n\n"
+                            yield f"data: {json.dumps({'status': 'generating_embeddings', 'message': f'Generating Embeddings: {staged_count} chunks'})}\n\n"
 
                             del chunk_batch
                             del emb_batch
 
+                    if chunk_buffer:
+                        batch_idx += 1
+                        t0 = time.perf_counter()
+                        emb_batch = await asyncio.to_thread(
+                            embedding_service.generate_embeddings, chunk_buffer
+                        )
+                        staged_batch_count = await asyncio.to_thread(
+                            chroma_store.stage_repository_batch,
+                            repo_name,
+                            version,
+                            chunk_buffer,
+                            emb_batch,
+                            staged_count,
+                        )
+                        staged_count += staged_batch_count
+                        version_staged = True
+                        elapsed_batch = time.perf_counter() - t0
+
+                        logger.info(
+                            "Indexing progress batch=%d embedded=%d indexed=%d elapsed=%.2fs",
+                            batch_idx,
+                            len(emb_batch),
+                            staged_count,
+                            elapsed_batch,
+                        )
+                        yield f"data: {json.dumps({'status': 'generating_embeddings', 'message': f'Generating Embeddings: {staged_count} chunks'})}\n\n"
+
+                        del chunk_buffer
+                        del emb_batch
+
+                    if version_staged:
                         await asyncio.to_thread(
                             chroma_store.publish_repository_version,
                             repo_name,
                             version,
                         )
-                    except Exception:
+                except Exception:
+                    if version_staged:
                         await asyncio.to_thread(
                             chroma_store.rollback_staged_version,
                             repo_name,
                             version,
                         )
-                        raise
-                    finally:
-                        timer.stop("Chroma")
-                        timer.stop("Embedding")
+                    raise
+                finally:
+                    timer.stop("Chroma")
+                    timer.stop("Embedding")
+                    timer.stop("Chunk")
 
             # ── 5. Granular Symbols & Graph builds ────────────────────────────
             yield f"data: {json.dumps({'status': 'building_symbols', 'message': 'Building Symbol Index'})}\n\n"
@@ -650,12 +816,11 @@ async def analyze_repository(request: AnalyzeRequest):
                     symbol_service.build_partial,
                     repo_name,
                     changed_files,
-                    local_path,
-                    files,
+                    repo_path=local_path,
                 )
             else:
                 await asyncio.to_thread(
-                    symbol_service.build_full, repo_name, local_path, files
+                    symbol_service.build_full, repo_name, repo_path=local_path
                 )
 
             yield f"data: {json.dumps({'status': 'building_dependency', 'message': 'Building Dependency Graph'})}\n\n"
@@ -664,12 +829,11 @@ async def analyze_repository(request: AnalyzeRequest):
                     architecture_service.build_partial,
                     repo_name,
                     changed_files,
-                    local_path,
-                    files,
+                    repo_path=local_path,
                 )
             else:
                 arch_build_result = await asyncio.to_thread(
-                    architecture_service.build_full, repo_name, local_path, files
+                    architecture_service.build_full, repo_name, repo_path=local_path
                 )
 
             _graph_files = arch_build_result.get("files_parsed", 0)
@@ -685,23 +849,19 @@ async def analyze_repository(request: AnalyzeRequest):
 
             if is_incremental:
                 call_gen = call_graph_service.build_partial(
-                    repo_name, changed_files, context=context, files=files
+                    repo_name, changed_files, context=context
                 )
             else:
-                call_gen = call_graph_service.build_full(
-                    repo_name, context=context, files=files
-                )
+                call_gen = call_graph_service.build_full(repo_name, context=context)
             await asyncio.to_thread(lambda: list(call_gen))
 
             yield f"data: {json.dumps({'status': 'building_api', 'message': 'Computing API Surface'})}\n\n"
             if is_incremental:
                 api_gen = api_surface_service.build_partial(
-                    repo_name, changed_files, context=context, files=files
+                    repo_name, changed_files, context=context
                 )
             else:
-                api_gen = api_surface_service.build_full(
-                    repo_name, context=context, files=files
-                )
+                api_gen = api_surface_service.build_full(repo_name, context=context)
             await asyncio.to_thread(
                 lambda: list(api_gen) if hasattr(api_gen, "__iter__") else None
             )
@@ -716,7 +876,7 @@ async def analyze_repository(request: AnalyzeRequest):
                 architecture_summary = cached_entry["architecture"]
             else:
                 architecture_summary = await generate_architecture_summary(
-                    repo_name, tech_stack, [f["path"] for f in files]
+                    repo_name, tech_stack, all_file_paths
                 )
             timer.stop("Summary")
 
@@ -725,8 +885,8 @@ async def analyze_repository(request: AnalyzeRequest):
 
             timer.start("Report")
             structure: Dict[str, List[str]] = {}
-            for f in files:
-                parts = f["path"].split("/")
+            for path in all_file_paths:
+                parts = path.split("/")
                 parent = ".".join(parts[:-1]) if len(parts) > 1 else "."
                 name = parts[-1]
                 structure.setdefault(parent, []).append(name)

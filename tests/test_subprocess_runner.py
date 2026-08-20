@@ -144,3 +144,31 @@ class TestSubprocessRunner:
         assert HISTORY_ANALYSIS_TIMEOUT == 120.0
         assert CLONE_TIMEOUT == 300.0
         assert DEFAULT_TIMEOUT == 30.0
+
+    def test_bounded_output_capture(self) -> None:
+        """Verify that large subprocess output is drained and bounded to max_capture_bytes."""
+        # Output ~200 KB of text
+        cmd = [
+            sys.executable,
+            "-c",
+            "import sys; sys.stdout.write('A' * 200000)",
+        ]
+        res = run_safe_command(cmd, max_capture_bytes=1024)
+        assert res.returncode == 0
+        assert len(res.stdout) == 1024
+        assert res.stdout == "A" * 1024
+
+    def test_bounded_stderr_capture_in_error(self) -> None:
+        """Verify that large stderr on failure is bounded to max_capture_bytes."""
+        cmd = [
+            sys.executable,
+            "-c",
+            "import sys; sys.stderr.write('E' * 50000); sys.exit(1)",
+        ]
+        with pytest.raises(SafeSubprocessError) as exc_info:
+            run_safe_command(cmd, check=True, max_capture_bytes=2048)
+
+        err = exc_info.value
+        assert err.returncode == 1
+        assert len(err.stderr) <= 2048
+        assert "E" * 100 in err.stderr

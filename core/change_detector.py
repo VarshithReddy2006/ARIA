@@ -83,25 +83,20 @@ class ChangeDetector:
                     pass
         return extracted_files
 
-    def detect_changes(
+    def detect_changes_from_hashes(
         self,
-        current_files: List[Dict[str, str]],
+        current_hashes: Dict[str, str],
         old_manifest: Optional[BuildManifest],
     ) -> Tuple[ChangeSet, Dict[str, str], str]:
-        """Compare current files with the previous manifest to identify differences.
+        """Compare precomputed file hashes with the previous manifest to identify differences.
 
         Args:
-            current_files: A list of dicts with {"path": str, "content": str}.
+            current_hashes: Mapping of relative file path to its SHA-256 content hash.
             old_manifest: The BuildManifest from the last build, or None.
 
         Returns:
             A tuple of (ChangeSet, current_file_hashes, current_repository_hash).
         """
-        current_hashes = {
-            f["path"]: self.compute_content_hash(f["content"])
-            for f in current_files
-            if f.get("path")
-        }
         current_repo_hash = self.compute_repository_hash(current_hashes)
 
         if not old_manifest:
@@ -157,3 +152,24 @@ class ChangeDetector:
         )
 
         return change_set, current_hashes, current_repo_hash
+
+    def detect_changes(
+        self,
+        current_files: List[Dict[str, str]],
+        old_manifest: Optional[BuildManifest],
+    ) -> Tuple[ChangeSet, Dict[str, str], str]:
+        """Compare current files with the previous manifest to identify differences.
+
+        Args:
+            current_files: A list of dicts with {"path": str, "content": str}.
+            old_manifest: The BuildManifest from the last build, or None.
+
+        Returns:
+            A tuple of (ChangeSet, current_file_hashes, current_repository_hash).
+        """
+        current_hashes = {
+            f["path"]: self.compute_content_hash(f["content"])
+            for f in current_files
+            if f.get("path")
+        }
+        return self.detect_changes_from_hashes(current_hashes, old_manifest)

@@ -172,3 +172,57 @@ def test_source_file_guard_rejects_a_symlink_before_reading(tmp_path) -> None:
 
     with patch("services.github_service.os.path.islink", return_value=True):
         assert service._safe_source_file(str(source), str(tmp_path)) is False
+
+
+def test_clone_repository_includes_low_speed_protection() -> None:
+    service = GitHubService(token=None)
+    with (
+        patch("services.github_service.run_safe_command") as mock_run,
+        patch("os.path.exists", return_value=False),
+        patch("os.makedirs"),
+    ):
+        mock_run.side_effect = [
+            MagicMock(returncode=0, stdout="HEAD"),
+            MagicMock(returncode=0, stdout="HEAD"),
+            MagicMock(returncode=0, stdout="refs/heads/main"),
+            MagicMock(returncode=0, stdout=""),
+        ]
+        service.clone_repository("https://github.com/owner/repo.git", branch="main")
+
+        clone_cmd = mock_run.call_args_list[3][0][0]
+        assert "-c" in clone_cmd
+        assert "http.lowSpeedLimit=1000" in clone_cmd
+        assert "http.lowSpeedTime=20" in clone_cmd
+
+
+def test_iter_source_files_yields_incrementally(tmp_path) -> None:
+    service = GitHubService(token=None)
+    (tmp_path / "a.py").write_text("print('a')", encoding="utf-8")
+    (tmp_path / "b.js").write_text("console.log('b')", encoding="utf-8")
+    (tmp_path / "c.png").write_bytes(b"\x89PNG")
+
+    items = list(service.iter_source_files(str(tmp_path)))
+    paths = sorted(i["path"] for i in items)
+    assert paths == ["a.py", "b.js"]
+    assert items[0]["content"] in ("print('a')", "console.log('b')")
+
+
+def test_iter_source_files_enforces_byte_limit(tmp_path) -> None:
+    service = GitHubService(token=None)
+    (tmp_path / "big.py").write_text("x" * 500, encoding="utf-8")
+
+    with pytest.raises(
+        ValueError, match="Repository exceeds maximum allowed source size"
+    ):
+        list(service.iter_source_files(str(tmp_path), max_total_bytes=100))
+
+
+def test_iter_source_files_enforces_file_count_limit(tmp_path) -> None:
+    service = GitHubService(token=None)
+    (tmp_path / "f1.py").write_text("1", encoding="utf-8")
+    (tmp_path / "f2.py").write_text("2", encoding="utf-8")
+
+    with pytest.raises(
+        ValueError, match="Repository exceeds maximum allowed file count"
+    ):
+        list(service.iter_source_files(str(tmp_path), max_files=1))

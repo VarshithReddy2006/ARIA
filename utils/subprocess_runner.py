@@ -12,6 +12,7 @@ Features:
 import logging
 import os
 import subprocess
+import threading
 from typing import Dict, Optional, Sequence, Union
 
 logger = logging.getLogger(__name__)
@@ -22,6 +23,9 @@ INSPECTION_TIMEOUT = 30.0
 HISTORY_ANALYSIS_TIMEOUT = 120.0
 CLONE_TIMEOUT = 300.0
 DEFAULT_TIMEOUT = 30.0
+
+# Bounded output capture limit (16 KiB per stream to keep memory low on 512MB instances)
+DEFAULT_MAX_CAPTURE_BYTES = 16384
 
 # Non-interactive Git environment overrides
 SAFE_GIT_ENV: Dict[str, str] = {
@@ -70,6 +74,35 @@ def redact_text(text: str, secrets: Sequence[str]) -> str:
     return redacted
 
 
+def _drain_pipe_bounded(pipe, max_bytes: int = DEFAULT_MAX_CAPTURE_BYTES) -> bytes:
+    """Drain an OS pipe to completion while retaining at most max_bytes in memory.
+
+    Discards any trailing data once max_bytes is reached to prevent high heap usage,
+    while still reading to EOF to prevent the child process from blocking on full OS pipe buffers.
+    """
+    if pipe is None:
+        return b""
+    chunks = []
+    total_len = 0
+    try:
+        while True:
+            chunk = pipe.read(4096)
+            if not chunk:
+                break
+            if total_len < max_bytes:
+                to_take = min(len(chunk), max_bytes - total_len)
+                chunks.append(chunk[:to_take])
+                total_len += to_take
+    except Exception:
+        pass
+    finally:
+        try:
+            pipe.close()
+        except Exception:
+            pass
+    return b"".join(chunks)
+
+
 def run_safe_command(
     cmd: Sequence[str],
     *,
@@ -81,8 +114,9 @@ def run_safe_command(
     capture_output: bool = True,
     text: bool = True,
     max_output_length: int = 10000,
+    max_capture_bytes: int = DEFAULT_MAX_CAPTURE_BYTES,
 ) -> subprocess.CompletedProcess:
-    """Executes a subprocess safely with mandatory timeout, non-shell execution, and secret redaction.
+    """Executes a subprocess safely with mandatory timeout, non-shell execution, and bounded output memory.
 
     Args:
         cmd: Command and arguments list. Must be a sequence of strings.
@@ -91,9 +125,10 @@ def run_safe_command(
         env: Additional environment variables to set.
         secrets: List of sensitive strings to redact from logs, errors, and output.
         check: If True, raises SafeSubprocessError on non-zero exit code.
-        capture_output: If True, capture stdout and stderr.
+        capture_output: If True, capture stdout and stderr up to max_capture_bytes.
         text: If True, decode output as utf-8 text.
         max_output_length: Maximum length of stdout/stderr kept in exceptions.
+        max_capture_bytes: Maximum bytes captured per stream (default 16 KiB).
 
     Returns:
         subprocess.CompletedProcess instance with sanitized stdout/stderr.
@@ -114,33 +149,21 @@ def run_safe_command(
     if env:
         merged_env.update(env)
 
+    stdout_buf = []
+    stderr_buf = []
+    out_thread = None
+    err_thread = None
+
     try:
-        completed = subprocess.run(
+        proc = subprocess.Popen(
             cmd_list,
             cwd=cwd,
-            timeout=timeout,
             shell=False,  # Strictly non-shell execution
-            capture_output=capture_output,
-            text=text,
+            stdin=subprocess.DEVNULL,
+            stdout=subprocess.PIPE if capture_output else None,
+            stderr=subprocess.PIPE if capture_output else None,
             env=merged_env,
-            check=False,  # We handle return code manually for safe secret redaction
         )
-    except subprocess.TimeoutExpired as exc:
-        stdout_str = (
-            redact_text(exc.stdout or "", secrets) if text and exc.stdout else ""
-        )
-        stderr_str = (
-            redact_text(exc.stderr or "", secrets) if text and exc.stderr else ""
-        )
-        safe_cmd = [redact_text(arg, secrets) for arg in cmd_list]
-        raise SafeSubprocessError(
-            cmd=safe_cmd,
-            returncode=-1,
-            stdout=stdout_str[:max_output_length],
-            stderr=stderr_str[:max_output_length],
-            timed_out=True,
-            message=f"Command '{' '.join(safe_cmd)}' timed out after {timeout}s",
-        ) from exc
     except FileNotFoundError as exc:
         safe_cmd = [redact_text(arg, secrets) for arg in cmd_list]
         raise SafeSubprocessError(
@@ -162,15 +185,89 @@ def run_safe_command(
             message=f"Failed to execute command '{' '.join(safe_cmd)}': {exc}",
         ) from exc
 
+    if capture_output:
+        out_thread = threading.Thread(
+            target=lambda: stdout_buf.append(
+                _drain_pipe_bounded(proc.stdout, max_capture_bytes)
+            ),
+            daemon=True,
+        )
+        err_thread = threading.Thread(
+            target=lambda: stderr_buf.append(
+                _drain_pipe_bounded(proc.stderr, max_capture_bytes)
+            ),
+            daemon=True,
+        )
+        out_thread.start()
+        err_thread.start()
+
+    try:
+        returncode = proc.wait(timeout=timeout)
+    except subprocess.TimeoutExpired as exc:
+        try:
+            proc.kill()
+        except Exception:
+            pass
+        try:
+            proc.wait(timeout=2.0)
+        except Exception:
+            pass
+
+        if out_thread:
+            out_thread.join(timeout=1.0)
+        if err_thread:
+            err_thread.join(timeout=1.0)
+
+        stdout_raw = stdout_buf[0] if stdout_buf else b""
+        stderr_raw = stderr_buf[0] if stderr_buf else b""
+        stdout_str = (
+            redact_text(stdout_raw.decode("utf-8", errors="replace"), secrets)
+            if text
+            else ""
+        )
+        stderr_str = (
+            redact_text(stderr_raw.decode("utf-8", errors="replace"), secrets)
+            if text
+            else ""
+        )
+        safe_cmd = [redact_text(arg, secrets) for arg in cmd_list]
+        raise SafeSubprocessError(
+            cmd=safe_cmd,
+            returncode=-1,
+            stdout=stdout_str[:max_output_length],
+            stderr=stderr_str[:max_output_length],
+            timed_out=True,
+            message=f"Command '{' '.join(safe_cmd)}' timed out after {timeout}s",
+        ) from exc
+
+    if out_thread:
+        out_thread.join(timeout=1.0)
+    if err_thread:
+        err_thread.join(timeout=1.0)
+
+    stdout_raw = stdout_buf[0] if stdout_buf else b""
+    stderr_raw = stderr_buf[0] if stderr_buf else b""
+
     # Redact output if text
     if text:
-        stdout_clean = redact_text(completed.stdout or "", secrets)
-        stderr_clean = redact_text(completed.stderr or "", secrets)
+        stdout_clean = redact_text(
+            stdout_raw.decode("utf-8", errors="replace"), secrets
+        )
+        stderr_clean = redact_text(
+            stderr_raw.decode("utf-8", errors="replace"), secrets
+        )
         completed = subprocess.CompletedProcess(
             args=[redact_text(arg, secrets) for arg in cmd_list],
-            returncode=completed.returncode,
+            returncode=returncode,
             stdout=stdout_clean,
             stderr=stderr_clean,
+        )
+    else:
+        completed = subprocess.CompletedProcess(
+            args=[redact_text(arg, secrets) for arg in cmd_list],
+            returncode=returncode,
+            stdout=stdout_raw,
+            stderr=stderr_raw,
         )
 
     if check and completed.returncode != 0:

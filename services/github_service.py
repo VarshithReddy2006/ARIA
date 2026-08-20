@@ -460,7 +460,18 @@ class GitHubService:
                 f"Existing repository clone found at {dest_dir}. Updating via git fetch (branch={target_branch})..."
             )
             try:
-                cmd_fetch = ["git", "fetch", "--depth", "1", clone_url, target_branch]
+                cmd_fetch = [
+                    "git",
+                    "-c",
+                    "http.lowSpeedLimit=1000",
+                    "-c",
+                    "http.lowSpeedTime=20",
+                    "fetch",
+                    "--depth",
+                    "1",
+                    clone_url,
+                    target_branch,
+                ]
                 res_fetch = self._run_git(
                     cmd_fetch,
                     timeout=CLONE_TIMEOUT,
@@ -504,11 +515,21 @@ class GitHubService:
 
         os.makedirs(os.path.dirname(dest_dir), exist_ok=True)
 
-        # 8. Perform Clone
+        # 8. Perform Clone with HTTP low-speed protection to abort stalled transfers early
         logger.info(
             f"Cloning repository {repo_fullName} to {dest_dir} (branch={actual_branch})..."
         )
-        cmd = ["git", "clone", "--depth", "1", "--single-branch"]
+        cmd = [
+            "git",
+            "-c",
+            "http.lowSpeedLimit=1000",
+            "-c",
+            "http.lowSpeedTime=20",
+            "clone",
+            "--depth",
+            "1",
+            "--single-branch",
+        ]
         if actual_branch:
             cmd.extend(["--branch", actual_branch])
         cmd.extend([clone_url, dest_dir])
@@ -550,8 +571,50 @@ class GitHubService:
         except (OSError, ValueError):
             return False
 
-    def extract_source_files(self, local_path: str) -> List[Dict[str, Any]]:
-        """Walks the cloned repository and extracts safe, bounded text files."""
+    _BINARY_EXTENSIONS = frozenset(
+        {
+            ".png",
+            ".jpg",
+            ".jpeg",
+            ".gif",
+            ".ico",
+            ".pdf",
+            ".zip",
+            ".tar",
+            ".gz",
+            ".mp3",
+            ".mp4",
+            ".woff",
+            ".woff2",
+            ".ttf",
+            ".eot",
+            ".svg",
+            ".pyc",
+            ".db",
+            ".sqlite",
+            ".exe",
+            ".bin",
+            ".dll",
+            ".so",
+            ".dylib",
+            ".pkl",
+            ".h5",
+        }
+    )
+    _MAX_TOTAL_SOURCE_BYTES = 150 * 1024 * 1024  # 150 MB total extracted text limit
+    _MAX_TOTAL_SOURCE_FILES = 50_000
+
+    def iter_source_files(
+        self,
+        local_path: str,
+        max_total_bytes: Optional[int] = None,
+        max_files: Optional[int] = None,
+    ):
+        """Yields safe source files one by one to prevent loading the entire repository into RAM.
+
+        Yields:
+            Dict containing {"path": rel_path, "content": file_content}
+        """
         ignored_names = {
             "node_modules",
             ".git",
@@ -565,7 +628,11 @@ class GitHubService:
             "coverage",
             "data",
         }
-        extracted_files = []
+        effective_max_bytes = max_total_bytes or self._MAX_TOTAL_SOURCE_BYTES
+        effective_max_files = max_files or self._MAX_TOTAL_SOURCE_FILES
+
+        files_processed = 0
+        bytes_processed = 0
 
         for root, dirs, files in os.walk(local_path):
             dirs[:] = [
@@ -583,34 +650,7 @@ class GitHubService:
                     continue
 
                 ext = os.path.splitext(file)[1].lower()
-                if ext in {
-                    ".png",
-                    ".jpg",
-                    ".jpeg",
-                    ".gif",
-                    ".ico",
-                    ".pdf",
-                    ".zip",
-                    ".tar",
-                    ".gz",
-                    ".mp3",
-                    ".mp4",
-                    ".woff",
-                    ".woff2",
-                    ".ttf",
-                    ".eot",
-                    ".svg",
-                    ".pyc",
-                    ".db",
-                    ".sqlite",
-                    ".exe",
-                    ".bin",
-                    ".dll",
-                    ".so",
-                    ".dylib",
-                    ".pkl",
-                    ".h5",
-                }:
+                if ext in self._BINARY_EXTENSIONS:
                     continue
 
                 if not self._safe_source_file(file_path, local_path):
@@ -619,18 +659,35 @@ class GitHubService:
                     )
                     continue
 
+                files_processed += 1
+                if files_processed > effective_max_files:
+                    raise ValueError(
+                        f"Repository exceeds maximum allowed file count ({effective_max_files} files)."
+                    )
+
                 try:
                     with open(file_path, "r", encoding="utf-8", errors="ignore") as f:
                         content = f.read()
-                    extracted_files.append(
-                        {"path": rel_path.replace(os.sep, "/"), "content": content}
-                    )
+
+                    content_bytes = len(content.encode("utf-8", errors="replace"))
+                    bytes_processed += content_bytes
+                    if bytes_processed > effective_max_bytes:
+                        raise ValueError(
+                            f"Repository exceeds maximum allowed source size ({effective_max_bytes // (1024 * 1024)} MB)."
+                        )
+
+                    yield {
+                        "path": rel_path.replace(os.sep, "/"),
+                        "content": content,
+                    }
                 except OSError as exc:
                     logger.debug(
                         "Skipping file %s due to read error: %s", rel_path, exc
                     )
 
-        return extracted_files
+    def extract_source_files(self, local_path: str) -> List[Dict[str, Any]]:
+        """Walks the cloned repository and extracts safe, bounded text files."""
+        return list(self.iter_source_files(local_path))
 
     def fetch_repository_files(
         self, repo_fullName: str, branch: str = "main"

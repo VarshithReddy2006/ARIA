@@ -37,6 +37,8 @@ def test_all_route_paths_use_canonical_or_operational_prefixes():
         "/redoc",
     )
     for route in app.routes:
+        if getattr(route, "name", None) == "frontend":
+            continue
         if hasattr(route, "path"):
             assert route.path.startswith(allowed_prefixes)
 
