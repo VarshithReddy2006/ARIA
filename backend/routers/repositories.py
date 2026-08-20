@@ -18,7 +18,8 @@ import time
 import uuid
 from typing import Dict, List
 
-from utils.subprocess_runner import run_safe_command, SHORT_GIT_TIMEOUT
+from utils.memory_tracker import MemoryTracker
+from utils.subprocess_runner import SHORT_GIT_TIMEOUT, run_safe_command
 
 from fastapi import APIRouter, HTTPException
 from fastapi.responses import StreamingResponse
@@ -406,21 +407,25 @@ async def analyze_repository(request: AnalyzeRequest):
 
     async def event_generator():
         timer = PipelineTimer()
+        mem_tracker = MemoryTracker(repo_name=repo_name, logger_instance=logger)
         try:
             start_time = time.time()
 
             # ── 1. Cloning ────────────────────────────────────────────────────
+            mem_tracker.log_phase("before_clone")
             yield f"data: {json.dumps({'status': 'cloning', 'message': 'Cloning repository from GitHub...'})}\n\n"
             timer.start("Clone")
             local_path = await asyncio.to_thread(
                 github_service.clone_repository, repo_url, request.branch
             )
             timer.stop("Clone")
+            mem_tracker.log_phase("after_clone", local_path=local_path)
             yield f"data: {json.dumps({'status': 'cloned', 'message': '✓ Repository cloned successfully'})}\n\n"
 
             # ── 2. Detecting & Extracting ──────────────────────────────────────
             yield f"data: {json.dumps({'status': 'detecting', 'message': 'Detecting languages and frameworks...'})}\n\n"
             timer.start("Parse")
+            mem_tracker.log_phase("before_iter_source_files")
 
             def _scan_source_files():
                 all_file_paths = []
@@ -438,6 +443,7 @@ async def analyze_repository(request: AnalyzeRequest):
                     total_bytes += content_bytes
                     all_file_paths.append(p)
                     file_hashes[p] = ChangeDetector.compute_content_hash(content)
+                    mem_tracker.record_file(content_bytes)
 
                     # Keep minimal manifests for tech-stack / dependency parsing
                     if (
@@ -474,10 +480,13 @@ async def analyze_repository(request: AnalyzeRequest):
                 total_bytes,
                 file_count,
             ) = await asyncio.to_thread(_scan_source_files)
+            mem_tracker.log_phase("after_extraction")
 
+            mem_tracker.log_phase("before_tech_stack_detection")
             tech_stack, dependencies = await asyncio.to_thread(
                 detect_tech_stack_and_deps, manifest_records
             )
+            mem_tracker.log_phase("after_tech_stack_detection")
             timer.stop("Parse")
             yield f"data: {json.dumps({'status': 'detected', 'message': f'✓ Technologies detected: {tech_stack}'})}\n\n"
 
@@ -495,10 +504,12 @@ async def analyze_repository(request: AnalyzeRequest):
                 except Exception as exc:
                     logger.warning("Stale or malformed build manifest ignored: %s", exc)
 
+            mem_tracker.log_phase("before_change_detection")
             detector = ChangeDetector()
             change_set, file_hashes, repo_hash = detector.detect_changes_from_hashes(
                 file_hashes, old_manifest
             )
+            mem_tracker.log_phase("after_change_detection")
 
             # Check schema versions to detect if force rebuild is needed
             schema_mismatch = False
@@ -562,6 +573,7 @@ async def analyze_repository(request: AnalyzeRequest):
                 timer.start("Embedding")
                 timer.start("Chroma")
 
+                mem_tracker.log_phase("before_chunking")
                 batch_size = _get_batch_size()
                 chunk_buffer = []
                 inserted_count = 0
@@ -575,6 +587,7 @@ async def analyze_repository(request: AnalyzeRequest):
                     file_chunks = chunker.chunk_file(p, f["content"])
                     if not file_chunks:
                         continue
+                    mem_tracker.record_chunk(len(file_chunks))
                     chunk_buffer.extend(file_chunks)
 
                     while len(chunk_buffer) >= batch_size:
@@ -583,8 +596,16 @@ async def analyze_repository(request: AnalyzeRequest):
                         batch_idx += 1
                         t0 = time.perf_counter()
 
+                        if batch_idx == 1:
+                            mem_tracker.log_phase("before_first_embedding_batch")
+
                         emb_batch = await asyncio.to_thread(
                             embedding_service.generate_embeddings, chunk_batch
+                        )
+                        mem_tracker.log_phase(
+                            "after_embedding_batch",
+                            batch=batch_idx,
+                            batch_items=len(chunk_batch),
                         )
 
                         bulk_ids = []
@@ -621,6 +642,13 @@ async def analyze_repository(request: AnalyzeRequest):
                                 bulk_metadatas,
                             )
                             inserted_count += len(bulk_ids)
+                            mem_tracker.record_embeddings_indexed(len(bulk_ids))
+
+                        mem_tracker.log_phase(
+                            "after_vector_store_staging_batch",
+                            batch=batch_idx,
+                            staged=inserted_count,
+                        )
 
                         elapsed_batch = time.perf_counter() - t0
                         logger.info(
@@ -642,8 +670,16 @@ async def analyze_repository(request: AnalyzeRequest):
                 if chunk_buffer:
                     batch_idx += 1
                     t0 = time.perf_counter()
+                    if batch_idx == 1:
+                        mem_tracker.log_phase("before_first_embedding_batch")
+
                     emb_batch = await asyncio.to_thread(
                         embedding_service.generate_embeddings, chunk_buffer
+                    )
+                    mem_tracker.log_phase(
+                        "after_embedding_batch",
+                        batch=batch_idx,
+                        batch_items=len(chunk_buffer),
                     )
 
                     bulk_ids = []
@@ -680,6 +716,13 @@ async def analyze_repository(request: AnalyzeRequest):
                             bulk_metadatas,
                         )
                         inserted_count += len(bulk_ids)
+                        mem_tracker.record_embeddings_indexed(len(bulk_ids))
+
+                    mem_tracker.log_phase(
+                        "after_vector_store_staging_batch",
+                        batch=batch_idx,
+                        staged=inserted_count,
+                    )
 
                     elapsed_batch = time.perf_counter() - t0
                     logger.info(
@@ -712,6 +755,7 @@ async def analyze_repository(request: AnalyzeRequest):
                 timer.start("Embedding")
                 timer.start("Chroma")
 
+                mem_tracker.log_phase("before_chunking")
                 version = uuid.uuid4().hex
                 staged_count = 0
                 batch_size = _get_batch_size()
@@ -724,6 +768,7 @@ async def analyze_repository(request: AnalyzeRequest):
                         file_chunks = chunker.chunk_file(f["path"], f["content"])
                         if not file_chunks:
                             continue
+                        mem_tracker.record_chunk(len(file_chunks))
                         chunk_buffer.extend(file_chunks)
 
                         while len(chunk_buffer) >= batch_size:
@@ -732,9 +777,18 @@ async def analyze_repository(request: AnalyzeRequest):
                             batch_idx += 1
                             t0 = time.perf_counter()
 
+                            if batch_idx == 1:
+                                mem_tracker.log_phase("before_first_embedding_batch")
+
                             emb_batch = await asyncio.to_thread(
                                 embedding_service.generate_embeddings, chunk_batch
                             )
+                            mem_tracker.log_phase(
+                                "after_embedding_batch",
+                                batch=batch_idx,
+                                batch_items=len(chunk_batch),
+                            )
+
                             staged_batch_count = await asyncio.to_thread(
                                 chroma_store.stage_repository_batch,
                                 repo_name,
@@ -745,6 +799,13 @@ async def analyze_repository(request: AnalyzeRequest):
                             )
                             staged_count += staged_batch_count
                             version_staged = True
+                            mem_tracker.record_embeddings_indexed(staged_batch_count)
+                            mem_tracker.log_phase(
+                                "after_vector_store_staging_batch",
+                                batch=batch_idx,
+                                staged=staged_count,
+                            )
+
                             elapsed_batch = time.perf_counter() - t0
 
                             logger.info(
@@ -762,9 +823,18 @@ async def analyze_repository(request: AnalyzeRequest):
                     if chunk_buffer:
                         batch_idx += 1
                         t0 = time.perf_counter()
+                        if batch_idx == 1:
+                            mem_tracker.log_phase("before_first_embedding_batch")
+
                         emb_batch = await asyncio.to_thread(
                             embedding_service.generate_embeddings, chunk_buffer
                         )
+                        mem_tracker.log_phase(
+                            "after_embedding_batch",
+                            batch=batch_idx,
+                            batch_items=len(chunk_buffer),
+                        )
+
                         staged_batch_count = await asyncio.to_thread(
                             chroma_store.stage_repository_batch,
                             repo_name,
@@ -775,6 +845,13 @@ async def analyze_repository(request: AnalyzeRequest):
                         )
                         staged_count += staged_batch_count
                         version_staged = True
+                        mem_tracker.record_embeddings_indexed(staged_batch_count)
+                        mem_tracker.log_phase(
+                            "after_vector_store_staging_batch",
+                            batch=batch_idx,
+                            staged=staged_count,
+                        )
+
                         elapsed_batch = time.perf_counter() - t0
 
                         logger.info(
@@ -811,6 +888,7 @@ async def analyze_repository(request: AnalyzeRequest):
             # ── 5. Granular Symbols & Graph builds ────────────────────────────
             yield f"data: {json.dumps({'status': 'building_symbols', 'message': 'Building Symbol Index'})}\n\n"
             timer.start("Graphs")
+            mem_tracker.log_phase("before_graph_symbol_analysis")
             if is_incremental:
                 await asyncio.to_thread(
                     symbol_service.build_partial,
@@ -822,8 +900,10 @@ async def analyze_repository(request: AnalyzeRequest):
                 await asyncio.to_thread(
                     symbol_service.build_full, repo_name, repo_path=local_path
                 )
+            mem_tracker.log_phase("after_graph_symbol_analysis")
 
             yield f"data: {json.dumps({'status': 'building_dependency', 'message': 'Building Dependency Graph'})}\n\n"
+            mem_tracker.log_phase("before_architecture_analysis")
             if is_incremental:
                 arch_build_result = await asyncio.to_thread(
                     architecture_service.build_partial,
@@ -866,11 +946,13 @@ async def analyze_repository(request: AnalyzeRequest):
                 lambda: list(api_gen) if hasattr(api_gen, "__iter__") else None
             )
             timer.stop("Graphs")
+            mem_tracker.log_phase("after_architecture_analysis")
 
             # ── 6. Caching Architecture Summary ───────────────────────────────
             yield f"data: {json.dumps({'status': 'computing_intel', 'message': 'Computing Repository Intelligence'})}\n\n"
 
             timer.start("Summary")
+            mem_tracker.log_phase("before_report_generation")
             cached_entry = ANALYSIS_STORE.get(repo_name)
             if cached_entry and is_incremental:
                 architecture_summary = cached_entry["architecture"]
@@ -971,6 +1053,7 @@ async def analyze_repository(request: AnalyzeRequest):
                 )
 
             timer.stop("Report")
+            mem_tracker.log_phase("after_report_generation")
 
             report_msg = timer.format_report()
             logger.info(report_msg)
@@ -983,6 +1066,8 @@ async def analyze_repository(request: AnalyzeRequest):
             err_msg = format_analysis_error(e)
             yield f"data: {json.dumps({'status': 'error', 'message': err_msg})}\n\n"
             yield f"data: {json.dumps({'status': 'done'})}\n\n"
+        finally:
+            mem_tracker.log_phase("pipeline_shutdown")
 
     return StreamingResponse(event_generator(), media_type="text/event-stream")
 

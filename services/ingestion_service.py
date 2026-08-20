@@ -77,16 +77,20 @@ def detect_tech_stack_and_deps(
             tech_stack.add("Python")
 
     for f in files:
-        if f["path"].endswith("package.json"):
+        path = f.get("path", "")
+        content = f.get("content", "")
+        if not content:
+            continue
+        if path.endswith("package.json"):
             try:
-                data = json.loads(f["content"])
+                data = json.loads(content)
                 for dep_key in ("dependencies", "devDependencies"):
                     if dep_key in data:
                         dependencies.update(data[dep_key].keys())
             except Exception:
                 pass
-        elif f["path"].endswith("requirements.txt"):
-            for line in f["content"].splitlines():
+        elif path.endswith("requirements.txt"):
+            for line in content.splitlines():
                 line = line.strip()
                 if line and not line.startswith("#"):
                     pkg = (
