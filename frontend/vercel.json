@@ -4,6 +4,14 @@
     {
       "source": "/api/:path*",
       "destination": "https://aria-intelligence-v2iq.onrender.com/api/:path*"
+    },
+    {
+      "source": "/health",
+      "destination": "https://aria-intelligence-v2iq.onrender.com/health"
+    },
+    {
+      "source": "/ready",
+      "destination": "https://aria-intelligence-v2iq.onrender.com/ready"
     }
   ]
 }
