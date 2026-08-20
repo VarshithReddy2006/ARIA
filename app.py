@@ -23,9 +23,11 @@ _frontend_dist = os.path.join(
     "dist",
 )
 if not os.path.isdir(_frontend_dist):
+
     @fastapi_app.get("/", include_in_schema=False)
     async def _root_to_gradio():
         return RedirectResponse(url="/gradio")
+
 
 try:
     import gradio as gr
