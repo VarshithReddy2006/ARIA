@@ -147,9 +147,10 @@ async def test_gemini_retry_and_timeout():
         assert mock_sleep.call_args[0][0] >= 1.0
 
 
-def test_startup_warmup_execution():
-    """Verify that startup warmup runs without errors."""
+def test_startup_warmup_execution_development():
+    """Verify that startup warmup runs embedding model and tree-sitter in non-production."""
     with (
+        patch("backend.settings.settings.app_env", "development"),
         patch("services.embedding_service._get_model") as mock_embed_model,
         patch("services.tree_sitter_service.TreeSitterService") as mock_ts_service,
     ):
@@ -167,3 +168,21 @@ def test_startup_warmup_execution():
             ["Represent this sentence: dummy text"], show_progress_bar=False
         )
         assert mock_ts_service.call_count >= 1
+
+
+def test_startup_warmup_execution_production():
+    """Verify that production startup skips eager embedding model warmup to conserve memory."""
+    with (
+        patch("backend.settings.settings.app_env", "production"),
+        patch("services.embedding_service._get_model") as mock_embed_model,
+        patch("services.tree_sitter_service.TreeSitterService") as mock_ts_service,
+    ):
+        from backend.api import _warmup_services
+
+        _warmup_services()
+
+        # Embedding model must NOT be loaded or encoded during production startup
+        assert mock_embed_model.call_count == 0
+        # Tree-sitter warmup should still execute
+        assert mock_ts_service.call_count >= 1
+

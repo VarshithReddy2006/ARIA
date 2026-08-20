@@ -223,3 +223,19 @@ def test_openapi_version_matches_release() -> None:
     assert response.status_code == 200
     schema = response.json()
     assert schema["info"]["version"] == "1.5.0"
+
+
+def test_production_startup_skips_embedding_warmup() -> None:
+    """Verify that in production mode, startup warmup does not eagerly load or encode with embedding model."""
+    from backend.api import _warmup_services
+
+    with (
+        patch("backend.settings.settings.app_env", "production"),
+        patch("services.embedding_service._get_model") as mock_get_model,
+        patch("services.tree_sitter_service.TreeSitterService") as mock_ts,
+    ):
+        _warmup_services()
+        mock_get_model.assert_not_called()
+        mock_ts.assert_called_once()
+
+

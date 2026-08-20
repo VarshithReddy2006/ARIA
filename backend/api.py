@@ -150,12 +150,17 @@ def _warmup_services() -> None:
 
     logger = logging.getLogger("backend.api")
     try:
-        from services.embedding_service import _get_model
+        if settings.app_env != "production":
+            from services.embedding_service import _get_model
 
-        logger.info("Warming up embedding model and tokenizer...")
-        model = _get_model()
-        model.encode(["Represent this sentence: dummy text"], show_progress_bar=False)
-        logger.info("Embedding model and tokenizer warmed up successfully.")
+            logger.info("Warming up embedding model and tokenizer...")
+            model = _get_model()
+            model.encode(["Represent this sentence: dummy text"], show_progress_bar=False)
+            logger.info("Embedding model and tokenizer warmed up successfully.")
+        else:
+            logger.info(
+                "Production mode: Skipping eager embedding model warmup to conserve memory."
+            )
 
         from services.tree_sitter_service import TreeSitterService
 
@@ -165,6 +170,7 @@ def _warmup_services() -> None:
         logger.info("Python Tree-sitter parser warmed up successfully.")
     except Exception as exc:
         logger.warning("Startup warm-up failed: %s", exc, exc_info=True)
+
 
 
 # ---------------------------------------------------------------------------
