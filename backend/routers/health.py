@@ -23,6 +23,16 @@ def health() -> Dict[str, Any]:
         settings.gemini_model if provider == "gemini" else settings.deepseek_model
     )
     uptime_seconds = round(time.time() - _START_TIME, 2)
+    vector_db = settings.vector_store_backend
+    try:
+        from backend.dependencies import get_vector_store
+
+        vector_store = get_vector_store()
+        if hasattr(vector_store, "active_backend"):
+            vector_db = vector_store.active_backend
+    except Exception:
+        pass
+
     return {
         "status": "healthy",
         "backend": "online",
@@ -31,7 +41,7 @@ def health() -> Dict[str, Any]:
         "llm_provider": settings.llm_provider,
         "llm_model": active_model,
         "embedding_provider": settings.embedding_model,
-        "vector_db": "chromadb",
+        "vector_db": vector_db,
     }
 
 

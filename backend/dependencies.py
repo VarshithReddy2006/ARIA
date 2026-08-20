@@ -331,6 +331,8 @@ def get_qdrant_store() -> Optional[QdrantStore]:
                 url=settings.qdrant_url,
                 grpc_port=settings.qdrant_grpc_port,
                 prefer_grpc=settings.qdrant_prefer_grpc,
+                api_key=settings.qdrant_api_key,
+                timeout=settings.qdrant_timeout,
             ),
         )
     except (ImportError, Exception) as exc:
