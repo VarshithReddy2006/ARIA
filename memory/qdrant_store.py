@@ -453,14 +453,15 @@ class QdrantStore:
                 )
             return {"documents": docs, "metadatas": metas, "ids": ids}
 
-    def index_repository(
+    def stage_repository_batch(
         self,
         repo_name: str,
+        version: str,
         chunks: List[Dict[str, Any]],
         embeddings: List[List[float]],
-        version: Optional[str] = None,
-    ) -> str:
-        """Stage a complete repository index and publish it only after staging succeeds."""
+        start_chunk_id: int = 0,
+    ) -> int:
+        """Stage a batch of chunks for a repository version. Returns count of staged chunks."""
         filtered_indices = [
             index
             for index, chunk in enumerate(chunks)
@@ -472,7 +473,6 @@ class QdrantStore:
         ):
             raise ValueError("Embeddings must be provided and aligned with chunks.")
 
-        version = version or uuid.uuid4().hex
         filtered_chunks = [chunks[index] for index in filtered_indices]
         filtered_embeddings = [embeddings[index] for index in filtered_indices]
         ids: List[str] = []
@@ -481,7 +481,7 @@ class QdrantStore:
 
         for out_index, chunk in enumerate(filtered_chunks):
             path = chunk.get("path") or chunk.get("file_path", "")
-            chunk_id = chunk.get("chunk_id", out_index)
+            chunk_id = chunk.get("chunk_id", start_chunk_id + out_index)
             ids.append(
                 f"{repo_name}_{version}_{path}_{chunk_id}".replace("/", "_").replace(
                     ".", "_"
@@ -498,12 +498,21 @@ class QdrantStore:
                 }
             )
 
-        try:
+        if ids:
             self.add_code_chunks_bulk(ids, documents, filtered_embeddings, metadatas)
-            with self._publication_lock:
-                previous_version = self._active_version(repo_name)
-                self._publish_version(repo_name, version)
-                if previous_version is not None:
+        return len(ids)
+
+    def publish_repository_version(
+        self,
+        repo_name: str,
+        version: str,
+    ) -> None:
+        """Publish staged repository version and delete previous version."""
+        with self._publication_lock:
+            previous_version = self._active_version(repo_name)
+            self._publish_version(repo_name, version)
+            if previous_version is not None and previous_version != version:
+                try:
                     self.client.delete(
                         collection_name=COLLECTION_CHUNKS,
                         points_selector=models.FilterSelector(
@@ -521,39 +530,71 @@ class QdrantStore:
                             )
                         ),
                     )
-        except Exception:
-            try:
-                self.client.delete(
-                    collection_name=COLLECTION_CHUNKS,
-                    points_selector=models.FilterSelector(
-                        filter=Filter(
-                            must=[
-                                FieldCondition(
-                                    key="repo_name", match=MatchValue(value=repo_name)
-                                ),
-                                FieldCondition(
-                                    key="index_version", match=MatchValue(value=version)
-                                ),
-                            ]
-                        )
-                    ),
-                )
-            except Exception as cleanup_error:
-                logger.warning(
-                    "Failed to clean staged index for %s: %s", repo_name, cleanup_error
-                )
-            raise
+                except Exception as exc:
+                    logger.warning(
+                        "Failed to delete previous index version %s for %s: %s",
+                        previous_version,
+                        repo_name,
+                        exc,
+                    )
 
-        logger.info(
-            "Published %d chunks for repository %s in Qdrant.", len(ids), repo_name
-        )
         try:
             from services.chat.retrieval_cache import retrieval_cache
 
             retrieval_cache.invalidate_repo(repo_name)
         except ImportError:
             pass
-        return version
+
+    def rollback_staged_version(
+        self,
+        repo_name: str,
+        version: str,
+    ) -> None:
+        """Clean up staged chunks if indexing failed before publication."""
+        try:
+            self.client.delete(
+                collection_name=COLLECTION_CHUNKS,
+                points_selector=models.FilterSelector(
+                    filter=Filter(
+                        must=[
+                            FieldCondition(
+                                key="repo_name", match=MatchValue(value=repo_name)
+                            ),
+                            FieldCondition(
+                                key="index_version", match=MatchValue(value=version)
+                            ),
+                        ]
+                    )
+                ),
+            )
+        except Exception as cleanup_error:
+            logger.warning(
+                "Failed to clean staged index for %s: %s", repo_name, cleanup_error
+            )
+
+    def index_repository(
+        self,
+        repo_name: str,
+        chunks: List[Dict[str, Any]],
+        embeddings: List[List[float]],
+        version: Optional[str] = None,
+    ) -> str:
+        """Stage a complete repository index and publish it only after staging succeeds."""
+        version = version or uuid.uuid4().hex
+        try:
+            staged_count = self.stage_repository_batch(
+                repo_name, version, chunks, embeddings
+            )
+            self.publish_repository_version(repo_name, version)
+            logger.info(
+                "Published %d chunks for repository %s in Qdrant.",
+                staged_count,
+                repo_name,
+            )
+            return version
+        except Exception:
+            self.rollback_staged_version(repo_name, version)
+            raise
 
     def delete_files(self, repo_name: str, file_paths: List[str]) -> None:
         """Remove paths from the currently published repository revision in Qdrant."""

@@ -237,14 +237,15 @@ class ChromaStore:
             name="repository_index_versions"
         )
 
-    def index_repository(
+    def stage_repository_batch(
         self,
         repo_name: str,
+        version: str,
         chunks: List[Dict[str, Any]],
         embeddings: List[List[float]],
-        version: Optional[str] = None,
-    ) -> str:
-        """Stage a complete repository index and publish it only after it is complete."""
+        start_chunk_id: int = 0,
+    ) -> int:
+        """Stage a batch of chunks for a repository version in ChromaStore."""
         filtered_indices = [
             index
             for index, chunk in enumerate(chunks)
@@ -256,7 +257,6 @@ class ChromaStore:
         ):
             raise ValueError("Embeddings must be provided and aligned with chunks.")
 
-        version = version or uuid.uuid4().hex
         filtered_chunks = [chunks[index] for index in filtered_indices]
         filtered_embeddings = [embeddings[index] for index in filtered_indices]
         ids: List[str] = []
@@ -265,7 +265,7 @@ class ChromaStore:
 
         for out_index, chunk in enumerate(filtered_chunks):
             path = chunk.get("path") or chunk.get("file_path", "")
-            chunk_id = chunk.get("chunk_id", out_index)
+            chunk_id = chunk.get("chunk_id", start_chunk_id + out_index)
             ids.append(
                 f"{repo_name}_{version}_{path}_{chunk_id}".replace("/", "_").replace(
                     ".", "_"
@@ -282,56 +282,74 @@ class ChromaStore:
                 }
             )
 
-        try:
-            # Staging uses a version not visible to readers, so the active revision
-            # remains queryable until the short publish swap below.
+        if ids:
             self._add_in_batches(ids, documents, filtered_embeddings, metadatas)
-            staged_count = 0
-            if ids:
-                staged_count = len(
-                    self.collection.get(
-                        where=self._where_for_repository(repo_name, version),
-                        include=["metadatas"],
-                    ).get("ids", [])
-                )
-            if staged_count != len(ids):
-                raise RuntimeError("Failed to stage all repository chunks.")
+        return len(ids)
 
-            with self._publication_lock:
-                previous_version = self._active_version(repo_name)
-                self._publish_version(repo_name, version)
-                if previous_version is None:
-                    self.collection.delete(
-                        where={
-                            "$and": [
-                                {"repo_name": repo_name},
-                                {"index_version": {"$ne": version}},
-                            ]
-                        }
-                    )
-                else:
-                    self.collection.delete(
-                        where=self._where_for_repository(repo_name, previous_version)
-                    )
-        except Exception:
-            try:
+    def publish_repository_version(
+        self,
+        repo_name: str,
+        version: str,
+    ) -> None:
+        """Publish staged repository version and delete previous version."""
+        with self._publication_lock:
+            previous_version = self._active_version(repo_name)
+            self._publish_version(repo_name, version)
+            if previous_version is None:
                 self.collection.delete(
-                    where=self._where_for_repository(repo_name, version)
+                    where={
+                        "$and": [
+                            {"repo_name": repo_name},
+                            {"index_version": {"$ne": version}},
+                        ]
+                    }
                 )
-            except Exception as cleanup_error:
-                logger.warning(
-                    "Failed to clean staged index for %s: %s", repo_name, cleanup_error
+            elif previous_version != version:
+                self.collection.delete(
+                    where=self._where_for_repository(repo_name, previous_version)
                 )
-            raise
 
-        logger.info("Published %d chunks for repository %s.", len(ids), repo_name)
         try:
             from services.chat.retrieval_cache import retrieval_cache
 
             retrieval_cache.invalidate_repo(repo_name)
         except ImportError:
             pass
-        return version
+
+    def rollback_staged_version(
+        self,
+        repo_name: str,
+        version: str,
+    ) -> None:
+        """Clean up staged chunks if indexing failed before publication."""
+        try:
+            self.collection.delete(where=self._where_for_repository(repo_name, version))
+        except Exception as cleanup_error:
+            logger.warning(
+                "Failed to clean staged index for %s: %s", repo_name, cleanup_error
+            )
+
+    def index_repository(
+        self,
+        repo_name: str,
+        chunks: List[Dict[str, Any]],
+        embeddings: List[List[float]],
+        version: Optional[str] = None,
+    ) -> str:
+        """Stage a complete repository index and publish it only after it is complete."""
+        version = version or uuid.uuid4().hex
+        try:
+            staged_count = self.stage_repository_batch(
+                repo_name, version, chunks, embeddings
+            )
+            self.publish_repository_version(repo_name, version)
+            logger.info(
+                "Published %d chunks for repository %s.", staged_count, repo_name
+            )
+            return version
+        except Exception:
+            self.rollback_staged_version(repo_name, version)
+            raise
 
     def _search_repository(
         self, repo_name: str, query_embedding: List[float], limit: int

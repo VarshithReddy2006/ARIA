@@ -49,6 +49,27 @@ class VectorStore(Protocol):
         embeddings: List[List[float]],
     ) -> None: ...
 
+    def stage_repository_batch(
+        self,
+        repo_name: str,
+        version: str,
+        chunks: List[Dict[str, Any]],
+        embeddings: List[List[float]],
+        start_chunk_id: int = 0,
+    ) -> int: ...
+
+    def publish_repository_version(
+        self,
+        repo_name: str,
+        version: str,
+    ) -> None: ...
+
+    def rollback_staged_version(
+        self,
+        repo_name: str,
+        version: str,
+    ) -> None: ...
+
     def get_repository_file_paths(self, repo_name: str) -> List[str]: ...
 
     def get_file_chunks(self, repo_name: str, file_path: str) -> Dict[str, Any]: ...
@@ -304,6 +325,98 @@ class ProductionVectorStore:
                 logger.warning("Primary Qdrant add_code_chunks_bulk failed: %s", exc)
         if self.fallback is not None:
             self.fallback.add_code_chunks_bulk(ids, documents, embeddings, metadatas)
+
+    # --------------------------------------------------------------------------
+    # Version-Isolated Staging & Dual-Write Methods
+    # --------------------------------------------------------------------------
+
+    def stage_repository_batch(
+        self,
+        repo_name: str,
+        version: str,
+        chunks: List[Dict[str, Any]],
+        embeddings: List[List[float]],
+        start_chunk_id: int = 0,
+    ) -> int:
+        """Dual-write stage repository batch across Primary and Fallback."""
+        primary_ok = False
+        if self.primary is not None:
+            try:
+                if hasattr(self.primary, "stage_repository_batch"):
+                    self.primary.stage_repository_batch(
+                        repo_name,
+                        version,
+                        chunks,
+                        embeddings,
+                        start_chunk_id=start_chunk_id,
+                    )
+                primary_ok = True
+            except Exception as exc:
+                logger.warning("Primary stage_repository_batch failed: %s", exc)
+                if not self.enable_fallback:
+                    raise
+
+        if self.fallback is not None:
+            try:
+                if hasattr(self.fallback, "stage_repository_batch"):
+                    self.fallback.stage_repository_batch(
+                        repo_name,
+                        version,
+                        chunks,
+                        embeddings,
+                        start_chunk_id=start_chunk_id,
+                    )
+            except Exception as exc:
+                logger.warning("Fallback stage_repository_batch failed: %s", exc)
+                if not primary_ok:
+                    raise
+
+        return len(chunks)
+
+    def publish_repository_version(
+        self,
+        repo_name: str,
+        version: str,
+    ) -> None:
+        """Dual-write publish version across Primary and Fallback."""
+        primary_ok = False
+        if self.primary is not None:
+            try:
+                if hasattr(self.primary, "publish_repository_version"):
+                    self.primary.publish_repository_version(repo_name, version)
+                primary_ok = True
+            except Exception as exc:
+                logger.warning("Primary publish_repository_version failed: %s", exc)
+                if not self.enable_fallback:
+                    raise
+
+        if self.fallback is not None:
+            try:
+                if hasattr(self.fallback, "publish_repository_version"):
+                    self.fallback.publish_repository_version(repo_name, version)
+            except Exception as exc:
+                logger.warning("Fallback publish_repository_version failed: %s", exc)
+                if not primary_ok:
+                    raise
+
+    def rollback_staged_version(
+        self,
+        repo_name: str,
+        version: str,
+    ) -> None:
+        """Dual-write rollback staged version across Primary and Fallback."""
+        if self.primary is not None:
+            try:
+                if hasattr(self.primary, "rollback_staged_version"):
+                    self.primary.rollback_staged_version(repo_name, version)
+            except Exception as exc:
+                logger.debug("Primary rollback_staged_version error: %s", exc)
+        if self.fallback is not None:
+            try:
+                if hasattr(self.fallback, "rollback_staged_version"):
+                    self.fallback.rollback_staged_version(repo_name, version)
+            except Exception as exc:
+                logger.debug("Fallback rollback_staged_version error: %s", exc)
 
     # --------------------------------------------------------------------------
     # Dual-Write Ingestion Pipeline (Phase 3.5)

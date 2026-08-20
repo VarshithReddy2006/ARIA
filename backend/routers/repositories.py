@@ -15,6 +15,7 @@ import json
 import logging
 import os
 import time
+import uuid
 from typing import Dict, List
 
 from utils.subprocess_runner import run_safe_command, SHORT_GIT_TIMEOUT
@@ -285,15 +286,38 @@ async def index_repository(request: IndexRequest):
 
         all_chunks = await asyncio.to_thread(run_chunking)
 
-        embeddings = []
         if all_chunks:
-            embeddings = await asyncio.to_thread(
-                embedding_service.generate_embeddings, all_chunks
-            )
+            version = uuid.uuid4().hex
+            staged_count = 0
+            try:
+                for (
+                    chunk_batch,
+                    emb_batch,
+                ) in embedding_service.stream_generate_embeddings_batches(all_chunks):
+                    staged_batch_count = await asyncio.to_thread(
+                        chroma_store.stage_repository_batch,
+                        repo_name,
+                        version,
+                        chunk_batch,
+                        emb_batch,
+                        staged_count,
+                    )
+                    staged_count += staged_batch_count
+                    del chunk_batch
+                    del emb_batch
 
-        await asyncio.to_thread(
-            chroma_store.index_repository, repo_name, all_chunks, embeddings
-        )
+                await asyncio.to_thread(
+                    chroma_store.publish_repository_version,
+                    repo_name,
+                    version,
+                )
+            except Exception:
+                await asyncio.to_thread(
+                    chroma_store.rollback_staged_version,
+                    repo_name,
+                    version,
+                )
+                raise
 
         return {
             "status": "indexed",
@@ -467,61 +491,85 @@ async def analyze_repository(request: AnalyzeRequest):
 
                 if new_chunks:
                     timer.start("Embedding")
-                    new_embeddings = []
-                    chunk_sub_batch = 500
+                    timer.start("Chroma")
                     total_new = len(new_chunks)
-                    for start_idx in range(0, total_new, chunk_sub_batch):
-                        end_idx = min(start_idx + chunk_sub_batch, total_new)
-                        batch = new_chunks[start_idx:end_idx]
-                        batch_embs = await asyncio.to_thread(
-                            embedding_service.generate_embeddings, batch
-                        )
-                        new_embeddings.extend(batch_embs)
-                        pct = int((end_idx / total_new) * 100)
-                        yield f"data: {json.dumps({'status': 'generating_embeddings', 'message': f'Generating Embeddings: {end_idx}/{total_new} new chunks ({pct}%)'})}\n\n"
-                    timer.stop("Embedding")
-
-                    # Prepare bulk insertion payload
-                    bulk_ids = []
-                    bulk_docs = []
-                    bulk_embeddings = []
-                    bulk_metadatas = []
-
+                    inserted_count = 0
+                    batch_size = embedding_service.max_outer_batch_size
+                    total_batches = (total_new + batch_size - 1) // batch_size
+                    batch_idx = 0
                     file_chunk_counts = {}
-                    for idx, chunk in enumerate(new_chunks):
-                        path = chunk["path"]
-                        chunk_idx = file_chunk_counts.get(path, 0)
-                        file_chunk_counts[path] = chunk_idx + 1
 
-                        unique_id = f"{repo_name}_{path}_{chunk_idx}".replace(
-                            "/", "_"
-                        ).replace(".", "_")
-                        bulk_ids.append(unique_id)
-                        bulk_docs.append(chunk["content"])
-                        bulk_embeddings.append(new_embeddings[idx])
-                        bulk_metadatas.append(
-                            {
-                                "repo_name": repo_name,
-                                "file_path": path,
-                                "chunk_id": chunk_idx,
-                                "language": chunker.detect_language(path),
-                            }
-                        )
+                    for (
+                        chunk_batch,
+                        emb_batch,
+                    ) in embedding_service.stream_generate_embeddings_batches(
+                        new_chunks
+                    ):
+                        batch_idx += 1
+                        t0 = time.perf_counter()
 
-                    if bulk_ids:
-                        timer.start("Chroma")
-                        await asyncio.to_thread(
-                            chroma_store.add_code_chunks_bulk,
-                            bulk_ids,
-                            bulk_docs,
-                            bulk_embeddings,
-                            bulk_metadatas,
-                        )
-                        timer.stop("Chroma")
+                        bulk_ids = []
+                        bulk_docs = []
+                        bulk_embeddings = []
+                        bulk_metadatas = []
+
+                        for idx, chunk in enumerate(chunk_batch):
+                            path = chunk["path"]
+                            chunk_idx = file_chunk_counts.get(path, 0)
+                            file_chunk_counts[path] = chunk_idx + 1
+
+                            unique_id = f"{repo_name}_{path}_{chunk_idx}".replace(
+                                "/", "_"
+                            ).replace(".", "_")
+                            bulk_ids.append(unique_id)
+                            bulk_docs.append(chunk["content"])
+                            bulk_embeddings.append(emb_batch[idx])
+                            bulk_metadatas.append(
+                                {
+                                    "repo_name": repo_name,
+                                    "file_path": path,
+                                    "chunk_id": chunk_idx,
+                                    "language": chunker.detect_language(path),
+                                }
+                            )
+
+                        if bulk_ids:
+                            await asyncio.to_thread(
+                                chroma_store.add_code_chunks_bulk,
+                                bulk_ids,
+                                bulk_docs,
+                                bulk_embeddings,
+                                bulk_metadatas,
+                            )
+                            inserted_count += len(bulk_ids)
+
+                        pct = int((inserted_count / total_new) * 100)
+                        elapsed_batch = time.perf_counter() - t0
+
                         logger.info(
-                            "Successfully bulk inserted %d new chunks into Chroma.",
-                            len(bulk_ids),
+                            "Incremental indexing progress batch=%d/%d embedded=%d indexed=%d elapsed=%.2fs",
+                            batch_idx,
+                            total_batches,
+                            len(emb_batch),
+                            inserted_count,
+                            elapsed_batch,
                         )
+
+                        yield f"data: {json.dumps({'status': 'generating_embeddings', 'message': f'Generating Embeddings: {inserted_count}/{total_new} new chunks ({pct}%)'})}\n\n"
+
+                        del chunk_batch
+                        del emb_batch
+                        del bulk_ids
+                        del bulk_docs
+                        del bulk_embeddings
+                        del bulk_metadatas
+
+                    timer.stop("Chroma")
+                    timer.stop("Embedding")
+                    logger.info(
+                        "Successfully bulk inserted %d new chunks into vector store.",
+                        inserted_count,
+                    )
             else:
                 # Full Mode: retain the active vectors until index_repository publishes the replacement.
                 # Chunk all files
@@ -533,27 +581,66 @@ async def analyze_repository(request: AnalyzeRequest):
 
                 yield f"data: {json.dumps({'status': 'generating_embeddings', 'message': f'Generating Embeddings: 0/{len(all_chunks)} chunks (0%)'})}\n\n"
 
-                embeddings = []
                 if all_chunks:
                     timer.start("Embedding")
-                    chunk_sub_batch = 500
-                    total_chunks = len(all_chunks)
-                    for start_idx in range(0, total_chunks, chunk_sub_batch):
-                        end_idx = min(start_idx + chunk_sub_batch, total_chunks)
-                        batch = all_chunks[start_idx:end_idx]
-                        batch_embs = await asyncio.to_thread(
-                            embedding_service.generate_embeddings, batch
-                        )
-                        embeddings.extend(batch_embs)
-                        pct = int((end_idx / total_chunks) * 100)
-                        yield f"data: {json.dumps({'status': 'generating_embeddings', 'message': f'Generating Embeddings: {end_idx}/{total_chunks} chunks ({pct}%)'})}\n\n"
-                    timer.stop("Embedding")
-
                     timer.start("Chroma")
-                    await asyncio.to_thread(
-                        chroma_store.index_repository, repo_name, all_chunks, embeddings
-                    )
-                    timer.stop("Chroma")
+                    version = uuid.uuid4().hex
+                    total_chunks = len(all_chunks)
+                    staged_count = 0
+                    batch_size = embedding_service.max_outer_batch_size
+                    total_batches = (total_chunks + batch_size - 1) // batch_size
+                    batch_idx = 0
+
+                    try:
+                        for (
+                            chunk_batch,
+                            emb_batch,
+                        ) in embedding_service.stream_generate_embeddings_batches(
+                            all_chunks
+                        ):
+                            batch_idx += 1
+                            t0 = time.perf_counter()
+                            staged_batch_count = await asyncio.to_thread(
+                                chroma_store.stage_repository_batch,
+                                repo_name,
+                                version,
+                                chunk_batch,
+                                emb_batch,
+                                staged_count,
+                            )
+                            staged_count += staged_batch_count
+                            pct = int((staged_count / total_chunks) * 100)
+                            elapsed_batch = time.perf_counter() - t0
+
+                            logger.info(
+                                "Indexing progress batch=%d/%d embedded=%d indexed=%d elapsed=%.2fs",
+                                batch_idx,
+                                total_batches,
+                                len(emb_batch),
+                                staged_count,
+                                elapsed_batch,
+                            )
+
+                            yield f"data: {json.dumps({'status': 'generating_embeddings', 'message': f'Generating Embeddings: {staged_count}/{total_chunks} chunks ({pct}%)'})}\n\n"
+
+                            del chunk_batch
+                            del emb_batch
+
+                        await asyncio.to_thread(
+                            chroma_store.publish_repository_version,
+                            repo_name,
+                            version,
+                        )
+                    except Exception:
+                        await asyncio.to_thread(
+                            chroma_store.rollback_staged_version,
+                            repo_name,
+                            version,
+                        )
+                        raise
+                    finally:
+                        timer.stop("Chroma")
+                        timer.stop("Embedding")
 
             # ── 5. Granular Symbols & Graph builds ────────────────────────────
             yield f"data: {json.dumps({'status': 'building_symbols', 'message': 'Building Symbol Index'})}\n\n"
