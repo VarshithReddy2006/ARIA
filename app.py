@@ -13,7 +13,19 @@ import sys
 # Ensure project root is on sys.path so all local modules (backend, core, services, etc.) resolve cleanly
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
+from fastapi.responses import RedirectResponse
 from backend.api import app as fastapi_app
+
+# Redirect root to /gradio dashboard when no static frontend dist is present
+_frontend_dist = os.path.join(
+    os.path.dirname(os.path.abspath(__file__)),
+    "frontend",
+    "dist",
+)
+if not os.path.isdir(_frontend_dist):
+    @fastapi_app.get("/", include_in_schema=False)
+    async def _root_to_gradio():
+        return RedirectResponse(url="/gradio")
 
 try:
     import gradio as gr
