@@ -68,21 +68,11 @@ async def lifespan(app: FastAPI):
     # 6. Validate LLM providers during startup before serving traffic
     await validate_llm_providers()
 
-    # Store singletons on app.state
+    # Store necessary state on app.state (other services resolve lazily via deps)
     from backend import dependencies as deps
 
     app.state.snapshot_store = deps.get_snapshot_store()
     app.state.analysis_cache = deps.get_analysis_cache()
-    app.state.symbol_service = deps.get_symbol_service()
-    app.state.architecture_service = deps.get_architecture_service()
-    app.state.graph_service = deps.get_graph_service()
-    app.state.github_service = deps.get_github_service()
-    app.state.embedding_service = deps.get_embedding_service()
-    app.state.chroma_store = deps.get_chroma_store()
-    app.state.pr_intelligence_service = deps.get_pr_intelligence_service()
-    app.state.dead_code_service = deps.get_dead_code_service()
-    app.state.architecture_drift_service = deps.get_architecture_drift_service()
-    app.state.workspace_service = deps.get_workspace_service()
 
     try:
         yield

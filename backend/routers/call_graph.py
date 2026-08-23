@@ -21,11 +21,14 @@ from fastapi import APIRouter, HTTPException, Query
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, Field
 
+import os
+
 from backend.dependencies import (
     ANALYSIS_STORE,
-    call_graph_service,
-    github_service,
-    symbol_service,
+    get_call_graph_service,
+    get_github_service,
+    get_symbol_service,
+    get_snapshot_store,
 )
 
 logger = logging.getLogger(__name__)
@@ -67,7 +70,7 @@ async def build_call_graph(request: CallGraphBuildRequest):
             status_code=404,
             detail=f"Repository '{repo_name}' not found. Run POST /api/analyze first.",
         )
-    if not symbol_service.index_exists(repo_name):
+    if not get_symbol_service().index_exists(repo_name):
         raise HTTPException(
             status_code=404,
             detail=(
@@ -78,14 +81,36 @@ async def build_call_graph(request: CallGraphBuildRequest):
 
     async def event_generator():
         try:
-            local_path = ANALYSIS_STORE[repo_name]["analysis"].metadata.get(
-                "local_path", ""
+            local_path = (
+                ANALYSIS_STORE[repo_name]["analysis"].metadata.get("local_path", "")
+                if repo_name in ANALYSIS_STORE
+                else ""
             )
-            files = await asyncio.to_thread(
-                github_service.extract_source_files, local_path
-            )
+            files = []
+            if local_path and os.path.exists(local_path):
+                files = await asyncio.to_thread(
+                    get_github_service().extract_source_files, local_path
+                )
+            if not files:
+                parsed_data = get_snapshot_store().load(repo_name, "parsed_files")
+                if parsed_data and "parsed" in parsed_data:
+                    files = [
+                        {"path": p.get("file_path", ""), "content": p.get("content", "")}
+                        for p in parsed_data["parsed"]
+                        if p.get("content")
+                    ]
+            if not files:
+                try:
+                    cloned_path = await asyncio.to_thread(
+                        get_github_service().clone_repo, f"https://github.com/{repo_name}.git"
+                    )
+                    files = await asyncio.to_thread(
+                        get_github_service().extract_source_files, cloned_path
+                    )
+                except Exception as exc_clone:
+                    logger.warning("Clone fallback failed for %s: %s", repo_name, exc_clone)
 
-            gen = call_graph_service.build(repo_name, files)
+            gen = get_call_graph_service().build(repo_name, files)
             summary = None
             while True:
                 is_done, value = await asyncio.to_thread(_advance_generator, gen)
@@ -121,7 +146,7 @@ async def get_call_graph(
     """Return the call graph as React Flow JSON."""
     full_name = f"{owner}/{repo_name}"
     result = await asyncio.to_thread(
-        call_graph_service.get_graph_json, full_name, q, max_nodes
+        get_call_graph_service().get_graph_json, full_name, q, max_nodes
     )
     if result.get("error") and result.get("node_count", 0) == 0:
         raise HTTPException(status_code=404, detail=result["error"])
@@ -132,7 +157,7 @@ async def get_call_graph(
 async def get_call_graph_stats(owner: str, repo_name: str):
     """Return call graph aggregate statistics."""
     full_name = f"{owner}/{repo_name}"
-    stats = await asyncio.to_thread(call_graph_service.get_stats, full_name)
+    stats = await asyncio.to_thread(get_call_graph_service().get_stats, full_name)
     if "error" in stats:
         raise HTTPException(status_code=404, detail=stats["error"])
     return stats
@@ -142,14 +167,14 @@ async def get_call_graph_stats(owner: str, repo_name: str):
 async def get_callers(owner: str, repo_name: str, function_id: str):
     """Return all functions that directly call the given function."""
     full_name = f"{owner}/{repo_name}"
-    G = await asyncio.to_thread(call_graph_service.load_graph, full_name)
+    G = await asyncio.to_thread(get_call_graph_service().load_graph, full_name)
     if G is None:
         raise HTTPException(
             status_code=404,
             detail=f"Call graph not found for '{full_name}'.",
         )
     callers = await asyncio.to_thread(
-        call_graph_service.get_callers, full_name, function_id
+        get_call_graph_service().get_callers, full_name, function_id
     )
     return {"function_id": function_id, "callers": [c.model_dump() for c in callers]}
 
@@ -158,14 +183,14 @@ async def get_callers(owner: str, repo_name: str, function_id: str):
 async def get_callees(owner: str, repo_name: str, function_id: str):
     """Return all functions directly called by the given function."""
     full_name = f"{owner}/{repo_name}"
-    G = await asyncio.to_thread(call_graph_service.load_graph, full_name)
+    G = await asyncio.to_thread(get_call_graph_service().load_graph, full_name)
     if G is None:
         raise HTTPException(
             status_code=404,
             detail=f"Call graph not found for '{full_name}'.",
         )
     callees = await asyncio.to_thread(
-        call_graph_service.get_callees, full_name, function_id
+        get_call_graph_service().get_callees, full_name, function_id
     )
     return {"function_id": function_id, "callees": [c.model_dump() for c in callees]}
 
@@ -181,7 +206,7 @@ async def get_call_hierarchy(
     """Return the call hierarchy tree for a function."""
     full_name = f"{owner}/{repo_name}"
     tree = await asyncio.to_thread(
-        call_graph_service.get_hierarchy, full_name, function_id, direction, depth
+        get_call_graph_service().get_hierarchy, full_name, function_id, direction, depth
     )
     if tree is None:
         raise HTTPException(
@@ -198,7 +223,7 @@ async def get_function_blast_radius(owner: str, repo_name: str, function_id: str
     """Return the function-level blast radius for the given function."""
     full_name = f"{owner}/{repo_name}"
     result = await asyncio.to_thread(
-        call_graph_service.get_blast_radius, full_name, function_id
+        get_call_graph_service().get_blast_radius, full_name, function_id
     )
     return result.model_dump()
 
@@ -208,7 +233,7 @@ async def get_call_graph_neighbors(owner: str, repo_name: str, function_id: str)
     """Return immediate callers + callees as React Flow JSON."""
     full_name = f"{owner}/{repo_name}"
     result = await asyncio.to_thread(
-        call_graph_service.get_neighbors_json, full_name, function_id
+        get_call_graph_service().get_neighbors_json, full_name, function_id
     )
     if result.get("error"):
         raise HTTPException(status_code=404, detail=result["error"])
@@ -226,7 +251,7 @@ async def get_call_graph_trace(
     """Return a BFS trace from a function as React Flow JSON."""
     full_name = f"{owner}/{repo_name}"
     result = await asyncio.to_thread(
-        call_graph_service.get_trace_json, full_name, function_id, direction, depth
+        get_call_graph_service().get_trace_json, full_name, function_id, direction, depth
     )
     if result.get("error"):
         raise HTTPException(status_code=404, detail=result["error"])

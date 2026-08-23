@@ -17,12 +17,12 @@ from fastapi import APIRouter, HTTPException, Query
 from pydantic import BaseModel, Field
 
 from backend.dependencies import (
-    architecture_service,
-    graph_service,
-    impact_analysis_service,
-    reading_order_service,
-    symbol_service,
-    github_service,
+    get_architecture_service,
+    get_graph_service,
+    get_impact_analysis_service,
+    get_reading_order_service,
+    get_symbol_service,
+    get_github_service,
 )
 
 logger = logging.getLogger(__name__)
@@ -58,7 +58,7 @@ async def build_architecture(request: ArchitectureBuildRequest):
     """Parse the repository, build the dependency graph, and generate architecture metadata."""
     repo_name = request.repo.strip()
     try:
-        local_path = github_service.get_local_repo_path(repo_name)
+        local_path = get_github_service().get_local_repo_path(repo_name)
         if not os.path.exists(local_path):
             raise HTTPException(
                 status_code=404,
@@ -68,10 +68,10 @@ async def build_architecture(request: ArchitectureBuildRequest):
                 ),
             )
         result = await asyncio.to_thread(
-            architecture_service.build, repo_name, local_path, None, False
+            get_architecture_service().build, repo_name, local_path, None, False
         )
         try:
-            await asyncio.to_thread(symbol_service.build, repo_name, local_path, None)
+            await asyncio.to_thread(get_symbol_service().build, repo_name, local_path, None)
         except Exception as sym_exc:
             logger.warning(
                 "Symbol index build failed for %s (non-fatal): %s", repo_name, sym_exc
@@ -100,7 +100,7 @@ async def get_architecture_summary(owner: str, repo_name: str):
     """Return the persisted architecture summary for a repository."""
     full_name = f"{owner}/{repo_name}"
     try:
-        summary = await asyncio.to_thread(architecture_service.get_summary, full_name)
+        summary = await asyncio.to_thread(get_architecture_service().get_summary, full_name)
         if summary is None:
             raise HTTPException(
                 status_code=404,
@@ -131,7 +131,7 @@ async def get_architecture_graph(
     """Return React Flow compatible dependency graph data for a repository."""
     full_name = f"{owner}/{repo_name}"
     try:
-        if not graph_service.graph_exists(full_name):
+        if not get_graph_service().graph_exists(full_name):
             raise HTTPException(
                 status_code=404,
                 detail=(
@@ -140,7 +140,7 @@ async def get_architecture_graph(
                 ),
             )
         graph_data = await asyncio.to_thread(
-            graph_service.get_visualization_graph, full_name, architecture_service, q
+            get_graph_service().get_visualization_graph, full_name, get_architecture_service(), q
         )
         if not graph_data.get("nodes"):
             raise HTTPException(
@@ -169,7 +169,7 @@ async def get_reading_order(request: ReadingOrderRequest):
     repo_name = request.repo.strip()
     try:
         reading_order = await asyncio.to_thread(
-            reading_order_service.generate_reading_order, repo_name
+            get_reading_order_service().generate_reading_order, repo_name
         )
         return reading_order.model_dump()
     except ValueError as val_err:
@@ -189,7 +189,7 @@ async def get_impact_analysis(request: ImpactAnalysisRequest):
     issue_text = request.issue.strip()
     try:
         impact_analysis = await asyncio.to_thread(
-            impact_analysis_service.analyze_change, repo_name, issue_text
+            get_impact_analysis_service().analyze_change, repo_name, issue_text
         )
         return impact_analysis.model_dump()
     except ValueError as val_err:
@@ -216,9 +216,9 @@ async def get_architecture_quality(owner: str, repo_name: str):
     full_repo = f"{owner}/{repo_name}"
     try:
         edges = []
-        if graph_service.graph_exists(full_repo):
-            gdata = graph_service.get_visualization_graph(
-                full_repo, architecture_service, None
+        if get_graph_service().graph_exists(full_repo):
+            gdata = get_graph_service().get_visualization_graph(
+                full_repo, get_architecture_service(), None
             )
             edges = gdata.get("edges", [])
 
@@ -249,9 +249,9 @@ async def get_architecture_cycles(owner: str, repo_name: str):
     full_repo = f"{owner}/{repo_name}"
     try:
         edges = []
-        if graph_service.graph_exists(full_repo):
-            gdata = graph_service.get_visualization_graph(
-                full_repo, architecture_service, None
+        if get_graph_service().graph_exists(full_repo):
+            gdata = get_graph_service().get_visualization_graph(
+                full_repo, get_architecture_service(), None
             )
             edges = gdata.get("edges", [])
         return detect_cycles(edges)
@@ -268,9 +268,9 @@ async def get_architecture_rule_violations(owner: str, repo_name: str):
     full_repo = f"{owner}/{repo_name}"
     try:
         edges = []
-        if graph_service.graph_exists(full_repo):
-            gdata = graph_service.get_visualization_graph(
-                full_repo, architecture_service, None
+        if get_graph_service().graph_exists(full_repo):
+            gdata = get_graph_service().get_visualization_graph(
+                full_repo, get_architecture_service(), None
             )
             edges = gdata.get("edges", [])
         return evaluate_rules(edges)
@@ -289,9 +289,9 @@ async def get_dependency_path(
     full_repo = f"{owner}/{repo_name}"
     try:
         edges = []
-        if graph_service.graph_exists(full_repo):
-            gdata = graph_service.get_visualization_graph(
-                full_repo, architecture_service, None
+        if get_graph_service().graph_exists(full_repo):
+            gdata = get_graph_service().get_visualization_graph(
+                full_repo, get_architecture_service(), None
             )
             edges = gdata.get("edges", [])
         return find_shortest_path(source, target, edges)
@@ -318,12 +318,12 @@ async def get_node_architecture_details(owner: str, repo_name: str, node_id: str
     edges: list[dict] = []
 
     try:
-        if graph_service.graph_exists(full_repo):
-            gdata = graph_service.get_visualization_graph(
-                full_repo, architecture_service, None
+        if get_graph_service().graph_exists(full_repo):
+            gdata = get_graph_service().get_visualization_graph(
+                full_repo, get_architecture_service(), None
             )
             edges = gdata.get("edges", [])
-        neighbors = graph_service.get_node_neighbors(full_repo, node_id)
+        neighbors = get_graph_service().get_node_neighbors(full_repo, node_id)
         if neighbors:
             depends_on = [n["id"] for n in neighbors.get("outgoing", [])]
             imported_by = [n["id"] for n in neighbors.get("incoming", [])]
@@ -439,7 +439,7 @@ async def generate_architecture_diagram(request: DiagramGenerationRequest):
     depends_on: list[str] = []
     imported_by: list[str] = []
     try:
-        neighbors = graph_service.get_node_neighbors(full_repo, node_id)
+        neighbors = get_graph_service().get_node_neighbors(full_repo, node_id)
         if neighbors:
             depends_on = [n["id"] for n in neighbors.get("outgoing", [])]
             imported_by = [n["id"] for n in neighbors.get("incoming", [])]

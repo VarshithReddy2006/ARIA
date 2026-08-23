@@ -16,7 +16,7 @@ from fastapi import APIRouter, HTTPException, Query
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, Field
 
-from backend.dependencies import git_history_service
+from backend.dependencies import get_git_history_service
 
 logger = logging.getLogger(__name__)
 
@@ -60,7 +60,7 @@ async def analyze_churn(request: ChurnAnalyzeRequest):
 
     async def event_generator():
         try:
-            gen = git_history_service.build(repo_name, request.since_days)
+            gen = get_git_history_service().build(repo_name, request.since_days)
             summary = None
             while True:
                 is_done, value = await asyncio.to_thread(_advance_generator, gen)
@@ -95,7 +95,7 @@ async def get_churn_summary(
 ):
     """Return the full churn summary for a repository."""
     full_name = f"{owner}/{repo_name}"
-    summary = await asyncio.to_thread(git_history_service.load, full_name, since_days)
+    summary = await asyncio.to_thread(get_git_history_service().load, full_name, since_days)
     if summary is None:
         raise HTTPException(
             status_code=404,
@@ -118,7 +118,7 @@ async def get_churn_hotspots(
     """Return the top-N hotspot files (high churn + high centrality)."""
     full_name = f"{owner}/{repo_name}"
     hotspots = await asyncio.to_thread(
-        git_history_service.get_hotspots, full_name, since_days, top_n
+        get_git_history_service().get_hotspots, full_name, since_days, top_n
     )
     if not hotspots:
         raise HTTPException(
@@ -141,7 +141,7 @@ async def get_file_churn(
     """Return churn data for a single file."""
     full_name = f"{owner}/{repo_name}"
     record = await asyncio.to_thread(
-        git_history_service.get_file_record, full_name, file_path, since_days
+        get_git_history_service().get_file_record, full_name, file_path, since_days
     )
     if record is None:
         raise HTTPException(
@@ -159,7 +159,7 @@ async def get_churn_timeline(
 ):
     """Return the weekly commit activity timeline."""
     full_name = f"{owner}/{repo_name}"
-    summary = await asyncio.to_thread(git_history_service.load, full_name, since_days)
+    summary = await asyncio.to_thread(get_git_history_service().load, full_name, since_days)
     if summary is None:
         raise HTTPException(
             status_code=404,

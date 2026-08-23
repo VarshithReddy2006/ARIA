@@ -20,12 +20,15 @@ from fastapi import APIRouter, HTTPException, Query
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, Field
 
+import os
+
 from backend.dependencies import (
     ANALYSIS_STORE,
-    api_surface_service,
-    breaking_change_analyzer,
-    github_service,
-    symbol_service,
+    get_api_surface_service,
+    get_breaking_change_analyzer,
+    get_github_service,
+    get_symbol_service,
+    get_snapshot_store,
 )
 
 logger = logging.getLogger(__name__)
@@ -67,7 +70,7 @@ async def build_api_surface(request: APISurfaceBuildRequest):
             status_code=404,
             detail=f"Repository '{repo_name}' not found. Run POST /api/analyze first.",
         )
-    if not symbol_service.index_exists(repo_name):
+    if not get_symbol_service().index_exists(repo_name):
         raise HTTPException(
             status_code=404,
             detail=(
@@ -78,14 +81,36 @@ async def build_api_surface(request: APISurfaceBuildRequest):
 
     async def event_generator():
         try:
-            local_path = ANALYSIS_STORE[repo_name]["analysis"].metadata.get(
-                "local_path", ""
+            local_path = (
+                ANALYSIS_STORE[repo_name]["analysis"].metadata.get("local_path", "")
+                if repo_name in ANALYSIS_STORE
+                else ""
             )
-            files = await asyncio.to_thread(
-                github_service.extract_source_files, local_path
-            )
+            files = []
+            if local_path and os.path.exists(local_path):
+                files = await asyncio.to_thread(
+                    get_github_service().extract_source_files, local_path
+                )
+            if not files:
+                parsed_data = get_snapshot_store().load(repo_name, "parsed_files")
+                if parsed_data and "parsed" in parsed_data:
+                    files = [
+                        {"path": p.get("file_path", ""), "content": p.get("content", "")}
+                        for p in parsed_data["parsed"]
+                        if p.get("content")
+                    ]
+            if not files:
+                try:
+                    cloned_path = await asyncio.to_thread(
+                        get_github_service().clone_repo, f"https://github.com/{repo_name}.git"
+                    )
+                    files = await asyncio.to_thread(
+                        get_github_service().extract_source_files, cloned_path
+                    )
+                except Exception as exc_clone:
+                    logger.warning("Clone fallback failed for %s: %s", repo_name, exc_clone)
 
-            gen = api_surface_service.build(repo_name, files)
+            gen = get_api_surface_service().build(repo_name, files)
             surface = None
             while True:
                 is_done, value = await asyncio.to_thread(_advance_generator, gen)
@@ -118,7 +143,7 @@ async def build_api_surface(request: APISurfaceBuildRequest):
 async def get_api_surface(owner: str, repo_name: str):
     """Return the full API surface report."""
     full_name = f"{owner}/{repo_name}"
-    surface = await asyncio.to_thread(api_surface_service.load, full_name)
+    surface = await asyncio.to_thread(get_api_surface_service().load, full_name)
     if surface is None:
         raise HTTPException(
             status_code=404,
@@ -134,7 +159,7 @@ async def get_api_surface(owner: str, repo_name: str):
 async def get_api_surface_stats(owner: str, repo_name: str):
     """Return aggregate statistics for the API surface."""
     full_name = f"{owner}/{repo_name}"
-    stats = await asyncio.to_thread(api_surface_service.get_stats, full_name)
+    stats = await asyncio.to_thread(get_api_surface_service().get_stats, full_name)
     if stats is None:
         raise HTTPException(
             status_code=404,
@@ -158,16 +183,16 @@ async def get_public_api(
     full_name = f"{owner}/{repo_name}"
     if q:
         results = await asyncio.to_thread(
-            api_surface_service.search, full_name, q, "public", kind, limit
+            get_api_surface_service().search, full_name, q, "public", kind, limit
         )
     else:
-        symbols = await asyncio.to_thread(api_surface_service.get_public, full_name)
+        symbols = await asyncio.to_thread(get_api_surface_service().get_public, full_name)
         if kind:
             symbols = [s for s in symbols if s.api_kind.value == kind]
         results = symbols[:limit]
 
     if not results and not await asyncio.to_thread(
-        api_surface_service.surface_exists, full_name
+        get_api_surface_service().surface_exists, full_name
     ):
         raise HTTPException(
             status_code=404,
@@ -187,9 +212,9 @@ async def get_internal_api(
 ):
     """Return all internal symbols."""
     full_name = f"{owner}/{repo_name}"
-    symbols = await asyncio.to_thread(api_surface_service.get_internal, full_name)
+    symbols = await asyncio.to_thread(get_api_surface_service().get_internal, full_name)
     if not symbols and not await asyncio.to_thread(
-        api_surface_service.surface_exists, full_name
+        get_api_surface_service().surface_exists, full_name
     ):
         raise HTTPException(
             status_code=404,
@@ -205,9 +230,9 @@ async def get_internal_api(
 async def get_deprecated_api(owner: str, repo_name: str):
     """Return all deprecated symbols."""
     full_name = f"{owner}/{repo_name}"
-    symbols = await asyncio.to_thread(api_surface_service.get_deprecated, full_name)
+    symbols = await asyncio.to_thread(get_api_surface_service().get_deprecated, full_name)
     if not symbols and not await asyncio.to_thread(
-        api_surface_service.surface_exists, full_name
+        get_api_surface_service().surface_exists, full_name
     ):
         raise HTTPException(
             status_code=404,
@@ -232,8 +257,8 @@ async def get_breaking_changes(
     full_name = f"{owner}/{repo_name}"
 
     if compare_repo:
-        before = await asyncio.to_thread(api_surface_service.load, compare_repo)
-        after = await asyncio.to_thread(api_surface_service.load, full_name)
+        before = await asyncio.to_thread(get_api_surface_service().load, compare_repo)
+        after = await asyncio.to_thread(get_api_surface_service().load, full_name)
         if before is None:
             raise HTTPException(
                 status_code=404,
@@ -244,15 +269,15 @@ async def get_breaking_changes(
                 status_code=404,
                 detail=f"No API surface data for '{full_name}'.",
             )
-        changes = breaking_change_analyzer.diff(before, after)
+        changes = get_breaking_change_analyzer().diff(before, after)
         return {
             "breaking_changes": [c.model_dump() for c in changes],
             "count": len(changes),
         }
 
-    orphans = await asyncio.to_thread(api_surface_service.get_orphans, full_name)
+    orphans = await asyncio.to_thread(get_api_surface_service().get_orphans, full_name)
     if not orphans and not await asyncio.to_thread(
-        api_surface_service.surface_exists, full_name
+        get_api_surface_service().surface_exists, full_name
     ):
         raise HTTPException(
             status_code=404,
@@ -266,7 +291,7 @@ async def get_api_symbol(owner: str, repo_name: str, symbol_name: str):
     """Return classification details for a single symbol by name."""
     full_name = f"{owner}/{repo_name}"
     symbol = await asyncio.to_thread(
-        api_surface_service.get_symbol, full_name, symbol_name
+        get_api_surface_service().get_symbol, full_name, symbol_name
     )
     if symbol is None:
         raise HTTPException(

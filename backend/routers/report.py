@@ -5,10 +5,10 @@ import sys
 from fastapi import APIRouter, HTTPException, Query, Response
 
 from backend.dependencies import (
-    report_composer as _report_composer,
-    html_renderer as _html_renderer,
-    markdown_renderer as _markdown_renderer,
-    pdf_renderer as _pdf_renderer,
+    get_report_composer,
+    get_html_renderer,
+    get_markdown_renderer,
+    get_pdf_renderer,
 )
 from models.report import ReportDataModel
 from storage.migrations import get_db_connection
@@ -17,22 +17,22 @@ from storage.migrations import get_db_connection
 class _ReloadSafeDependency:
     """Resolve a compatibility dependency from the currently loaded router module."""
 
-    def __init__(self, name: str, fallback: object) -> None:
+    def __init__(self, name: str, getter_fn) -> None:
         self._name = name
-        self._fallback = fallback
+        self._getter = getter_fn
 
     def __getattr__(self, attribute: str) -> object:
         module = sys.modules.get(__name__)
-        dependency = getattr(module, self._name, self._fallback)
-        if dependency is self:
-            dependency = self._fallback
+        dependency = getattr(module, self._name, None)
+        if dependency is None or dependency is self:
+            dependency = self._getter()
         return getattr(dependency, attribute)
 
 
-report_composer = _ReloadSafeDependency("report_composer", _report_composer)
-html_renderer = _ReloadSafeDependency("html_renderer", _html_renderer)
-markdown_renderer = _ReloadSafeDependency("markdown_renderer", _markdown_renderer)
-pdf_renderer = _ReloadSafeDependency("pdf_renderer", _pdf_renderer)
+report_composer = _ReloadSafeDependency("report_composer", get_report_composer)
+html_renderer = _ReloadSafeDependency("html_renderer", get_html_renderer)
+markdown_renderer = _ReloadSafeDependency("markdown_renderer", get_markdown_renderer)
+pdf_renderer = _ReloadSafeDependency("pdf_renderer", get_pdf_renderer)
 
 router = APIRouter(prefix="/report", tags=["report"])
 

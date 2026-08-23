@@ -13,7 +13,7 @@ from typing import Optional
 
 from fastapi import APIRouter, HTTPException, Query
 
-from backend.dependencies import graph_serializer, graph_service
+from backend.dependencies import get_graph_serializer, get_graph_service
 
 logger = logging.getLogger(__name__)
 
@@ -28,7 +28,7 @@ async def graph_full(owner: str, repo: str, q: Optional[str] = Query(None)):
     /api/graph/ namespace and consumed by InteractiveDependencyGraph.tsx.
     """
     repo_name = f"{owner}/{repo}"
-    if not graph_service.graph_exists(repo_name):
+    if not get_graph_service().graph_exists(repo_name):
         raise HTTPException(
             status_code=404,
             detail=(
@@ -37,7 +37,7 @@ async def graph_full(owner: str, repo: str, q: Optional[str] = Query(None)):
             ),
         )
     try:
-        data = await asyncio.to_thread(graph_serializer.get_full_graph, repo_name, q)
+        data = await asyncio.to_thread(get_graph_serializer().get_full_graph, repo_name, q)
         if not data.get("nodes"):
             raise HTTPException(
                 status_code=404,
@@ -62,14 +62,14 @@ async def graph_neighbors(owner: str, repo: str, node_path: str):
     and successors (files it imports), plus edges between them.
     """
     repo_name = f"{owner}/{repo}"
-    if not graph_service.graph_exists(repo_name):
+    if not get_graph_service().graph_exists(repo_name):
         raise HTTPException(
             status_code=404,
             detail=f"No graph found for '{repo_name}'.",
         )
     try:
         data = await asyncio.to_thread(
-            graph_serializer.get_neighbors, repo_name, node_path
+            get_graph_serializer().get_neighbors, repo_name, node_path
         )
         if data.get("error"):
             raise HTTPException(status_code=404, detail=data["error"])
@@ -102,7 +102,7 @@ async def graph_trace(
     direction=both     → both directions (default)
     """
     repo_name = f"{owner}/{repo}"
-    if not graph_service.graph_exists(repo_name):
+    if not get_graph_service().graph_exists(repo_name):
         raise HTTPException(
             status_code=404,
             detail=f"No graph found for '{repo_name}'.",
@@ -114,7 +114,7 @@ async def graph_trace(
         )
     try:
         data = await asyncio.to_thread(
-            graph_serializer.get_trace, repo_name, node_path, direction, depth
+            get_graph_serializer().get_trace, repo_name, node_path, direction, depth
         )
         if data.get("error"):
             raise HTTPException(status_code=404, detail=data["error"])
@@ -144,13 +144,13 @@ async def graph_search(
     context.  Matched nodes carry highlighted=true in the response.
     """
     repo_name = f"{owner}/{repo}"
-    if not graph_service.graph_exists(repo_name):
+    if not get_graph_service().graph_exists(repo_name):
         raise HTTPException(
             status_code=404,
             detail=f"No graph found for '{repo_name}'.",
         )
     try:
-        data = await asyncio.to_thread(graph_serializer.get_search, repo_name, q)
+        data = await asyncio.to_thread(get_graph_serializer().get_search, repo_name, q)
         if data.get("error"):
             raise HTTPException(status_code=404, detail=data["error"])
         return data

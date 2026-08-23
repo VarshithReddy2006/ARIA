@@ -26,15 +26,37 @@ from fastapi import APIRouter, HTTPException
 from fastapi.responses import StreamingResponse, JSONResponse
 from pydantic import BaseModel, Field, field_validator
 
+import sys
+
 from backend.dependencies import (
-    chroma_store,
-    embedding_service,
     get_retrieval_pipeline,
-    graph_rag_service,
+    get_embedding_service,
+    get_chroma_store,
+    get_graph_rag_service,
 )
 from models.schemas import IssueMapResponse
 
 logger = logging.getLogger(__name__)
+
+
+class _ReloadSafeDependency:
+    """Resolve a compatibility dependency from the currently loaded router module."""
+
+    def __init__(self, name: str, getter_fn) -> None:
+        self._name = name
+        self._getter = getter_fn
+
+    def __getattr__(self, attribute: str) -> object:
+        module = sys.modules.get(__name__)
+        dependency = getattr(module, self._name, None)
+        if dependency is None or dependency is self:
+            dependency = self._getter()
+        return getattr(dependency, attribute)
+
+
+embedding_service = _ReloadSafeDependency("embedding_service", get_embedding_service)
+chroma_store = _ReloadSafeDependency("chroma_store", get_chroma_store)
+graph_rag_service = _ReloadSafeDependency("graph_rag_service", get_graph_rag_service)
 
 router = APIRouter(tags=["Chat"])
 

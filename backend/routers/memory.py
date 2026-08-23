@@ -8,7 +8,7 @@ import logging
 from typing import List
 from fastapi import APIRouter, HTTPException, Query
 
-from backend.dependencies import engineering_memory_service
+from backend.dependencies import get_engineering_memory_service
 from models.memory import (
     RepositorySnapshot,
     RepositoryTimeline,
@@ -55,7 +55,7 @@ async def get_memory_context(
 ):
     """Retrieve bounded historical memory context for reasoning."""
     repo_name = f"{username}/{repository}"
-    snapshots = engineering_memory_service.navigator.get_history(repo_name)
+    snapshots = get_engineering_memory_service().navigator.get_history(repo_name)
     if not snapshots:
         raise HTTPException(
             status_code=404,
@@ -63,7 +63,7 @@ async def get_memory_context(
         )
 
     strategy = get_policy_strategy(policy)
-    return engineering_memory_service.navigator.get_memory_context(repo_name, strategy)
+    return get_engineering_memory_service().navigator.get_memory_context(repo_name, strategy)
 
 
 @router.get(
@@ -73,7 +73,7 @@ async def get_memory_context(
 async def get_snapshots(username: str, repository: str):
     """Retrieve all facts-only snapshots of the repository."""
     repo_name = f"{username}/{repository}"
-    snapshots = engineering_memory_service.navigator.get_history(repo_name)
+    snapshots = get_engineering_memory_service().navigator.get_history(repo_name)
     if not snapshots:
         raise HTTPException(
             status_code=404, detail=f"No snapshots found for repository '{repo_name}'."
@@ -88,12 +88,12 @@ async def get_snapshots(username: str, repository: str):
 async def get_timeline(username: str, repository: str):
     """Retrieve chronological event and snapshot timeline."""
     repo_name = f"{username}/{repository}"
-    snapshots = engineering_memory_service.navigator.get_history(repo_name)
+    snapshots = get_engineering_memory_service().navigator.get_history(repo_name)
     if not snapshots:
         raise HTTPException(
             status_code=404, detail=f"No timeline found for repository '{repo_name}'."
         )
-    return engineering_memory_service.navigator.get_timeline(repo_name)
+    return get_engineering_memory_service().navigator.get_timeline(repo_name)
 
 
 @router.get(
@@ -103,12 +103,12 @@ async def get_timeline(username: str, repository: str):
 async def get_trends(username: str, repository: str):
     """Retrieve calculated trend analytics across snapshots."""
     repo_name = f"{username}/{repository}"
-    snapshots = engineering_memory_service.navigator.get_history(repo_name)
+    snapshots = get_engineering_memory_service().navigator.get_history(repo_name)
     if not snapshots:
         raise HTTPException(
             status_code=404, detail=f"No trends found for repository '{repo_name}'."
         )
-    return engineering_memory_service.navigator.get_trends(repo_name)
+    return get_engineering_memory_service().navigator.get_trends(repo_name)
 
 
 @router.get(
@@ -124,7 +124,7 @@ async def compare_commits(
     """Compare two commit snapshots or repository states."""
     repo_name = f"{username}/{repository}"
     try:
-        return engineering_memory_service.navigator.compare_commits(
+        return get_engineering_memory_service().navigator.compare_commits(
             repo_name, base, head
         )
     except ValueError as exc:

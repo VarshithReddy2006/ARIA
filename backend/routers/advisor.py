@@ -10,11 +10,11 @@ from typing import Any, Dict, List, Optional
 from fastapi import APIRouter, HTTPException, Query
 
 from backend.dependencies import (
-    advisor_service,
-    repository_inspector,
-    engineering_memory_service,
-    continuous_monitoring_service,
-    repository_twin_builder,
+    get_advisor_service,
+    get_repository_inspector,
+    get_engineering_memory_service,
+    get_continuous_monitoring_service,
+    get_repository_twin_builder,
 )
 from models.advisor import AdvisorRecommendation, AdvisorReport, RoadmapPhase
 from services.memory_service import RecentHistoryPolicy
@@ -40,7 +40,7 @@ def _gather_intelligence(repo_name: str) -> Dict[str, Any]:
 
     # Verify the repository is indexed (raises 404 if not)
     try:
-        repository_twin_builder.build_twin(repo_name)
+        get_repository_twin_builder().build_twin(repo_name)
     except Exception as exc:
         raise HTTPException(
             status_code=404,
@@ -49,7 +49,7 @@ def _gather_intelligence(repo_name: str) -> Dict[str, Any]:
 
     # Latest inspection report (source: ARI)
     try:
-        report = repository_inspector.load_latest(repo_name)
+        report = get_repository_inspector().load_latest(repo_name)
         if report:
             sources["inspection_report"] = report.model_dump()
     except Exception as exc:
@@ -57,7 +57,7 @@ def _gather_intelligence(repo_name: str) -> Dict[str, Any]:
 
     # Engineering Memory (source: MemoryNavigator)
     try:
-        memory_ctx = engineering_memory_service.navigator.get_memory_context(
+        memory_ctx = get_engineering_memory_service().navigator.get_memory_context(
             repo_name, RecentHistoryPolicy(limit=5)
         )
         sources["memory_context"] = memory_ctx.model_dump()
@@ -66,7 +66,7 @@ def _gather_intelligence(repo_name: str) -> Dict[str, Any]:
 
     # Latest monitoring run (source: CRM)
     try:
-        run = continuous_monitoring_service.load_latest_run(repo_name)
+        run = get_continuous_monitoring_service().load_latest_run(repo_name)
         if run:
             sources["monitoring_run"] = run.model_dump()
     except Exception as exc:
@@ -90,7 +90,7 @@ async def generate_advisor_report(username: str, repository: str):
     sources = _gather_intelligence(repo_name)
 
     try:
-        report = advisor_service.advise(
+        report = get_advisor_service().advise(
             repo_name=repo_name,
             inspection_report=sources["inspection_report"],
             reasoning_result=sources["reasoning_result"],
@@ -116,7 +116,7 @@ async def generate_advisor_report(username: str, repository: str):
 async def get_latest_report(username: str, repository: str):
     """Returns the most recently persisted AdvisorReport."""
     repo_name = f"{username}/{repository}"
-    report = advisor_service.load_latest(repo_name)
+    report = get_advisor_service().load_latest(repo_name)
     if not report:
         raise HTTPException(
             status_code=404,
@@ -141,7 +141,7 @@ async def get_recommendations(
 ):
     """Returns the prioritized recommendation list from the latest AdvisorReport."""
     repo_name = f"{username}/{repository}"
-    report = advisor_service.load_latest(repo_name)
+    report = get_advisor_service().load_latest(repo_name)
     if not report:
         raise HTTPException(
             status_code=404,
@@ -164,7 +164,7 @@ async def get_recommendations(
 async def get_roadmap(username: str, repository: str):
     """Returns the phased engineering roadmap from the latest AdvisorReport."""
     repo_name = f"{username}/{repository}"
-    report = advisor_service.load_latest(repo_name)
+    report = get_advisor_service().load_latest(repo_name)
     if not report:
         raise HTTPException(
             status_code=404,

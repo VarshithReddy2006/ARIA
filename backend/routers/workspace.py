@@ -12,7 +12,7 @@ from fastapi import APIRouter, HTTPException, Query
 
 from backend.dependencies import (
     get_workspace_service,
-    repository_twin_builder as _repository_twin_builder,
+    get_repository_twin_builder,
 )
 from models.workspace import (
     AdvisorPanel,
@@ -33,24 +33,24 @@ logger = logging.getLogger(__name__)
 class _ReloadSafeDependency:
     """Resolve a compatibility dependency from the currently loaded router module."""
 
-    def __init__(self, name: str, fallback: object) -> None:
+    def __init__(self, name: str, getter_fn) -> None:
         self._name = name
-        self._fallback = fallback
+        self._getter = getter_fn
 
     def __getattr__(self, attribute: str) -> object:
         module = sys.modules.get(__name__)
-        dependency = getattr(module, self._name, self._fallback)
-        if dependency is self:
-            dependency = self._fallback
+        dependency = getattr(module, self._name, None)
+        if dependency is None or dependency is self:
+            dependency = self._getter()
         return getattr(dependency, attribute)
 
 
 router = APIRouter(tags=["Intelligent IDE Workspace"])
 
 # Stable module-level seams retained for existing router consumers and tests.
-workspace_service = _ReloadSafeDependency("workspace_service", get_workspace_service())
+workspace_service = _ReloadSafeDependency("workspace_service", get_workspace_service)
 repository_twin_builder = _ReloadSafeDependency(
-    "repository_twin_builder", _repository_twin_builder
+    "repository_twin_builder", get_repository_twin_builder
 )
 
 

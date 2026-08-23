@@ -10,10 +10,10 @@ from typing import Any, Dict, List
 from fastapi import APIRouter, HTTPException, Query
 
 from backend.dependencies import (
-    continuous_monitoring_service,
-    repository_twin_builder,
-    repository_knowledge_graph_builder,
-    engineering_memory_service,
+    get_continuous_monitoring_service,
+    get_repository_twin_builder,
+    get_repository_knowledge_graph_builder,
+    get_engineering_memory_service,
 )
 from models.monitoring import MonitoringRun, MonitoringStatus, RepositoryHealthTrend
 from services.continuous_monitoring import (
@@ -39,7 +39,7 @@ _POLICY_MAP = {
 def _resolve_context(repo_name: str):
     """Builds twin, KG, and memory context data for a repository."""
     try:
-        twin = repository_twin_builder.build_twin(repo_name)
+        twin = get_repository_twin_builder().build_twin(repo_name)
         twin_data = twin.model_dump()
     except Exception as exc:
         raise HTTPException(
@@ -48,13 +48,13 @@ def _resolve_context(repo_name: str):
         )
 
     try:
-        kg = repository_knowledge_graph_builder.build_graph(repo_name)
+        kg = get_repository_knowledge_graph_builder().build_graph(repo_name)
         kg_data = kg.model_dump()
     except Exception:
         kg_data = {}
 
     try:
-        memory_ctx = engineering_memory_service.navigator.get_memory_context(
+        memory_ctx = get_engineering_memory_service().navigator.get_memory_context(
             repo_name, RecentHistoryPolicy(limit=3)
         )
         memory_data = memory_ctx.model_dump()
@@ -96,7 +96,7 @@ async def trigger_monitoring(
     }
 
     try:
-        run = continuous_monitoring_service.trigger(
+        run = get_continuous_monitoring_service().trigger(
             repo_name=repo_name,
             twin_data=twin_data,
             knowledge_graph_data=kg_data,
@@ -129,7 +129,7 @@ async def get_history(
 ):
     """Returns the chronological list of monitoring runs for a repository."""
     repo_name = f"{username}/{repository}"
-    runs = continuous_monitoring_service.load_history(repo_name, limit=limit)
+    runs = get_continuous_monitoring_service().load_history(repo_name, limit=limit)
     return runs
 
 
@@ -141,7 +141,7 @@ async def get_history(
 async def get_latest_run(username: str, repository: str):
     """Returns the most recent monitoring run record."""
     repo_name = f"{username}/{repository}"
-    run = continuous_monitoring_service.load_latest_run(repo_name)
+    run = get_continuous_monitoring_service().load_latest_run(repo_name)
     if not run:
         raise HTTPException(
             status_code=404,
@@ -158,7 +158,7 @@ async def get_latest_run(username: str, repository: str):
 async def get_health_trends(username: str, repository: str):
     """Returns the repository health trend generated from monitoring history."""
     repo_name = f"{username}/{repository}"
-    trend = continuous_monitoring_service.load_trend(repo_name)
+    trend = get_continuous_monitoring_service().load_trend(repo_name)
     if not trend:
         raise HTTPException(
             status_code=404,
@@ -175,4 +175,4 @@ async def get_health_trends(username: str, repository: str):
 async def get_monitoring_status(username: str, repository: str):
     """Returns the current monitoring status summary for a repository."""
     repo_name = f"{username}/{repository}"
-    return continuous_monitoring_service.get_status(repo_name)
+    return get_continuous_monitoring_service().get_status(repo_name)

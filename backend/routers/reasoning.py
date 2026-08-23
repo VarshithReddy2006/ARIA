@@ -8,9 +8,7 @@ import logging
 import sys
 from fastapi import APIRouter, HTTPException
 
-from backend.dependencies import (
-    engineering_reasoning_engine as _engineering_reasoning_engine,
-)
+from backend.dependencies import get_engineering_reasoning_engine
 from models.retrieval import RepositoryRetrievalContext
 from models.reasoning import ReasoningResult
 from pydantic import BaseModel, Field
@@ -21,20 +19,20 @@ logger = logging.getLogger(__name__)
 class _ReloadSafeDependency:
     """Resolve a compatibility dependency from the currently loaded router module."""
 
-    def __init__(self, name: str, fallback: object) -> None:
+    def __init__(self, name: str, getter_fn) -> None:
         self._name = name
-        self._fallback = fallback
+        self._getter = getter_fn
 
     def __getattr__(self, attribute: str) -> object:
         module = sys.modules.get(__name__)
-        dependency = getattr(module, self._name, self._fallback)
-        if dependency is self:
-            dependency = self._fallback
+        dependency = getattr(module, self._name, None)
+        if dependency is None or dependency is self:
+            dependency = self._getter()
         return getattr(dependency, attribute)
 
 
 engineering_reasoning_engine = _ReloadSafeDependency(
-    "engineering_reasoning_engine", _engineering_reasoning_engine
+    "engineering_reasoning_engine", get_engineering_reasoning_engine
 )
 router = APIRouter(tags=["Engineering Reasoning Engine"])
 

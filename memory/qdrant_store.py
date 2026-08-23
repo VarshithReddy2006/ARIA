@@ -78,6 +78,8 @@ class QdrantStore:
         self.timeout = timeout
         self.vector_size = vector_size
         self._publication_lock = threading.RLock()
+        self._collections_lock = threading.RLock()
+        self._collections_ensured = False
         self._version_cache: Dict[str, str] = {}
 
         client_kwargs: Dict[str, Any] = {}
@@ -104,60 +106,65 @@ class QdrantStore:
             os.makedirs(str(self.persist_directory), exist_ok=True)
             self.client = QdrantClient(path=self.persist_directory)
 
-        self._ensure_collections()
-
     def _ensure_collections(self) -> None:
-        """Ensure collections and payload indexes exist."""
-        try:
-            if not VectorParams or not Distance or not models:
-                return
-            existing = [c.name for c in self.client.get_collections().collections]
-            if COLLECTION_CHUNKS not in existing:
-                self.client.create_collection(
-                    collection_name=COLLECTION_CHUNKS,
-                    vectors_config=VectorParams(
-                        size=self.vector_size,
-                        distance=Distance.COSINE,
-                    ),
-                )
-                # Create payload indexes for fast filtering (relevant when running client-server)
-                import warnings
-
-                for field in ("repo_name", "index_version", "file_path", "language"):
-                    try:
-                        with warnings.catch_warnings():
-                            warnings.simplefilter("ignore", UserWarning)
-                            self.client.create_payload_index(
-                                collection_name=COLLECTION_CHUNKS,
-                                field_name=field,
-                                field_schema=models.PayloadSchemaType.KEYWORD,
-                            )
-                    except Exception as exc:
-                        logger.debug("Payload index creation for %s: %s", field, exc)
-
-            # 2. Versions collection
-            if COLLECTION_VERSIONS not in existing:
-                self.client.create_collection(
-                    collection_name=COLLECTION_VERSIONS,
-                    vectors_config=VectorParams(
-                        size=1,  # Dummy vector for version tracking collection
-                        distance=Distance.DOT,
-                    ),
-                )
-                try:
-                    self.client.create_payload_index(
-                        collection_name=COLLECTION_VERSIONS,
-                        field_name="repo_name",
-                        field_schema=models.PayloadSchemaType.KEYWORD,
-                    )
-                except Exception as exc:
-                    logger.debug("Payload index creation for versions: %s", exc)
-        except Exception as exc:
-            logger.warning("Could not connect to Qdrant to ensure collections: %s", exc)
+        """Ensure collections and payload indexes exist (lazy initialization)."""
+        if self._collections_ensured:
             return
+        with self._collections_lock:
+            if self._collections_ensured:
+                return
+            try:
+                if not VectorParams or not Distance or not models:
+                    return
+                existing = [c.name for c in self.client.get_collections().collections]
+                if COLLECTION_CHUNKS not in existing:
+                    self.client.create_collection(
+                        collection_name=COLLECTION_CHUNKS,
+                        vectors_config=VectorParams(
+                            size=self.vector_size,
+                            distance=Distance.COSINE,
+                        ),
+                    )
+                    # Create payload indexes for fast filtering (relevant when running client-server)
+                    import warnings
+
+                    for field in ("repo_name", "index_version", "file_path", "language"):
+                        try:
+                            with warnings.catch_warnings():
+                                warnings.simplefilter("ignore", UserWarning)
+                                self.client.create_payload_index(
+                                    collection_name=COLLECTION_CHUNKS,
+                                    field_name=field,
+                                    field_schema=models.PayloadSchemaType.KEYWORD,
+                                )
+                        except Exception as exc:
+                            logger.debug("Payload index creation for %s: %s", field, exc)
+
+                # 2. Versions collection
+                if COLLECTION_VERSIONS not in existing:
+                    self.client.create_collection(
+                        collection_name=COLLECTION_VERSIONS,
+                        vectors_config=VectorParams(
+                            size=1,  # Dummy vector for version tracking collection
+                            distance=Distance.DOT,
+                        ),
+                    )
+                    try:
+                        self.client.create_payload_index(
+                            collection_name=COLLECTION_VERSIONS,
+                            field_name="repo_name",
+                            field_schema=models.PayloadSchemaType.KEYWORD,
+                        )
+                    except Exception as exc:
+                        logger.debug("Payload index creation for versions: %s", exc)
+                self._collections_ensured = True
+            except Exception as exc:
+                logger.warning("Could not connect to Qdrant to ensure collections: %s", exc)
+                return
 
     def _active_version(self, repo_name: str) -> Optional[str]:
         """Fetch active index version for a repository."""
+        self._ensure_collections()
         if repo_name in self._version_cache:
             return self._version_cache[repo_name]
 
@@ -494,6 +501,9 @@ class QdrantStore:
                     "file_path": path,
                     "chunk_id": chunk_id,
                     "language": chunk.get("language", "text"),
+                    "category": chunk.get("category", "production"),
+                    "source_priority": float(chunk.get("source_priority", 1.0)),
+                    "is_entry_point": bool(chunk.get("is_entry_point", False)),
                     "index_version": version,
                 }
             )
@@ -630,6 +640,36 @@ class QdrantStore:
             retrieval_cache.invalidate_repo(repo_name)
         except ImportError:
             pass
+
+    def get_indexed_files(self, repo_name: str) -> List[str]:
+        """Return list of distinct file paths indexed for the active repository revision."""
+        with self._publication_lock:
+            version = self._active_version(repo_name)
+            conditions = [
+                FieldCondition(key="repo_name", match=MatchValue(value=repo_name)),
+            ]
+            if version is not None:
+                conditions.append(
+                    FieldCondition(key="index_version", match=MatchValue(value=version))
+                )
+            try:
+                points, _ = self.client.scroll(
+                    collection_name=COLLECTION_CHUNKS,
+                    scroll_filter=Filter(must=conditions),
+                    limit=10000,
+                    with_payload=True,
+                    with_vectors=False,
+                )
+                files = set()
+                for pt in points:
+                    payload = pt.payload or {}
+                    fp = payload.get("file_path")
+                    if fp:
+                        files.add(fp)
+                return sorted(list(files))
+            except Exception as exc:
+                logger.debug("Failed to get indexed files for %s: %s", repo_name, exc)
+                return []
 
     def delete_repository(self, repo_name: str) -> None:
         """Delete all revisions associated with a repository from Qdrant."""

@@ -9,9 +9,7 @@ import sys
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel, Field
 
-from backend.dependencies import (
-    structural_retrieval_engine as _structural_retrieval_engine,
-)
+from backend.dependencies import get_structural_retrieval_engine
 from models.retrieval import RepositoryRetrievalContext
 
 logger = logging.getLogger(__name__)
@@ -20,20 +18,20 @@ logger = logging.getLogger(__name__)
 class _ReloadSafeDependency:
     """Resolve a compatibility dependency from the currently loaded router module."""
 
-    def __init__(self, name: str, fallback: object) -> None:
+    def __init__(self, name: str, getter_fn) -> None:
         self._name = name
-        self._fallback = fallback
+        self._getter = getter_fn
 
     def __getattr__(self, attribute: str) -> object:
         module = sys.modules.get(__name__)
-        dependency = getattr(module, self._name, self._fallback)
-        if dependency is self:
-            dependency = self._fallback
+        dependency = getattr(module, self._name, None)
+        if dependency is None or dependency is self:
+            dependency = self._getter()
         return getattr(dependency, attribute)
 
 
 structural_retrieval_engine = _ReloadSafeDependency(
-    "structural_retrieval_engine", _structural_retrieval_engine
+    "structural_retrieval_engine", get_structural_retrieval_engine
 )
 router = APIRouter(tags=["Repository Structural Retrieval"])
 

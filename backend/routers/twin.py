@@ -10,8 +10,8 @@ from fastapi import APIRouter, HTTPException, Query
 from pydantic import BaseModel, Field
 
 from backend.dependencies import (
-    repository_twin_builder as _repository_twin_builder,
-    repository_twin_navigator as _repository_twin_navigator,
+    get_repository_twin_builder,
+    get_repository_twin_navigator,
 )
 from models.twin import RepositoryTwin, RepositoryTwinSummary
 
@@ -21,23 +21,23 @@ logger = logging.getLogger(__name__)
 class _ReloadSafeDependency:
     """Resolve a compatibility dependency from the currently loaded router module."""
 
-    def __init__(self, name: str, fallback: object) -> None:
+    def __init__(self, name: str, getter_fn) -> None:
         self._name = name
-        self._fallback = fallback
+        self._getter = getter_fn
 
     def __getattr__(self, attribute: str) -> object:
         module = sys.modules.get(__name__)
-        dependency = getattr(module, self._name, self._fallback)
-        if dependency is self:
-            dependency = self._fallback
+        dependency = getattr(module, self._name, None)
+        if dependency is None or dependency is self:
+            dependency = self._getter()
         return getattr(dependency, attribute)
 
 
 repository_twin_builder = _ReloadSafeDependency(
-    "repository_twin_builder", _repository_twin_builder
+    "repository_twin_builder", get_repository_twin_builder
 )
 repository_twin_navigator = _ReloadSafeDependency(
-    "repository_twin_navigator", _repository_twin_navigator
+    "repository_twin_navigator", get_repository_twin_navigator
 )
 router = APIRouter(tags=["Repository Twin"])
 
