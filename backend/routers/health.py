@@ -25,11 +25,12 @@ def health() -> Dict[str, Any]:
     uptime_seconds = round(time.time() - _START_TIME, 2)
     vector_db = settings.vector_store_backend
     try:
-        from backend.dependencies import get_vector_store
+        from backend.dependencies import _SINGLETONS
 
-        vector_store = get_vector_store()
-        if hasattr(vector_store, "active_backend"):
-            vector_db = vector_store.active_backend
+        if "vector_store" in _SINGLETONS:
+            vector_store = _SINGLETONS["vector_store"]
+            if hasattr(vector_store, "active_backend"):
+                vector_db = vector_store.active_backend
     except Exception:
         pass
 
