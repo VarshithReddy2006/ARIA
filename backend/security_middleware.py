@@ -7,10 +7,40 @@ import threading
 import urllib.parse
 from typing import Dict, List, Optional, Set
 from starlette.middleware.base import BaseHTTPMiddleware, RequestResponseEndpoint
+from starlette.middleware.trustedhost import TrustedHostMiddleware
 from starlette.requests import Request
 from starlette.responses import Response, JSONResponse
+from starlette.types import ASGIApp, Receive, Scope, Send
 
 logger = logging.getLogger(__name__)
+
+
+class HealthExemptTrustedHostMiddleware(TrustedHostMiddleware):
+    """TrustedHostMiddleware that exempts platform health and readiness probes.
+
+    Allows internal orchestrators (Azure Container Apps, Kubernetes) querying
+    via dynamic pod IP or localhost to perform health checks without weakening
+    ALLOWED_HOSTS validation for normal application routes.
+    """
+
+    EXEMPT_PATHS: Set[str] = {
+        "/health",
+        "/health/",
+        "/ready",
+        "/ready/",
+        "/api/v1/health",
+        "/api/v1/health/",
+        "/api/v1/ready",
+        "/api/v1/ready/",
+    }
+
+    async def __call__(self, scope: Scope, receive: Receive, send: Send) -> None:
+        if scope["type"] == "http":
+            path = scope.get("path", "")
+            if path in self.EXEMPT_PATHS:
+                await self.app(scope, receive, send)
+                return
+        await super().__call__(scope, receive, send)
 
 # Session configuration constants
 SESSION_COOKIE_NAME: str = "aria_session"
@@ -161,8 +191,10 @@ def is_valid_origin(
 PUBLIC_PATHS: Set[str] = {
     "/",
     "/health",
+    "/ready",
     "/metrics",
     "/api/v1/health",
+    "/api/v1/ready",
     "/api/v1/metrics",
     "/docs",
     "/redoc",
@@ -255,8 +287,10 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
         # Bypass rate limit on health/metrics routes
         if request.url.path in [
             "/health",
+            "/ready",
             "/metrics",
             "/api/v1/health",
+            "/api/v1/ready",
             "/api/v1/metrics",
         ]:
             return await call_next(request)

@@ -27,7 +27,7 @@ from backend.settings import settings
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.middleware.trustedhost import TrustedHostMiddleware
+from backend.security_middleware import HealthExemptTrustedHostMiddleware
 from fastapi.middleware.gzip import GZipMiddleware
 from backend.logging_middleware import RequestIdMiddleware
 from backend.security_middleware import RateLimitMiddleware
@@ -134,7 +134,7 @@ if settings.app_env != "production" and "*" not in _allowed_hosts:
         if test_host not in _allowed_hosts:
             _allowed_hosts.append(test_host)
 
-app.add_middleware(TrustedHostMiddleware, allowed_hosts=_allowed_hosts)
+app.add_middleware(HealthExemptTrustedHostMiddleware, allowed_hosts=_allowed_hosts)
 
 app.add_middleware(
     CORSMiddleware,
