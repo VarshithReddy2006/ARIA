@@ -1,7 +1,7 @@
 """Centralised configuration system for ARIA using Pydantic Settings (core layer)."""
 
 import os
-from typing import Any, List, Optional, Union
+from typing import Any, List, Optional
 from dotenv import load_dotenv
 
 # In development, local .env overrides system/IDE variables (preventing stale global keys from breaking local dev).

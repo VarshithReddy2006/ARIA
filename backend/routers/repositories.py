@@ -14,19 +14,17 @@ import asyncio
 import json
 import logging
 import os
+import sys
 import time
 import uuid
 from datetime import datetime, timezone
-from typing import Any, Callable, Dict, List, Optional
+from typing import Any, Dict, List, Optional
 
 from utils.memory_tracker import MemoryTracker, get_current_rss_mb
 from utils.subprocess_runner import SHORT_GIT_TIMEOUT, run_safe_command
 
 from fastapi import APIRouter, HTTPException
-from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, Field
-
-import sys
 
 from backend.dependencies import (
     ANALYSIS_STORE,
@@ -47,6 +45,16 @@ from backend.dependencies import (
 )
 from backend import dependencies as deps
 from models.schemas import RepositoryAnalysis
+from services.architecture_summary_service import generate_architecture_summary
+from services.github_service import (
+    BranchNotFoundError,
+    GitOperationError,
+    InvalidGitHubRepoURLError,
+    RepositoryNotFoundError,
+)
+from services.ingestion_service import detect_tech_stack_and_deps, parse_repo_name
+
+logger = logging.getLogger(__name__)
 
 
 class _ReloadSafeDependency:
@@ -81,16 +89,6 @@ call_graph_service = _ReloadSafeDependency("call_graph_service", get_call_graph_
 api_surface_service = _ReloadSafeDependency("api_surface_service", get_api_surface_service)
 report_composer = _ReloadSafeDependency("report_composer", get_report_composer)
 dead_code_service = _ReloadSafeDependency("dead_code_service", get_dead_code_service)
-from services.architecture_summary_service import generate_architecture_summary
-from services.github_service import (
-    BranchNotFoundError,
-    GitOperationError,
-    InvalidGitHubRepoURLError,
-    RepositoryNotFoundError,
-)
-from services.ingestion_service import detect_tech_stack_and_deps, parse_repo_name
-
-logger = logging.getLogger(__name__)
 
 
 class PipelineTimer:
@@ -1167,13 +1165,13 @@ def execute_repository_analysis(
     _emit("index", "building_dependency", "Building Dependency Graph", progress=70)
     mem_tracker.log_phase("before_architecture_analysis")
     if is_incremental:
-        arch_build_result = deps.architecture_service.build_partial(
+        deps.architecture_service.build_partial(
             repo_name,
             changed_files,
             repo_path=local_path,
         )
     else:
-        arch_build_result = deps.architecture_service.build_full(
+        deps.architecture_service.build_full(
             repo_name, repo_path=local_path
         )
 

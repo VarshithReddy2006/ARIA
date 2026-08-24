@@ -4,10 +4,7 @@ Ensures that importing backend.api executes purely locally without triggering
 any remote network operations (such as QdrantClient.get_collections).
 """
 
-import sys
-import time
 from unittest.mock import MagicMock, patch
-import pytest
 
 
 def test_import_backend_api_zero_network():
