@@ -170,11 +170,35 @@ class IntentRouter:
             f"- **Total files:** {summary.total_files}",
             f"- **Total dependencies:** {summary.total_dependencies}",
         ]
-        if summary.entry_points:
+        from core.file_classifier import classify_file, CATEGORY_PRODUCTION
+
+        prod_entries = []
+        example_entries = []
+        for ep in summary.entry_points or []:
+            classification = classify_file(ep)
+            if classification["category"] == CATEGORY_PRODUCTION:
+                prod_entries.append(ep)
+            else:
+                example_entries.append(ep)
+
+        if prod_entries:
+            lines.append(
+                "- **Primary Production Entry Points:** "
+                + ", ".join(f"`{e}`" for e in prod_entries[:8])
+            )
+        elif summary.entry_points:
             lines.append(
                 "- **Entry points:** "
-                + ", ".join(f"`{e}`" for e in summary.entry_points[:10])
+                + ", ".join(f"`{e}`" for e in summary.entry_points[:8])
             )
+
+        if example_entries:
+            lines.append(
+                "- **Example / Documentation Applications:** "
+                + ", ".join(f"`{e}`" for e in example_entries[:5])
+                + " (Note: these are sample/demo applications, not the core framework entry points)"
+            )
+
         if summary.core_modules:
             lines.append(
                 "- **Core modules:** "
@@ -191,10 +215,12 @@ class IntentRouter:
         return RepositoryIntelligence(
             intent=ir.intent,
             structured_context="\n".join(lines),
-            source_files=list(summary.entry_points or [])[:5],
+            source_files=list(prod_entries or summary.entry_points or [])[:5],
             metadata={
                 "total_files": summary.total_files,
                 "entry_points": list(summary.entry_points or []),
+                "production_entry_points": prod_entries,
+                "example_entry_points": example_entries,
             },
         )
 

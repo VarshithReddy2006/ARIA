@@ -1,15 +1,17 @@
 """Code Chunking Service module.
 
 Splits source code into logical, overlapping segments while preserving context
-and metadata.
+and enriched architectural metadata (category, source priority, language).
 """
 
 import os
 from typing import Dict, List, Any
 
+from core.file_classifier import classify_file, CATEGORY_PRODUCTION
+
 
 class CodeChunker:
-    """Helper to split code and documents into logical snippets."""
+    """Helper to split code and documents into logical snippets with classification metadata."""
 
     def __init__(
         self,
@@ -19,12 +21,7 @@ class CodeChunker:
         max_tokens_per_chunk: int | None = None,
         overlap_tokens: int | None = None,
     ) -> None:
-        """Initialize the chunker with current or legacy size parameter names.
-
-        ``max_tokens_per_chunk`` and ``overlap_tokens`` are retained as
-        compatibility aliases for the character-based current settings. Calls
-        using those legacy names also retain their historical string output.
-        """
+        """Initialize the chunker with current or legacy size parameter names."""
         self._legacy_string_output = (
             max_tokens_per_chunk is not None or overlap_tokens is not None
         )
@@ -44,54 +41,43 @@ class CodeChunker:
         return chunks
 
     def detect_language(self, file_path: str) -> str:
-        """Identifies language based on file suffix.
-
-        Args:
-            file_path: Path to the file.
-
-        Returns:
-            The language identifier string (e.g. 'python', 'javascript').
-        """
-        ext = os.path.splitext(file_path)[1].lower()
-        mapping = {
-            ".py": "python",
-            ".js": "javascript",
-            ".jsx": "javascript",
-            ".ts": "typescript",
-            ".tsx": "typescript",
-            ".html": "html",
-            ".css": "css",
-            ".md": "markdown",
-            ".json": "json",
-            ".sh": "bash",
-            ".yml": "yaml",
-            ".yaml": "yaml",
-            ".rs": "rust",
-            ".go": "go",
-            ".java": "java",
-            ".cpp": "cpp",
-            ".c": "c",
-            ".h": "c",
-            ".cs": "csharp",
-            ".sql": "sql",
-        }
-        return mapping.get(ext, "text")
+        """Identifies language based on file classification."""
+        classification = classify_file(file_path)
+        return classification.get("language", "text").lower()
 
     def chunk_file(
         self, file_path: str, content: str
     ) -> List[Dict[str, Any]] | List[str]:
-        """Splits the file content into chunks.
+        """Splits the file content into chunks with enriched metadata.
 
-        Ensures chunks align with line boundaries and include metadata.
-
-        Args:
-            file_path: Relative file path.
-            content: Raw text content of the file.
-
-        Returns:
-            A list of dictionary records containing path, chunk_id, content, and language.
+        Ensures chunks align with line boundaries and include metadata:
+          - path: file path
+          - chunk_id: index
+          - content: chunk text
+          - language: language name
+          - category: "production" | "test" | "docs" | "example" | "config" | "generated"
+          - source_priority: float
+          - is_entry_point: bool
         """
-        language = self.detect_language(file_path)
+        classification = classify_file(file_path)
+        language = classification.get("language", "text").lower()
+        category = classification.get("category", CATEGORY_PRODUCTION)
+        source_priority = classification.get("source_priority", 1.0)
+
+        # Candidate entry point check
+        fn = os.path.basename(file_path).lower()
+        is_entry = category == CATEGORY_PRODUCTION and fn in (
+            "main.py",
+            "__main__.py",
+            "__init__.py",
+            "app.py",
+            "server.py",
+            "index.ts",
+            "index.js",
+            "main.tsx",
+            "main.go",
+            "main.rs",
+        )
 
         # Empty or whitespace-only file: return no chunks
         if not content or not content.strip():
@@ -106,6 +92,9 @@ class CodeChunker:
                         "chunk_id": 1,
                         "content": content,
                         "language": language,
+                        "category": category,
+                        "source_priority": source_priority,
+                        "is_entry_point": is_entry,
                     }
                 ]
             )
@@ -130,6 +119,9 @@ class CodeChunker:
                             "chunk_id": chunk_id,
                             "content": "\n".join(current_chunk_lines),
                             "language": language,
+                            "category": category,
+                            "source_priority": source_priority,
+                            "is_entry_point": is_entry,
                         }
                     )
                     chunk_id += 1
@@ -143,6 +135,9 @@ class CodeChunker:
                         "chunk_id": chunk_id,
                         "content": line,
                         "language": language,
+                        "category": category,
+                        "source_priority": source_priority,
+                        "is_entry_point": is_entry,
                     }
                 )
                 chunk_id += 1
@@ -157,6 +152,9 @@ class CodeChunker:
                         "chunk_id": chunk_id,
                         "content": "\n".join(current_chunk_lines),
                         "language": language,
+                        "category": category,
+                        "source_priority": source_priority,
+                        "is_entry_point": is_entry,
                     }
                 )
                 chunk_id += 1
@@ -185,6 +183,9 @@ class CodeChunker:
                     "chunk_id": chunk_id,
                     "content": "\n".join(current_chunk_lines),
                     "language": language,
+                    "category": category,
+                    "source_priority": source_priority,
+                    "is_entry_point": is_entry,
                 }
             )
 

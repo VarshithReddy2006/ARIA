@@ -312,6 +312,10 @@ def mcp() -> None:
     importable for direct integrations but is deliberately not constructed here,
     to keep this entry point free of SDK-version-specific behaviour.
     """
+    os.environ.setdefault("OPENBLAS_NUM_THREADS", "1")
+    os.environ.setdefault("OMP_NUM_THREADS", "1")
+    os.environ.setdefault("MKL_NUM_THREADS", "1")
+    os.environ.setdefault("NUMEXPR_NUM_THREADS", "1")
     from backend.mcp_server import run_mcp_server
 
     run_mcp_server()

@@ -58,6 +58,10 @@ class StdioPeer:
             PYTHONUNBUFFERED="1",
             PYTHONIOENCODING="utf-8",
             PYTHONPATH=str(ROOT),
+            OPENBLAS_NUM_THREADS="1",
+            OMP_NUM_THREADS="1",
+            MKL_NUM_THREADS="1",
+            NUMEXPR_NUM_THREADS="1",
         )
         self.spawned_at = time.perf_counter()
         self.proc = subprocess.Popen(

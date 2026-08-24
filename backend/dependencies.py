@@ -8,13 +8,15 @@ the main ``api.py`` and every router can import from a single authoritative
 location without circular dependencies.
 """
 
+from __future__ import annotations
+
 import asyncio
 import json
 import logging
 import os
 import sys
 import threading
-from typing import Any, Dict, Optional, Type
+from typing import TYPE_CHECKING, Any, Dict, Optional, Type
 
 from fastapi import Request
 from ria.container import Container, build_container
@@ -29,45 +31,48 @@ from models.schemas import (
     ComponentRelationship,
     RepositoryAnalysis,
 )
-from memory.chroma_store import ChromaStore
-from memory.qdrant_store import QdrantStore
-from memory.vector_store import VectorStore, ProductionVectorStore
-from services.github_service import GitHubService
-from services.chunking_service import CodeChunker
-from services.embedding_service import EmbeddingService
-from services.retrieval_service import RetrievalService
-from services.architecture_service import ArchitectureService
-from services.graph_service import GraphService
-from services.reading_order_service import ReadingOrderService
-from services.impact_analysis_service import ImpactAnalysisService
-from services.arch_context_service import ArchContextService
-from services.graph_serializer import GraphSerializer
-from services.symbol_service import SymbolService
-from services.pr_intelligence_service import PRIntelligenceService
-from services.architecture_drift_service import ArchitectureDriftService
-from services.dead_code_service import DeadCodeService
-from services.git_history_service import GitHistoryService
-from services.call_graph_service import CallGraphService
-from services.api_surface_service import APISurfaceService
-from services.breaking_change_analyzer import BreakingChangeAnalyzer
-from services.report.composer import ReportComposer
-from services.report.renderer import HTMLRenderer, MarkdownRenderer, PDFRenderer
-from services.twin_builder import RepositoryTwinBuilder
-from services.twin_navigator import RepositoryTwinNavigator
-from services.knowledge_graph_builder import RepositoryKnowledgeGraphBuilder
-from services.knowledge_graph_navigator import RepositoryKnowledgeGraphNavigator
-from services.retrieval_engine import StructuralRetrievalEngine
-from services.reasoning_engine import EngineeringReasoningEngine
-from services.graph_rag import ChatPipeline, GraphRAGService
-from services.memory_service import EngineeringMemoryService
-from services.repository_inspector import RepositoryInspector
-from services.continuous_monitoring import ContinuousMonitoringService, ImmediatePolicy
-from services.advisor import AdvisorService
-from services.execution_planner import ExecutionPlannerService
-from services.workspace import WorkspaceCoordinator, WorkspaceService
+
+if TYPE_CHECKING:
+    from memory.chroma_store import ChromaStore
+    from memory.qdrant_store import QdrantStore
+    from memory.vector_store import VectorStore
+    from services.advisor import AdvisorService
+    from services.api_surface_service import APISurfaceService
+    from services.arch_context_service import ArchContextService
+    from services.architecture_drift_service import ArchitectureDriftService
+    from services.architecture_service import ArchitectureService
+    from services.breaking_change_analyzer import BreakingChangeAnalyzer
+    from services.call_graph_service import CallGraphService
+    from services.chunking_service import CodeChunker
+    from services.continuous_monitoring import ContinuousMonitoringService
+    from services.dead_code_service import DeadCodeService
+    from services.embedding_service import EmbeddingService
+    from services.reasoning_engine import EngineeringReasoningEngine
+    from services.execution_planner import ExecutionPlannerService
+    from services.git_history_service import GitHistoryService
+    from services.github_service import GitHubService
+    from services.graph_rag import GraphRAGService
+    from services.graph_serializer import GraphSerializer
+    from services.graph_service import GraphService
+    from services.impact_analysis_service import ImpactAnalysisService
+    from services.knowledge_graph_builder import RepositoryKnowledgeGraphBuilder
+    from services.knowledge_graph_navigator import RepositoryKnowledgeGraphNavigator
+    from services.memory_service import EngineeringMemoryService
+    from services.pr_intelligence_service import PRIntelligenceService
+    from services.reading_order_service import ReadingOrderService
+    from services.report.composer import ReportComposer
+    from services.report.renderer import HTMLRenderer, MarkdownRenderer, PDFRenderer
+    from services.repository_inspector import RepositoryInspector
+    from services.retrieval_engine import StructuralRetrievalEngine
+    from services.retrieval_service import RetrievalService
+    from services.symbol_service import SymbolService
+    from services.twin_builder import RepositoryTwinBuilder
+    from services.twin_navigator import RepositoryTwinNavigator
+    from services.workspace import WorkspaceService
 
 
 logger = logging.getLogger(__name__)
+
 
 def _get_analysis_store_path() -> str:
     override = os.environ.get("ANALYSIS_STORE_PATH")
@@ -160,7 +165,9 @@ def _load_analysis_store(target_repo: Optional[str] = None) -> None:
                         },
                     )
                 except Exception as exc:
-                    logger.debug("Skipping malformed store entry for '%s': %s", repo_name, exc)
+                    logger.debug(
+                        "Skipping malformed store entry for '%s': %s", repo_name, exc
+                    )
         except Exception as exc:
             logger.debug("Could not read analysis store from %s: %s", path, exc)
 
@@ -299,6 +306,12 @@ def get_analysis_cache() -> AnalysisCache:
 
 def get_analysis_registry() -> AnalysisRegistry:
     def _create_registry():
+        from services.symbol_service import SymbolService
+        from services.architecture_service import ArchitectureService
+        from services.call_graph_service import CallGraphService
+        from services.git_history_service import GitHistoryService
+        from services.api_surface_service import APISurfaceService
+
         reg = AnalysisRegistry()
         reg.register(
             "Symbol Index",
@@ -350,10 +363,14 @@ def get_build_pipeline() -> BuildPipeline:
 
 
 def get_github_service() -> GitHubService:
+    from services.github_service import GitHubService
+
     return _get_or_create("github_service", lambda: GitHubService())
 
 
 def get_embedding_service() -> EmbeddingService:
+    from services.embedding_service import EmbeddingService
+
     return _get_or_create(
         "embedding_service",
         lambda: EmbeddingService(model_name=settings.embedding_model),
@@ -361,6 +378,8 @@ def get_embedding_service() -> EmbeddingService:
 
 
 def get_chroma_store() -> ChromaStore:
+    from memory.chroma_store import ChromaStore
+
     return _get_or_create(
         "chroma_store",
         lambda: ChromaStore(persist_directory=settings.chroma_db_path),
@@ -369,9 +388,16 @@ def get_chroma_store() -> ChromaStore:
 
 def get_qdrant_store() -> Optional[QdrantStore]:
     try:
+        mod = sys.modules.get(__name__)
+        qdrant_cls = getattr(mod, "QdrantStore", None) if mod else None
+        if qdrant_cls is None:
+            from memory.qdrant_store import QdrantStore
+
+            qdrant_cls = QdrantStore
+
         return _get_or_create(
             "qdrant_store",
-            lambda: QdrantStore(
+            lambda: qdrant_cls(
                 url=settings.qdrant_url,
                 grpc_port=settings.qdrant_grpc_port,
                 prefer_grpc=settings.qdrant_prefer_grpc,
@@ -385,6 +411,8 @@ def get_qdrant_store() -> Optional[QdrantStore]:
 
 
 def get_vector_store() -> VectorStore:
+    from memory.vector_store import ProductionVectorStore
+
     return _get_or_create(
         "vector_store",
         lambda: ProductionVectorStore(
@@ -401,10 +429,14 @@ def get_vector_store() -> VectorStore:
 
 
 def get_chunker() -> CodeChunker:
+    from services.chunking_service import CodeChunker
+
     return _get_or_create("chunker", lambda: CodeChunker())
 
 
 def get_retrieval_service() -> RetrievalService:
+    from services.retrieval_service import RetrievalService
+
     return _get_or_create(
         "retrieval_service",
         lambda: RetrievalService(
@@ -415,14 +447,20 @@ def get_retrieval_service() -> RetrievalService:
 
 
 def get_architecture_service() -> ArchitectureService:
+    from services.architecture_service import ArchitectureService
+
     return _get_or_create("architecture_service", lambda: ArchitectureService())
 
 
 def get_graph_service() -> GraphService:
+    from services.graph_service import GraphService
+
     return _get_or_create("graph_service", lambda: GraphService())
 
 
 def get_graph_serializer() -> GraphSerializer:
+    from services.graph_serializer import GraphSerializer
+
     return _get_or_create(
         "graph_serializer",
         lambda: GraphSerializer(
@@ -433,6 +471,8 @@ def get_graph_serializer() -> GraphSerializer:
 
 
 def get_reading_order_service() -> ReadingOrderService:
+    from services.reading_order_service import ReadingOrderService
+
     return _get_or_create(
         "reading_order_service",
         lambda: ReadingOrderService(architecture_service=get_architecture_service()),
@@ -440,6 +480,8 @@ def get_reading_order_service() -> ReadingOrderService:
 
 
 def get_impact_analysis_service() -> ImpactAnalysisService:
+    from services.impact_analysis_service import ImpactAnalysisService
+
     return _get_or_create(
         "impact_analysis_service",
         lambda: ImpactAnalysisService(architecture_service=get_architecture_service()),
@@ -447,6 +489,8 @@ def get_impact_analysis_service() -> ImpactAnalysisService:
 
 
 def get_arch_context_service() -> ArchContextService:
+    from services.arch_context_service import ArchContextService
+
     return _get_or_create(
         "arch_context_service",
         lambda: ArchContextService(architecture_service=get_architecture_service()),
@@ -454,10 +498,14 @@ def get_arch_context_service() -> ArchContextService:
 
 
 def get_symbol_service() -> SymbolService:
+    from services.symbol_service import SymbolService
+
     return _get_or_create("symbol_service", lambda: SymbolService())
 
 
 def get_pr_intelligence_service() -> PRIntelligenceService:
+    from services.pr_intelligence_service import PRIntelligenceService
+
     return _get_or_create(
         "pr_intelligence_service",
         lambda: PRIntelligenceService(
@@ -470,6 +518,8 @@ def get_pr_intelligence_service() -> PRIntelligenceService:
 
 
 def get_architecture_drift_service() -> ArchitectureDriftService:
+    from services.architecture_drift_service import ArchitectureDriftService
+
     return _get_or_create(
         "architecture_drift_service",
         lambda: ArchitectureDriftService(
@@ -483,6 +533,8 @@ def get_architecture_drift_service() -> ArchitectureDriftService:
 
 
 def get_dead_code_service() -> DeadCodeService:
+    from services.dead_code_service import DeadCodeService
+
     return _get_or_create(
         "dead_code_service",
         lambda: DeadCodeService(
@@ -494,6 +546,8 @@ def get_dead_code_service() -> DeadCodeService:
 
 
 def get_git_history_service() -> GitHistoryService:
+    from services.git_history_service import GitHistoryService
+
     return _get_or_create(
         "git_history_service",
         lambda: GitHistoryService(
@@ -504,6 +558,8 @@ def get_git_history_service() -> GitHistoryService:
 
 
 def get_call_graph_service() -> CallGraphService:
+    from services.call_graph_service import CallGraphService
+
     return _get_or_create(
         "call_graph_service",
         lambda: CallGraphService(
@@ -514,6 +570,8 @@ def get_call_graph_service() -> CallGraphService:
 
 
 def get_api_surface_service() -> APISurfaceService:
+    from services.api_surface_service import APISurfaceService
+
     return _get_or_create(
         "api_surface_service",
         lambda: APISurfaceService(
@@ -524,10 +582,14 @@ def get_api_surface_service() -> APISurfaceService:
 
 
 def get_breaking_change_analyzer() -> Type[BreakingChangeAnalyzer]:
+    from services.breaking_change_analyzer import BreakingChangeAnalyzer
+
     return BreakingChangeAnalyzer
 
 
 def get_report_composer() -> ReportComposer:
+    from services.report.composer import ReportComposer
+
     return _get_or_create(
         "report_composer",
         lambda: ReportComposer(
@@ -542,18 +604,26 @@ def get_report_composer() -> ReportComposer:
 
 
 def get_html_renderer() -> HTMLRenderer:
+    from services.report.renderer import HTMLRenderer
+
     return _get_or_create("html_renderer", lambda: HTMLRenderer())
 
 
 def get_markdown_renderer() -> MarkdownRenderer:
+    from services.report.renderer import MarkdownRenderer
+
     return _get_or_create("markdown_renderer", lambda: MarkdownRenderer())
 
 
 def get_pdf_renderer() -> PDFRenderer:
+    from services.report.renderer import PDFRenderer
+
     return _get_or_create("pdf_renderer", lambda: PDFRenderer())
 
 
 def get_repository_twin_builder() -> RepositoryTwinBuilder:
+    from services.twin_builder import RepositoryTwinBuilder
+
     return _get_or_create(
         "repository_twin_builder",
         lambda: RepositoryTwinBuilder(
@@ -570,12 +640,16 @@ def get_repository_twin_builder() -> RepositoryTwinBuilder:
 
 
 def get_repository_twin_navigator() -> RepositoryTwinNavigator:
+    from services.twin_navigator import RepositoryTwinNavigator
+
     return _get_or_create(
         "repository_twin_navigator", lambda: RepositoryTwinNavigator()
     )
 
 
 def get_repository_knowledge_graph_builder() -> RepositoryKnowledgeGraphBuilder:
+    from services.knowledge_graph_builder import RepositoryKnowledgeGraphBuilder
+
     return _get_or_create(
         "repository_knowledge_graph_builder",
         lambda: RepositoryKnowledgeGraphBuilder(
@@ -588,6 +662,8 @@ def get_repository_knowledge_graph_builder() -> RepositoryKnowledgeGraphBuilder:
 
 
 def get_repository_knowledge_graph_navigator() -> RepositoryKnowledgeGraphNavigator:
+    from services.knowledge_graph_navigator import RepositoryKnowledgeGraphNavigator
+
     return _get_or_create(
         "repository_knowledge_graph_navigator",
         lambda: RepositoryKnowledgeGraphNavigator(
@@ -597,6 +673,8 @@ def get_repository_knowledge_graph_navigator() -> RepositoryKnowledgeGraphNaviga
 
 
 def get_structural_retrieval_engine() -> StructuralRetrievalEngine:
+    from services.retrieval_engine import StructuralRetrievalEngine
+
     return _get_or_create(
         "structural_retrieval_engine",
         lambda: StructuralRetrievalEngine(
@@ -609,6 +687,8 @@ def get_structural_retrieval_engine() -> StructuralRetrievalEngine:
 
 
 def get_engineering_reasoning_engine() -> EngineeringReasoningEngine:
+    from services.reasoning_engine import EngineeringReasoningEngine
+
     return _get_or_create(
         "engineering_reasoning_engine",
         lambda: EngineeringReasoningEngine(),
@@ -616,6 +696,8 @@ def get_engineering_reasoning_engine() -> EngineeringReasoningEngine:
 
 
 def get_graph_rag_service() -> GraphRAGService:
+    from services.graph_rag import ChatPipeline, GraphRAGService
+
     return _get_or_create(
         "graph_rag_service",
         lambda: GraphRAGService(
@@ -628,6 +710,8 @@ def get_graph_rag_service() -> GraphRAGService:
 
 
 def get_engineering_memory_service() -> EngineeringMemoryService:
+    from services.memory_service import EngineeringMemoryService
+
     return _get_or_create(
         "engineering_memory_service",
         lambda: EngineeringMemoryService(),
@@ -635,6 +719,8 @@ def get_engineering_memory_service() -> EngineeringMemoryService:
 
 
 def get_repository_inspector() -> RepositoryInspector:
+    from services.repository_inspector import RepositoryInspector
+
     return _get_or_create(
         "repository_inspector",
         lambda: RepositoryInspector(),
@@ -642,6 +728,11 @@ def get_repository_inspector() -> RepositoryInspector:
 
 
 def get_continuous_monitoring_service() -> ContinuousMonitoringService:
+    from services.continuous_monitoring import (
+        ContinuousMonitoringService,
+        ImmediatePolicy,
+    )
+
     return _get_or_create(
         "continuous_monitoring_service",
         lambda: ContinuousMonitoringService(
@@ -652,10 +743,14 @@ def get_continuous_monitoring_service() -> ContinuousMonitoringService:
 
 
 def get_advisor_service() -> AdvisorService:
+    from services.advisor import AdvisorService
+
     return _get_or_create("advisor_service", lambda: AdvisorService())
 
 
 def get_execution_planner_service() -> ExecutionPlannerService:
+    from services.execution_planner import ExecutionPlannerService
+
     return _get_or_create(
         "execution_planner_service",
         lambda: ExecutionPlannerService(),
@@ -663,6 +758,8 @@ def get_execution_planner_service() -> ExecutionPlannerService:
 
 
 def get_workspace_service() -> WorkspaceService:
+    from services.workspace import WorkspaceCoordinator, WorkspaceService
+
     def _create_ws():
         coord = WorkspaceCoordinator(
             twin_builder=get_repository_twin_builder(),
@@ -678,7 +775,7 @@ def get_workspace_service() -> WorkspaceService:
     return _get_or_create("workspace_service", _create_ws)
 
 
-def get_retrieval_pipeline():
+def get_retrieval_pipeline() -> Any:
     def _create_pipeline():
         from services.chat.retrieval_pipeline import RetrievalPipeline
         from services.chat.intent_router import IntentRouter
@@ -704,6 +801,12 @@ def get_retrieval_pipeline():
 
 
 def get_service_by_class(cls: Type[Any]) -> Optional[Any]:
+    from services.symbol_service import SymbolService
+    from services.architecture_service import ArchitectureService
+    from services.call_graph_service import CallGraphService
+    from services.git_history_service import GitHistoryService
+    from services.api_surface_service import APISurfaceService
+
     if cls == SymbolService:
         return get_symbol_service()
     if cls == ArchitectureService:
@@ -769,8 +872,89 @@ _GETTERS = {
     "retrieval_pipeline": get_retrieval_pipeline,
 }
 
+_CLASS_EXPORTS = {
+    "ChromaStore": ("memory.chroma_store", "ChromaStore"),
+    "QdrantStore": ("memory.qdrant_store", "QdrantStore"),
+    "VectorStore": ("memory.vector_store", "VectorStore"),
+    "ProductionVectorStore": ("memory.vector_store", "ProductionVectorStore"),
+    "GitHubService": ("services.github_service", "GitHubService"),
+    "CodeChunker": ("services.chunking_service", "CodeChunker"),
+    "EmbeddingService": ("services.embedding_service", "EmbeddingService"),
+    "RetrievalService": ("services.retrieval_service", "RetrievalService"),
+    "ArchitectureService": ("services.architecture_service", "ArchitectureService"),
+    "GraphService": ("services.graph_service", "GraphService"),
+    "ReadingOrderService": ("services.reading_order_service", "ReadingOrderService"),
+    "ImpactAnalysisService": (
+        "services.impact_analysis_service",
+        "ImpactAnalysisService",
+    ),
+    "ArchContextService": ("services.arch_context_service", "ArchContextService"),
+    "GraphSerializer": ("services.graph_serializer", "GraphSerializer"),
+    "SymbolService": ("services.symbol_service", "SymbolService"),
+    "PRIntelligenceService": (
+        "services.pr_intelligence_service",
+        "PRIntelligenceService",
+    ),
+    "ArchitectureDriftService": (
+        "services.architecture_drift_service",
+        "ArchitectureDriftService",
+    ),
+    "DeadCodeService": ("services.dead_code_service", "DeadCodeService"),
+    "GitHistoryService": ("services.git_history_service", "GitHistoryService"),
+    "CallGraphService": ("services.call_graph_service", "CallGraphService"),
+    "APISurfaceService": ("services.api_surface_service", "APISurfaceService"),
+    "BreakingChangeAnalyzer": (
+        "services.breaking_change_analyzer",
+        "BreakingChangeAnalyzer",
+    ),
+    "ReportComposer": ("services.report.composer", "ReportComposer"),
+    "HTMLRenderer": ("services.report.renderer", "HTMLRenderer"),
+    "MarkdownRenderer": ("services.report.renderer", "MarkdownRenderer"),
+    "PDFRenderer": ("services.report.renderer", "PDFRenderer"),
+    "RepositoryTwinBuilder": ("services.twin_builder", "RepositoryTwinBuilder"),
+    "RepositoryTwinNavigator": ("services.twin_navigator", "RepositoryTwinNavigator"),
+    "RepositoryKnowledgeGraphBuilder": (
+        "services.knowledge_graph_builder",
+        "RepositoryKnowledgeGraphBuilder",
+    ),
+    "RepositoryKnowledgeGraphNavigator": (
+        "services.knowledge_graph_navigator",
+        "RepositoryKnowledgeGraphNavigator",
+    ),
+    "StructuralRetrievalEngine": (
+        "services.retrieval_engine",
+        "StructuralRetrievalEngine",
+    ),
+    "EngineeringReasoningEngine": (
+        "services.reasoning_engine",
+        "EngineeringReasoningEngine",
+    ),
+    "ChatPipeline": ("services.graph_rag", "ChatPipeline"),
+    "GraphRAGService": ("services.graph_rag", "GraphRAGService"),
+    "EngineeringMemoryService": ("services.memory_service", "EngineeringMemoryService"),
+    "RepositoryInspector": ("services.repository_inspector", "RepositoryInspector"),
+    "ContinuousMonitoringService": (
+        "services.continuous_monitoring",
+        "ContinuousMonitoringService",
+    ),
+    "ImmediatePolicy": ("services.continuous_monitoring", "ImmediatePolicy"),
+    "AdvisorService": ("services.advisor", "AdvisorService"),
+    "ExecutionPlannerService": (
+        "services.execution_planner",
+        "ExecutionPlannerService",
+    ),
+    "WorkspaceCoordinator": ("services.workspace", "WorkspaceCoordinator"),
+    "WorkspaceService": ("services.workspace", "WorkspaceService"),
+}
+
 
 def __getattr__(name: str) -> Any:
     if name in _GETTERS:
         return _GETTERS[name]()
+    if name in _CLASS_EXPORTS:
+        mod_name, attr_name = _CLASS_EXPORTS[name]
+        import importlib
+
+        mod = importlib.import_module(mod_name)
+        return getattr(mod, attr_name)
     raise AttributeError(f"module '{__name__}' has no attribute '{name}'")

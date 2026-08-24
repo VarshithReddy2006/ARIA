@@ -63,7 +63,15 @@ class StdioClient:
     """Minimal framed JSON-RPC client over a subprocess' stdin/stdout."""
 
     def __init__(self, cmd: list[str], cwd: str) -> None:
-        env = dict(os.environ, PYTHONUNBUFFERED="1", PYTHONIOENCODING="utf-8")
+        env = dict(
+            os.environ,
+            PYTHONUNBUFFERED="1",
+            PYTHONIOENCODING="utf-8",
+            OPENBLAS_NUM_THREADS="1",
+            OMP_NUM_THREADS="1",
+            MKL_NUM_THREADS="1",
+            NUMEXPR_NUM_THREADS="1",
+        )
         self.stdout_q: queue.Queue[str | None] = queue.Queue()
         self.stderr_lines: list[str] = []
         self.raw_stdout: list[str] = []

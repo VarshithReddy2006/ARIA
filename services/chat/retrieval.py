@@ -153,61 +153,43 @@ def extract_file_candidates(question: str) -> List[str]:
 
 
 def is_non_preferred_file(path: str) -> bool:
-    """Return True if the path is test, mock, compiled, or other non-production file."""
-    p = path.replace("\\", "/").lower()
-    parts = p.split("/")
-    for part in parts:
-        if part in (
-            "tests",
-            "test",
-            "__tests__",
-            "spec",
-            "mock",
-            "mocks",
-            "fixtures",
-            "out",
-            "dist",
-            "build",
-            "coverage",
-            "node_modules",
-            ".vscode",
-            ".kiro",
-            ".pytest_cache",
-        ):
-            return True
-        if part.startswith("test_") or part.startswith("mock_"):
-            return True
-    filename = parts[-1]
-    if (
-        filename.startswith("test_")
-        or filename.startswith("mock_")
-        or ".test." in filename
-        or ".spec." in filename
-        or ".mock." in filename
-        or filename.endswith("_test.py")
-        or filename.endswith("_mock.py")
-    ):
-        return True
-    return False
+    """Return True if the path is test, mock, compiled, example, or non-production file."""
+    from core.file_classifier import classify_file, CATEGORY_PRODUCTION
+
+    c = classify_file(path)
+    return c["category"] != CATEGORY_PRODUCTION
 
 
 def get_directory_rank(path: str) -> int:
     """Return ranking index for the path directories (lower is closer/preferred)."""
-    p = path.replace("\\", "/").lower()
-    parts = p.split("/")
-    if "backend" in parts:
-        return 0
-    if "services" in parts:
-        return 1
-    if "frontend" in parts:
+    from core.file_classifier import (
+        classify_file,
+        CATEGORY_PRODUCTION,
+        CATEGORY_CONFIG,
+        CATEGORY_DOCS,
+        CATEGORY_EXAMPLE,
+        CATEGORY_TEST,
+    )
+
+    c = classify_file(path)
+    cat = c["category"]
+    if cat == CATEGORY_PRODUCTION:
+        p = path.replace("\\", "/").lower()
+        parts = p.split("/")
+        if "backend" in parts or "services" in parts or "core" in parts:
+            return 0
+        if "src" in parts or "lib" in parts:
+            return 1
         return 2
-    if "src" in parts:
+    if cat == CATEGORY_CONFIG:
         return 3
-    if "docs" in parts or "doc" in parts:
+    if cat == CATEGORY_DOCS:
         return 4
-    if "tests" in parts or "test" in parts:
+    if cat == CATEGORY_EXAMPLE:
         return 5
-    return 6
+    if cat == CATEGORY_TEST:
+        return 6
+    return 7
 
 
 def detect_deterministic_retrieval(
@@ -462,21 +444,31 @@ def _get_tier_weight(file_path: str) -> float:
         if pat.search(p):
             return 0.0
 
-    # Tier 3 checked before Tier 2 because some Tier 3 files (requirements.txt)
-    # would otherwise match Tier 2's generic .txt pattern.
-    for pat in _TIER_3_PATTERNS:
-        if pat.search(p):
-            return 0.2
+    from core.file_classifier import (
+        classify_file,
+        CATEGORY_PRODUCTION,
+        CATEGORY_CONFIG,
+        CATEGORY_DOCS,
+        CATEGORY_EXAMPLE,
+        CATEGORY_TEST,
+        CATEGORY_GENERATED,
+    )
 
-    for pat in _TIER_1_PATTERNS:
-        if pat.search(p):
-            return 1.0
+    c = classify_file(p)
+    cat = c["category"]
+    if cat == CATEGORY_GENERATED:
+        return 0.0
+    if cat == CATEGORY_PRODUCTION:
+        return 1.0
+    if cat == CATEGORY_DOCS:
+        return 0.6
+    if cat == CATEGORY_EXAMPLE:
+        return 0.4
+    if cat == CATEGORY_TEST:
+        return 0.3
+    if cat == CATEGORY_CONFIG:
+        return 0.2
 
-    for pat in _TIER_2_PATTERNS:
-        if pat.search(p):
-            return 0.6
-
-    # Default to Tier 1 weight for unknown types
     return 1.0
 
 

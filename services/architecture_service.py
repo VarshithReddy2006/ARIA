@@ -13,7 +13,7 @@ All computations are local — no Gemini calls are made in this service.
 import logging
 import os
 import time
-from typing import Any, Dict, List, Optional, Set
+from typing import Any, Dict, List, Optional, Set, Tuple
 
 import networkx as nx
 
@@ -147,7 +147,9 @@ class ArchitectureService:
         all_paths = (
             [f["path"] for f in files] if files else self._walk_repo_paths(repo_path)
         )
-        ep_result = self.entry_point_service.detect(all_paths, parsed)
+        ep_result = self.entry_point_service.detect(
+            all_paths, parsed, files_content=files
+        )
         entry_points: List[str] = ep_result["entry_points"]
 
         graph = self.graph_service.build_file_graph(parsed)
@@ -235,7 +237,9 @@ class ArchitectureService:
         all_paths = (
             [f["path"] for f in files] if files else self._walk_repo_paths(repo_path)
         )
-        ep_result = self.entry_point_service.detect(all_paths, merged_parsed)
+        ep_result = self.entry_point_service.detect(
+            all_paths, merged_parsed, files_content=files
+        )
         entry_points: List[str] = ep_result["entry_points"]
 
         # 5. Rebuild the graph and compute summary
@@ -347,10 +351,19 @@ class ArchitectureService:
                 "total_dependencies": total_deps,
             }
 
+        from core.file_classifier import classify_file, CATEGORY_PRODUCTION
+
         # Degree centrality — identifies nodes that are most connected overall
         centrality = nx.degree_centrality(graph)
+
+        # Sort prioritizing production category, then centrality score
+        def _centrality_sort_key(node_score: Tuple[str, float]) -> Tuple[int, float]:
+            node, score = node_score
+            is_prod = 1 if classify_file(node)["category"] == CATEGORY_PRODUCTION else 0
+            return (is_prod, score)
+
         sorted_by_centrality = sorted(
-            centrality.items(), key=lambda x: x[1], reverse=True
+            centrality.items(), key=_centrality_sort_key, reverse=True
         )
         core_modules = [
             node for node, _ in sorted_by_centrality[:top_n] if centrality[node] > 0
@@ -361,8 +374,14 @@ class ArchitectureService:
             node: graph.in_degree(node) + graph.out_degree(node)
             for node in graph.nodes()
         }
+
+        def _coupling_sort_key(node_score: Tuple[str, int]) -> Tuple[int, int]:
+            node, score = node_score
+            is_prod = 1 if classify_file(node)["category"] == CATEGORY_PRODUCTION else 0
+            return (is_prod, score)
+
         sorted_by_coupling = sorted(
-            coupling_scores.items(), key=lambda x: x[1], reverse=True
+            coupling_scores.items(), key=_coupling_sort_key, reverse=True
         )
         high_coupling = [
             node for node, score in sorted_by_coupling[:top_n] if score > 1

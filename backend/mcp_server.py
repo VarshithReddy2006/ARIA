@@ -7,9 +7,16 @@ dependency graphs, dead code, PR analysis, and retrieval) as standard MCP tools.
 import json
 import os
 import sys
+
+# Limit OpenBLAS / MKL / OMP threads in MCP stdio subprocess to prevent memory exhaustion
+os.environ.setdefault("OPENBLAS_NUM_THREADS", "1")
+os.environ.setdefault("OMP_NUM_THREADS", "1")
+os.environ.setdefault("MKL_NUM_THREADS", "1")
+os.environ.setdefault("NUMEXPR_NUM_THREADS", "1")
+
 import traceback
 import logging
-from typing import Dict, Any, List
+from typing import Dict, Any, List, Optional
 
 # Redirect all root logging to stderr. Stdout MUST be preserved exclusively for JSON-RPC.
 logger = logging.getLogger()
@@ -230,20 +237,12 @@ def run_mcp_server() -> None:
     """Main loop reading JSON-RPC requests from stdin and responding to stdout."""
     logger.info("Initializing ARIA MCP Server...")
 
-    # Lazy-load back-end singletons on start
-    from backend.dependencies import (
-        ANALYSIS_STORE,
-        _load_analysis_store,
-        symbol_service,
-        call_graph_service,
-        dead_code_service,
-        retrieval_service,
-    )
-
     # Hydrate persisted repositories from disk. The FastAPI app does this in its
     # startup path; the stdio server has no lifespan hook, so without this every
     # repository-scoped tool reports "not indexed". Guarded on emptiness so the
     # call is idempotent and never re-validates an already-populated store.
+    from backend.dependencies import ANALYSIS_STORE, _load_analysis_store
+
     if not ANALYSIS_STORE:
         _load_analysis_store()
     logger.info("Analysis store ready: %d repositories available.", len(ANALYSIS_STORE))
@@ -313,10 +312,6 @@ def run_mcp_server() -> None:
                         tool_name,
                         arguments,
                         ANALYSIS_STORE,
-                        symbol_service,
-                        call_graph_service,
-                        dead_code_service,
-                        retrieval_service,
                     )
                     result_content.append(
                         {"type": "text", "text": json.dumps(tool_result, indent=2)}
@@ -398,13 +393,18 @@ def run_mcp_server() -> None:
 def execute_tool(
     name: str,
     args: Dict[str, Any],
-    store: Dict[str, Any],
-    symbols: Any,
-    call_graph: Any,
-    dead_code: Any,
-    retrieval: Any,
+    store: Optional[Dict[str, Any]] = None,
+    symbols: Any = None,
+    call_graph: Any = None,
+    dead_code: Any = None,
+    retrieval: Any = None,
 ) -> Any:
     """Invokes the corresponding backend service and returns serializable data."""
+    import backend.dependencies as deps
+
+    if store is None:
+        store = deps.ANALYSIS_STORE
+
     if name == "list_repositories":
         return list(store.keys())
 
@@ -428,6 +428,8 @@ def execute_tool(
         }
 
     elif name == "get_file_symbols":
+        if symbols is None:
+            symbols = deps.symbol_service
         file_path = args.get("file_path", "").strip()
         res = symbols.get_file_symbols(repo_name, file_path)
         if res is None:
@@ -437,6 +439,8 @@ def execute_tool(
         return [s.model_dump() for s in res]
 
     elif name == "get_symbol_definition":
+        if symbols is None:
+            symbols = deps.symbol_service
         sym_name = args.get("symbol_name", "").strip()
         res = symbols.get_definition(repo_name, sym_name)
         if res is None:
@@ -444,6 +448,8 @@ def execute_tool(
         return res.model_dump()
 
     elif name == "get_symbol_references":
+        if symbols is None:
+            symbols = deps.symbol_service
         sym_name = args.get("symbol_name", "").strip()
         # get_references is typed Optional[List[Symbol]] and returns None when the
         # repository has no symbol index. "No references" is a valid answer, so
@@ -452,6 +458,8 @@ def execute_tool(
         return [s.model_dump() for s in (res or [])]
 
     elif name == "get_call_graph":
+        if call_graph is None:
+            call_graph = deps.call_graph_service
         # CallGraphService exposes the persisted summary as load_summary(); the
         # previous get_graph_summary() name does not exist on the service.
         res = call_graph.load_summary(repo_name)
@@ -467,22 +475,22 @@ def execute_tool(
         # Run dead code sweep
         from services.dead_code_service import DeadCodeService
 
-        dc_service = DeadCodeService()
-        from backend.dependencies import (
-            github_service,
-            graph_service,
-            architecture_service,
+        dc_service = (
+            dead_code
+            if (dead_code is not None and hasattr(dead_code, "analyze"))
+            else DeadCodeService()
         )
-
-        dc_service.github_service = github_service
-        dc_service.graph_service = graph_service
-        dc_service.architecture_service = architecture_service
+        dc_service.github_service = deps.github_service
+        dc_service.graph_service = deps.graph_service
+        dc_service.architecture_service = deps.architecture_service
 
         # Build graphs if not existing
         res = dc_service.analyze(repo_name)
         return res.model_dump()
 
     elif name == "query_codebase":
+        if retrieval is None:
+            retrieval = deps.retrieval_service
         query = args.get("query", "").strip()
         # RetrievalService's public entry point is retrieve_and_answer(); it
         # returns the same answer/sources/confidence/verified shape used below.

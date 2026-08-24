@@ -321,3 +321,38 @@ async def test_indexing_path_streams_batches_without_accumulating_full_matrix():
         # Assert staging happened incrementally in 3 separate batches of 2 items
         assert len(staged_calls) == 3
         assert mock_publish.call_count == 1
+
+
+def test_concurrent_embedding_calls_thread_safety():
+    """Verify that multiple threads concurrently calling generate_embeddings_batch are serialized safely by _inference_lock."""
+    import concurrent.futures
+
+    service = EmbeddingService(model_name="test-model", max_outer_batch_size=4)
+
+    mock_model = MagicMock()
+    mock_model.encode.side_effect = lambda texts, **kwargs: np.array(
+        [[0.5] * 384 for _ in texts]
+    )
+
+    with (
+        patch("services.embedding_service._get_model", return_value=mock_model),
+        patch(
+            "services.embedding_service._get_cached_embeddings_bulk", return_value={}
+        ),
+        patch("services.embedding_service._save_embeddings_to_cache_bulk"),
+    ):
+
+        def worker(thread_id: int):
+            texts = [f"Text from thread {thread_id} item {i}" for i in range(5)]
+            res = service.generate_embeddings_batch(texts)
+            assert len(res) == 5
+            for vec in res:
+                assert len(vec) == 384
+            return len(res)
+
+        with concurrent.futures.ThreadPoolExecutor(max_workers=8) as executor:
+            futures = [executor.submit(worker, i) for i in range(16)]
+            results = [f.result() for f in concurrent.futures.as_completed(futures)]
+
+        assert len(results) == 16
+        assert all(r == 5 for r in results)

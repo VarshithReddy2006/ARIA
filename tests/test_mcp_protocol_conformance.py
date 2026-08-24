@@ -23,10 +23,28 @@ VALIDATOR = ROOT / "scripts" / "mcp_validate.py"
 
 @pytest.fixture(scope="module")
 def report(tmp_path_factory: pytest.TempPathFactory) -> dict:
+    import os
+
     out = tmp_path_factory.mktemp("mcp") / "report.json"
+    env = dict(
+        os.environ,
+        OPENBLAS_NUM_THREADS="1",
+        OMP_NUM_THREADS="1",
+        MKL_NUM_THREADS="1",
+        NUMEXPR_NUM_THREADS="1",
+    )
     proc = subprocess.run(
-        [sys.executable, str(VALIDATOR), "--skip-slow", "--json", str(out)],
+        [
+            sys.executable,
+            str(VALIDATOR),
+            "--skip-slow",
+            "--timeout",
+            "60.0",
+            "--json",
+            str(out),
+        ],
         cwd=ROOT,
+        env=env,
         capture_output=True,
         text=True,
         timeout=600,

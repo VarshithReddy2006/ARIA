@@ -7,6 +7,14 @@ All tool implementations delegate to existing services resolved
 through backend/dependencies.py. No business logic lives here.
 """
 
+import os
+
+# Limit OpenBLAS / MKL / OMP threads in MCP stdio subprocess to prevent memory exhaustion
+os.environ.setdefault("OPENBLAS_NUM_THREADS", "1")
+os.environ.setdefault("OMP_NUM_THREADS", "1")
+os.environ.setdefault("MKL_NUM_THREADS", "1")
+os.environ.setdefault("NUMEXPR_NUM_THREADS", "1")
+
 import importlib
 import inspect
 import logging
@@ -164,7 +172,16 @@ def _warm_dependency_imports() -> None:
     started = time.perf_counter()
     try:
         import mcp.dependencies  # noqa: F401
-        from backend.dependencies import ANALYSIS_STORE, _load_analysis_store
+        from backend.dependencies import (
+            ANALYSIS_STORE,
+            _load_analysis_store,
+            get_symbol_service,
+            get_call_graph_service,
+            get_architecture_service,
+            get_dead_code_service,
+            get_git_history_service,
+            get_graph_service,
+        )
     except Exception as exc:  # pragma: no cover - environment dependent
         logger.warning(
             "Dependency pre-import failed (%s); tools will retry lazily", exc
@@ -180,6 +197,16 @@ def _warm_dependency_imports() -> None:
             _load_analysis_store()
     except Exception as exc:  # pragma: no cover - corrupt store on disk
         logger.warning("Analysis store hydration failed: %s", exc)
+
+    try:
+        get_symbol_service()
+        get_call_graph_service()
+        get_architecture_service()
+        get_dead_code_service()
+        get_git_history_service()
+        get_graph_service()
+    except Exception as exc:
+        logger.warning("Dependency pre-warm failed (%s); tools will retry lazily", exc)
 
     logger.info(
         "Dependency bridge ready in %.2fs; %d repositories available",

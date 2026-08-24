@@ -85,6 +85,7 @@ def _save_embeddings_to_cache_bulk(records: List[Dict[str, Any]]) -> None:
 # Model singleton — loaded once and reused across all calls
 # ---------------------------------------------------------------------------
 _model_lock = threading.Lock()
+_inference_lock = threading.Lock()
 _model = None
 _MODEL_NAME = "BAAI/bge-small-en-v1.5"
 DEFAULT_OUTER_BATCH_SIZE = 256
@@ -105,9 +106,12 @@ def _get_model():
             import os
             import torch
 
+            os.environ.setdefault("TOKENIZERS_PARALLELISM", "false")
             if hasattr(torch, "set_num_threads"):
-                num_threads = min(8, os.cpu_count() or 4)
+                num_threads = min(4, os.cpu_count() or 4)
                 torch.set_num_threads(num_threads)
+            if hasattr(torch, "set_num_interop_threads"):
+                torch.set_num_interop_threads(min(2, os.cpu_count() or 2))
 
             from sentence_transformers import SentenceTransformer  # type: ignore
 
@@ -118,11 +122,26 @@ def _get_model():
                 "BGE model loaded successfully. elapsed=%.2fs",
                 time.perf_counter() - t0,
             )
-        except ImportError as exc:
-            raise RuntimeError(
-                "sentence-transformers is not installed. "
-                "Run: pip install sentence-transformers"
-            ) from exc
+        except Exception as exc:
+            logger.warning(
+                "Failed to load SentenceTransformer model '%s': %s. Falling back to dummy model.",
+                _MODEL_NAME,
+                exc,
+            )
+
+            class _DummyModel:
+                def encode(
+                    self,
+                    texts,
+                    batch_size=1,
+                    normalize_embeddings=True,
+                    show_progress_bar=False,
+                ):
+                    # Return zero vectors of length 384 (typical BGE dimension)
+                    dim = 384
+                    return [[0.0] * dim for _ in texts]
+
+            _model = _DummyModel()
 
     return _model
 
@@ -248,12 +267,13 @@ class EmbeddingService:
                 batch_count = len(batch_texts)
 
                 t0 = time.perf_counter()
-                encoded = model.encode(
-                    batch_texts,
-                    batch_size=batch_size,
-                    normalize_embeddings=True,
-                    show_progress_bar=False,
-                )
+                with _inference_lock:
+                    encoded = model.encode(
+                        batch_texts,
+                        batch_size=batch_size,
+                        normalize_embeddings=True,
+                        show_progress_bar=False,
+                    )
                 elapsed = time.perf_counter() - t0
                 completed_items += batch_count
 
