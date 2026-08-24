@@ -61,6 +61,9 @@ class ArchitectureSummary(BaseModel):
     relationships: List[ComponentRelationship] = Field(
         default_factory=list, description="Inter-component relationships."
     )
+    entry_points: List[str] = Field(
+        default_factory=list, description="Detected repository entry points."
+    )
 
 
 class ImplementationPlanStep(BaseModel):

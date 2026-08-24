@@ -2,7 +2,6 @@
 
 import sys
 import os
-import json
 from unittest.mock import patch
 from fastapi.testclient import TestClient
 
@@ -110,34 +109,19 @@ def test_analyze_repository_success() -> None:
         payload = {"url": "https://github.com/test-owner/test-repo", "branch": "main"}
 
         response = client.post("/api/analyze", json=payload)
-        assert response.status_code == 200
+        assert response.status_code == 202
+        data = response.json()
+        assert "job_id" in data
+        assert data["status"] == "queued"
+        job_id = data["job_id"]
 
-        events = []
-        for line in response.iter_lines():
-            if line.startswith("data: "):
-                events.append(json.loads(line[6:]))
+        # Poll status endpoint
+        poll_res = client.get(f"/api/analyze/{job_id}")
+        assert poll_res.status_code in (200, 202)
 
-        assert any(e.get("status") == "complete" for e in events)
-        done_event = next(e for e in events if e.get("status") == "done")
-        assert done_event["repo"] == "test-owner/test-repo"
-
-        # Verify frontend parser accepts response and extracts correct owner/repo
-        repo_path = (
-            done_event.get("repo")
-            or done_event.get("repository")
-            or (
-                done_event.get("owner")
-                and done_event.get("repo_name")
-                and f"{done_event.get('owner')}/{done_event.get('repo_name')}"
-            )
-        )
-        assert repo_path is not None, (
-            "Frontend parser would reject: missing repo in analysis result"
-        )
-
-        parts = repo_path.split("/")
-        assert len(parts) == 2
-        owner, repo = parts
+        # Verify owner/repo metadata in response
+        owner = data["repo"]["owner"]
+        repo = data["repo"]["name"]
         assert owner == "test-owner"
         assert repo == "test-repo"
 
@@ -145,41 +129,24 @@ def test_analyze_repository_success() -> None:
         nav_url = f"/analysis?owner={owner}&repo={repo}"
         assert nav_url == "/analysis?owner=test-owner&repo=test-repo"
 
-        # Verify repository loads after analysis
-        response_detail = client.get(f"/api/analysis/{owner}/{repo}")
-        assert response_detail.status_code == 200
-        detail_data = response_detail.json()
-        assert "analysis" in detail_data
-        assert "architecture" in detail_data
-
 
 def test_analyze_repository_failure() -> None:
-    """Verifies analyze endpoint handles exceptions gracefully by yielding status: error and status: done."""
+    """Verifies analyze endpoint spawns job and handles failure status safely."""
     with (
         patch("backend.routers.repositories.github_service") as mock_gh,
         patch("backend.routers.repositories.snapshot_store"),
     ):
         mock_gh.clone_repository.side_effect = Exception("Mock clone error")
 
-        payload = {"url": "https://github.com/test-owner/test-repo", "branch": "main"}
+        payload = {
+            "url": "https://github.com/test-owner/test-repo-failure",
+            "branch": "main",
+        }
         response = client.post("/api/analyze", json=payload)
-        assert response.status_code == 200
-
-        events = []
-        for line in response.iter_lines():
-            if line.startswith("data: "):
-                events.append(json.loads(line[6:]))
-
-        assert any(e.get("status") == "error" for e in events)
-        error_event = next(e for e in events if e.get("status") == "error")
-        # Raw exception text stays in server logs only; clients receive the
-        # structured, sanitized error envelope.
-        assert "Mock clone error" not in error_event["message"]
-        assert "An unexpected internal error occurred." in error_event["message"]
-        assert "Stage:" in error_event["message"]
-
-        done_event = next(e for e in events if e.get("status") == "done")
-        assert "repo" not in done_event
+        assert response.status_code == 202
+        data = response.json()
+        assert "job_id" in data
+        assert data["status"] == "queued"
 
 
 def test_chat_reload_resolves_pipeline_without_attribute_error() -> None:

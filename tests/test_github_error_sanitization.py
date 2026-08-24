@@ -316,8 +316,8 @@ def test_index_endpoint_response_is_sanitized() -> None:
 
 
 def test_analyze_stream_error_payload_is_sanitized() -> None:
-    import json
 
+    import time
     from fastapi.testclient import TestClient
 
     from backend.api import app
@@ -329,16 +329,27 @@ def test_analyze_stream_error_payload_is_sanitized() -> None:
             ACCESS_DENIED_MESSAGE
         )
         response = client.post(
-            "/api/analyze",
+            "/api/v1/analyze",
             json={"url": "https://github.com/owner/repo", "branch": "main"},
         )
 
-    assert response.status_code == 200
-    payload = "".join(
-        json.dumps(json.loads(line[6:]))
-        for line in response.text.splitlines()
-        if line.startswith("data: ")
-    )
+    assert response.status_code == 202
+    job_id = response.json()["job_id"]
+    assert job_id
+
+    # Wait for local thread background worker to record failure
+    for _ in range(50):
+        status_res = client.get(f"/api/v1/analyze/{job_id}")
+        if (
+            status_res.status_code == 200
+            and status_res.json().get("status") == "failed"
+        ):
+            break
+        time.sleep(0.05)
+
+    data = status_res.json()
+    assert data["status"] == "failed"
+    err_text = data.get("error", "")
     for forbidden in (
         "PAT",
         "GITHUB_TOKEN",
@@ -347,8 +358,8 @@ def test_analyze_stream_error_payload_is_sanitized() -> None:
         "Traceback",
         "fatal:",
     ):
-        assert forbidden not in payload
-    assert "Repository not found or access denied." in payload
+        assert forbidden not in err_text
+    assert "Repository not found or access denied." in err_text
 
 
 def test_pr_health_response_never_exposes_token_material() -> None:

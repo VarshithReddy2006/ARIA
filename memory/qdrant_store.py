@@ -128,7 +128,12 @@ class QdrantStore:
                     # Create payload indexes for fast filtering (relevant when running client-server)
                     import warnings
 
-                    for field in ("repo_name", "index_version", "file_path", "language"):
+                    for field in (
+                        "repo_name",
+                        "index_version",
+                        "file_path",
+                        "language",
+                    ):
                         try:
                             with warnings.catch_warnings():
                                 warnings.simplefilter("ignore", UserWarning)
@@ -138,7 +143,9 @@ class QdrantStore:
                                     field_schema=models.PayloadSchemaType.KEYWORD,
                                 )
                         except Exception as exc:
-                            logger.debug("Payload index creation for %s: %s", field, exc)
+                            logger.debug(
+                                "Payload index creation for %s: %s", field, exc
+                            )
 
                 # 2. Versions collection
                 if COLLECTION_VERSIONS not in existing:
@@ -159,7 +166,9 @@ class QdrantStore:
                         logger.debug("Payload index creation for versions: %s", exc)
                 self._collections_ensured = True
             except Exception as exc:
-                logger.warning("Could not connect to Qdrant to ensure collections: %s", exc)
+                logger.warning(
+                    "Could not connect to Qdrant to ensure collections: %s", exc
+                )
                 return
 
     def _active_version(self, repo_name: str) -> Optional[str]:
@@ -286,6 +295,7 @@ class QdrantStore:
         if not chunks:
             return
 
+        self._ensure_collections()
         ids = [f"{file_path}_{i}" for i in range(len(chunks))]
         cleaned_metadata = self._clean_metadata(metadata)
         with self._publication_lock:
@@ -317,6 +327,7 @@ class QdrantStore:
         if not ids:
             return
 
+        self._ensure_collections()
         cleaned_metadata = self._clean_metadata(metadatas)
         with self._publication_lock:
             for meta in cleaned_metadata:
