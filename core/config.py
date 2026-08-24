@@ -1,7 +1,7 @@
 """Centralised configuration system for ARIA using Pydantic Settings (core layer)."""
 
 import os
-from typing import List, Optional
+from typing import Any, List, Optional, Union
 from dotenv import load_dotenv
 
 # In development, local .env overrides system/IDE variables (preventing stale global keys from breaking local dev).
@@ -14,13 +14,19 @@ from pydantic_settings import BaseSettings, SettingsConfigDict  # noqa: E402
 
 
 class Settings(BaseSettings):
+    model_config = SettingsConfigDict(
+        populate_by_name=True,
+        extra="ignore",
+        case_sensitive=False,
+    )
+
     # App Settings
     app_env: str = Field("development", alias="APP_ENV")
     host: str = Field("0.0.0.0", alias="API_SERVER_HOST")
     port: int = Field(8001, alias="API_SERVER_PORT")
     log_level: str = Field("INFO", alias="LOG_LEVEL")
     log_format: str = Field("human", alias="LOG_FORMAT")  # "human" or "json"
-    allowed_hosts: List[str] = Field(["*"], alias="ALLOWED_HOSTS")
+    allowed_hosts: Any = Field(["*"], alias="ALLOWED_HOSTS")
     rate_limit_per_minute: int = Field(60, alias="RATE_LIMIT_PER_MINUTE")
     slow_request_threshold_seconds: float = Field(
         2.0, alias="SLOW_REQUEST_THRESHOLD_SECONDS"
@@ -132,6 +138,27 @@ class Settings(BaseSettings):
                     "GEMINI_API_KEY is required in production when LLM_PROVIDER is gemini"
                 )
         return v
+
+    @field_validator("allowed_hosts", mode="before")
+    @classmethod
+    def parse_allowed_hosts(cls, v: Any) -> List[str]:
+        import json as _json
+
+        if isinstance(v, str):
+            v_str = v.strip()
+            v_clean = v_str.replace('\\"', '"')
+            if v_clean.startswith("[") and v_clean.endswith("]"):
+                try:
+                    res = _json.loads(v_clean)
+                    if isinstance(res, list):
+                        return [str(item).strip() for item in res if str(item).strip()]
+                except Exception:
+                    pass
+            # Split comma-separated string
+            return [s.strip().strip("'\"") for s in v_clean.split(",") if s.strip()]
+        if isinstance(v, list):
+            return [str(item).strip() for item in v if str(item).strip()]
+        return ["*"]
 
     @field_validator("allowed_hosts")
     @classmethod

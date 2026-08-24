@@ -69,55 +69,100 @@ from services.workspace import WorkspaceCoordinator, WorkspaceService
 
 logger = logging.getLogger(__name__)
 
-# ---------------------------------------------------------------------------
-# Analysis store — persisted to disk so data survives server restarts
-# ---------------------------------------------------------------------------
-ANALYSIS_STORE: Dict[str, Dict[str, Any]] = {}
-_ANALYSIS_STORE_PATH = os.path.join("data", "analysis_store.json")
+def _get_analysis_store_path() -> str:
+    override = os.environ.get("ANALYSIS_STORE_PATH")
+    if override:
+        return override
+    if os.path.exists("/app/data"):
+        return "/app/data/analysis_store.json"
+    return os.path.join("data", "analysis_store.json")
+
+
+_ANALYSIS_STORE_PATH = _get_analysis_store_path()
 _persist_lock = asyncio.Lock()
 
 
-def _load_analysis_store() -> None:
-    """Load persisted analysis data from disk into ANALYSIS_STORE on startup."""
+class AnalysisStoreDict(dict):
+    """Dynamic dict wrapper for ANALYSIS_STORE that reloads from disk on cache miss."""
+
+    def __contains__(self, key: object) -> bool:
+        if super().__contains__(key):
+            return True
+        if isinstance(key, str):
+            _load_analysis_store(target_repo=key)
+            if super().__contains__(key):
+                return True
+            for k in list(super().keys()):
+                if k.lower() == key.lower():
+                    return True
+        return False
+
+    def __getitem__(self, key: Any) -> Any:
+        if not super().__contains__(key) and isinstance(key, str):
+            _load_analysis_store(target_repo=key)
+            if not super().__contains__(key):
+                for k in list(super().keys()):
+                    if k.lower() == key.lower():
+                        return super().__getitem__(k)
+        return super().__getitem__(key)
+
+    def get(self, key: Any, default: Any = None) -> Any:
+        if not super().__contains__(key) and isinstance(key, str):
+            _load_analysis_store(target_repo=key)
+            if not super().__contains__(key):
+                for k in list(super().keys()):
+                    if k.lower() == key.lower():
+                        return super().__getitem__(k)
+        return super().get(key, default)
+
+
+ANALYSIS_STORE: Dict[str, Dict[str, Any]] = AnalysisStoreDict()
+
+
+def _load_analysis_store(target_repo: Optional[str] = None) -> None:
+    """Load persisted analysis data from disk into ANALYSIS_STORE."""
     global ANALYSIS_STORE
-    if not os.path.exists(_ANALYSIS_STORE_PATH):
-        return
-    try:
-        with open(_ANALYSIS_STORE_PATH, "r", encoding="utf-8") as fh:
-            raw: Dict[str, Any] = json.load(fh)
-    except Exception as exc:
-        logger.warning("Could not read analysis store from disk: %s", exc)
-        return
 
-    loaded = 0
-    for repo_name, entry in raw.items():
+    store_path = _get_analysis_store_path()
+    candidate_paths = [store_path]
+    if store_path != "/app/data/analysis_store.json":
+        candidate_paths.append("/app/data/analysis_store.json")
+    if store_path != os.path.join("data", "analysis_store.json"):
+        candidate_paths.append(os.path.join("data", "analysis_store.json"))
+
+    for path in candidate_paths:
+        if not os.path.exists(path):
+            continue
         try:
-            analysis_data = RepositoryAnalysis.model_validate(entry["analysis"])
-            arch_raw = entry["architecture"]
-            relationships = [
-                ComponentRelationship(**r) for r in arch_raw.get("relationships", [])
-            ]
-            architecture_data = ArchitectureSummary(
-                summary=arch_raw.get("summary", ""),
-                reading_order=arch_raw.get("reading_order", []),
-                relationships=relationships,
-            )
-            ANALYSIS_STORE[repo_name] = {
-                "analysis": analysis_data,
-                "architecture": architecture_data,
-            }
-            loaded += 1
+            with open(path, "r", encoding="utf-8") as fh:
+                raw: Dict[str, Any] = json.load(fh)
+            for repo_name, entry in raw.items():
+                if repo_name in dict(ANALYSIS_STORE) and target_repo != repo_name:
+                    continue
+                try:
+                    analysis_data = RepositoryAnalysis.model_validate(entry["analysis"])
+                    arch_raw = entry.get("architecture", {})
+                    relationships = [
+                        ComponentRelationship(**r)
+                        for r in arch_raw.get("relationships", [])
+                    ]
+                    architecture_data = ArchitectureSummary(
+                        summary=arch_raw.get("summary", ""),
+                        reading_order=arch_raw.get("reading_order", []),
+                        relationships=relationships,
+                    )
+                    dict.__setitem__(
+                        ANALYSIS_STORE,
+                        repo_name,
+                        {
+                            "analysis": analysis_data,
+                            "architecture": architecture_data,
+                        },
+                    )
+                except Exception as exc:
+                    logger.debug("Skipping malformed store entry for '%s': %s", repo_name, exc)
         except Exception as exc:
-            logger.warning(
-                "Skipping malformed analysis store entry for '%s': %s", repo_name, exc
-            )
-
-    if loaded:
-        logger.info(
-            "Loaded %d repository entries from analysis store (%s).",
-            loaded,
-            _ANALYSIS_STORE_PATH,
-        )
+            logger.debug("Could not read analysis store from %s: %s", path, exc)
 
 
 def _serialise_store() -> Dict[str, Any]:
@@ -158,12 +203,11 @@ async def _persist_analysis_store() -> None:
 
 
 def _write_store_atomic(payload: Dict[str, Any]) -> None:
-    """Write payload to _ANALYSIS_STORE_PATH via a tmp file + rename (atomic)."""
-    os.makedirs(os.path.dirname(_ANALYSIS_STORE_PATH), exist_ok=True)
-    tmp_path = _ANALYSIS_STORE_PATH + ".tmp"
-    with open(tmp_path, "w", encoding="utf-8") as fh:
-        json.dump(payload, fh, indent=2)
-    os.replace(tmp_path, _ANALYSIS_STORE_PATH)
+    """Write payload to active store path via atomic rename."""
+    from core.concurrency import write_json_atomic
+
+    store_path = _get_analysis_store_path()
+    write_json_atomic(store_path, payload, indent=2)
 
 
 # ---------------------------------------------------------------------------
