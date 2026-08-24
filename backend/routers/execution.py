@@ -5,6 +5,7 @@ ExecutionPlans, batches, and critical paths.
 """
 
 import logging
+import sys
 from typing import Any, Dict, List
 
 from fastapi import APIRouter, HTTPException
@@ -18,13 +19,37 @@ from models.execution import ExecutionBatch, ExecutionPlan
 
 logger = logging.getLogger(__name__)
 
+
+class _ReloadSafeDependency:
+    """Resolve a compatibility dependency from the currently loaded router module."""
+
+    def __init__(self, name: str, getter_fn) -> None:
+        self._name = name
+        self._getter = getter_fn
+
+    def __getattr__(self, attribute: str) -> object:
+        module = sys.modules.get(__name__)
+        dependency = getattr(module, self._name, None)
+        if dependency is None or dependency is self:
+            dependency = self._getter()
+        return getattr(dependency, attribute)
+
+
+execution_planner_service = _ReloadSafeDependency(
+    "execution_planner_service", get_execution_planner_service
+)
+advisor_service = _ReloadSafeDependency("advisor_service", get_advisor_service)
+repository_twin_builder = _ReloadSafeDependency(
+    "repository_twin_builder", get_repository_twin_builder
+)
+
 router = APIRouter(tags=["Autonomous Engineering Agent"])
 
 
 def _require_indexed(repo_name: str) -> None:
     """Raises 404 if the repository has not been indexed."""
     try:
-        get_repository_twin_builder().build_twin(repo_name)
+        repository_twin_builder.build_twin(repo_name)
     except Exception as exc:
         raise HTTPException(
             status_code=404,
@@ -46,7 +71,7 @@ async def generate_execution_plan(username: str, repository: str):
     repo_name = f"{username}/{repository}"
     _require_indexed(repo_name)
 
-    advisor_report = get_advisor_service().load_latest(repo_name)
+    advisor_report = advisor_service.load_latest(repo_name)
     if not advisor_report:
         raise HTTPException(
             status_code=404,
@@ -57,7 +82,7 @@ async def generate_execution_plan(username: str, repository: str):
         )
 
     try:
-        plan = get_execution_planner_service().plan(
+        plan = execution_planner_service.plan(
             repo_name=repo_name,
             advisor_report=advisor_report.model_dump(),
         )
@@ -79,7 +104,7 @@ async def generate_execution_plan(username: str, repository: str):
 async def get_latest_plan(username: str, repository: str):
     """Returns the most recently persisted ExecutionPlan."""
     repo_name = f"{username}/{repository}"
-    plan = get_execution_planner_service().load_latest(repo_name)
+    plan = execution_planner_service.load_latest(repo_name)
     if not plan:
         raise HTTPException(
             status_code=404,
@@ -96,7 +121,7 @@ async def get_latest_plan(username: str, repository: str):
 async def get_batches(username: str, repository: str):
     """Returns the ordered execution batches from the latest ExecutionPlan."""
     repo_name = f"{username}/{repository}"
-    plan = get_execution_planner_service().load_latest(repo_name)
+    plan = execution_planner_service.load_latest(repo_name)
     if not plan:
         raise HTTPException(
             status_code=404,
@@ -113,7 +138,7 @@ async def get_batches(username: str, repository: str):
 async def get_critical_path(username: str, repository: str):
     """Returns the critical path task IDs and rollback checkpoints from the latest plan."""
     repo_name = f"{username}/{repository}"
-    plan = get_execution_planner_service().load_latest(repo_name)
+    plan = execution_planner_service.load_latest(repo_name)
     if not plan:
         raise HTTPException(
             status_code=404,

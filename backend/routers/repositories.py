@@ -43,7 +43,6 @@ from backend.dependencies import (
     get_report_composer,
     get_dead_code_service,
 )
-from backend import dependencies as deps
 from models.schemas import RepositoryAnalysis
 from services.architecture_summary_service import generate_architecture_summary
 from services.github_service import (
@@ -72,7 +71,9 @@ class _ReloadSafeDependency:
         return getattr(dependency, attribute)
 
 
-architecture_service = _ReloadSafeDependency("architecture_service", get_architecture_service)
+architecture_service = _ReloadSafeDependency(
+    "architecture_service", get_architecture_service
+)
 chroma_store = _ReloadSafeDependency("chroma_store", get_chroma_store)
 chunker = _ReloadSafeDependency("chunker", get_chunker)
 embedding_service = _ReloadSafeDependency("embedding_service", get_embedding_service)
@@ -86,7 +87,9 @@ engineering_memory_service = _ReloadSafeDependency(
     "engineering_memory_service", get_engineering_memory_service
 )
 call_graph_service = _ReloadSafeDependency("call_graph_service", get_call_graph_service)
-api_surface_service = _ReloadSafeDependency("api_surface_service", get_api_surface_service)
+api_surface_service = _ReloadSafeDependency(
+    "api_surface_service", get_api_surface_service
+)
 report_composer = _ReloadSafeDependency("report_composer", get_report_composer)
 dead_code_service = _ReloadSafeDependency("dead_code_service", get_dead_code_service)
 
@@ -506,7 +509,12 @@ def get_job_state(job_id: str) -> Optional[Dict[str, Any]]:
                             newest_mtime = state_updated
                             newest_disk_state = file_state
         except Exception as exc:
-            logger.debug("Could not read persistent job state %s from %s: %s", job_id, directory, exc)
+            logger.debug(
+                "Could not read persistent job state %s from %s: %s",
+                job_id,
+                directory,
+                exc,
+            )
 
     local_state = _LOCAL_JOBS.get(job_id)
     if newest_disk_state is not None:
@@ -514,10 +522,20 @@ def get_job_state(job_id: str) -> Optional[Dict[str, Any]]:
             _LOCAL_JOBS[job_id] = newest_disk_state
             return newest_disk_state
 
-        local_updated = float(local_state.get("updated_at") or local_state.get("started_at") or 0.0)
-        disk_updated = float(newest_disk_state.get("updated_at") or newest_disk_state.get("started_at") or 0.0)
+        local_updated = float(
+            local_state.get("updated_at") or local_state.get("started_at") or 0.0
+        )
+        disk_updated = float(
+            newest_disk_state.get("updated_at")
+            or newest_disk_state.get("started_at")
+            or 0.0
+        )
 
-        if disk_updated >= local_updated or newest_disk_state.get("status") in ("running", "completed", "failed"):
+        if disk_updated >= local_updated or newest_disk_state.get("status") in (
+            "running",
+            "completed",
+            "failed",
+        ):
             _LOCAL_JOBS[job_id] = newest_disk_state
             return newest_disk_state
 
@@ -626,7 +644,11 @@ def execute_repository_analysis(
         ):
             elapsed = time.time() - start_time
             curr_rss = get_current_rss_mb()
-            proc_count = items_processed or (stats.get("chunks_processed") if stats else 0) or (stats.get("files_processed") if stats else 0)
+            proc_count = (
+                items_processed
+                or (stats.get("chunks_processed") if stats else 0)
+                or (stats.get("files_processed") if stats else 0)
+            )
             emit_phase_telemetry(
                 repo=repo_name,
                 job_id=job_id or "",
@@ -655,7 +677,9 @@ def execute_repository_analysis(
                         }
                     )
                 except Exception as cb_exc:
-                    logger.debug("Progress callback error for %s: %s", repo_name, cb_exc)
+                    logger.debug(
+                        "Progress callback error for %s: %s", repo_name, cb_exc
+                    )
 
     # ── 1. Cloning (01 CLONE) ────────────────────────────────────────────────
     mem_tracker.log_phase("before_clone")
@@ -1027,14 +1051,14 @@ def execute_repository_analysis(
                     if batch_idx == 1:
                         mem_tracker.log_phase("before_first_embedding_batch")
 
-                    emb_batch = deps.embedding_service.generate_embeddings(chunk_batch)
+                    emb_batch = embedding_service.generate_embeddings(chunk_batch)
                     mem_tracker.log_phase(
                         "after_embedding_batch",
                         batch=batch_idx,
                         batch_items=len(chunk_batch),
                     )
 
-                    staged_batch_count = deps.chroma_store.stage_repository_batch(
+                    staged_batch_count = chroma_store.stage_repository_batch(
                         repo_name,
                         version,
                         chunk_batch,
@@ -1091,14 +1115,14 @@ def execute_repository_analysis(
                 if batch_idx == 1:
                     mem_tracker.log_phase("before_first_embedding_batch")
 
-                emb_batch = deps.embedding_service.generate_embeddings(chunk_buffer)
+                emb_batch = embedding_service.generate_embeddings(chunk_buffer)
                 mem_tracker.log_phase(
                     "after_embedding_batch",
                     batch=batch_idx,
                     batch_items=len(chunk_buffer),
                 )
 
-                staged_batch_count = deps.chroma_store.stage_repository_batch(
+                staged_batch_count = chroma_store.stage_repository_batch(
                     repo_name,
                     version,
                     chunk_buffer,
@@ -1140,10 +1164,10 @@ def execute_repository_analysis(
                 del emb_batch
 
             if version_staged:
-                deps.chroma_store.publish_repository_version(repo_name, version)
+                chroma_store.publish_repository_version(repo_name, version)
         except Exception:
             if version_staged:
-                deps.chroma_store.rollback_staged_version(repo_name, version)
+                chroma_store.rollback_staged_version(repo_name, version)
             raise
         finally:
             timer.stop("Chunk_Embed_Index")
@@ -1153,27 +1177,25 @@ def execute_repository_analysis(
     timer.start("Graphs")
     mem_tracker.log_phase("before_graph_symbol_analysis")
     if is_incremental:
-        deps.symbol_service.build_partial(
+        symbol_service.build_partial(
             repo_name,
             changed_files,
             repo_path=local_path,
         )
     else:
-        deps.symbol_service.build_full(repo_name, repo_path=local_path)
+        symbol_service.build_full(repo_name, repo_path=local_path)
     mem_tracker.log_phase("after_graph_symbol_analysis")
 
     _emit("index", "building_dependency", "Building Dependency Graph", progress=70)
     mem_tracker.log_phase("before_architecture_analysis")
     if is_incremental:
-        deps.architecture_service.build_partial(
+        architecture_service.build_partial(
             repo_name,
             changed_files,
             repo_path=local_path,
         )
     else:
-        deps.architecture_service.build_full(
-            repo_name, repo_path=local_path
-        )
+        architecture_service.build_full(repo_name, repo_path=local_path)
 
     # Call Graph, API Surface
     _emit("index", "building_call", "Building Call Graph", progress=75)
@@ -1183,11 +1205,11 @@ def execute_repository_analysis(
 
     try:
         if is_incremental:
-            call_gen = deps.call_graph_service.build_partial(
+            call_gen = call_graph_service.build_partial(
                 repo_name, changed_files, context=context
             )
         else:
-            call_gen = deps.call_graph_service.build_full(repo_name, context=context)
+            call_gen = call_graph_service.build_full(repo_name, context=context)
         if hasattr(call_gen, "__iter__"):
             list(call_gen)
     except Exception as exc_call:
@@ -1196,11 +1218,11 @@ def execute_repository_analysis(
     _emit("index", "building_api", "Computing API Surface", progress=80)
     try:
         if is_incremental:
-            api_gen = deps.api_surface_service.build_partial(
+            api_gen = api_surface_service.build_partial(
                 repo_name, changed_files, context=context
             )
         else:
-            api_gen = deps.api_surface_service.build_full(repo_name, context=context)
+            api_gen = api_surface_service.build_full(repo_name, context=context)
         if hasattr(api_gen, "__iter__"):
             list(api_gen)
     except Exception as exc_api:
@@ -1334,9 +1356,7 @@ def execute_repository_analysis(
             commit_sha,
         )
     except Exception as exc_memory:
-        logger.error(
-            "Failed to create memory snapshot: %s", exc_memory, exc_info=True
-        )
+        logger.error("Failed to create memory snapshot: %s", exc_memory, exc_info=True)
 
     # Pre-build Call Graph, API Surface, Dead Code, and Health Report
     source_files = []
@@ -1372,7 +1392,9 @@ def execute_repository_analysis(
         report_composer.compose_report(repo_name)
         logger.info("Successfully generated health report for %s", repo_name)
     except Exception as exc_rep:
-        logger.warning("Health report generation skipped for %s: %s", repo_name, exc_rep)
+        logger.warning(
+            "Health report generation skipped for %s: %s", repo_name, exc_rep
+        )
 
     timer.stop("Report")
     mem_tracker.log_phase("after_report_generation")

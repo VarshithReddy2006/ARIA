@@ -5,6 +5,7 @@ health trends, and current status.
 """
 
 import logging
+import sys
 from typing import Any, Dict, List
 
 from fastapi import APIRouter, HTTPException, Query
@@ -26,6 +27,35 @@ from services.memory_service import RecentHistoryPolicy
 
 logger = logging.getLogger(__name__)
 
+
+class _ReloadSafeDependency:
+    """Resolve a compatibility dependency from the currently loaded router module."""
+
+    def __init__(self, name: str, getter_fn) -> None:
+        self._name = name
+        self._getter = getter_fn
+
+    def __getattr__(self, attribute: str) -> object:
+        module = sys.modules.get(__name__)
+        dependency = getattr(module, self._name, None)
+        if dependency is None or dependency is self:
+            dependency = self._getter()
+        return getattr(dependency, attribute)
+
+
+continuous_monitoring_service = _ReloadSafeDependency(
+    "continuous_monitoring_service", get_continuous_monitoring_service
+)
+repository_twin_builder = _ReloadSafeDependency(
+    "repository_twin_builder", get_repository_twin_builder
+)
+repository_knowledge_graph_builder = _ReloadSafeDependency(
+    "repository_knowledge_graph_builder", get_repository_knowledge_graph_builder
+)
+engineering_memory_service = _ReloadSafeDependency(
+    "engineering_memory_service", get_engineering_memory_service
+)
+
 router = APIRouter(tags=["Continuous Monitoring"])
 
 _POLICY_MAP = {
@@ -39,7 +69,7 @@ _POLICY_MAP = {
 def _resolve_context(repo_name: str):
     """Builds twin, KG, and memory context data for a repository."""
     try:
-        twin = get_repository_twin_builder().build_twin(repo_name)
+        twin = repository_twin_builder.build_twin(repo_name)
         twin_data = twin.model_dump()
     except Exception as exc:
         raise HTTPException(
@@ -48,13 +78,13 @@ def _resolve_context(repo_name: str):
         )
 
     try:
-        kg = get_repository_knowledge_graph_builder().build_graph(repo_name)
+        kg = repository_knowledge_graph_builder.build_graph(repo_name)
         kg_data = kg.model_dump()
     except Exception:
         kg_data = {}
 
     try:
-        memory_ctx = get_engineering_memory_service().navigator.get_memory_context(
+        memory_ctx = engineering_memory_service.navigator.get_memory_context(
             repo_name, RecentHistoryPolicy(limit=3)
         )
         memory_data = memory_ctx.model_dump()
@@ -96,7 +126,7 @@ async def trigger_monitoring(
     }
 
     try:
-        run = get_continuous_monitoring_service().trigger(
+        run = continuous_monitoring_service.trigger(
             repo_name=repo_name,
             twin_data=twin_data,
             knowledge_graph_data=kg_data,
@@ -129,7 +159,7 @@ async def get_history(
 ):
     """Returns the chronological list of monitoring runs for a repository."""
     repo_name = f"{username}/{repository}"
-    runs = get_continuous_monitoring_service().load_history(repo_name, limit=limit)
+    runs = continuous_monitoring_service.load_history(repo_name, limit=limit)
     return runs
 
 
@@ -141,7 +171,7 @@ async def get_history(
 async def get_latest_run(username: str, repository: str):
     """Returns the most recent monitoring run record."""
     repo_name = f"{username}/{repository}"
-    run = get_continuous_monitoring_service().load_latest_run(repo_name)
+    run = continuous_monitoring_service.load_latest_run(repo_name)
     if not run:
         raise HTTPException(
             status_code=404,
@@ -158,7 +188,7 @@ async def get_latest_run(username: str, repository: str):
 async def get_health_trends(username: str, repository: str):
     """Returns the repository health trend generated from monitoring history."""
     repo_name = f"{username}/{repository}"
-    trend = get_continuous_monitoring_service().load_trend(repo_name)
+    trend = continuous_monitoring_service.load_trend(repo_name)
     if not trend:
         raise HTTPException(
             status_code=404,
@@ -175,4 +205,4 @@ async def get_health_trends(username: str, repository: str):
 async def get_monitoring_status(username: str, repository: str):
     """Returns the current monitoring status summary for a repository."""
     repo_name = f"{username}/{repository}"
-    return get_continuous_monitoring_service().get_status(repo_name)
+    return continuous_monitoring_service.get_status(repo_name)

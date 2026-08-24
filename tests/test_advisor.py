@@ -603,3 +603,24 @@ class TestAdvisorRouter:
                 phases = response.json()
                 phase_nums = [p["phase"] for p in phases]
                 assert phase_nums == sorted(phase_nums)
+
+    def test_advisor_router_lazy_dependency_import_and_patchability(self):
+        """Regression test: importing backend.routers.advisor must not eagerly construct AdvisorService,
+
+        and advisor_service must remain patchable with unittest.mock.patch.
+        """
+        import backend.routers.advisor as advisor_module
+
+        # Verify advisor_service attribute is present and is lazy proxy
+        assert hasattr(advisor_module, "advisor_service")
+        assert isinstance(
+            advisor_module.advisor_service,
+            advisor_module._ReloadSafeDependency,
+        )
+
+        # Verify patching replaces the attribute for downstream requests
+        with patch("backend.routers.advisor.advisor_service") as mock_svc:
+            mock_svc.load_latest.return_value = None
+            res = client.get("/api/repositories/test/test/advisor/latest")
+            assert res.status_code == 404
+            mock_svc.load_latest.assert_called_once_with("test/test")

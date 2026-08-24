@@ -1,233 +1,393 @@
 """Entry Point Detection Service.
 
-Identifies the primary entry points of a repository based on filename
-conventions, framework-specific patterns, and structural heuristics.
+Identifies the primary entry points of a repository based on manifest definitions,
+framework-specific patterns, filename conventions, and structural heuristics.
 
-Supported detection targets (Phase 1):
-  Python   : main.py, __main__.py, FastAPI app, Flask app
-  Node.js  : index.js, server.js, app.js
-  React    : main.tsx, App.tsx
-  Next.js  : app/ directory, pages/ directory
+Supported detection targets:
+  - Manifest Scripts: pyproject.toml [project.scripts], setup.cfg, package.json bin/main
+  - Python: __main__.py, main.py, package roots (__init__.py), app.py, server.py, asgi.py, wsgi.py
+  - Node.js/TS: index.ts/js, server.ts/js, app.ts/js, bin/ scripts
+  - React/Frontend: main.tsx, App.tsx, index.html
+  - Go: main.go, cmd/*/main.go
+  - Rust: src/main.rs, src/lib.rs
 
-The service is designed so that new patterns can be added by extending the
-`_PATTERNS` registry without touching the core detection logic.
+Differentiates production entry points from documentation examples, test fixtures, and tutorial apps.
 """
 
 import logging
 import os
-from typing import Any, Dict, List, Optional
+import re
+from typing import Any, Dict, List, Optional, Set
+
+from core.file_classifier import (
+    classify_file,
+    CATEGORY_PRODUCTION,
+    CATEGORY_EXAMPLE,
+    CATEGORY_TEST,
+    CATEGORY_GENERATED,
+)
 
 logger = logging.getLogger(__name__)
 
-# ---------------------------------------------------------------------------
-# Pattern registry
-# ---------------------------------------------------------------------------
-# Each entry is a dict with:
-#   name           – human-readable pattern name
-#   condition      – callable(file_path, parsed_file|None) → bool
-#   priority       – lower number = higher priority in the output list
-# ---------------------------------------------------------------------------
 
-_NEXT_DIR_PATTERNS = {"app", "pages"}
-
-# Directories whose files should NOT be considered framework entry points even
-# if they import FastAPI/Flask.  Tutorial and test files all import the
-# framework but are not the application root.
-_FRAMEWORK_INIT_EXCLUDED_PREFIXES = (
-    "tests/",
-    "test/",
-    "docs/",
-    "docs_src/",
-    "examples/",
-    "example/",
-    "scripts/",
-    "benchmarks/",
-)
-
-
-def _is_python_framework_init(file_path: str, parsed: Optional[Dict]) -> bool:
-    """True if the file is a Python application entry point that instantiates
-    FastAPI or Flask — NOT merely a file that imports those frameworks.
-
-    Detection strategy (in priority order):
-      1. Skip files in test/docs/example directories — they import the
-         framework but are not the application root.
-      2. Check if the file imports fastapi or flask AND defines at least one
-         function or variable that strongly suggests it is the app module
-         (e.g. the file contains no class definitions suggesting it is a
-         library module, OR it is named app.py / server.py / wsgi.py /
-         asgi.py at any depth).
-      3. Fallback: only flag files that import fastapi/flask AND reside
-         in the top two directory levels of the repository (avoid deeply
-         nested tutorial fragments).
-    """
-    if not parsed:
-        return False
-
-    lang = parsed.get("language", "")
-    if lang != "python":
-        return False
-
-    fp_lower = file_path.replace("\\", "/").lower()
-
-    # Rule 1 — exclude known non-entry directories
-    for prefix in _FRAMEWORK_INIT_EXCLUDED_PREFIXES:
-        if fp_lower.startswith(prefix):
-            return False
-
-    imports_lower = [i.lower() for i in parsed.get("imports", [])]
-    has_framework = "fastapi" in imports_lower or "flask" in imports_lower
-    if not has_framework:
-        return False
-
-    # Rule 2 — application-suggestive filename at any depth
-    basename = os.path.basename(fp_lower)
-    _APP_NAMES = {
-        "app.py",
-        "application.py",
-        "server.py",
-        "wsgi.py",
-        "asgi.py",
-        "run.py",
-    }
-    if basename in _APP_NAMES:
+def _is_top_level_or_package_root(file_path: str) -> bool:
+    """Return True if the file is in repo root, src/, backend/, app/, or top package dir."""
+    parts = file_path.replace("\\", "/").strip("/").split("/")
+    if len(parts) <= 2:
         return True
-
-    # Rule 3 — file is in the top two levels of the repo tree
-    parts = fp_lower.split("/")
-    if len(parts) <= 2:  # e.g. "api.py" or "backend/api.py"
+    if (
+        parts[0] in ("src", "backend", "lib", "core", "pkg", "app", "cmd")
+        and len(parts) <= 3
+    ):
         return True
-
     return False
 
 
-_PATTERNS: List[Dict] = [
-    # Python: explicit entry point filenames
-    {
-        "name": "python_main",
-        "condition": lambda fp, _p: os.path.basename(fp) == "main.py",
-        "priority": 1,
-    },
-    {
-        "name": "python_dunder_main",
-        "condition": lambda fp, _p: os.path.basename(fp) == "__main__.py",
-        "priority": 2,
-    },
-    # Python: framework initialisation files
-    {
-        "name": "python_framework_init",
-        "condition": _is_python_framework_init,
-        "priority": 3,
-    },
-    # JavaScript/TypeScript: conventional entry points
-    {
-        "name": "js_index",
-        "condition": lambda fp, _p: os.path.basename(fp) == "index.js",
-        "priority": 4,
-    },
-    {
-        "name": "js_server",
-        "condition": lambda fp, _p: os.path.basename(fp) == "server.js",
-        "priority": 4,
-    },
-    {
-        "name": "js_app",
-        "condition": lambda fp, _p: os.path.basename(fp) == "app.js",
-        "priority": 5,
-    },
-    # React: common entry points
-    {
-        "name": "react_main_tsx",
-        "condition": lambda fp, _p: os.path.basename(fp) == "main.tsx",
-        "priority": 4,
-    },
-    {
-        "name": "react_app_tsx",
-        "condition": lambda fp, _p: os.path.basename(fp) == "App.tsx",
-        "priority": 5,
-    },
-    {
-        "name": "react_main_ts",
-        "condition": lambda fp, _p: os.path.basename(fp) == "main.ts",
-        "priority": 4,
-    },
-]
-
-
 class EntryPointService:
-    """Detects entry points in a repository using file patterns and heuristics."""
+    """Detects entry points in a repository using manifests, heuristics, and structural rules."""
 
     def detect(
         self,
         file_paths: List[str],
         parsed_files: Optional[List[Dict[str, Any]]] = None,
+        files_content: Optional[List[Dict[str, Any]]] = None,
     ) -> Dict[str, Any]:
-        """Detect entry points across the full file list.
+        """Detect and rank entry points across the full file list.
 
         Args:
             file_paths: All file paths in the repository (relative).
             parsed_files: Optional parsed metadata from TreeSitterService.
-                          Used to apply content-aware heuristics (e.g.
-                          detecting FastAPI instantiation).
+            files_content: Optional list of {path, content} for manifest inspection.
 
         Returns:
             A dictionary with:
-                entry_points  – list of detected entry point paths (sorted by
-                                priority, deduplicated)
-                next_js       – True if Next.js app/ or pages/ dirs detected
-                patterns_hit  – list of pattern names that fired
+                entry_points          – list of primary production entry point paths
+                example_entry_points  – list of example/demo application entry points
+                detailed_entry_points – list of dicts with path, category, priority, and reason
+                next_js               – True if Next.js app/ or pages/ dirs detected
+                patterns_hit          – list of pattern names that fired
         """
         parsed_map: Dict[str, Dict] = {}
         if parsed_files:
             for pf in parsed_files:
                 parsed_map[pf["file_path"]] = pf
 
-        hits: List[Dict] = []
-        seen: set = set()
+        content_map: Dict[str, str] = {}
+        if files_content:
+            for fc in files_content:
+                content_map[fc.get("path", "")] = fc.get("content", "")
 
+        hits: List[Dict[str, Any]] = []
+        seen_paths: Set[str] = set()
+
+        # ── 1. Manifest Entry Points (Priority 1) ───────────────────────────
+        self._detect_manifest_entry_points(file_paths, content_map, hits, seen_paths)
+
+        # ── 2. Structural & File Convention Patterns ─────────────────────────
         for fp in file_paths:
-            parsed = parsed_map.get(fp)
-            for pattern in _PATTERNS:
-                try:
-                    if pattern["condition"](fp, parsed):
-                        if fp not in seen:
-                            hits.append(
-                                {
-                                    "path": fp,
-                                    "priority": pattern["priority"],
-                                    "pattern": pattern["name"],
-                                }
-                            )
-                            seen.add(fp)
-                except Exception as exc:
-                    logger.debug(
-                        "Pattern %s raised for %s: %s", pattern["name"], fp, exc
-                    )
+            if fp in seen_paths:
+                continue
 
-        # Deduplicate and sort by priority then path
+            classification = classify_file(fp)
+            category = classification["category"]
+            fp_norm = fp.replace("\\", "/").strip("/")
+            lower_fp = fp_norm.lower()
+            parts = lower_fp.split("/")
+            filename = parts[-1]
+            name_no_ext, ext = os.path.splitext(filename)
+
+            # Skip test and generated files from entry point consideration
+            if category in (CATEGORY_TEST, CATEGORY_GENERATED):
+                continue
+
+            # (A) Production Package Roots (e.g. fastapi/__init__.py)
+            if (
+                category == CATEGORY_PRODUCTION
+                and filename == "__init__.py"
+                and len(parts) <= 3
+            ):
+                # Top package __init__.py exporting the public API
+                is_root_pkg = len(parts) == 2 or (
+                    parts[0] in ("src", "lib") and len(parts) == 3
+                )
+                if is_root_pkg:
+                    hits.append(
+                        {
+                            "path": fp,
+                            "category": CATEGORY_PRODUCTION,
+                            "priority": 2,
+                            "reason": "package_root_public_api",
+                            "pattern": "python_package_root",
+                        }
+                    )
+                    seen_paths.add(fp)
+                    continue
+
+            # (B) Python __main__.py (executable module)
+            if filename == "__main__.py":
+                is_prod = (
+                    category == CATEGORY_PRODUCTION
+                    and _is_top_level_or_package_root(fp)
+                )
+                hits.append(
+                    {
+                        "path": fp,
+                        "category": CATEGORY_PRODUCTION if is_prod else category,
+                        "priority": 2 if is_prod else 102,
+                        "reason": "python_module_executable"
+                        if is_prod
+                        else f"{category}_executable",
+                        "pattern": "python_dunder_main",
+                    }
+                )
+                seen_paths.add(fp)
+                continue
+
+            # (C) Python main.py
+            if filename == "main.py":
+                is_prod = (
+                    category == CATEGORY_PRODUCTION
+                    and _is_top_level_or_package_root(fp)
+                )
+                hits.append(
+                    {
+                        "path": fp,
+                        "category": CATEGORY_PRODUCTION if is_prod else category,
+                        "priority": 3 if is_prod else 103,
+                        "reason": "application_main"
+                        if is_prod
+                        else f"{category}_example_application",
+                        "pattern": "python_main",
+                    }
+                )
+                seen_paths.add(fp)
+                continue
+
+            # (D) Application Servers: app.py, server.py, asgi.py, wsgi.py, api.py
+            if filename in (
+                "app.py",
+                "server.py",
+                "asgi.py",
+                "wsgi.py",
+                "api.py",
+                "application.py",
+                "run.py",
+            ):
+                if category == CATEGORY_PRODUCTION and _is_top_level_or_package_root(
+                    fp
+                ):
+                    hits.append(
+                        {
+                            "path": fp,
+                            "category": CATEGORY_PRODUCTION,
+                            "priority": 3,
+                            "reason": "application_server_entry",
+                            "pattern": "python_app_server",
+                        }
+                    )
+                    seen_paths.add(fp)
+                    continue
+
+            # (E) Node / TS: index.ts, index.js, server.ts, server.js, app.ts, app.js
+            if filename in (
+                "index.ts",
+                "index.js",
+                "server.ts",
+                "server.js",
+                "app.ts",
+                "app.js",
+            ):
+                if category == CATEGORY_PRODUCTION and _is_top_level_or_package_root(
+                    fp
+                ):
+                    hits.append(
+                        {
+                            "path": fp,
+                            "category": CATEGORY_PRODUCTION,
+                            "priority": 4,
+                            "reason": "node_server_entry",
+                            "pattern": "node_entry",
+                        }
+                    )
+                    seen_paths.add(fp)
+                    continue
+
+            # (F) React / Frontend: main.tsx, App.tsx, main.ts, App.jsx
+            if filename in ("main.tsx", "App.tsx", "main.ts", "App.jsx", "app.tsx"):
+                if category == CATEGORY_PRODUCTION and _is_top_level_or_package_root(
+                    fp
+                ):
+                    hits.append(
+                        {
+                            "path": fp,
+                            "category": CATEGORY_PRODUCTION,
+                            "priority": 5,
+                            "reason": "frontend_root_component",
+                            "pattern": "react_entry",
+                        }
+                    )
+                    seen_paths.add(fp)
+                    continue
+
+            # (G) Go: main.go, cmd/*/main.go
+            if filename == "main.go":
+                is_prod = (
+                    category == CATEGORY_PRODUCTION
+                    and _is_top_level_or_package_root(fp)
+                )
+                hits.append(
+                    {
+                        "path": fp,
+                        "category": CATEGORY_PRODUCTION if is_prod else category,
+                        "priority": 3 if is_prod else 103,
+                        "reason": "go_main_package"
+                        if is_prod
+                        else f"{category}_go_main",
+                        "pattern": "go_main",
+                    }
+                )
+                seen_paths.add(fp)
+                continue
+
+            # (H) Rust: src/main.rs, src/lib.rs
+            if fp_norm in ("src/main.rs", "src/lib.rs", "main.rs", "lib.rs"):
+                hits.append(
+                    {
+                        "path": fp,
+                        "category": CATEGORY_PRODUCTION,
+                        "priority": 2,
+                        "reason": "rust_crate_root",
+                        "pattern": "rust_entry",
+                    }
+                )
+                seen_paths.add(fp)
+                continue
+
+        # Sort hits by priority ascending, then path
         hits.sort(key=lambda h: (h["priority"], h["path"]))
 
-        entry_points = [h["path"] for h in hits]
-        patterns_hit = list({h["pattern"] for h in hits})
+        prod_entry_points = [
+            h["path"] for h in hits if h["category"] == CATEGORY_PRODUCTION
+        ]
+        example_entry_points = [
+            h["path"] for h in hits if h["category"] == CATEGORY_EXAMPLE
+        ]
 
-        # Next.js detection: presence of app/ or pages/ at repo root level
+        # If no production entry points were identified at all, but some example files exist,
+        # fallback to the top entry points while retaining their example classification.
+        final_entry_points = (
+            prod_entry_points if prod_entry_points else [h["path"] for h in hits]
+        )
+        patterns_hit = list({h["pattern"] for h in hits})
         next_js = self._detect_nextjs(file_paths)
 
         return {
-            "entry_points": entry_points,
+            "entry_points": final_entry_points,
+            "production_entry_points": prod_entry_points,
+            "example_entry_points": example_entry_points,
+            "detailed_entry_points": hits,
             "next_js": next_js,
             "patterns_hit": patterns_hit,
         }
 
     # ------------------------------------------------------------------
-    # Internal helpers
+    # Manifest inspection
     # ------------------------------------------------------------------
+
+    def _detect_manifest_entry_points(
+        self,
+        file_paths: List[str],
+        content_map: Dict[str, str],
+        hits: List[Dict[str, Any]],
+        seen_paths: Set[str],
+    ) -> None:
+        """Scan pyproject.toml, package.json, setup.cfg for declared console scripts/bin."""
+        for fp in file_paths:
+            fn = os.path.basename(fp).lower()
+            content = content_map.get(fp)
+            if not content:
+                continue
+
+            # Python pyproject.toml scripts
+            if fn == "pyproject.toml":
+                # Find script targets like: aria = "backend.api:main" or fastapi = "fastapi.cli:main"
+                scripts = re.findall(
+                    r'([a-zA-Z0-9_\-]+)\s*=\s*["\']([a-zA-Z0-9_\.]+):', content
+                )
+                for script_name, mod_path in scripts:
+                    # Convert module path to file candidate
+                    rel_cand = mod_path.replace(".", "/") + ".py"
+                    for candidate in file_paths:
+                        if candidate.endswith(rel_cand) or candidate == rel_cand:
+                            if candidate not in seen_paths:
+                                hits.append(
+                                    {
+                                        "path": candidate,
+                                        "category": CATEGORY_PRODUCTION,
+                                        "priority": 1,
+                                        "reason": f"pyproject_script_entry ({script_name})",
+                                        "pattern": "manifest_script",
+                                    }
+                                )
+                                seen_paths.add(candidate)
+
+            # Node package.json bin / main
+            elif fn == "package.json":
+                try:
+                    import json
+
+                    data = json.loads(content)
+                    bin_field = data.get("bin")
+                    if isinstance(bin_field, str):
+                        cand = bin_field.lstrip("./")
+                        for p in file_paths:
+                            if p == cand or p.endswith(cand):
+                                if p not in seen_paths:
+                                    hits.append(
+                                        {
+                                            "path": p,
+                                            "category": CATEGORY_PRODUCTION,
+                                            "priority": 1,
+                                            "reason": "package_json_bin",
+                                            "pattern": "manifest_bin",
+                                        }
+                                    )
+                                    seen_paths.add(p)
+                    elif isinstance(bin_field, dict):
+                        for _, bin_path in bin_field.items():
+                            cand = str(bin_path).lstrip("./")
+                            for p in file_paths:
+                                if p == cand or p.endswith(cand):
+                                    if p not in seen_paths:
+                                        hits.append(
+                                            {
+                                                "path": p,
+                                                "category": CATEGORY_PRODUCTION,
+                                                "priority": 1,
+                                                "reason": "package_json_bin",
+                                                "pattern": "manifest_bin",
+                                            }
+                                        )
+                                        seen_paths.add(p)
+                except Exception:
+                    pass
 
     @staticmethod
     def _detect_nextjs(file_paths: List[str]) -> bool:
         """Return True if Next.js directory structure is detected."""
         for fp in file_paths:
-            parts = fp.split("/")
-            if parts and parts[0] in _NEXT_DIR_PATTERNS:
+            parts = fp.replace("\\", "/").split("/")
+            if (
+                len(parts) >= 2
+                and parts[0] in ("app", "pages")
+                and parts[-1].endswith((".js", ".jsx", ".ts", ".tsx"))
+            ):
+                return True
+            if (
+                len(parts) >= 3
+                and parts[0] == "src"
+                and parts[1] in ("app", "pages")
+                and parts[-1].endswith((".js", ".jsx", ".ts", ".tsx"))
+            ):
                 return True
         return False
