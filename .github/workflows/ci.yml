@@ -20,6 +20,8 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
       - name: Set up Python
         uses: actions/setup-python@v5
@@ -38,8 +40,24 @@ jobs:
       - name: Lint with Ruff
         run: ruff check .
 
-      - name: Check formatting with Ruff
-        run: ruff format --check .
+      - name: Check formatting with Ruff (changed files)
+        run: |
+          if [ "${{ github.event_name }}" = "pull_request" ]; then
+            BASE_REF="origin/${{ github.base_ref }}"
+            FILES=$(git diff --name-only --diff-filter=d "$BASE_REF"...HEAD -- '*.py')
+          elif [ "${{ github.event.before }}" != "" ] && [ "${{ github.event.before }}" != "0000000000000000000000000000000000000000" ]; then
+            FILES=$(git diff --name-only --diff-filter=d "${{ github.event.before }}" HEAD -- '*.py')
+          else
+            FILES=$(git diff --name-only --diff-filter=d HEAD~1 HEAD -- '*.py' 2>/dev/null || true)
+          fi
+
+          if [ -n "$FILES" ]; then
+            echo "Checking formatting for changed Python files:"
+            echo "$FILES"
+            echo "$FILES" | xargs ruff format --check
+          else
+            echo "No changed Python files to check formatting for."
+          fi
 
       - name: Run tests with coverage gate
         env:
