@@ -193,6 +193,12 @@ class AnalysisWorker:
             state["progress"] = max(old_prog, new_prog)
 
             set_job_state(job_id, state)
+            logger.info(
+                "Worker progress for job=%s step=%s progress=%d%%",
+                job_id,
+                new_step_id,
+                state["progress"],
+            )
 
         try:
             result = execute_repository_analysis(
@@ -253,6 +259,11 @@ class AnalysisWorker:
                 )
                 for msg in messages:
                     content = msg.content
+                    logger.info(
+                        "Received Azure queue message %s (len=%d)",
+                        msg.id,
+                        len(str(content)),
+                    )
                     print(
                         f"[Worker] Received Azure queue message {msg.id} (len={len(str(content))})",
                         flush=True,
@@ -262,6 +273,7 @@ class AnalysisWorker:
                     self.process_message_payload(content)
                     try:
                         client.delete_message(msg)
+                        logger.info("Deleted Azure queue message %s", msg.id)
                         print(
                             f"[Worker] Deleted Azure queue message {msg.id}", flush=True
                         )

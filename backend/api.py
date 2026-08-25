@@ -119,6 +119,14 @@ app.add_middleware(RateLimitMiddleware, limit=settings.rate_limit_per_minute)
 app.add_middleware(MetricsMiddleware)
 app.add_middleware(GZipMiddleware, minimum_size=1000)
 _allowed_hosts = list(settings.allowed_hosts)
+# In Azure Container Apps environments, automatically allow the environment domain suffix if present
+for env_key in ("CONTAINER_APP_ENV_DNS_SUFFIX", "AZURE_CONTAINER_APP_ENV_DNS_SUFFIX"):
+    dns_suffix = os.environ.get(env_key, "").strip()
+    if dns_suffix:
+        wildcard_host = f"*.{dns_suffix.lstrip('.')}"
+        if wildcard_host not in _allowed_hosts:
+            _allowed_hosts.append(wildcard_host)
+
 if settings.app_env != "production" and "*" not in _allowed_hosts:
     for test_host in ("testserver", "testclient"):
         if test_host not in _allowed_hosts:

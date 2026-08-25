@@ -449,6 +449,7 @@ _LOCAL_JOBS: Dict[str, Dict[str, Any]] = {}
 def _get_modal_jobs_dict():
     """Access Modal distributed Dict if available."""
     try:
+        # pyrefly: ignore [missing-import]
         import modal
 
         return modal.Dict.from_name("aria-analysis-jobs", create_if_missing=True)
@@ -457,6 +458,11 @@ def _get_modal_jobs_dict():
 
 
 def _get_jobs_dir() -> str:
+    jobs_dir_env = os.environ.get("JOB_STATE_DIR")
+    if jobs_dir_env:
+        os.makedirs(jobs_dir_env, exist_ok=True)
+        return jobs_dir_env
+
     from core.config import settings
 
     db_path = (
@@ -1494,13 +1500,65 @@ async def analyze_repository(request: AnalyzeRequest):
     from infrastructure.job_executor import get_job_executor
 
     executor = get_job_executor()
-    executor.spawn_analysis(
-        job_id=job_id,
-        repo_url=repo_url,
-        branch=request.branch or "main",
-        force_rebuild=request.force_rebuild,
-        request_id=request_id,
+    executor_name = type(executor).__name__
+    logger.info(
+        "Dispatching analysis job %s for %s via %s",
+        job_id,
+        repo_name,
+        executor_name,
     )
+
+    try:
+        dispatched = executor.spawn_analysis(
+            job_id=job_id,
+            repo_url=repo_url,
+            branch=request.branch or "main",
+            force_rebuild=request.force_rebuild,
+            request_id=request_id,
+        )
+    except Exception as exc:
+        logger.exception(
+            "Failed to dispatch analysis job %s for %s via %s: %s",
+            job_id,
+            repo_name,
+            executor_name,
+            exc,
+        )
+        curr_state = get_job_state(job_id) or initial_state
+        curr_state["status"] = "failed"
+        curr_state["message"] = "Failed to queue analysis job"
+        curr_state["error"] = format_analysis_error(exc)
+        set_job_state(job_id, curr_state)
+        raise HTTPException(
+            status_code=503,
+            detail="Analysis worker is currently unavailable.",
+        )
+
+    logger.info(
+        "Analysis dispatch result for job %s via %s: %s",
+        job_id,
+        executor_name,
+        dispatched,
+    )
+
+    if not dispatched:
+        logger.error(
+            "Analysis executor %s rejected dispatch for job %s (%s)",
+            executor_name,
+            job_id,
+            repo_name,
+        )
+        curr_state = get_job_state(job_id) or initial_state
+        curr_state["status"] = "failed"
+        curr_state["message"] = "Failed to queue analysis job"
+        curr_state["error"] = format_analysis_error(
+            RuntimeError("Analysis worker rejected or failed to queue job")
+        )
+        set_job_state(job_id, curr_state)
+        raise HTTPException(
+            status_code=503,
+            detail="Analysis worker is currently unavailable.",
+        )
 
     from fastapi.responses import JSONResponse
 

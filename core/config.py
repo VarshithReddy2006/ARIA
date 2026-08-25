@@ -151,13 +151,29 @@ class Settings(BaseSettings):
                 try:
                     res = _json.loads(v_clean)
                     if isinstance(res, list):
-                        return [str(item).strip() for item in res if str(item).strip()]
+                        return [
+                            str(item).strip().strip("'\"[] ")
+                            for item in res
+                            if str(item).strip().strip("'\"[] ")
+                        ]
                 except Exception:
                     pass
+                v_clean = v_clean[1:-1].strip()
+
             # Split comma-separated string
-            return [s.strip().strip("'\"") for s in v_clean.split(",") if s.strip()]
+            items = []
+            for s in v_clean.split(","):
+                cleaned = s.strip().strip("'\"[] ")
+                if cleaned:
+                    items.append(cleaned)
+            return items if items else ["*"]
+
         if isinstance(v, list):
-            return [str(item).strip() for item in v if str(item).strip()]
+            return [
+                str(item).strip().strip("'\"[] ")
+                for item in v
+                if str(item).strip().strip("'\"[] ")
+            ]
         return ["*"]
 
     @field_validator("allowed_hosts")
