@@ -344,4 +344,21 @@ describe('Server-Side Proxy Security & Routing Verification', () => {
     assert.deepEqual(reqBodyParsed, { url: 'https://github.com/octocat/Hello-World' });
     assert.ok(writtenBody.includes('job-node-test'));
   });
+
+  test('13. Serverless entrypoint api/[...path].ts has correct TypeScript module structure', () => {
+    const entrypointPath = join(process.cwd(), 'api', '[...path].ts');
+    assert.ok(existsSync(entrypointPath), 'api/[...path].ts must exist');
+
+    const content = readFileSync(entrypointPath, 'utf8');
+    assert.ok(
+      content.includes("from '../src/lib/serverProxy'") || content.includes('from "../src/lib/serverProxy"'),
+      'Must import from ../src/lib/serverProxy without explicit .ts extension',
+    );
+    assert.ok(!content.includes('.ts"'), 'Must not contain explicit .ts extension in import path');
+    assert.ok(!content.includes(".ts'"), 'Must not contain explicit .ts extension in import path');
+    assert.ok(content.includes('export default async function handler'), 'Must export default async function handler');
+    assert.ok(content.includes('nodeProxyHandler'), 'Must delegate to nodeProxyHandler');
+  });
 });
+
+

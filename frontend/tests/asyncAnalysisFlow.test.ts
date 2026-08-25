@@ -67,18 +67,18 @@ describe('Frontend Asynchronous Analysis Flow & Security Invariants', () => {
     });
 
     test('normal analyze request does not set force_rebuild=true', () => {
-      const constructPayload = (repoUrl: string, forceRebuild = false) => {
-        const target = parseGitHubUrl(repoUrl);
-        const submitUrl = target ? `https://github.com/${target.slug}` : repoUrl.trim();
+      const constructPayload = (inputUrl: string, forceRebuild?: boolean): { url: string; force_rebuild?: boolean; branch?: string } => {
+        const target = parseGitHubUrl(inputUrl);
+        const submitUrl = target ? `https://github.com/${target.slug}` : inputUrl.trim();
         const branch = target?.branch;
-        const payload: Record<string, any> = { url: submitUrl };
+        const payload: { url: string; force_rebuild?: boolean; branch?: string } = { url: submitUrl };
         if (forceRebuild) payload.force_rebuild = true;
         if (branch) payload.branch = branch;
         return payload;
       };
 
       // Normal request: standard URL with no branch
-      const normalPayload = constructPayload('https://github.com/octocat/Hello-World');
+      const normalPayload: { url: string; force_rebuild?: boolean; branch?: string } = constructPayload('https://github.com/octocat/Hello-World');
       assert.deepEqual(normalPayload, {
         url: 'https://github.com/octocat/Hello-World',
       });
@@ -86,15 +86,15 @@ describe('Frontend Asynchronous Analysis Flow & Security Invariants', () => {
       assert.equal(normalPayload.branch, undefined, 'branch must be omitted for default branch auto-discovery');
 
       // Request with explicit /tree/master URL
-      const branchPayload = constructPayload('https://github.com/octocat/Hello-World/tree/master');
+      const branchPayload: { url: string; force_rebuild?: boolean; branch?: string } = constructPayload('https://github.com/octocat/Hello-World/tree/master');
       assert.deepEqual(branchPayload, {
         url: 'https://github.com/octocat/Hello-World',
         branch: 'master',
       });
-      assert.equal(branchPayload.force_rebuild, undefined);
+      assert.equal((branchPayload as { force_rebuild?: boolean }).force_rebuild, undefined);
 
       // Explicit rebuild request
-      const rebuildPayload = constructPayload('https://github.com/octocat/Hello-World', true);
+      const rebuildPayload: { url: string; force_rebuild?: boolean; branch?: string } = constructPayload('https://github.com/octocat/Hello-World', true);
       assert.equal(rebuildPayload.force_rebuild, true);
     });
   });
