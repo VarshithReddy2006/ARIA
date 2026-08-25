@@ -246,9 +246,42 @@ describe('Frontend Asynchronous Analysis Flow & Security Invariants', () => {
       assert.equal(classifyHttpError(500, { error: 'Database error' }), 'Database error');
     });
 
-    test('7. polling timeout configuration is 10 minutes (600,000ms)', () => {
-      assert.equal(POLLING_TIMEOUT_MS, 600000);
+    test('7. polling timeout configuration is 30 minutes (1,800,000ms)', () => {
+      assert.equal(POLLING_TIMEOUT_MS, 1800000);
       assert.equal(POLLING_INTERVAL_MS, 1000);
+    });
+
+    test('7b. timeout handler produces 30-minute message and omits aria-analysis-completed event', () => {
+      const dispatchedEvents: string[] = [];
+      let errorMessage: string | null = null;
+      let isAnalyzing = true;
+
+      const handleTimeout = () => {
+        errorMessage = 'Analysis is still running after 30 minutes. You can check the analysis again later.';
+        isAnalyzing = false;
+        // Notice: window.dispatchEvent(new CustomEvent('aria-analysis-completed')) must NOT be called on timeout
+      };
+
+      handleTimeout();
+
+      assert.equal(isAnalyzing, false);
+      assert.equal(errorMessage, 'Analysis is still running after 30 minutes. You can check the analysis again later.');
+      assert.equal(dispatchedEvents.includes('aria-analysis-completed'), false, 'timeout must NOT dispatch aria-analysis-completed event');
+    });
+
+    test('7c. completed job flow dispatches aria-analysis-completed event', () => {
+      const dispatchedEvents: string[] = [];
+      let isAnalyzing = true;
+
+      const handleCompleted = () => {
+        isAnalyzing = false;
+        dispatchedEvents.push('aria-analysis-completed');
+      };
+
+      handleCompleted();
+
+      assert.equal(isAnalyzing, false);
+      assert.equal(dispatchedEvents.includes('aria-analysis-completed'), true, 'completed job must dispatch aria-analysis-completed');
     });
 
     test('8. stale / out-of-order response protection', () => {

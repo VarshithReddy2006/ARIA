@@ -93,8 +93,8 @@ export const INITIAL_STEPS: AnalysisStep[] = [
 const VALIDATION_DELAY_MS = 400;
 /** Polling interval in ms for background job status. */
 export const POLLING_INTERVAL_MS = 1000;
-/** Polling timeout in ms (10 minutes). */
-export const POLLING_TIMEOUT_MS = 10 * 60 * 1000;
+/** Maximum UI polling duration in ms (30 minutes). */
+export const POLLING_TIMEOUT_MS = 30 * 60 * 1000;
 
 export interface RepoAnalysis {
   url: string;
@@ -272,11 +272,8 @@ export function useRepoAnalysis(): RepoAnalysis {
 
         // Check timeout
         if (Date.now() - pollStartTime > POLLING_TIMEOUT_MS) {
-          setErrorMessage('Analysis timed out after 10 minutes. Please try again.');
+          setErrorMessage('Analysis is still running after 30 minutes. You can check the analysis again later.');
           setIsAnalyzing(false);
-          if (typeof window !== 'undefined') {
-            window.dispatchEvent(new CustomEvent('aria-analysis-completed'));
-          }
           return;
         }
 
