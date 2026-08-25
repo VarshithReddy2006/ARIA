@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { readFileSync, existsSync, readdirSync, statSync } from 'node:fs';
 import { join, resolve, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { executeProxy, nodeProxyHandler, resolveTargetUrl } from '../src/lib/serverProxy.ts';
+import { executeProxy, nodeProxyHandler, resolveTargetUrl } from '../api/_serverProxy.ts';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -350,18 +350,28 @@ describe('Server-Side Proxy Security & Routing Verification', () => {
     assert.ok(writtenBody.includes('job-node-test'));
   });
 
-  test('13. Vercel serverless entrypoint structure and module resolution regression assertions', () => {
+  test('13. Vercel serverless entrypoint structure and local bundle dependency verification', () => {
     const tsEntrypointPath = join(frontendDir, 'api', '[...path].ts');
+    const localProxyPath = join(frontendDir, 'api', '_serverProxy.ts');
+    const oldProxyPath = join(frontendDir, 'src', 'lib', 'serverProxy.ts');
     const jsEntrypointPath = join(frontendDir, 'api', '[...path].js');
     const proxyJsPath = join(frontendDir, 'api', 'proxy.js');
 
-    // 1. TypeScript entrypoint exists
+    // 1. New TypeScript entrypoint and local _serverProxy must exist
     assert.ok(
       existsSync(tsEntrypointPath),
       'TypeScript serverless entrypoint frontend/api/[...path].ts must exist',
     );
+    assert.ok(
+      existsSync(localProxyPath),
+      'Local server proxy helper frontend/api/_serverProxy.ts must exist within the api function tree',
+    );
 
-    // 2. Old JavaScript entrypoint and duplicate proxy do NOT exist
+    // 2. Old locations must NOT exist
+    assert.ok(
+      !existsSync(oldProxyPath),
+      'Old server proxy helper frontend/src/lib/serverProxy.ts must NOT exist',
+    );
     assert.ok(
       !existsSync(jsEntrypointPath),
       'Legacy JavaScript entrypoint frontend/api/[...path].js must NOT exist',
@@ -376,15 +386,21 @@ describe('Server-Side Proxy Security & Routing Verification', () => {
 
     // Reject explicit .ts or .js file extensions in the import
     assert.ok(
-      !content.includes("serverProxy.ts") && !content.includes("serverProxy.js"),
+      !content.includes('_serverProxy.ts') && !content.includes('_serverProxy.js'),
       'Import specifier must NOT contain an explicit .ts or .js extension',
     );
 
-    // Must import nodeProxyHandler using standard extensionless module resolution
+    // Reject any import from ../src/lib/serverProxy
+    assert.ok(
+      !content.includes('../src/lib/serverProxy'),
+      'Must NOT import from ../src/lib/serverProxy outside the api function bundle',
+    );
+
+    // Must import nodeProxyHandler using local module specifier './_serverProxy'
     assert.match(
       content,
-      /import\s+\{\s*nodeProxyHandler\s*\}\s+from\s+['"]\.\.\/src\/lib\/serverProxy['"]/,
-      'Must import nodeProxyHandler from "../src/lib/serverProxy" without extension',
+      /import\s+\{\s*nodeProxyHandler\s*\}\s+from\s+['"]\.\/_serverProxy['"]/,
+      'Must import nodeProxyHandler from "./_serverProxy"',
     );
 
     // 4. Must export default async function handler

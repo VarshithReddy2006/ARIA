@@ -67,11 +67,11 @@ describe('Frontend Asynchronous Analysis Flow & Security Invariants', () => {
     });
 
     test('normal analyze request does not set force_rebuild=true', () => {
-      const constructPayload = (repoUrl: string, forceRebuild = false) => {
+      const constructPayload = (repoUrl: string, forceRebuild = false): { url: string; force_rebuild?: boolean; branch?: string } => {
         const target = parseGitHubUrl(repoUrl);
         const submitUrl = target ? `https://github.com/${target.slug}` : repoUrl.trim();
         const branch = target?.branch;
-        const payload: Record<string, any> = { url: submitUrl };
+        const payload: { url: string; force_rebuild?: boolean; branch?: string } = { url: submitUrl };
         if (forceRebuild) payload.force_rebuild = true;
         if (branch) payload.branch = branch;
         return payload;
@@ -91,7 +91,7 @@ describe('Frontend Asynchronous Analysis Flow & Security Invariants', () => {
         url: 'https://github.com/octocat/Hello-World',
         branch: 'master',
       });
-      assert.equal(branchPayload.force_rebuild, undefined);
+      assert.equal((branchPayload as { force_rebuild?: boolean }).force_rebuild, undefined);
 
       // Explicit rebuild request
       const rebuildPayload = constructPayload('https://github.com/octocat/Hello-World', true);
@@ -297,7 +297,7 @@ describe('Frontend Asynchronous Analysis Flow & Security Invariants', () => {
         );
       };
 
-      const { executeProxy } = await import('../src/lib/serverProxy.ts');
+      const { executeProxy } = await import('../api/_serverProxy.ts');
 
       const response = await executeProxy(
         {
@@ -333,7 +333,7 @@ describe('Frontend Asynchronous Analysis Flow & Security Invariants', () => {
         );
       };
 
-      const { executeProxy } = await import('../src/lib/serverProxy.ts');
+      const { executeProxy } = await import('../api/_serverProxy.ts');
 
       const response = await executeProxy(
         {
@@ -353,7 +353,7 @@ describe('Frontend Asynchronous Analysis Flow & Security Invariants', () => {
     });
 
     test('Upstream error forwarding: 4xx, 5xx returned unchanged without leaking secret', async () => {
-      const { executeProxy } = await import('../src/lib/serverProxy.ts');
+      const { executeProxy } = await import('../api/_serverProxy.ts');
 
       const mock404Fetch: typeof fetch = async () => {
         return new Response(JSON.stringify({ detail: 'Job not found' }), {
@@ -373,7 +373,7 @@ describe('Frontend Asynchronous Analysis Flow & Security Invariants', () => {
     });
 
     test('Upstream network failure returns 502 Bad Gateway cleanly', async () => {
-      const { executeProxy } = await import('../src/lib/serverProxy.ts');
+      const { executeProxy } = await import('../api/_serverProxy.ts');
 
       const mockFailingFetch: typeof fetch = async () => {
         throw new Error('ECONNREFUSED');
