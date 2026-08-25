@@ -1,8 +1,13 @@
 import { describe, test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync, existsSync, readdirSync, statSync } from 'node:fs';
-import { join } from 'node:path';
+import { join, resolve, dirname } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { executeProxy, nodeProxyHandler, resolveTargetUrl } from '../src/lib/serverProxy.ts';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = dirname(__filename);
+const frontendDir = resolve(__dirname, '..');
 
 describe('Server-Side Proxy Security & Routing Verification', () => {
   const DEFAULT_TEST_API_URL = 'https://aria-api.lemonriver-308dc42a.eastasia.azurecontainerapps.io';
@@ -226,7 +231,7 @@ describe('Server-Side Proxy Security & Routing Verification', () => {
   });
 
   test('9 & 10. No API key appears in browser bundle or generated static HTML', () => {
-    const distDir = join(process.cwd(), 'dist');
+    const distDir = resolve(frontendDir, 'dist');
     if (!existsSync(distDir)) {
       return;
     }
@@ -343,5 +348,57 @@ describe('Server-Side Proxy Security & Routing Verification', () => {
     assert.equal(writtenHeaders['x-custom-res'], '123');
     assert.deepEqual(reqBodyParsed, { url: 'https://github.com/octocat/Hello-World' });
     assert.ok(writtenBody.includes('job-node-test'));
+  });
+
+  test('13. Vercel serverless entrypoint structure and module resolution regression assertions', () => {
+    const tsEntrypointPath = join(frontendDir, 'api', '[...path].ts');
+    const jsEntrypointPath = join(frontendDir, 'api', '[...path].js');
+    const proxyJsPath = join(frontendDir, 'api', 'proxy.js');
+
+    // 1. TypeScript entrypoint exists
+    assert.ok(
+      existsSync(tsEntrypointPath),
+      'TypeScript serverless entrypoint frontend/api/[...path].ts must exist',
+    );
+
+    // 2. Old JavaScript entrypoint and duplicate proxy do NOT exist
+    assert.ok(
+      !existsSync(jsEntrypointPath),
+      'Legacy JavaScript entrypoint frontend/api/[...path].js must NOT exist',
+    );
+    assert.ok(
+      !existsSync(proxyJsPath),
+      'Legacy duplicate handler frontend/api/proxy.js must NOT exist',
+    );
+
+    // 3. Inspect TypeScript entrypoint code structure
+    const content = readFileSync(tsEntrypointPath, 'utf8');
+
+    // Reject explicit .ts or .js file extensions in the import
+    assert.ok(
+      !content.includes("serverProxy.ts") && !content.includes("serverProxy.js"),
+      'Import specifier must NOT contain an explicit .ts or .js extension',
+    );
+
+    // Must import nodeProxyHandler using standard extensionless module resolution
+    assert.match(
+      content,
+      /import\s+\{\s*nodeProxyHandler\s*\}\s+from\s+['"]\.\.\/src\/lib\/serverProxy['"]/,
+      'Must import nodeProxyHandler from "../src/lib/serverProxy" without extension',
+    );
+
+    // 4. Must export default async function handler
+    assert.match(
+      content,
+      /export\s+default\s+async\s+function\s+handler\s*\(/,
+      'Must export default async function handler',
+    );
+
+    // 5. Must delegate to nodeProxyHandler(req, res)
+    assert.match(
+      content,
+      /nodeProxyHandler\s*\(\s*req\s*,\s*res\s*\)/,
+      'Must delegate execution to nodeProxyHandler(req, res)',
+    );
   });
 });
