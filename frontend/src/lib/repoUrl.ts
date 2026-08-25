@@ -11,6 +11,8 @@ export interface ParsedRepo {
   repo: string;
   /** Canonical `owner/repo` form */
   slug: string;
+  /** Optional branch extracted from /tree/<branch> */
+  branch?: string;
 }
 
 /** GitHub allows alphanumerics, hyphens, underscores, and dots in these segments. */
@@ -72,7 +74,12 @@ export function parseGitHubUrl(input: string): ParsedRepo | null {
   // "." and ".." are never valid repository names
   if (repo === '.' || repo === '..') return null;
 
-  return { owner, repo, slug: `${owner}/${repo}` };
+  let branch: string | undefined = undefined;
+  if (segments.length >= 4 && segments[2] === 'tree') {
+    branch = segments[3];
+  }
+
+  return { owner, repo, slug: `${owner}/${repo}`, ...(branch ? { branch } : {}) };
 }
 
 export type ValidationState = 'empty' | 'checking' | 'valid' | 'invalid';
