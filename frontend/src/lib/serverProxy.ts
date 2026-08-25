@@ -1,7 +1,7 @@
 /**
  * Server-Side API Proxy for Azure FastAPI Backend.
  *
- * Runs exclusively in server-side environments (Vercel Serverless Functions / Node.js).
+ * Runs exclusively in server-side environments (Astro Server Endpoints / Node.js).
  * Attaches the secret `X-API-Key` header from server environment variables so the
  * client browser bundle never receives or exposes the production API key.
  */
@@ -230,47 +230,5 @@ export async function executeProxy(
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ detail: errorMessage, error: errorMessage, status: 'failed' }),
     };
-  }
-}
-
-/**
- * Node.js Serverless Handler for Vercel functions (req, res).
- */
-export async function nodeProxyHandler(
-  req: any,
-  res: any,
-  options: ProxyOptions = {},
-): Promise<void> {
-  // Collect body stream if req is a readable stream and body is not pre-parsed
-  if ((req.method === 'POST' || req.method === 'PUT' || req.method === 'PATCH') && req.body === undefined) {
-    const chunks: Buffer[] = [];
-    try {
-      for await (const chunk of req) {
-        chunks.push(typeof chunk === 'string' ? Buffer.from(chunk) : chunk);
-      }
-      if (chunks.length > 0) {
-        const rawBody = Buffer.concat(chunks).toString('utf8');
-        try {
-          req.body = JSON.parse(rawBody);
-        } catch {
-          req.body = rawBody;
-        }
-      }
-    } catch {
-      // Body reading stream error or already consumed
-    }
-  }
-
-  const result = await executeProxy(req, options);
-
-  res.statusCode = result.status;
-  for (const [key, value] of Object.entries(result.headers)) {
-    res.setHeader(key, value);
-  }
-
-  if (typeof result.body === 'string') {
-    res.end(result.body);
-  } else {
-    res.end(Buffer.from(result.body));
   }
 }

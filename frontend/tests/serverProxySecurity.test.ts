@@ -3,13 +3,14 @@ import assert from 'node:assert/strict';
 import { readFileSync, existsSync, readdirSync, statSync } from 'node:fs';
 import { join, resolve, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { executeProxy, nodeProxyHandler, resolveTargetUrl } from '../api/_serverProxy.ts';
+import { executeProxy, resolveTargetUrl } from '../src/lib/serverProxy.ts';
+import { ALL, GET, POST } from '../src/pages/api/[...path].ts';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 const frontendDir = resolve(__dirname, '..');
 
-describe('Server-Side Proxy Security & Routing Verification', () => {
+describe('Server-Side Proxy Security & Astro Endpoint Verification', () => {
   const DEFAULT_TEST_API_URL = 'https://aria-api.lemonriver-308dc42a.eastasia.azurecontainerapps.io';
   const SECRET_KEY = 'test-server-secret-key-12345';
 
@@ -117,7 +118,7 @@ describe('Server-Side Proxy Security & Routing Verification', () => {
     );
     assert.equal(capturedUrl, `${DEFAULT_TEST_API_URL}/api/v1/repos/examples?limit=10&sort=stars`);
 
-    // Case B: Vercel catch-all query object with path
+    // Case B: Catch-all query object with path
     await executeProxy(
       {
         method: 'GET',
@@ -304,117 +305,162 @@ describe('Server-Side Proxy Security & Routing Verification', () => {
     assert.equal(capturedReadyUrl, `${DEFAULT_TEST_API_URL}/ready`);
   });
 
-  test('12. nodeProxyHandler streams body, sets response headers and status code', async () => {
-    let reqBodyParsed: any;
+  test('12. executeProxy handles binary buffers, headers, and nodeProxyHandler is absent', async () => {
+    let reqBodyBuffer: Uint8Array | undefined;
     const mockFetch: typeof fetch = async (_input, init) => {
-      reqBodyParsed = JSON.parse(String(init?.body || '{}'));
-      return new Response(JSON.stringify({ job_id: 'job-node-test', status: 'queued' }), {
+      reqBodyBuffer = init?.body as Uint8Array;
+      return new Response(JSON.stringify({ job_id: 'job-binary-test', status: 'queued' }), {
         status: 202,
         headers: { 'Content-Type': 'application/json', 'X-Custom-Res': '123' },
       });
     };
 
-    const mockReq = {
-      method: 'POST',
-      url: '/api/v1/analyze',
-      headers: { 'content-type': 'application/json' },
-      body: { url: 'https://github.com/octocat/Hello-World' },
-    };
-
-    let writtenStatusCode = 0;
-    const writtenHeaders: Record<string, string> = {};
-    let writtenBody = '';
-
-    const mockRes = {
-      set statusCode(code: number) {
-        writtenStatusCode = code;
+    const payloadBytes = new TextEncoder().encode(JSON.stringify({ url: 'https://github.com/octocat/Hello-World' }));
+    const result = await executeProxy(
+      {
+        method: 'POST',
+        url: '/api/v1/analyze',
+        headers: { 'content-type': 'application/json' },
+        body: payloadBytes,
       },
-      setHeader(key: string, val: string) {
-        writtenHeaders[key] = val;
+      {
+        apiUrl: DEFAULT_TEST_API_URL,
+        apiKey: SECRET_KEY,
+        fetchFn: mockFetch,
       },
-      end(chunk?: any) {
-        if (chunk) writtenBody += String(chunk);
-      },
-    };
+    );
 
-    await nodeProxyHandler(mockReq, mockRes, {
-      apiUrl: DEFAULT_TEST_API_URL,
-      apiKey: SECRET_KEY,
-      fetchFn: mockFetch,
-    });
+    assert.equal(result.status, 202);
+    assert.equal(result.headers['content-type'] || result.headers['Content-Type'], 'application/json');
+    assert.equal(result.headers['x-custom-res'], '123');
+    assert.ok(reqBodyBuffer);
+    assert.deepEqual(reqBodyBuffer, payloadBytes);
 
-    assert.equal(writtenStatusCode, 202);
-    assert.equal(writtenHeaders['content-type'] || writtenHeaders['Content-Type'], 'application/json');
-    assert.equal(writtenHeaders['x-custom-res'], '123');
-    assert.deepEqual(reqBodyParsed, { url: 'https://github.com/octocat/Hello-World' });
-    assert.ok(writtenBody.includes('job-node-test'));
+    // Verify nodeProxyHandler is not exported
+    const proxyModule = await import('../src/lib/serverProxy.ts');
+    assert.equal((proxyModule as any).nodeProxyHandler, undefined, 'nodeProxyHandler must be removed');
   });
 
-  test('13. Vercel serverless entrypoint structure and local bundle dependency verification', () => {
-    const tsEntrypointPath = join(frontendDir, 'api', '[...path].ts');
-    const localProxyPath = join(frontendDir, 'api', '_serverProxy.ts');
-    const oldProxyPath = join(frontendDir, 'src', 'lib', 'serverProxy.ts');
-    const jsEntrypointPath = join(frontendDir, 'api', '[...path].js');
-    const proxyJsPath = join(frontendDir, 'api', 'proxy.js');
+  test('13. Astro server endpoint architecture & legacy Vercel function cleanup verification', () => {
+    const astroEndpointPath = join(frontendDir, 'src', 'pages', 'api', '[...path].ts');
+    const libProxyPath = join(frontendDir, 'src', 'lib', 'serverProxy.ts');
+    const legacyApiDir = join(frontendDir, 'api');
+    const legacyTsEntrypoint = join(frontendDir, 'api', '[...path].ts');
+    const legacyLocalProxy = join(frontendDir, 'api', '_serverProxy.ts');
+    const legacyJsEntrypoint = join(frontendDir, 'api', '[...path].js');
+    const legacyProxyJs = join(frontendDir, 'api', 'proxy.js');
 
-    // 1. New TypeScript entrypoint and local _serverProxy must exist
+    // 1. Astro server endpoint and shared lib proxy must exist
     assert.ok(
-      existsSync(tsEntrypointPath),
-      'TypeScript serverless entrypoint frontend/api/[...path].ts must exist',
+      existsSync(astroEndpointPath),
+      'Astro API server endpoint frontend/src/pages/api/[...path].ts must exist',
     );
     assert.ok(
-      existsSync(localProxyPath),
-      'Local server proxy helper frontend/api/_serverProxy.ts must exist within the api function tree',
-    );
-
-    // 2. Old locations must NOT exist
-    assert.ok(
-      !existsSync(oldProxyPath),
-      'Old server proxy helper frontend/src/lib/serverProxy.ts must NOT exist',
-    );
-    assert.ok(
-      !existsSync(jsEntrypointPath),
-      'Legacy JavaScript entrypoint frontend/api/[...path].js must NOT exist',
-    );
-    assert.ok(
-      !existsSync(proxyJsPath),
-      'Legacy duplicate handler frontend/api/proxy.js must NOT exist',
+      existsSync(libProxyPath),
+      'Server proxy helper frontend/src/lib/serverProxy.ts must exist',
     );
 
-    // 3. Inspect TypeScript entrypoint code structure
-    const content = readFileSync(tsEntrypointPath, 'utf8');
-
-    // Reject explicit .ts or .js file extensions in the import
+    // 2. Legacy manual Vercel function files and directory must NOT exist
     assert.ok(
-      !content.includes('_serverProxy.ts') && !content.includes('_serverProxy.js'),
-      'Import specifier must NOT contain an explicit .ts or .js extension',
+      !existsSync(legacyApiDir),
+      'Legacy manual Vercel function directory frontend/api must NOT exist',
+    );
+    assert.ok(
+      !existsSync(legacyTsEntrypoint),
+      'Legacy entrypoint frontend/api/[...path].ts must NOT exist',
+    );
+    assert.ok(
+      !existsSync(legacyLocalProxy),
+      'Legacy proxy frontend/api/_serverProxy.ts must NOT exist',
+    );
+    assert.ok(
+      !existsSync(legacyJsEntrypoint),
+      'Legacy frontend/api/[...path].js must NOT exist',
+    );
+    assert.ok(
+      !existsSync(legacyProxyJs),
+      'Legacy frontend/api/proxy.js must NOT exist',
     );
 
-    // Reject any import from ../src/lib/serverProxy
-    assert.ok(
-      !content.includes('../src/lib/serverProxy'),
-      'Must NOT import from ../src/lib/serverProxy outside the api function bundle',
-    );
+    // 3. Inspect Astro endpoint structure
+    const content = readFileSync(astroEndpointPath, 'utf8');
 
-    // Must import nodeProxyHandler using local module specifier './_serverProxy'
+    // Must import executeProxy from lib
     assert.match(
       content,
-      /import\s+\{\s*nodeProxyHandler\s*\}\s+from\s+['"]\.\/_serverProxy['"]/,
-      'Must import nodeProxyHandler from "./_serverProxy"',
+      /import\s+\{\s*executeProxy\s*\}\s+from\s+['"](?:\.\.\/)+lib\/serverProxy(?:\.ts)?['"]/,
+      'Must import executeProxy from lib/serverProxy',
     );
 
-    // 4. Must export default async function handler
+    // Must export ALL APIRoute
     assert.match(
       content,
-      /export\s+default\s+async\s+function\s+handler\s*\(/,
-      'Must export default async function handler',
+      /export\s+const\s+ALL\s*:\s*APIRoute/,
+      'Must export ALL APIRoute handler',
     );
+  });
 
-    // 5. Must delegate to nodeProxyHandler(req, res)
-    assert.match(
-      content,
-      /nodeProxyHandler\s*\(\s*req\s*,\s*res\s*\)/,
-      'Must delegate execution to nodeProxyHandler(req, res)',
-    );
+  test('14. Astro ALL handler processes Web Request and returns standard Response', async () => {
+    let capturedUrl = '';
+    let capturedHeaders: Record<string, string> = {};
+    let capturedBody = '';
+
+    const origKey = process.env.ARIA_API_KEY;
+    const origUrl = process.env.ARIA_API_URL;
+    const origFetch = globalThis.fetch;
+
+    try {
+      process.env.ARIA_API_KEY = SECRET_KEY;
+      process.env.ARIA_API_URL = DEFAULT_TEST_API_URL;
+
+      globalThis.fetch = (async (input: RequestInfo | URL, init?: RequestInit) => {
+        capturedUrl = String(input);
+        capturedHeaders = (init?.headers as Record<string, string>) || {};
+        capturedBody = String(init?.body || '');
+        return new Response(JSON.stringify({ job_id: 'astro-job-789', status: 'queued' }), {
+          status: 202,
+          headers: { 'Content-Type': 'application/json' },
+        });
+      }) as typeof fetch;
+
+      const mockRequest = new Request('http://localhost:4321/api/v1/analyze', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-API-Key': 'client-should-be-stripped',
+        },
+        body: JSON.stringify({ url: 'https://github.com/octocat/Hello-World' }),
+      });
+
+      const response = await ALL({
+        request: mockRequest,
+        params: { path: 'v1/analyze' },
+        url: new URL('http://localhost:4321/api/v1/analyze'),
+      } as any);
+
+      assert.ok(response instanceof Response);
+      assert.equal(response.status, 202);
+      const data = await response.json();
+      assert.equal(data.job_id, 'astro-job-789');
+      assert.equal(capturedUrl, `${DEFAULT_TEST_API_URL}/api/v1/analyze`);
+      assert.equal(capturedHeaders['X-API-Key'], SECRET_KEY);
+      assert.equal(capturedHeaders['x-api-key'], undefined);
+      assert.equal(capturedBody, JSON.stringify({ url: 'https://github.com/octocat/Hello-World' }));
+    } finally {
+      process.env.ARIA_API_KEY = origKey;
+      process.env.ARIA_API_URL = origUrl;
+      globalThis.fetch = origFetch;
+    }
+  });
+
+  test('15. Astro HTTP method exports route to ALL handler', async () => {
+    const { ALL, GET, POST, PUT, DELETE, PATCH, HEAD, OPTIONS } = await import('../src/pages/api/[...path].ts');
+    assert.equal(GET, ALL);
+    assert.equal(POST, ALL);
+    assert.equal(PUT, ALL);
+    assert.equal(DELETE, ALL);
+    assert.equal(PATCH, ALL);
+    assert.equal(HEAD, ALL);
+    assert.equal(OPTIONS, ALL);
   });
 });

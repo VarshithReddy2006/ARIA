@@ -1,33 +1,19 @@
 import { defineConfig } from 'astro/config';
 import react from '@astrojs/react';
 import tailwind from '@astrojs/tailwind';
+import vercel from '@astrojs/vercel/serverless';
 
-// https://astro.build/config
 export default defineConfig({
+  output: 'server',
+  adapter: vercel({
+    // Use Vercel project runtime configuration; no explicit runtime version pinned
+  }),
   integrations: [
     react(),
     tailwind({
       applyBaseStyles: false,
     }),
   ],
-  server: {
-    port: 4321,
-    proxy: {
-      '/api': {
-        target: process.env.ARIA_API_URL || 'http://127.0.0.1:8001',
-        changeOrigin: true,
-        secure: false,
-        configure: (proxy, _options) => {
-          proxy.on('proxyReq', (proxyReq, _req, _res) => {
-            const apiKey = process.env.ARIA_API_KEY || process.env.API_KEY;
-            if (apiKey) {
-              proxyReq.setHeader('X-API-Key', apiKey);
-            }
-          });
-        },
-      },
-    },
-  },
   vite: {
     optimizeDeps: {
       include: ['reactflow', 'dagre', 'react-markdown', 'remark-gfm', 'lucide-react', 'framer-motion'],

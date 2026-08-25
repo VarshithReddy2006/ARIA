@@ -297,7 +297,7 @@ describe('Frontend Asynchronous Analysis Flow & Security Invariants', () => {
         );
       };
 
-      const { executeProxy } = await import('../api/_serverProxy.ts');
+      const { executeProxy } = await import('../src/lib/serverProxy.ts');
 
       const response = await executeProxy(
         {
@@ -333,7 +333,7 @@ describe('Frontend Asynchronous Analysis Flow & Security Invariants', () => {
         );
       };
 
-      const { executeProxy } = await import('../api/_serverProxy.ts');
+      const { executeProxy } = await import('../src/lib/serverProxy.ts');
 
       const response = await executeProxy(
         {
@@ -353,7 +353,7 @@ describe('Frontend Asynchronous Analysis Flow & Security Invariants', () => {
     });
 
     test('Upstream error forwarding: 4xx, 5xx returned unchanged without leaking secret', async () => {
-      const { executeProxy } = await import('../api/_serverProxy.ts');
+      const { executeProxy } = await import('../src/lib/serverProxy.ts');
 
       const mock404Fetch: typeof fetch = async () => {
         return new Response(JSON.stringify({ detail: 'Job not found' }), {
@@ -373,7 +373,7 @@ describe('Frontend Asynchronous Analysis Flow & Security Invariants', () => {
     });
 
     test('Upstream network failure returns 502 Bad Gateway cleanly', async () => {
-      const { executeProxy } = await import('../api/_serverProxy.ts');
+      const { executeProxy } = await import('../src/lib/serverProxy.ts');
 
       const mockFailingFetch: typeof fetch = async () => {
         throw new Error('ECONNREFUSED');
