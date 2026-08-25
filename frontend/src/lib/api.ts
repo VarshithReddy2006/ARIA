@@ -17,10 +17,19 @@ const DEFAULT_DEV_API_BASE_URL = 'http://127.0.0.1:8001';
  * - In production mode (`npm run build` / Docker), defaults to `""` (same-origin relative URLs).
  * - Can be explicitly overridden via `PUBLIC_API_URL` environment variable.
  */
+const env = typeof import.meta !== 'undefined' && import.meta.env ? import.meta.env : ({} as Record<string, any>);
+
+const envApiUrl =
+  typeof env.PUBLIC_API_URL === 'string' && env.PUBLIC_API_URL.trim() !== ''
+    ? env.PUBLIC_API_URL.trim()
+    : typeof env.PUBLIC_API_BASE_URL === 'string' && env.PUBLIC_API_BASE_URL.trim() !== ''
+      ? env.PUBLIC_API_BASE_URL.trim()
+      : undefined;
+
 export const API_BASE_URL: string = (
-  typeof import.meta.env.PUBLIC_API_URL === 'string' && import.meta.env.PUBLIC_API_URL.trim() !== ''
-    ? import.meta.env.PUBLIC_API_URL.trim()
-    : import.meta.env.DEV
+  envApiUrl !== undefined
+    ? envApiUrl
+    : env.DEV
       ? DEFAULT_DEV_API_BASE_URL
       : ''
 ).replace(/\/$/, '');
@@ -42,6 +51,31 @@ export function apiUrl(path: string): string {
     normalized = `/api/v1${normalized.substring(4)}`;
   }
   return `${API_BASE_URL}${normalized}`;
+}
+
+/**
+ * Construct standard headers for API requests.
+ * Authentication is handled securely via server-side proxy / session cookies without
+ * exposing API secrets in the client-side JavaScript bundle.
+ */
+export function getApiHeaders(customHeaders?: HeadersInit): HeadersInit {
+  const headers: Record<string, string> = {
+    'Content-Type': 'application/json',
+  };
+  if (customHeaders) {
+    if (typeof Headers !== 'undefined' && customHeaders instanceof Headers) {
+      customHeaders.forEach((value, key) => {
+        headers[key] = value;
+      });
+    } else if (Array.isArray(customHeaders)) {
+      customHeaders.forEach(([key, value]) => {
+        headers[key] = value;
+      });
+    } else {
+      Object.assign(headers, customHeaders);
+    }
+  }
+  return headers;
 }
 
 export type EngineState = 'ready' | 'analyzing' | 'indexed' | 'degraded' | 'offline';

@@ -46,15 +46,24 @@ type StageStatus = 'pending' | 'active' | 'completed';
 
 interface Props {
   steps: AnalysisStep[];
+  progress?: number;
+  jobStartedAt?: number;
+  jobElapsedSeconds?: number;
 }
 
-export const AnalysisProgress: React.FC<Props> = ({ steps }) => {
+export const AnalysisProgress: React.FC<Props> = ({ steps, progress, jobStartedAt, jobElapsedSeconds }) => {
   const reduced = useReducedMotion();
   const [now, setNow] = useState(() => Date.now());
 
-  const startedAt = useRef(Date.now());
+  const startedAt = useRef(jobStartedAt ? jobStartedAt * 1000 : Date.now());
   const stageStart = useRef<Record<string, number>>({});
   const stageEnd = useRef<Record<string, number>>({});
+
+  useEffect(() => {
+    if (jobStartedAt && jobStartedAt * 1000 < startedAt.current) {
+      startedAt.current = jobStartedAt * 1000;
+    }
+  }, [jobStartedAt]);
 
   /** Roll the ten step statuses up into seven stage statuses. */
   const stages = useMemo(
@@ -100,7 +109,7 @@ export const AnalysisProgress: React.FC<Props> = ({ steps }) => {
     const start = stageStart.current[stageId];
     if (!start) return 0;
     if (status === 'completed') return ((stageEnd.current[stageId] ?? now) - start) / 1000;
-    return (now - start) / 1000;
+    return Math.max(0, (now - start) / 1000);
   };
 
   /** Fractional completion of a stage, for its own rail. */
@@ -109,22 +118,30 @@ export const AnalysisProgress: React.FC<Props> = ({ steps }) => {
     if (stage.status === 'pending') return 0;
     if (stage.total > 1) {
       // Multi-step stages report real sub-step progress.
-      return Math.min(0.92, stage.done / stage.total + 0.12);
+      return Math.min(0.95, stage.done / stage.total + 0.15);
     }
-    const elapsed = secondsIn(stage.id, stage.status);
-    return Math.min(0.92, (elapsed / stage.typical) * 0.8);
+    const elapsedPhase = secondsIn(stage.id, stage.status);
+    return Math.min(0.95, 0.2 + (elapsedPhase / stage.typical) * 0.7);
   };
 
-  const overall = stages.reduce((sum, s) => sum + fractionOf(s), 0) / stages.length;
-  const elapsed = (now - startedAt.current) / 1000;
+  const stageProgress = stages.reduce((sum, s) => sum + fractionOf(s), 0) / stages.length;
+  const overall = typeof progress === 'number' && progress > 0
+    ? Math.max(progress / 100, stageProgress)
+    : stageProgress;
+
+  const totalElapsed = typeof jobElapsedSeconds === 'number' && jobElapsedSeconds > 0
+    ? Math.max(jobElapsedSeconds, (now - startedAt.current) / 1000)
+    : (now - startedAt.current) / 1000;
+
+  const activeStage = stages.find((s) => s.status === 'active');
+  const activeElapsed = activeStage ? secondsIn(activeStage.id, activeStage.status) : 0;
+  const isLongOrUnpredictable = activeStage?.id === 'embed' || (activeStage && activeElapsed > activeStage.typical * 1.5);
 
   const remaining = stages.reduce((sum, s) => {
     if (s.status === 'completed') return sum;
     if (s.status === 'pending') return sum + s.typical;
-    return sum + Math.max(0.2, s.typical - secondsIn(s.id, s.status));
+    return sum + Math.max(0.5, s.typical - secondsIn(s.id, s.status));
   }, 0);
-
-  const activeStage = stages.find((s) => s.status === 'active');
 
   return (
     <section className="w-full" aria-label="Analysis progress">
@@ -145,12 +162,14 @@ export const AnalysisProgress: React.FC<Props> = ({ steps }) => {
         <div className="flex items-baseline gap-5 shrink-0">
           <span className="mono-detail" style={{ fontSize: 10 }}>
             ELAPSED{' '}
-            <span className="text-text tabular-nums">{elapsed.toFixed(1)}s</span>
+            <span className="text-text tabular-nums">{totalElapsed.toFixed(1)}s</span>
           </span>
           {!finished && (
             <span className="mono-detail" style={{ fontSize: 10 }}>
               REMAINING{' '}
-              <span className="text-primary tabular-nums">~{Math.ceil(remaining)}s</span>
+              <span className="text-primary tabular-nums">
+                {isLongOrUnpredictable ? 'Estimating...' : `~${Math.ceil(remaining)}s`}
+              </span>
             </span>
           )}
           <span className="font-mono text-xl sm:text-2xl text-text tabular-nums leading-none">
