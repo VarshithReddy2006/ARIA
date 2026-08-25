@@ -6,7 +6,7 @@ import vercel from '@astrojs/vercel/serverless';
 export default defineConfig({
   output: 'server',
   adapter: vercel({
-    // Use Vercel project runtime configuration; no explicit runtime version pinned
+    // Uses Node.js 20.x runtime for Vercel Serverless Functions
   }),
   integrations: [
     react(),
