@@ -587,6 +587,9 @@ export const APISurfaceAnalyzer: React.FC<Props> = ({ repoName }) => {
    */
   const exposureNote = useMemo(() => {
     if (!stats) return null;
+    if (stats.total_symbols === 0) {
+      return 'No public or internal code symbols were detected in this repository. API surface analysis applies to repositories with supported source code files.';
+    }
     const { public_count, orphan_public_count, deprecated_count, route_count } = stats;
     const parts: string[] = [];
 

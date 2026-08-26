@@ -565,11 +565,11 @@ const InteractiveDependencyGraphInner: React.FC<
           <div className="absolute inset-0 flex items-center justify-center z-30 p-6 font-mono">
             <EmptyState
               icon={<Network className="h-6 w-6 text-zinc-500" aria-hidden="true" />}
-              title={searchQuery ? 'NO MATCHING NODES' : 'GRAPH IS EMPTY'}
+              title={searchQuery ? 'NO MATCHING NODES' : 'NO DEPENDENCIES DETECTED'}
               description={
                 searchQuery
                   ? 'Try a different keyword or clear search to reveal the full topology.'
-                  : 'Run repository analysis to index module relationships.'
+                  : 'This repository contains no analyzable source files or dependency relationships.'
               }
               action={searchQuery ? <Button variant="ghost" onClick={handleSearchClear}>Clear search</Button> : undefined}
             />

@@ -1,6 +1,6 @@
 """Unit tests for FastAPI Dependency Injection and RIA Container Integration (Task 5 / R-017)."""
 
-from unittest.mock import MagicMock
+from unittest.mock import AsyncMock, MagicMock, patch
 from fastapi import FastAPI, Depends
 from fastapi.testclient import TestClient
 
@@ -80,12 +80,16 @@ class TestContainerDI:
         """Verify backend.api app lifespan initializes app.state.container and shuts down cleanly."""
         from backend.api import app
 
-        with TestClient(app) as client:
-            assert hasattr(app.state, "container")
-            assert isinstance(app.state.container, Container)
-            assert app.state.git is not None
-            assert app.state.parser_service is not None
+        with (
+            patch("backend.api._warmup_services"),
+            patch("backend.api.validate_llm_providers", new_callable=AsyncMock),
+        ):
+            with TestClient(app) as client:
+                assert hasattr(app.state, "container")
+                assert isinstance(app.state.container, Container)
+                assert app.state.git is not None
+                assert app.state.parser_service is not None
 
-            # Perform a health check query
-            res = client.get("/health")
-            assert res.status_code == 200
+                # Perform a health check query
+                res = client.get("/health")
+                assert res.status_code == 200

@@ -74,9 +74,10 @@ class ReportComposer:
         cycles: List[List[str]] = []
         strongly_connected_components = 0
         if file_graph is not None and file_graph.number_of_nodes() > 0:
-            strongly_connected_components = nx.number_strongly_connected_components(
-                file_graph
-            )
+            non_trivial_sccs = [
+                c for c in nx.strongly_connected_components(file_graph) if len(c) > 1
+            ]
+            strongly_connected_components = len(non_trivial_sccs)
             # Find simple cycles
             try:
                 cycles = list(nx.simple_cycles(file_graph))
@@ -126,11 +127,8 @@ class ReportComposer:
             core_entry_points = [n for n, d in file_graph.in_degree() if d == 0]
 
         reading_path_completeness = 1.0
-        if symbol_index and len(symbol_index.symbols) > 0:
-            total_files = len(set(sym.file_path for sym in symbol_index.symbols))
-            reading_path_completeness = len(recommended_reading_path) / max(
-                1, total_files
-            )
+        if recommended_reading_path:
+            reading_path_completeness = min(1.0, len(recommended_reading_path) / 5.0)
 
         # 6. Calculate Deterministic Health Scores
         # Formula 1: S_arch

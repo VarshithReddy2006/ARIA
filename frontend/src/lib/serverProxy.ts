@@ -12,6 +12,7 @@ export interface ProxyOptions {
   apiUrl?: string;
   apiKey?: string;
   fetchFn?: typeof fetch;
+  timeoutMs?: number;
 }
 
 /**
@@ -187,21 +188,27 @@ export async function executeProxy(
     }
   }
 
+  const timeoutMs = options.timeoutMs || 30000;
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
+
   try {
     const upstreamRes = await fetchImpl(targetUrl, {
       method,
       headers: forwardHeaders,
       body: requestBody,
+      signal: controller.signal,
     });
 
     const resHeaders: Record<string, string> = {};
     upstreamRes.headers.forEach((val, key) => {
       const lower = key.toLowerCase();
-      // Omit hop-by-hop headers and content-encoding (as fetch auto-decodes responseBuffer)
+      // Omit hop-by-hop headers, content-length, and content-encoding (as fetch auto-decodes responseBuffer)
       if (
         lower !== 'transfer-encoding' &&
         lower !== 'connection' &&
-        lower !== 'content-encoding'
+        lower !== 'content-encoding' &&
+        lower !== 'content-length'
       ) {
         resHeaders[key] = val;
       }
@@ -230,5 +237,7 @@ export async function executeProxy(
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ detail: errorMessage, error: errorMessage, status: 'failed' }),
     };
+  } finally {
+    clearTimeout(timeoutId);
   }
 }

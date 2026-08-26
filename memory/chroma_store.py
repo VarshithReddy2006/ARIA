@@ -278,6 +278,9 @@ class ChromaStore:
                     "file_path": path,
                     "chunk_id": chunk_id,
                     "language": chunk.get("language", "text"),
+                    "category": chunk.get("category", "production"),
+                    "source_priority": float(chunk.get("source_priority", 1.0)),
+                    "is_entry_point": bool(chunk.get("is_entry_point", False)),
                     "index_version": version,
                 }
             )
@@ -429,3 +432,23 @@ class ChromaStore:
             retrieval_cache.invalidate_repo(repo_name)
         except ImportError:
             pass
+
+    def get_indexed_files(self, repo_name: str) -> List[str]:
+        """Return list of distinct file paths indexed for the active repository revision."""
+        with self._publication_lock:
+            version = self._active_version(repo_name)
+            where_clause: Dict[str, Any] = {"repo_name": repo_name}
+            if version is not None:
+                where_clause = {
+                    "$and": [{"repo_name": repo_name}, {"index_version": version}]
+                }
+            try:
+                results = self.collection.get(where=where_clause, include=["metadatas"])
+                metadatas = results.get("metadatas") or []
+                files = {
+                    m.get("file_path") for m in metadatas if m and m.get("file_path")
+                }
+                return sorted(list(files))
+            except Exception as exc:
+                logger.debug("Failed to get indexed files for %s: %s", repo_name, exc)
+                return []

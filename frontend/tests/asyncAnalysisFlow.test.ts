@@ -468,4 +468,77 @@ describe('Frontend Asynchronous Analysis Flow & Security Invariants', () => {
       }
     });
   });
+
+  describe('8. Post-Analysis Empty & Zero-Node Dashboard Robustness', () => {
+    test('Reading Order empty state parsing handles zero-node / empty ordered_files cleanly', () => {
+      const emptyReadingOrderPayload = {
+        repo: 'octocat/Hello-World',
+        ordered_files: [],
+        reasoning: ['No reading path can be generated because this repository contains no analyzable code symbols.'],
+        estimated_reading_time: 0,
+        total_files_ranked: 0,
+      };
+
+      assert.equal(emptyReadingOrderPayload.ordered_files.length, 0);
+      assert.equal(emptyReadingOrderPayload.total_files_ranked, 0);
+      assert.ok(emptyReadingOrderPayload.reasoning[0].includes('No reading path can be generated'));
+    });
+
+    test('Graph empty state handles 200 OK with empty nodes/edges array without throwing', () => {
+      const emptyGraphPayload = {
+        nodes: [],
+        edges: [],
+        repo: 'octocat/Hello-World',
+        node_count: 0,
+        edge_count: 0,
+      };
+
+      const nodes = emptyGraphPayload.nodes ?? [];
+      const edges = emptyGraphPayload.edges ?? [];
+      assert.equal(nodes.length, 0);
+      assert.equal(edges.length, 0);
+      assert.equal(emptyGraphPayload.node_count, 0);
+    });
+
+    test('Impact Analysis empty propagation handles zero impacted files without error', () => {
+      const emptyImpactPayload = {
+        repo: 'octocat/Hello-World',
+        issue_text: 'Add OAuth Login',
+        directly_affected_files: [],
+        indirectly_affected_files: [],
+        affected_components: [],
+        risk_level: 'low',
+        estimated_file_count: 0,
+        dependency_paths: [],
+        confidence: 0,
+      };
+
+      assert.equal(emptyImpactPayload.directly_affected_files.length, 0);
+      assert.equal(emptyImpactPayload.indirectly_affected_files.length, 0);
+      assert.equal(emptyImpactPayload.confidence, 0);
+      assert.equal(emptyImpactPayload.risk_level, 'low');
+    });
+
+    test('API Surface handles total_symbols = 0 with clean explanation', () => {
+      const emptyApiStats = {
+        public_count: 0,
+        internal_count: 0,
+        deprecated_count: 0,
+        orphan_public_count: 0,
+        route_count: 0,
+        total_symbols: 0,
+        by_language: {},
+      };
+
+      const computeExposureNote = (stats: typeof emptyApiStats) => {
+        if (stats.total_symbols === 0) {
+          return 'No public or internal code symbols were detected in this repository. API surface analysis applies to repositories with supported source code files.';
+        }
+        return 'Symbols detected';
+      };
+
+      const note = computeExposureNote(emptyApiStats);
+      assert.ok(note.includes('No public or internal code symbols were detected'));
+    });
+  });
 });

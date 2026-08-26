@@ -1,0 +1,86 @@
+# Declarative Azure Container App manifest for ARIA API
+type: Microsoft.App/containerApps
+name: aria-api
+location: eastasia
+properties:
+  managedEnvironmentId: /subscriptions/3ab8ccbd-89d3-4eba-b8ac-81544e33c4c0/resourceGroups/aria-rg/providers/Microsoft.App/managedEnvironments/aria-env
+  configuration:
+    activeRevisionsMode: Single
+    ingress:
+      external: true
+      targetPort: 8001
+      transport: auto
+      allowInsecure: false
+      corsPolicy:
+        allowedOrigins:
+          - "https://aria-orpin-five.vercel.app"
+          - "https://aria-api.lemonriver-308dc42a.eastasia.azurecontainerapps.io"
+          - "http://localhost:3000"
+          - "http://localhost:4321"
+        allowedMethods:
+          - "GET"
+          - "POST"
+          - "OPTIONS"
+        allowedHeaders:
+          - "*"
+    secrets:
+      - name: storage-connection-string
+        value: "<AZURE_STORAGE_CONNECTION_STRING>"
+      - name: qdrant-api-key
+        value: "<QDRANT_API_KEY>"
+      - name: gemini-api-key
+        value: "<GEMINI_API_KEY>"
+  template:
+    volumes:
+      - name: aria-data-volume
+        storageType: AzureFile
+        storageName: ariadata
+    containers:
+      - image: ariacr3ab8.azurecr.io/aria-api:<IMAGE_TAG>
+        name: aria-api
+        resources:
+          cpu: 1.0
+          memory: 2.0Gi
+        env:
+          - name: JOB_EXECUTOR
+            value: azure
+          - name: AZURE_STORAGE_QUEUE_NAME
+            value: aria-analysis-jobs
+          - name: AZURE_STORAGE_CONNECTION_STRING
+            secretRef: storage-connection-string
+          - name: QDRANT_URL
+            value: "<QDRANT_URL>"
+          - name: QDRANT_API_KEY
+            secretRef: qdrant-api-key
+          - name: GEMINI_API_KEY
+            secretRef: gemini-api-key
+          - name: SQLITE_DB_PATH
+            value: /app/data/repo_understanding.db
+          - name: ANALYSIS_STORE_PATH
+            value: /app/data/analysis_store.json
+          - name: JOB_STATE_DIR
+            value: /app/data/jobs
+        volumeMounts:
+          - volumeName: aria-data-volume
+            mountPath: /app/data
+        probes:
+          - type: Liveness
+            httpGet:
+              path: /health
+              port: 8001
+            initialDelaySeconds: 10
+            periodSeconds: 30
+          - type: Readiness
+            httpGet:
+              path: /ready
+              port: 8001
+            initialDelaySeconds: 15
+            periodSeconds: 30
+    scale:
+      minReplicas: 0
+      maxReplicas: 3
+      rules:
+        - name: http-scaling
+          http:
+            metadata:
+              concurrentRequests: "50"

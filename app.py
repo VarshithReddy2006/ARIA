@@ -30,6 +30,7 @@ if not os.path.isdir(_frontend_dist):
 
 
 try:
+    # pyrefly: ignore [missing-import]
     import gradio as gr
 
     # Create a clean Gradio dashboard interface for Hugging Face Spaces UI

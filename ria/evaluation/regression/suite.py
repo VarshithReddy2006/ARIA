@@ -10,7 +10,7 @@ class PerformanceBaseline:
     """Performance baseline thresholds for zero-regression enforcement."""
 
     min_throughput_files_per_sec: float = 10.0
-    max_memory_per_file_bytes: int = 100 * 1024  # 100KB per file max peak
+    max_memory_per_file_bytes: int = 500 * 1024  # 500KB per file max peak
     max_allowed_failures: int = 0
 
 

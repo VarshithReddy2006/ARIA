@@ -26,6 +26,9 @@ export const RepositoryAnalyzer: React.FC = () => {
     analysisSteps,
     examples,
     canSubmit,
+    jobProgress,
+    jobStartedAt,
+    jobElapsedSeconds,
     analyze,
   } = useRepoAnalysis();
 
@@ -233,7 +236,12 @@ export const RepositoryAnalyzer: React.FC = () => {
         {/* Live pipeline while indexing */}
         {isAnalyzing && (
           <div className="mt-10" role="status">
-            <AnalysisProgress steps={analysisSteps} />
+            <AnalysisProgress
+              steps={analysisSteps}
+              progress={jobProgress}
+              jobStartedAt={jobStartedAt}
+              jobElapsedSeconds={jobElapsedSeconds}
+            />
           </div>
         )}
 

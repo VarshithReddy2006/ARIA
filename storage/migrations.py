@@ -12,9 +12,16 @@ MIGRATIONS_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "migra
 
 
 def get_db_connection() -> sqlite3.Connection:
-    """Gets a connection to the SQLite database, creating parent dirs if needed."""
+    """Gets a connection to the SQLite database with WAL mode and busy timeout."""
     os.makedirs(os.path.dirname(settings.sqlite_db_path), exist_ok=True)
-    return sqlite3.connect(settings.sqlite_db_path)
+    conn = sqlite3.connect(settings.sqlite_db_path, timeout=30.0)
+    try:
+        conn.execute("PRAGMA journal_mode=WAL;")
+        conn.execute("PRAGMA busy_timeout=5000;")
+        conn.execute("PRAGMA synchronous=NORMAL;")
+    except Exception:
+        pass
+    return conn
 
 
 def initialize_migrations_table(conn: sqlite3.Connection) -> None:

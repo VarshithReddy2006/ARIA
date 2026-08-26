@@ -19,7 +19,10 @@ _REGISTRY_LOCK = threading.Lock()
 
 def get_repository_lock(repo_name: str) -> threading.Lock:
     """Get or create an in-process lock for a specific repository."""
-    canonical_repo = repo_name.strip().lower()
+    raw = repo_name.strip()
+    if "github.com/" in raw:
+        raw = raw.split("github.com/")[-1].rstrip("/").removesuffix(".git")
+    canonical_repo = raw.strip().lower()
     with _REGISTRY_LOCK:
         if canonical_repo not in _REPO_LOCKS:
             _REPO_LOCKS[canonical_repo] = threading.Lock()

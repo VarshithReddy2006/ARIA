@@ -42,6 +42,7 @@ class HealthExemptTrustedHostMiddleware(TrustedHostMiddleware):
                 return
         await super().__call__(scope, receive, send)
 
+
 # Session configuration constants
 SESSION_COOKIE_NAME: str = "aria_session"
 SESSION_VERSION: str = "v1"

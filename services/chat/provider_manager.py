@@ -154,6 +154,7 @@ class ProviderManager:
             self._providers = sorted(providers, key=lambda p: p.priority)
         else:
             self._providers = self._load_from_settings(settings=settings)
+        self._last_telemetry: Dict[str, Any] = {}
 
     def _load_from_settings(
         self, settings: Optional[Any] = None
@@ -271,6 +272,8 @@ class ProviderManager:
         last_exc: Optional[Exception] = None
         tried: List[str] = []
         prev_provider: Optional[str] = None
+        failures: List[Dict[str, Any]] = []
+        overall_t0 = time.perf_counter()
 
         for attempt_idx, entry in enumerate(self._providers, 1):
             cb_state = entry.circuit_breaker.state.value
@@ -315,6 +318,16 @@ class ProviderManager:
                     latency,
                 )
                 entry.circuit_breaker.record_success()
+                self._last_telemetry = {
+                    "selected_provider": entry.name,
+                    "fallback_used": len(failures) > 0,
+                    "provider_failures": list(failures),
+                    "failure_reason": failures[0]["reason"] if failures else None,
+                    "latency_ms": round(latency, 2),
+                    "total_latency_ms": round(
+                        (time.perf_counter() - overall_t0) * 1000, 2
+                    ),
+                }
                 return result, entry.name
 
             except Exception as exc:
@@ -324,9 +337,11 @@ class ProviderManager:
                 # Check for quota exhausted
                 is_quota = False
                 fallback_reason = "exception"
+                error_type_val = "unknown"
                 if entry.name == "gemini":
                     err = classify_gemini_error(exc, "gemini")
                     fallback_reason = err.error_type.value
+                    error_type_val = err.error_type.value
                     if err.error_type in (
                         ProviderErrorType.QUOTA_EXCEEDED,
                         ProviderErrorType.RATE_LIMIT_ERROR,
@@ -335,11 +350,21 @@ class ProviderManager:
                 elif entry.name == "deepseek":
                     err = classify_deepseek_error(exc, "deepseek")
                     fallback_reason = err.error_type.value
+                    error_type_val = err.error_type.value
                     if err.error_type in (
                         ProviderErrorType.QUOTA_EXCEEDED,
                         ProviderErrorType.RATE_LIMIT_ERROR,
                     ):
                         is_quota = True
+
+                failures.append(
+                    {
+                        "provider": entry.name,
+                        "reason": fallback_reason,
+                        "error_type": error_type_val,
+                        "latency_ms": round(latency, 2),
+                    }
+                )
 
                 if is_quota:
                     logger.warning(
@@ -368,6 +393,13 @@ class ProviderManager:
                     exc_info=True,
                 )
 
+        self._last_telemetry = {
+            "selected_provider": None,
+            "fallback_used": len(failures) > 1,
+            "provider_failures": list(failures),
+            "failure_reason": failures[0]["reason"] if failures else "all_failed",
+            "total_latency_ms": round((time.perf_counter() - overall_t0) * 1000, 2),
+        }
         raise RuntimeError(f"All LLM providers failed after trying {tried}: {last_exc}")
 
     async def stream(
@@ -395,6 +427,8 @@ class ProviderManager:
         last_exc: Optional[Exception] = None
         tried: List[str] = []
         prev_provider: Optional[str] = None
+        failures: List[Dict[str, Any]] = []
+        overall_t0 = time.perf_counter()
 
         for attempt_idx, entry in enumerate(self._providers, 1):
             cb_state = entry.circuit_breaker.state.value
@@ -482,6 +516,17 @@ class ProviderManager:
                     len(completion_text),
                 )
                 entry.circuit_breaker.record_success()
+                self._last_telemetry = {
+                    "selected_provider": entry.name,
+                    "fallback_used": len(failures) > 0,
+                    "provider_failures": list(failures),
+                    "failure_reason": failures[0]["reason"] if failures else None,
+                    "tokens_yielded": tokens_yielded,
+                    "latency_ms": round(latency, 2),
+                    "total_latency_ms": round(
+                        (time.perf_counter() - overall_t0) * 1000, 2
+                    ),
+                }
                 return  # success — do not try other providers
 
             except asyncio.CancelledError:
@@ -504,11 +549,14 @@ class ProviderManager:
                 # Check for quota exhausted
                 is_quota = False
                 fallback_reason = "exception"
+                error_type_val = "unknown"
                 if isinstance(exc, EmptyCompletionError):
                     fallback_reason = "empty_completion"
+                    error_type_val = "empty_completion"
                 elif entry.name == "gemini":
                     err = classify_gemini_error(exc, "gemini")
                     fallback_reason = err.error_type.value
+                    error_type_val = err.error_type.value
                     if err.error_type in (
                         ProviderErrorType.QUOTA_EXCEEDED,
                         ProviderErrorType.RATE_LIMIT_ERROR,
@@ -517,11 +565,21 @@ class ProviderManager:
                 elif entry.name == "deepseek":
                     err = classify_deepseek_error(exc, "deepseek")
                     fallback_reason = err.error_type.value
+                    error_type_val = err.error_type.value
                     if err.error_type in (
                         ProviderErrorType.QUOTA_EXCEEDED,
                         ProviderErrorType.RATE_LIMIT_ERROR,
                     ):
                         is_quota = True
+
+                failures.append(
+                    {
+                        "provider": entry.name,
+                        "reason": fallback_reason,
+                        "error_type": error_type_val,
+                        "latency_ms": round(latency, 2),
+                    }
+                )
 
                 if is_quota:
                     logger.warning(
@@ -566,9 +624,20 @@ class ProviderManager:
                 continue
 
         # All providers exhausted (with 0 tokens)
+        self._last_telemetry = {
+            "selected_provider": None,
+            "fallback_used": len(failures) > 1,
+            "provider_failures": list(failures),
+            "failure_reason": failures[0]["reason"] if failures else "all_failed",
+            "total_latency_ms": round((time.perf_counter() - overall_t0) * 1000, 2),
+        }
         raise RuntimeError(
             f"All LLM providers failed streaming after trying {tried}: {last_exc}"
         )
+
+    def get_last_telemetry(self) -> Dict[str, Any]:
+        """Return telemetry data from the most recent request execution."""
+        return dict(self._last_telemetry)
 
     def provider_status(self) -> List[Dict]:
         """Return circuit breaker status for all providers (for observability)."""

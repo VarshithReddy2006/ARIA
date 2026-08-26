@@ -56,13 +56,23 @@ def probe_app():
 class TestHealthTrustedHostMiddleware:
     def test_health_with_public_azure_hostname(self, probe_app):
         client = TestClient(probe_app)
-        res = client.get("/health", headers={"Host": "aria-api.lemonriver-308dc42a.eastasia.azurecontainerapps.io"})
+        res = client.get(
+            "/health",
+            headers={
+                "Host": "aria-api.lemonriver-308dc42a.eastasia.azurecontainerapps.io"
+            },
+        )
         assert res.status_code == 200
         assert res.json() == {"status": "healthy"}
 
     def test_ready_with_public_azure_hostname(self, probe_app):
         client = TestClient(probe_app)
-        res = client.get("/ready", headers={"Host": "aria-api.lemonriver-308dc42a.eastasia.azurecontainerapps.io"})
+        res = client.get(
+            "/ready",
+            headers={
+                "Host": "aria-api.lemonriver-308dc42a.eastasia.azurecontainerapps.io"
+            },
+        )
         assert res.status_code == 200
         assert res.json() == {"status": "ready"}
 
@@ -107,22 +117,68 @@ class TestHealthTrustedHostMiddleware:
     def test_normal_route_with_trusted_azure_host_allowed(self, probe_app):
         """Trusted production Azure hostname passes host header validation."""
         client = TestClient(probe_app)
-        res = client.get("/api/repos/examples", headers={"Host": "aria-api.lemonriver-308dc42a.eastasia.azurecontainerapps.io"})
+        res = client.get(
+            "/api/repos/examples",
+            headers={
+                "Host": "aria-api.lemonriver-308dc42a.eastasia.azurecontainerapps.io"
+            },
+        )
         assert res.status_code == 200
 
     def test_normal_route_with_trusted_vercel_host_allowed(self, probe_app):
         """Trusted production Vercel hostname passes host header validation."""
         client = TestClient(probe_app)
-        res = client.get("/api/repos/examples", headers={"Host": "aria-orpin-five.vercel.app"})
+        res = client.get(
+            "/api/repos/examples", headers={"Host": "aria-orpin-five.vercel.app"}
+        )
         assert res.status_code == 200
 
-    def test_allowed_hosts_config_contains_no_wildcard(self):
-        """Production config forbids wildcard hosts."""
+    def test_allowed_hosts_config_contains_no_global_wildcard(self):
+        """Production config forbids unrestricted wildcard hosts [*]."""
+        with pytest.raises(
+            ValueError,
+            match="ALLOWED_HOSTS must be explicitly configured in production",
+        ):
+            Settings(
+                APP_ENV="production",
+                ALLOWED_HOSTS='["*"]',
+                GEMINI_API_KEY="dummy-key",
+            )
+
+    def test_revision_staging_host_allowed_via_domain_wildcard(self):
+        """Revision-specific staging hostname is allowed when domain wildcard is configured."""
+        routes = [Route("/api/repos/examples", dummy_api)]
+        app = Starlette(routes=routes)
+        allowed_hosts = [
+            "aria-api.lemonriver-308dc42a.eastasia.azurecontainerapps.io",
+            "*.lemonriver-308dc42a.eastasia.azurecontainerapps.io",
+            "localhost",
+            "127.0.0.1",
+        ]
+        app.add_middleware(
+            HealthExemptTrustedHostMiddleware, allowed_hosts=allowed_hosts
+        )
+        client = TestClient(app)
+
+        res = client.get(
+            "/api/repos/examples",
+            headers={
+                "Host": "aria-api--p2-194205.lemonriver-308dc42a.eastasia.azurecontainerapps.io"
+            },
+        )
+        assert res.status_code == 200
+
+    def test_parse_allowed_hosts_robust_against_unquoted_brackets(self):
+        """Verifies unquoted bracketed strings are correctly parsed without stray brackets."""
         s = Settings(
             APP_ENV="production",
-            ALLOWED_HOSTS='["aria-api.lemonriver-308dc42a.eastasia.azurecontainerapps.io","aria-orpin-five.vercel.app","localhost","127.0.0.1"]',
+            ALLOWED_HOSTS="[aria-api.lemonriver-308dc42a.eastasia.azurecontainerapps.io, *.lemonriver-308dc42a.eastasia.azurecontainerapps.io, localhost, 127.0.0.1]",
             GEMINI_API_KEY="dummy-key",
         )
-        assert "*" not in s.allowed_hosts
-        for h in s.allowed_hosts:
-            assert not h.startswith("*")
+        assert s.allowed_hosts == [
+            "aria-api.lemonriver-308dc42a.eastasia.azurecontainerapps.io",
+            "*.lemonriver-308dc42a.eastasia.azurecontainerapps.io",
+            "localhost",
+            "127.0.0.1",
+        ]
+        assert not any(h.startswith("[") or h.endswith("]") for h in s.allowed_hosts)

@@ -617,8 +617,17 @@ class EmbeddingService:
             stats["cache_hits"] = cache_hit_count
             stats["cache_misses"] = cache_miss_count
             stats["chunks_processed"] = total_texts
+            stats["chunks_total"] = total_texts
+            stats["chunks_embedded"] = cache_miss_count
+            stats["embedding_time_ms"] = round(t_inference * 1000.0, 2)
+            stats["total_embed_time_ms"] = round(elapsed_ms, 2)
             stats["elapsed_ms"] = round(elapsed_ms, 2)
+            stats["throughput_chunks_per_sec"] = round(
+                total_texts / max(0.001, elapsed_s), 1
+            )
             stats["throughput"] = round(total_texts / max(0.001, elapsed_s), 1)
+            stats["batch_count"] = batches_processed
+            stats["batch_size"] = self.encode_batch_size
 
         return results  # type: ignore
 

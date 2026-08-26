@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { apiUrl } from '../../lib/api';
+import { apiUrl, extractErrorMessage } from '../../lib/api';
 import { FilePath } from '../ui/FilePath';
 import { 
   BookOpen, 
@@ -90,7 +90,8 @@ export const ReadingOrderTimeline: React.FC<TimelineProps> = ({
         });
         
         if (!response.ok) {
-          throw new Error(await response.text() || 'Failed to fetch reading path');
+          const errJson = await response.json().catch(() => ({}));
+          throw new Error(extractErrorMessage(errJson) || 'Failed to fetch reading path');
         }
         
         const data = await response.json();
@@ -223,9 +224,12 @@ export const ReadingOrderTimeline: React.FC<TimelineProps> = ({
 
   if (!readingPath || !readingPath.ordered_files || readingPath.ordered_files.length === 0) {
     return (
-      <div className="flex flex-col items-center justify-center py-16 font-mono text-xs text-text-muted border border-border bg-card/5 rounded-lg p-6">
-        <Info className="h-5 w-5 text-primary mb-2" />
-        <span>No ranked source code files found for this repository.</span>
+      <div className="flex flex-col items-center justify-center py-16 font-mono text-xs text-text-muted border border-border bg-card/5 rounded-lg p-6 text-center max-w-lg mx-auto">
+        <Info className="h-6 w-6 text-zinc-500 mb-3" />
+        <span className="font-semibold text-text mb-1">NO READING PATH AVAILABLE</span>
+        <p className="text-text-muted leading-relaxed">
+          {readingPath?.reasoning?.[0] || 'No reading path can be generated because this repository contains no analyzable code symbols.'}
+        </p>
       </div>
     );
   }

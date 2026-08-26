@@ -98,10 +98,23 @@ class ImpactAnalysisService:
         """
         # 1. Load graph and architecture summary
         graph = self.graph_service.load_graph(repo_name)
-        if graph is None or graph.number_of_nodes() == 0:
+        if graph is None:
             raise ValueError(
                 f"No dependency graph found for '{repo_name}'. "
-                "Run POST /api/architecture/build first."
+                "Please analyze the repository first."
+            )
+
+        if graph.number_of_nodes() == 0:
+            return ImpactAnalysis(
+                repo=repo_name,
+                issue_text=issue_text,
+                directly_affected_files=[],
+                indirectly_affected_files=[],
+                affected_components=[],
+                risk_level="low",
+                estimated_file_count=0,
+                dependency_paths=[],
+                confidence=0,
             )
 
         summary = self.architecture_service.get_summary(repo_name)

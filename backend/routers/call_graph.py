@@ -74,8 +74,7 @@ async def build_call_graph(request: CallGraphBuildRequest):
         raise HTTPException(
             status_code=404,
             detail=(
-                f"No symbol index for '{repo_name}'. "
-                "Run POST /api/architecture/build first."
+                f"No symbol index for '{repo_name}'. Run POST /api/v1/analyze first."
             ),
         )
 
@@ -95,20 +94,26 @@ async def build_call_graph(request: CallGraphBuildRequest):
                 parsed_data = get_snapshot_store().load(repo_name, "parsed_files")
                 if parsed_data and "parsed" in parsed_data:
                     files = [
-                        {"path": p.get("file_path", ""), "content": p.get("content", "")}
+                        {
+                            "path": p.get("file_path", ""),
+                            "content": p.get("content", ""),
+                        }
                         for p in parsed_data["parsed"]
                         if p.get("content")
                     ]
             if not files:
                 try:
                     cloned_path = await asyncio.to_thread(
-                        get_github_service().clone_repo, f"https://github.com/{repo_name}.git"
+                        get_github_service().clone_repo,
+                        f"https://github.com/{repo_name}.git",
                     )
                     files = await asyncio.to_thread(
                         get_github_service().extract_source_files, cloned_path
                     )
                 except Exception as exc_clone:
-                    logger.warning("Clone fallback failed for %s: %s", repo_name, exc_clone)
+                    logger.warning(
+                        "Clone fallback failed for %s: %s", repo_name, exc_clone
+                    )
 
             gen = get_call_graph_service().build(repo_name, files)
             summary = None
@@ -251,7 +256,11 @@ async def get_call_graph_trace(
     """Return a BFS trace from a function as React Flow JSON."""
     full_name = f"{owner}/{repo_name}"
     result = await asyncio.to_thread(
-        get_call_graph_service().get_trace_json, full_name, function_id, direction, depth
+        get_call_graph_service().get_trace_json,
+        full_name,
+        function_id,
+        direction,
+        depth,
     )
     if result.get("error"):
         raise HTTPException(status_code=404, detail=result["error"])

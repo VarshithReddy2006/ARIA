@@ -1,0 +1,71 @@
+# ============================================================
+# Dockerfile.worker — ARIA Background Analysis Worker
+# Target: Azure Container Apps Job / Worker Container
+# ============================================================
+
+# Stage 1: Install Python Dependencies
+FROM python:3.11-slim AS backend-builder
+
+WORKDIR /app
+
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends \
+    git \
+    gcc \
+    g++ \
+    libc-dev \
+    && rm -rf /var/lib/apt/lists/*
+
+COPY requirements.txt ./
+RUN pip install --no-cache-dir --user -r requirements.txt
+
+
+# Stage 2: Production Worker
+FROM python:3.11-slim AS production
+
+ENV PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONUNBUFFERED=1 \
+    HOME=/home/appuser
+
+WORKDIR /app
+
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends git \
+    && rm -rf /var/lib/apt/lists/* \
+    && useradd \
+    --create-home \
+    --uid 10001 \
+    --shell /usr/sbin/nologin \
+    appuser
+
+COPY --from=backend-builder --chown=10001:10001 \
+    /root/.local /home/appuser/.local
+
+ENV PATH=/home/appuser/.local/bin:$PATH
+
+COPY --chown=10001:10001 backend/  ./backend
+COPY --chown=10001:10001 core/     ./core
+COPY --chown=10001:10001 services/ ./services
+COPY --chown=10001:10001 models/   ./models
+COPY --chown=10001:10001 storage/  ./storage
+COPY --chown=10001:10001 agents/   ./agents
+COPY --chown=10001:10001 memory/   ./memory
+COPY --chown=10001:10001 utils/    ./utils
+COPY --chown=10001:10001 ria/      ./ria
+COPY --chown=10001:10001 mcp/      ./mcp
+COPY --chown=10001:10001 infrastructure/ ./infrastructure
+COPY --chown=10001:10001 pyproject.toml ./pyproject.toml
+
+RUN mkdir -p \
+    /app/data \
+    /home/appuser/.repo_intelligence/cloned_repos \
+    /home/appuser/.cache \
+    && chown -R appuser:appuser /app /home/appuser
+
+ENV APP_ENV=production \
+    LOG_FORMAT=json
+
+# Run as root for Azure Files CIFS mount write permissions
+# USER appuser
+
+CMD ["python", "-u", "-m", "backend.worker"]

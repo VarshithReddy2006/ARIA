@@ -41,8 +41,11 @@ export function computeComplexity({
   componentCount,
   dependencyCount,
 }: ComplexityInputs): ComplexityResult {
-  const raw = fileCount + componentCount * 3 + dependencyCount * 2;
-  const score = Math.max(0, Math.min(100, raw));
+  // Normalize file breadth with logarithmic compression + architectural coupling
+  const fileScore = Math.min(45, Math.round(Math.log10(Math.max(1, fileCount)) * 15));
+  const compScore = Math.min(35, Math.round(componentCount * 2.5));
+  const depScore = Math.min(20, Math.round(Math.log2(Math.max(1, dependencyCount + 1)) * 3.5));
+  const score = Math.max(5, Math.min(100, Math.round(fileScore + compScore + depScore)));
 
   let band: ComplexityBand = 'low';
   if (score >= 85) band = 'very-high';

@@ -45,7 +45,7 @@ class CallGraphSerializer:
                 "edges": [],
                 "node_count": 0,
                 "edge_count": 0,
-                "error": "Call graph not found. Run build first.",
+                "error": "Call graph not found. Please analyze the repository first.",
             }
 
         # Filter by search query if provided

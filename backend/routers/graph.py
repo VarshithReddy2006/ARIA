@@ -33,19 +33,13 @@ async def graph_full(owner: str, repo: str, q: Optional[str] = Query(None)):
             status_code=404,
             detail=(
                 f"No dependency graph found for '{repo_name}'. "
-                "Analyse the repository first."
+                "Please analyze the repository first."
             ),
         )
     try:
-        data = await asyncio.to_thread(get_graph_serializer().get_full_graph, repo_name, q)
-        if not data.get("nodes"):
-            raise HTTPException(
-                status_code=404,
-                detail=(
-                    f"Dependency graph for '{repo_name}' contains no nodes. "
-                    "Re-analyse the repository."
-                ),
-            )
+        data = await asyncio.to_thread(
+            get_graph_serializer().get_full_graph, repo_name, q
+        )
         return data
     except HTTPException:
         raise

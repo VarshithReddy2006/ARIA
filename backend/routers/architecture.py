@@ -71,7 +71,9 @@ async def build_architecture(request: ArchitectureBuildRequest):
             get_architecture_service().build, repo_name, local_path, None, False
         )
         try:
-            await asyncio.to_thread(get_symbol_service().build, repo_name, local_path, None)
+            await asyncio.to_thread(
+                get_symbol_service().build, repo_name, local_path, None
+            )
         except Exception as sym_exc:
             logger.warning(
                 "Symbol index build failed for %s (non-fatal): %s", repo_name, sym_exc
@@ -100,7 +102,9 @@ async def get_architecture_summary(owner: str, repo_name: str):
     """Return the persisted architecture summary for a repository."""
     full_name = f"{owner}/{repo_name}"
     try:
-        summary = await asyncio.to_thread(get_architecture_service().get_summary, full_name)
+        summary = await asyncio.to_thread(
+            get_architecture_service().get_summary, full_name
+        )
         if summary is None:
             raise HTTPException(
                 status_code=404,
@@ -140,16 +144,11 @@ async def get_architecture_graph(
                 ),
             )
         graph_data = await asyncio.to_thread(
-            get_graph_service().get_visualization_graph, full_name, get_architecture_service(), q
+            get_graph_service().get_visualization_graph,
+            full_name,
+            get_architecture_service(),
+            q,
         )
-        if not graph_data.get("nodes"):
-            raise HTTPException(
-                status_code=404,
-                detail=(
-                    f"Dependency graph for '{full_name}' exists but contains no nodes. "
-                    "Re-analyse the repository to rebuild the graph with the latest code."
-                ),
-            )
         return graph_data
     except HTTPException:
         raise

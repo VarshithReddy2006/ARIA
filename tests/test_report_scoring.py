@@ -91,7 +91,7 @@ def test_score_calculation_perfect_repo():
     conn = get_db_connection()
     cursor = conn.cursor()
     cursor.execute(
-        "SELECT overall_score, grade, report_data FROM repo_reports WHERE repo_name = 'org/perfect'"
+        "SELECT overall_score, grade, report_data FROM repo_reports WHERE repo_name = 'org/perfect' ORDER BY rowid DESC LIMIT 1"
     )
     row = cursor.fetchone()
     assert row is not None

@@ -105,21 +105,15 @@ class JsonSnapshotStore(SnapshotStore):
         data: Dict[str, Any],
         subkey: Optional[str] = None,
     ) -> None:
+        from core.concurrency import write_json_atomic
+
         with self._lock:
             path = self._get_path(repo_name, key, subkey)
-            tmp_path = path + ".tmp"
             try:
-                with open(tmp_path, "w", encoding="utf-8") as fh:
-                    json.dump(data, fh, indent=2)
-                os.replace(tmp_path, path)
+                write_json_atomic(path, data, indent=2)
                 logger.debug("Saved JSON snapshot to %s", path)
             except Exception as exc:
                 logger.error("Failed to save snapshot to %s: %s", path, exc)
-                if os.path.exists(tmp_path):
-                    try:
-                        os.remove(tmp_path)
-                    except Exception:
-                        pass
                 raise
 
     def exists(self, repo_name: str, key: str, subkey: Optional[str] = None) -> bool:

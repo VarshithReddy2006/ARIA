@@ -25,7 +25,9 @@ def test_benchmark_harness_and_report_generation(tmp_path: Path) -> None:
     assert len(index_batch.parse_units) == 30
 
     # Verify Regression Suite
-    baseline = PerformanceBaseline(min_throughput_files_per_sec=1.0)
+    baseline = PerformanceBaseline(
+        min_throughput_files_per_sec=1.0, max_memory_per_file_bytes=500 * 1024
+    )
     regression_suite = RegressionSuite(baseline)
     violations = regression_suite.verify_no_regression(result)
     assert len(violations) == 0, f"Baseline regression violations: {violations}"

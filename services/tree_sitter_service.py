@@ -381,16 +381,12 @@ class TreeSitterService:
                                 break
 
             elif ntype == "import_from_statement":
-                # e.g. from services.foo import Bar
-
+                # e.g. from services.foo import Bar, from .foo import Bar, from ..utils import helper
                 module = ""
-
                 for child in node.children:
-                    if child.type == "dotted_name":
+                    if child.type in ("dotted_name", "relative_import"):
                         module = child.text.decode("utf-8", errors="replace")
-
                         break
-
                 if module:
                     imports.append(module)
 

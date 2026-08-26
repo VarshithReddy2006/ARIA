@@ -144,9 +144,19 @@ class LocalJobExecutor(JobExecutor):
                     job_id=job_id,
                 )
                 curr = get_job_state(job_id) or initial_state
-                curr["status"] = "completed"
+                final_status = (
+                    "partial"
+                    if result and result.get("status") == "partial"
+                    else "completed"
+                )
+                curr["status"] = final_status
                 curr["progress"] = 100
                 curr["result"] = result
+                if result:
+                    curr["successful_phases"] = result.get("successful_phases", [])
+                    curr["failed_phases"] = result.get("failed_phases", [])
+                    curr["skipped_phases"] = result.get("skipped_phases", [])
+                    curr["phase_errors"] = result.get("phase_errors", {})
                 set_job_state(job_id, curr)
             except Exception as exc:
                 logger.error(

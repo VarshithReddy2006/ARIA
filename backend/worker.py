@@ -67,6 +67,31 @@ class AnalysisWorker:
         self.poll_interval = poll_interval
         self._running = True
         self._client = self._init_queue_client()
+        self.warmup()
+
+    def warmup(self) -> None:
+        """Eagerly warm up embedding model and Tree-sitter parser before processing jobs."""
+        try:
+            from services.embedding_service import _get_model
+
+            logger.info("Worker: warming up embedding model...")
+            model = _get_model()
+            model.encode(
+                ["Represent this sentence: worker warmup text"], show_progress_bar=False
+            )
+            logger.info("Worker: embedding model warmed up successfully.")
+        except Exception as exc:
+            logger.warning("Worker embedding model warmup failed (non-fatal): %s", exc)
+
+        try:
+            from services.tree_sitter_service import TreeSitterService
+
+            logger.info("Worker: warming up Tree-sitter parser...")
+            ts = TreeSitterService()
+            ts.parse_file("dummy.py", "def dummy(): pass")
+            logger.info("Worker: Tree-sitter parser warmed up successfully.")
+        except Exception as exc:
+            logger.warning("Worker Tree-sitter warmup failed (non-fatal): %s", exc)
 
     def _init_queue_client(self) -> Any:
         if self.use_memory_queue or not self.connection_string:
@@ -219,19 +244,34 @@ class AnalysisWorker:
             final_stats["elapsed_seconds"] = total_elapsed
             final_stats["job_elapsed_seconds"] = total_elapsed
 
-            state["status"] = JobStatus.COMPLETED.value
+            final_status = (
+                JobStatus.PARTIAL.value
+                if result and result.get("status") == "partial"
+                else JobStatus.COMPLETED.value
+            )
+            state["status"] = final_status
             state["step_id"] = "complete"
             state["progress"] = 100
-            state["message"] = "Analysis completed successfully"
+            state["message"] = (
+                "Analysis completed with partial artifact status"
+                if final_status == JobStatus.PARTIAL.value
+                else "Analysis completed successfully"
+            )
             state["result"] = result
+            if result:
+                state["successful_phases"] = result.get("successful_phases", [])
+                state["failed_phases"] = result.get("failed_phases", [])
+                state["skipped_phases"] = result.get("skipped_phases", [])
+                state["phase_errors"] = result.get("phase_errors", {})
             state["completed_at"] = now
             state["updated_at"] = now
             state["stats"] = final_stats
             set_job_state(job_id, state)
             logger.info(
-                "Worker successfully completed analysis for job=%s repo=%s elapsed=%.1fs",
+                "Worker successfully completed analysis for job=%s repo=%s status=%s elapsed=%.1fs",
                 job_id,
                 repo_name,
+                final_status,
                 total_elapsed,
             )
             return True

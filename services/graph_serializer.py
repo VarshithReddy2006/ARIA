@@ -74,7 +74,15 @@ class GraphSerializer:
         """
         graph = self._load(repo_name)
         if graph is None:
-            return self._error("Graph not found or empty for this repository.")
+            return self._error("Graph not found for this repository.")
+
+        if graph.number_of_nodes() == 0:
+            return {
+                "nodes": [],
+                "edges": [],
+                "node_count": 0,
+                "edge_count": 0,
+            }
 
         summary = self.architecture_service.get_summary(repo_name)
         cat_sets = self._category_sets(summary)
@@ -299,12 +307,11 @@ class GraphSerializer:
         if repo_name in self._graph_cache:
             return self._graph_cache[repo_name]
         graph = self.graph_service.load_graph(repo_name)
-        if graph is None or graph.number_of_nodes() == 0:
-            logger.warning(
-                "GraphSerializer: empty or missing graph for '%s'", repo_name
-            )
+        if graph is None:
+            logger.warning("GraphSerializer: missing graph for '%s'", repo_name)
             return None
         self._graph_cache[repo_name] = graph
+        return graph
         return graph
 
     @staticmethod

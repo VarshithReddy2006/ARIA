@@ -1,16 +1,6 @@
-import React, { useState, useEffect, useMemo, Suspense, lazy } from 'react';
+import React, { useState, useEffect, useMemo, useCallback, Suspense, lazy } from 'react';
 import { apiUrl, extractErrorMessage } from '../../lib/api';
 import FileTree from './FileTree';
-import IssueMapper from './IssueMapper';
-import ChatInterface from './ChatInterface';
-import { ReadingOrderTimeline } from './ReadingOrderTimeline';
-import { PRIntelligence } from './PRIntelligence';
-import { ArchitectureDrift } from './ArchitectureDrift';
-import { DeadCodeAnalyzer } from './DeadCodeAnalyzer';
-import { GitHistoryAnalyzer } from './GitHistoryAnalyzer';
-import { CallGraphAnalyzer } from './CallGraphAnalyzer';
-import { APISurfaceAnalyzer } from './APISurfaceAnalyzer';
-import { ReportPanel } from './ReportPanel';
 import { RepoHero, type CentralityHub } from './RepoHero';
 import { SectionSeam } from '../ui/SectionSeam';
 import { Reveal } from '../ui/Reveal';
@@ -39,8 +29,19 @@ import {
   Network, AlertCircle, GitCommit, Workflow, Globe, ArrowRight, BarChart2,
 } from 'lucide-react';
 
+// ── Lazy-loaded heavy tab panels & graph visualizers ─────────────────────────
+const IssueMapper = lazy(() => import('./IssueMapper'));
+const ChatInterface = lazy(() => import('./ChatInterface'));
+const ReadingOrderTimeline = lazy(() => import('./ReadingOrderTimeline').then((m) => ({ default: m.ReadingOrderTimeline })));
+const PRIntelligence = lazy(() => import('./PRIntelligence'));
+const ArchitectureDrift = lazy(() => import('./ArchitectureDrift').then((m) => ({ default: m.ArchitectureDrift })));
+const DeadCodeAnalyzer = lazy(() => import('./DeadCodeAnalyzer').then((m) => ({ default: m.DeadCodeAnalyzer })));
+const GitHistoryAnalyzer = lazy(() => import('./GitHistoryAnalyzer').then((m) => ({ default: m.GitHistoryAnalyzer })));
+const CallGraphAnalyzer = lazy(() => import('./CallGraphAnalyzer').then((m) => ({ default: m.CallGraphAnalyzer })));
+const APISurfaceAnalyzer = lazy(() => import('./APISurfaceAnalyzer').then((m) => ({ default: m.APISurfaceAnalyzer })));
+const ReportPanel = lazy(() => import('./ReportPanel'));
+const ImpactAnalysisGraph = lazy(() => import('./ImpactAnalysisGraph'));
 import { InteractiveDependencyGraph } from './graph/InteractiveDependencyGraph';
-import { ImpactAnalysisGraph } from './ImpactAnalysisGraph';
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -518,7 +519,7 @@ export const AnalysisDashboard: React.FC<DashboardProps> = ({ repoParam }) => {
     return () => window.removeEventListener('keydown', onKeyDown);
   }, []);
 
-  useEffect(() => {
+  const fetchAnalysisData = useCallback(async (isRetry: boolean = false) => {
     const [owner, name] = repoName.split('/');
     if (!owner || !name || owner === 'unknown' || name === 'repo') {
       setErrorMessage('Repository information missing or invalid. Redirecting to home.');
@@ -526,7 +527,7 @@ export const AnalysisDashboard: React.FC<DashboardProps> = ({ repoParam }) => {
       setLoading(false);
       return;
     }
-    
+
     // Clear stale state for the previous repository
     setData(null);
     setSelectedFile(null);
@@ -541,18 +542,38 @@ export const AnalysisDashboard: React.FC<DashboardProps> = ({ repoParam }) => {
       localStorage.setItem('activeRepo', repoName);
       localStorage.setItem(`lastAnalysed:${repoName}`, String(now));
       setIndexedAt(now);
-      // Dispatch custom event to notify Astro header navigation that activeRepo changed
       window.dispatchEvent(new CustomEvent('active-repo-changed', { detail: repoName }));
     }
 
-    fetch(apiUrl(`/api/v1/analysis/${owner}/${name}`))
-      .then((res) => {
-        if (!res.ok) throw new Error('Failed to fetch repository details');
-        return res.json();
-      })
-      .then((resData) => { setData(resData); setLoading(false); })
-      .catch((err) => { setErrorMessage(err.message); setLoading(false); });
+    try {
+      const endpoint = apiUrl(`/api/v1/analysis/${encodeURIComponent(owner)}/${encodeURIComponent(name)}`);
+      const res = await fetch(endpoint);
+      if (!res.ok) {
+        const errData = await res.json().catch(() => ({}));
+        const extracted = extractErrorMessage(errData);
+        if (res.status === 404) {
+          throw new Error(extracted || `Repository '${repoName}' has not been analysed yet. Please run analysis first.`);
+        }
+        if (res.status === 401 || res.status === 403) {
+          throw new Error(extracted || 'Access denied or authentication failed for this repository.');
+        }
+        if (res.status >= 500) {
+          throw new Error(extracted || 'Backend service error. Please retry in a few moments.');
+        }
+        throw new Error(extracted || 'Failed to fetch repository details');
+      }
+      const resData = await res.json();
+      setData(resData);
+    } catch (err: any) {
+      setErrorMessage(extractErrorMessage(err) || 'Network error or backend service unreachable.');
+    } finally {
+      setLoading(false);
+    }
   }, [repoName]);
+
+  useEffect(() => {
+    fetchAnalysisData(false);
+  }, [fetchAnalysisData]);
 
   const handleRunImpactAnalysis = (overrideText?: string) => {
     const queryText = overrideText !== undefined ? overrideText : issueInput;
@@ -604,9 +625,9 @@ export const AnalysisDashboard: React.FC<DashboardProps> = ({ repoParam }) => {
                   Possible Causes
                 </span>
                 <ul className="list-disc pl-4 text-[11px] text-text-muted/95 space-y-1 leading-relaxed">
-                  <li>Private repository without configuration</li>
+                  <li>Repository has not been analyzed yet (run analysis from home page)</li>
                   <li>Invalid or malformed GitHub repository URL</li>
-                  <li>GitHub API rate limit or quota exceeded</li>
+                  <li>GitHub API rate limit or authentication required</li>
                   <li>Temporary network failure or backend server is offline</li>
                 </ul>
               </div>
@@ -616,7 +637,7 @@ export const AnalysisDashboard: React.FC<DashboardProps> = ({ repoParam }) => {
             <div className="flex gap-3 justify-center mt-2 select-none">
               <button
                 type="button"
-                onClick={() => window.location.reload()}
+                onClick={() => fetchAnalysisData(true)}
                 className="btn-primary px-4 py-2 text-xs"
               >
                 Retry Loading
@@ -1219,24 +1240,36 @@ export const AnalysisDashboard: React.FC<DashboardProps> = ({ repoParam }) => {
                   {id === 'graph' && (
                     <InteractiveDependencyGraph repoName={repoName} focusRequest={graphFocus} />
                   )}
-                  {id === 'call_graph'  && <CallGraphAnalyzer  repoName={repoName} />}
-                  {id === 'api_surface' && <APISurfaceAnalyzer repoName={repoName} />}
+                  {id === 'call_graph'  && (
+                    <Suspense fallback={<SkeletonGraph />}>
+                      <CallGraphAnalyzer repoName={repoName} />
+                    </Suspense>
+                  )}
+                  {id === 'api_surface' && (
+                    <Suspense fallback={<SkeletonDashboard />}>
+                      <APISurfaceAnalyzer repoName={repoName} />
+                    </Suspense>
+                  )}
 
                   {/* ── Understand ── */}
                   {id === 'reading_path' && (
-                    <ReadingOrderTimeline
-                      repoName={repoName}
-                      onAskAboutFile={handleAskAboutFile}
-                      onViewInGraph={handleViewInGraph}
-                    />
+                    <Suspense fallback={<SkeletonDashboard />}>
+                      <ReadingOrderTimeline
+                        repoName={repoName}
+                        onAskAboutFile={handleAskAboutFile}
+                        onViewInGraph={handleViewInGraph}
+                      />
+                    </Suspense>
                   )}
                   {id === 'chat' && (
                     <div className="min-h-[600px] flex flex-col">
-                      <ChatInterface
-                        repoName={repoName}
-                        pendingPrompt={pendingChatPrompt}
-                        onPendingPromptConsumed={() => setPendingChatPrompt(null)}
-                      />
+                      <Suspense fallback={<SkeletonDashboard />}>
+                        <ChatInterface
+                          repoName={repoName}
+                          pendingPrompt={pendingChatPrompt}
+                          onPendingPromptConsumed={() => setPendingChatPrompt(null)}
+                        />
+                      </Suspense>
                     </div>
                   )}
 
@@ -1244,18 +1277,40 @@ export const AnalysisDashboard: React.FC<DashboardProps> = ({ repoParam }) => {
                   {/* onNavigate reuses the dashboard's existing tab handler so the
                       report's cross-surface links need no new routing. */}
                   {id === 'report'     && (
-                    <ReportPanel
-                      repoName={repoName}
-                      onNavigate={(tab) => handleTabChange(tab as TabId)}
-                    />
+                    <Suspense fallback={<SkeletonDashboard />}>
+                      <ReportPanel
+                        repoName={repoName}
+                        onNavigate={(tab) => handleTabChange(tab as TabId)}
+                      />
+                    </Suspense>
                   )}
-                  {id === 'dead_code'  && <DeadCodeAnalyzer  repoName={repoName} />}
-                  {id === 'issues'     && <IssueMapper       repoName={repoName} />}
+                  {id === 'dead_code'  && (
+                    <Suspense fallback={<SkeletonDashboard />}>
+                      <DeadCodeAnalyzer repoName={repoName} />
+                    </Suspense>
+                  )}
+                  {id === 'issues'     && (
+                    <Suspense fallback={<SkeletonDashboard />}>
+                      <IssueMapper repoName={repoName} />
+                    </Suspense>
+                  )}
 
                   {/* ── History & PRs ── */}
-                  {id === 'git_history'        && <GitHistoryAnalyzer repoName={repoName} />}
-                  {id === 'pr_intelligence'    && <PRIntelligence     repoName={repoName} />}
-                  {id === 'architecture_drift' && <ArchitectureDrift  repoName={repoName} />}
+                  {id === 'git_history'        && (
+                    <Suspense fallback={<SkeletonDashboard />}>
+                      <GitHistoryAnalyzer repoName={repoName} />
+                    </Suspense>
+                  )}
+                  {id === 'pr_intelligence'    && (
+                    <Suspense fallback={<SkeletonDashboard />}>
+                      <PRIntelligence repoName={repoName} />
+                    </Suspense>
+                  )}
+                  {id === 'architecture_drift' && (
+                    <Suspense fallback={<SkeletonDashboard />}>
+                      <ArchitectureDrift repoName={repoName} />
+                    </Suspense>
+                  )}
                   {id === 'impact_analysis' && (
                     <div className="min-w-0">
                       {/* ── Contextual header ──────────────────────────── */}

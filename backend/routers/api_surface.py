@@ -74,8 +74,7 @@ async def build_api_surface(request: APISurfaceBuildRequest):
         raise HTTPException(
             status_code=404,
             detail=(
-                f"No symbol index for '{repo_name}'. "
-                "Run POST /api/architecture/build first."
+                f"No symbol index for '{repo_name}'. Run POST /api/v1/analyze first."
             ),
         )
 
@@ -95,20 +94,26 @@ async def build_api_surface(request: APISurfaceBuildRequest):
                 parsed_data = get_snapshot_store().load(repo_name, "parsed_files")
                 if parsed_data and "parsed" in parsed_data:
                     files = [
-                        {"path": p.get("file_path", ""), "content": p.get("content", "")}
+                        {
+                            "path": p.get("file_path", ""),
+                            "content": p.get("content", ""),
+                        }
                         for p in parsed_data["parsed"]
                         if p.get("content")
                     ]
             if not files:
                 try:
                     cloned_path = await asyncio.to_thread(
-                        get_github_service().clone_repo, f"https://github.com/{repo_name}.git"
+                        get_github_service().clone_repo,
+                        f"https://github.com/{repo_name}.git",
                     )
                     files = await asyncio.to_thread(
                         get_github_service().extract_source_files, cloned_path
                     )
                 except Exception as exc_clone:
-                    logger.warning("Clone fallback failed for %s: %s", repo_name, exc_clone)
+                    logger.warning(
+                        "Clone fallback failed for %s: %s", repo_name, exc_clone
+                    )
 
             gen = get_api_surface_service().build(repo_name, files)
             surface = None
@@ -149,7 +154,7 @@ async def get_api_surface(owner: str, repo_name: str):
             status_code=404,
             detail=(
                 f"No API surface data for '{full_name}'. "
-                "Run POST /api/api-surface/build first."
+                "Please analyze the repository first."
             ),
         )
     return surface.model_dump()
@@ -165,7 +170,7 @@ async def get_api_surface_stats(owner: str, repo_name: str):
             status_code=404,
             detail=(
                 f"No API surface data for '{full_name}'. "
-                "Run POST /api/api-surface/build first."
+                "Please analyze the repository first."
             ),
         )
     return stats.model_dump()
@@ -186,7 +191,9 @@ async def get_public_api(
             get_api_surface_service().search, full_name, q, "public", kind, limit
         )
     else:
-        symbols = await asyncio.to_thread(get_api_surface_service().get_public, full_name)
+        symbols = await asyncio.to_thread(
+            get_api_surface_service().get_public, full_name
+        )
         if kind:
             symbols = [s for s in symbols if s.api_kind.value == kind]
         results = symbols[:limit]
@@ -230,7 +237,9 @@ async def get_internal_api(
 async def get_deprecated_api(owner: str, repo_name: str):
     """Return all deprecated symbols."""
     full_name = f"{owner}/{repo_name}"
-    symbols = await asyncio.to_thread(get_api_surface_service().get_deprecated, full_name)
+    symbols = await asyncio.to_thread(
+        get_api_surface_service().get_deprecated, full_name
+    )
     if not symbols and not await asyncio.to_thread(
         get_api_surface_service().surface_exists, full_name
     ):

@@ -253,6 +253,17 @@ class DeadCodeService:
 
         summary = self.architecture_service.get_summary(repo_fullName)
         if not summary:
+            try:
+                from storage.snapshot_store import JsonSnapshotStore
+
+                store = JsonSnapshotStore()
+                snap = store.load(repo_fullName)
+                if snap:
+                    summary = snap.get("architecture")
+            except Exception:
+                pass
+
+        if not summary:
             raise ValueError(
                 f"No architecture summary found for '{repo_fullName}'. "
                 "Run repository architecture build first."
@@ -267,7 +278,10 @@ class DeadCodeService:
         ignore_patterns = self.load_ignore_patterns()
 
         # Find entry points
-        entry_points = set(summary.entry_points or [])
+        raw_entry_points = getattr(summary, "entry_points", None)
+        if raw_entry_points is None and isinstance(summary, dict):
+            raw_entry_points = summary.get("entry_points")
+        entry_points = set(raw_entry_points or [])
         for node in G.nodes:
             basename = os.path.basename(node).lower()
             if basename in {

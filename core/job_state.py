@@ -17,6 +17,7 @@ class JobStatus(str, enum.Enum):
     QUEUED = "queued"
     RUNNING = "running"
     COMPLETED = "completed"
+    PARTIAL = "partial"
     FAILED = "failed"
     CANCELLED = "cancelled"
 
@@ -39,6 +40,10 @@ class JobState(BaseModel):
     error: Optional[str] = None
     retry_count: int = 0
     stats: Dict[str, Any] = Field(default_factory=dict)
+    successful_phases: list[str] = Field(default_factory=list)
+    failed_phases: list[str] = Field(default_factory=list)
+    skipped_phases: list[str] = Field(default_factory=list)
+    phase_errors: Dict[str, str] = Field(default_factory=dict)
     result: Optional[Dict[str, Any]] = None
     created_at: float = Field(default_factory=time.time)
     started_at: Optional[float] = None
@@ -62,7 +67,12 @@ class JobState(BaseModel):
 
         if status == JobStatus.RUNNING and self.started_at is None:
             self.started_at = now
-        elif status in (JobStatus.COMPLETED, JobStatus.FAILED, JobStatus.CANCELLED):
+        elif status in (
+            JobStatus.COMPLETED,
+            JobStatus.PARTIAL,
+            JobStatus.FAILED,
+            JobStatus.CANCELLED,
+        ):
             self.completed_at = now
 
         if step_id is not None:

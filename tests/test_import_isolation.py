@@ -18,6 +18,7 @@ def test_import_backend_api_zero_network():
 
         # Verify backend.api is importable and app exists without triggering Qdrant network calls
         import backend.api
+
         assert backend.api.app is not None
         assert not mock_client_instance.get_collections.called, (
             "QdrantClient.get_collections was called during backend.api import!"
@@ -63,4 +64,6 @@ def test_qdrant_store_lazy_ensure_collections():
 
         # 3. Subsequent operations do NOT re-trigger ensure_collections
         store._active_version("test-org/test-repo")
-        assert mock_client_instance.get_collections.call_count == call_count_after_first_op
+        assert (
+            mock_client_instance.get_collections.call_count == call_count_after_first_op
+        )

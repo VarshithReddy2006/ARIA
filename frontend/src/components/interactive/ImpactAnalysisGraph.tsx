@@ -540,48 +540,59 @@ const ImpactAnalysisGraphInner: React.FC<GraphProps> = ({ repoName, impactData, 
             className="impact-canvas relative mt-3 min-w-0 border border-white/[0.055]
                        h-[clamp(28rem,calc(100vh-15rem),50rem)] overflow-hidden"
           >
-            <ReactFlow
-              nodes={displayNodes}
-              edges={displayEdges}
-              onNodesChange={onNodesChange}
-              onEdgesChange={onEdgesChange}
-              onNodeClick={onNodeClick}
-              onNodeMouseEnter={onNodeMouseEnter}
-              onNodeMouseLeave={onNodeMouseLeave}
-              onPaneClick={() => {
-                setHover(null);
-                setSelectedNode(null);
-              }}
-              /* Framing is set explicitly from measured bounds, so `fitView` is
-                 not used — it would override the computed viewport. */
-              minZoom={0.15}
-              maxZoom={2}
-            >
-              <Controls showInteractive={false} />
-              <PanControls />
-              <MiniMap
-                // Never allowed to sit on top of the topology on a phone.
-                className="!hidden sm:!block"
-                pannable
-                zoomable
-                nodeStrokeWidth={2}
-                nodeColor={(node) => {
-                  const cat = node.data?.category;
-                  if (cat === 'direct') return '#ef4444';
-                  if (cat === 'indirect') return '#f59e0b';
-                  if (cat === 'component') return '#5e6ad2';
-                  return '#26262b';
+            {nodes.length === 0 ? (
+              <div className="absolute inset-0 flex items-center justify-center p-6 text-center font-mono">
+                <div className="max-w-md space-y-2">
+                  <span className="mono-label block text-text">NO IMPACT PROPAGATION DETECTED</span>
+                  <p className="text-[12px] text-text-muted leading-relaxed">
+                    Impact analysis is unavailable because no dependency relationships were detected in this repository.
+                  </p>
+                </div>
+              </div>
+            ) : (
+              <ReactFlow
+                nodes={displayNodes}
+                edges={displayEdges}
+                onNodesChange={onNodesChange}
+                onEdgesChange={onEdgesChange}
+                onNodeClick={onNodeClick}
+                onNodeMouseEnter={onNodeMouseEnter}
+                onNodeMouseLeave={onNodeMouseLeave}
+                onPaneClick={() => {
+                  setHover(null);
+                  setSelectedNode(null);
                 }}
-                maskColor="rgba(2, 2, 4, 0.74)"
-                style={{
-                  backgroundColor: '#020204',
-                  border: '1px solid rgba(255,255,255,0.07)',
-                  width: 128,
-                  height: 88,
-                }}
-              />
-              <Background color="rgba(255,255,255,0.07)" gap={18} />
-            </ReactFlow>
+                /* Framing is set explicitly from measured bounds, so `fitView` is
+                   not used — it would override the computed viewport. */
+                minZoom={0.15}
+                maxZoom={2}
+              >
+                <Controls showInteractive={false} />
+                <PanControls />
+                <MiniMap
+                  // Never allowed to sit on top of the topology on a phone.
+                  className="!hidden sm:!block"
+                  pannable
+                  zoomable
+                  nodeStrokeWidth={2}
+                  nodeColor={(node) => {
+                    const cat = node.data?.category;
+                    if (cat === 'direct') return '#ef4444';
+                    if (cat === 'indirect') return '#f59e0b';
+                    if (cat === 'component') return '#5e6ad2';
+                    return '#26262b';
+                  }}
+                  maskColor="rgba(2, 2, 4, 0.74)"
+                  style={{
+                    backgroundColor: '#020204',
+                    border: '1px solid rgba(255,255,255,0.07)',
+                    width: 128,
+                    height: 88,
+                  }}
+                />
+                <Background color="rgba(255,255,255,0.07)" gap={18} />
+              </ReactFlow>
+            )}
 
             {/* ── Hover micro-inspector ─────────────────────────────────── */}
             {hover && !selectedNode && (

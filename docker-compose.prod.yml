@@ -11,7 +11,8 @@ services:
       # ── Application ────────────────────────────────────────────────────────
       - APP_ENV=production
       - API_SERVER_HOST=0.0.0.0
-      - API_SERVER_PORT=8001
+      - API_SERVER_PORT=${API_SERVER_PORT:-8001}
+      - PORT=${PORT:-${API_SERVER_PORT:-8001}}
       - WORKER_COUNT=${WORKER_COUNT:-${ARIA_WORKERS:-${WEB_CONCURRENCY:-4}}}
       - WEB_CONCURRENCY=${WORKER_COUNT:-${ARIA_WORKERS:-${WEB_CONCURRENCY:-4}}}
       - ARIA_WORKERS=${WORKER_COUNT:-${ARIA_WORKERS:-${WEB_CONCURRENCY:-4}}}
@@ -45,7 +46,11 @@ services:
       - VECTOR_STORE_BACKEND=${VECTOR_STORE_BACKEND:-qdrant}
       - VECTOR_STORE_ENABLE_FALLBACK=${VECTOR_STORE_ENABLE_FALLBACK:-true}
       - QDRANT_URL=${QDRANT_URL:-http://127.0.0.1:6333}
+      - QDRANT_API_KEY=${QDRANT_API_KEY}
       - QDRANT_GRPC_PORT=${QDRANT_GRPC_PORT:-6334}
+      - QDRANT_PREFER_GRPC=${QDRANT_PREFER_GRPC:-false}
+      - QDRANT_TIMEOUT=${QDRANT_TIMEOUT:-10.0}
+      - QDRANT_RETRY_ATTEMPTS=${QDRANT_RETRY_ATTEMPTS:-2}
       - CLONED_REPOS_PATH=/home/appuser/.repo_intelligence/cloned_repos
 
       # ── Frontend / CORS ────────────────────────────────────────────────────

@@ -84,6 +84,16 @@ class TestCleanColdStartSimulation:
             patch("backend.routers.repositories.chroma_store", store),
             patch("backend.dependencies.chroma_store", store),
             patch("backend.routers.repositories.snapshot_store", snapshot_store),
+            patch(
+                "backend.routers.repositories.generate_architecture_summary",
+                return_value=MagicMock(
+                    model_dump=lambda: {
+                        "summary": "cold start ok",
+                        "tech_stack": ["Python"],
+                    }
+                ),
+            ),
+            patch("backend.routers.repositories._persist_analysis_store"),
         ):
             result = execute_repository_analysis(
                 repo_url=repo_url,

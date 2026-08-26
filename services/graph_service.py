@@ -149,11 +149,11 @@ class GraphService:
             return []
 
     def get_strongly_connected_components_count(self, repo_name: str) -> int:
-        """Return count of strongly connected components in the repository graph."""
+        """Return count of non-trivial strongly connected clusters (size > 1) in the repository graph."""
         graph = self.load_graph(repo_name)
         if graph is None or graph.number_of_nodes() == 0:
             return 0
-        return nx.number_strongly_connected_components(graph)
+        return len([c for c in nx.strongly_connected_components(graph) if len(c) > 1])
 
     # ------------------------------------------------------------------
     # Persistence
@@ -444,19 +444,45 @@ class GraphService:
     def _resolve_python_import(
         imp: str, source_file: str, file_index: Dict[str, Any]
     ) -> Optional[str]:
-        """Resolve a Python dotted import to a repo file path."""
+        """Resolve a Python dotted or relative import to a repo file path."""
         candidates = []
-
-        # Absolute dotted path → path/to/module.py  or path/to/module/__init__.py
-        rel_path = imp.replace(".", "/")
-        candidates.append(rel_path + ".py")
-        candidates.append(rel_path + "/__init__.py")
-
-        # Relative: try from the same directory as the source file
         source_dir = "/".join(source_file.split("/")[:-1])
-        if source_dir:
-            candidates.append(source_dir + "/" + rel_path + ".py")
-            candidates.append(source_dir + "/" + rel_path + "/__init__.py")
+
+        if imp.startswith("."):
+            # Count leading dots
+            dot_count = len(imp) - len(imp.lstrip("."))
+            mod_part = imp.lstrip(".")
+            rel_path = mod_part.replace(".", "/") if mod_part else ""
+
+            # Go up (dot_count - 1) directories from source_dir
+            dir_parts = source_dir.split("/") if source_dir else []
+            up_levels = dot_count - 1
+            if up_levels > 0 and len(dir_parts) >= up_levels:
+                target_dir = "/".join(dir_parts[:-up_levels])
+            else:
+                target_dir = "/".join(dir_parts) if up_levels == 0 else ""
+
+            if rel_path:
+                base = f"{target_dir}/{rel_path}".strip("/")
+                candidates.append(base + ".py")
+                candidates.append(base + "/__init__.py")
+            elif target_dir:
+                candidates.append(target_dir + ".py")
+                candidates.append(target_dir + "/__init__.py")
+        else:
+            # Absolute dotted path → path/to/module.py or path/to/module/__init__.py
+            rel_path = imp.replace(".", "/")
+            candidates.append(rel_path + ".py")
+            candidates.append(rel_path + "/__init__.py")
+
+            # Relative: try from the same directory as the source file
+            if source_dir:
+                candidates.append(source_dir + "/" + rel_path + ".py")
+                candidates.append(source_dir + "/" + rel_path + "/__init__.py")
+
+            # Also try src/ prefix if repo has src layout
+            candidates.append("src/" + rel_path + ".py")
+            candidates.append("src/" + rel_path + "/__init__.py")
 
         for c in candidates:
             # Normalise simple double-slashes

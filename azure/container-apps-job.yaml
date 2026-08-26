@@ -1,0 +1,67 @@
+# Declarative Azure Container Apps Job manifest for ARIA Background Worker
+type: Microsoft.App/jobs
+name: aria-worker-job
+location: eastasia
+properties:
+  environmentId: /subscriptions/3ab8ccbd-89d3-4eba-b8ac-81544e33c4c0/resourceGroups/aria-rg/providers/Microsoft.App/managedEnvironments/aria-env
+  configuration:
+    triggerType: Event
+    replicaTimeout: 3600
+    replicaRetryLimit: 3
+    eventTriggerConfig:
+      scale:
+        minExecutions: 0
+        maxExecutions: 5
+        pollingInterval: 15
+        rules:
+          - name: queue-rule
+            type: azure-queue
+            metadata:
+              queueName: aria-analysis-jobs
+              queueLength: 1
+            auth:
+              - secretRef: storage-connection-string
+                triggerParameter: connection
+    secrets:
+      - name: storage-connection-string
+        value: "<AZURE_STORAGE_CONNECTION_STRING>"
+      - name: qdrant-api-key
+        value: "<QDRANT_API_KEY>"
+      - name: gemini-api-key
+        value: "<GEMINI_API_KEY>"
+  template:
+    volumes:
+      - name: aria-data-volume
+        storageType: AzureFile
+        storageName: ariadata
+    containers:
+      - image: ariacr3ab8.azurecr.io/aria-worker:<IMAGE_TAG>
+        name: aria-worker
+        resources:
+          cpu: 2.0
+          memory: 4.0Gi
+        env:
+          - name: AZURE_STORAGE_QUEUE_NAME
+            value: aria-analysis-jobs
+          - name: AZURE_STORAGE_CONNECTION_STRING
+            secretRef: storage-connection-string
+          - name: QDRANT_URL
+            value: "<QDRANT_URL>"
+          - name: QDRANT_API_KEY
+            secretRef: qdrant-api-key
+          - name: GEMINI_API_KEY
+            secretRef: gemini-api-key
+          - name: SQLITE_DB_PATH
+            value: /app/data/repo_understanding.db
+          - name: ANALYSIS_STORE_PATH
+            value: /app/data/analysis_store.json
+          - name: JOB_STATE_DIR
+            value: /app/data/jobs
+        volumeMounts:
+          - volumeName: aria-data-volume
+            mountPath: /app/data
+        command:
+          - python
+          - -m
+          - backend.worker
+          - --run-once

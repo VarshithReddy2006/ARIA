@@ -1325,8 +1325,18 @@ export const CallGraphAnalyzer: React.FC<Props> = ({ repoName }) => {
           {/* Graph View */}
           {activeView === 'graph' && (
             <div className="space-y-3">
-              {/* Command Search & Analysis Filters */}
-              <div className="px-3 py-2 bg-zinc-950 border border-zinc-800 rounded-xl flex items-center justify-between gap-4 flex-wrap select-none text-xs">
+              {graphData.nodes.length === 0 ? (
+                <div className="h-[600px] border border-border/80 rounded-xl bg-zinc-950 flex items-center justify-center p-6 font-mono">
+                  <EmptyState
+                    icon={<Workflow className="h-6 w-6 text-zinc-500" />}
+                    title="NO CALLABLE SYMBOLS DETECTED"
+                    description="No callable symbols were detected in this repository."
+                  />
+                </div>
+              ) : (
+                <>
+                  {/* Command Search & Analysis Filters */}
+                  <div className="px-3 py-2 bg-zinc-950 border border-zinc-800 rounded-xl flex items-center justify-between gap-4 flex-wrap select-none text-xs">
                 {/* Search functions */}
                 <div className="relative flex-grow max-w-sm">
                   <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-zinc-500 pointer-events-none" />
@@ -1463,6 +1473,8 @@ export const CallGraphAnalyzer: React.FC<Props> = ({ repoName }) => {
                   br={blastRadius}
                   onClose={() => setBlastRadius(null)}
                 />
+              )}
+                </>
               )}
             </div>
           )}

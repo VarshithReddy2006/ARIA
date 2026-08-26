@@ -104,8 +104,22 @@ class PipelineTimer:
 
     def stop(self, phase: str) -> None:
         if phase in self.start_times:
-            elapsed = time.perf_counter() - self.start_times[phase]
+            elapsed = time.perf_counter() - self.start_times.pop(phase)
             self.timings[phase] = self.timings.get(phase, 0.0) + elapsed
+
+    def get_phase_duration(self, phase: str) -> float:
+        if phase == "Chunk_Embed_Index":
+            if (
+                "Chunk_Embed_Index" in self.timings
+                and self.timings["Chunk_Embed_Index"] > 0
+            ):
+                return self.timings["Chunk_Embed_Index"]
+            return (
+                self.timings.get("Chunk", 0.0)
+                + self.timings.get("Embedding", 0.0)
+                + self.timings.get("Chroma", 0.0)
+            )
+        return self.timings.get(phase, 0.0)
 
     def format_report(self) -> str:
         lines = ["\nRepository Analysis Performance Report"]
@@ -119,7 +133,7 @@ class PipelineTimer:
         ]
         total = 0.0
         for label, phase in phases:
-            val = self.timings.get(phase, 0.0)
+            val = self.get_phase_duration(phase)
             total += val
             lines.append(f"{label: <25}....{val: >5.1f}s")
         lines.append(f"{'Total Active Compute': <25}....{total: >5.1f}s")
@@ -640,6 +654,10 @@ def execute_repository_analysis(
         timer = PipelineTimer()
         mem_tracker = MemoryTracker(repo_name=repo_name, logger_instance=logger)
         start_time = time.time()
+        successful_phases: List[str] = []
+        failed_phases: List[str] = []
+        skipped_phases: List[str] = []
+        phase_errors: Dict[str, str] = {}
 
         def _emit(
             step_id: str,
@@ -689,184 +707,293 @@ def execute_repository_analysis(
                         "Progress callback error for %s: %s", repo_name, cb_exc
                     )
 
-    # ── 1. Cloning (01 CLONE) ────────────────────────────────────────────────
-    mem_tracker.log_phase("before_clone")
-    _emit("clone", "cloning", "Cloning repository from GitHub...", progress=5)
-    timer.start("Clone")
-    local_path = github_service.clone_repository(repo_url, branch)
-    timer.stop("Clone")
-    mem_tracker.log_phase("after_clone", local_path=local_path)
-    _emit("clone", "cloned", "✓ Repository cloned successfully", progress=15)
-
-    # ── 2. Detecting & Extracting (02 DETECT) ─────────────────────────────────
-    _emit("detect", "detecting", "Detecting languages and frameworks...", progress=20)
-    timer.start("Parse")
-    mem_tracker.log_phase("before_iter_source_files")
-
-    all_file_paths = []
-    manifest_records = []
-    file_hashes = {}
-    total_bytes = 0
-    file_count = 0
-    t0 = time.perf_counter()
-
-    for f in _get_source_files_stream(local_path):
-        file_count += 1
-        p = f["path"]
-        content = f["content"]
-        content_bytes = len(content.encode("utf-8", errors="replace"))
-        total_bytes += content_bytes
-        all_file_paths.append(p)
-        file_hashes[p] = ChangeDetector.compute_content_hash(content)
-        mem_tracker.record_file(content_bytes)
-
-        if (
-            p.endswith("package.json")
-            or p.endswith("requirements.txt")
-            or p.endswith("pyproject.toml")
-        ):
-            manifest_records.append({"path": p, "content": content})
-        else:
-            manifest_records.append({"path": p})
-
-    elapsed = time.perf_counter() - t0
-    logger.info(
-        "Source file scan completed | repo=%s files=%d bytes=%d elapsed=%.2fs request_id=%s",
-        repo_name,
-        file_count,
-        total_bytes,
-        elapsed,
-        request_id,
-    )
-    mem_tracker.log_phase("after_extraction")
-
-    mem_tracker.log_phase("before_tech_stack_detection")
-    tech_stack, dependencies = detect_tech_stack_and_deps(manifest_records)
-    mem_tracker.log_phase("after_tech_stack_detection")
-    timer.stop("Parse")
-    _emit(
-        "detect",
-        "detected",
-        f"✓ Technologies detected: {tech_stack}",
-        stats={"tech_stack": tech_stack},
-        progress=30,
-    )
-
-    # ── 3. Change Detection & Incremental Plan (03 PARSE) ─────────────────────
-    old_manifest_data = snapshot_store.load(repo_name, "build_manifest")
-    old_manifest = None
-    if old_manifest_data:
+        # ── 1. Cloning (01 CLONE) ────────────────────────────────────────────────
+        mem_tracker.log_phase("before_clone")
+        _emit("clone", "cloning", "Cloning repository from GitHub...", progress=5)
+        timer.start("Clone")
         try:
-            old_manifest = BuildManifest.model_validate(old_manifest_data)
-        except Exception as exc:
-            logger.warning("Stale or malformed build manifest ignored: %s", exc)
+            local_path = github_service.clone_repository(repo_url, branch)
+            successful_phases.append("clone")
+        finally:
+            timer.stop("Clone")
+        mem_tracker.log_phase("after_clone", local_path=local_path)
+        _emit("clone", "cloned", "✓ Repository cloned successfully", progress=15)
 
-    mem_tracker.log_phase("before_change_detection")
-    detector = ChangeDetector()
-    change_set, file_hashes, repo_hash = detector.detect_changes_from_hashes(
-        file_hashes, old_manifest
-    )
-    mem_tracker.log_phase("after_change_detection")
-
-    schema_mismatch = False
-    if old_manifest:
-        prev_sym_ver = old_manifest.schema_versions.get("Symbol Index", 0)
-        prev_dep_ver = old_manifest.schema_versions.get("Dependency Graph", 0)
-        if (
-            prev_sym_ver < symbol_service.schema_version
-            or prev_dep_ver < architecture_service.schema_version
-        ):
-            schema_mismatch = True
-
-    is_incremental = (
-        old_manifest is not None and not force_rebuild and not schema_mismatch
-    )
-    renamed_old_paths = set(change_set.renamed.keys())
-    renamed_new_paths = set(change_set.renamed.values())
-    changed_files = (
-        change_set.added
-        | change_set.modified
-        | change_set.deleted
-        | renamed_old_paths
-        | renamed_new_paths
-    )
-
-    # ── 4. Granular Chunking & Embedding (04 EMBED) ───────────────────────────
-    _emit(
-        "parse",
-        "parsing",
-        f"Parsing Source Files: {len(all_file_paths)} files",
-        stats={"files_processed": len(all_file_paths)},
-        progress=40,
-    )
-
-    if is_incremental:
-        files_to_delete = list(
-            change_set.modified | change_set.deleted | renamed_old_paths
-        )
-        if files_to_delete:
-            timer.start("Chroma")
-            try:
-                chroma_store.delete_files(repo_name, files_to_delete)
-                logger.info(
-                    "Successfully deleted chunks for %d files.",
-                    len(files_to_delete),
-                )
-            except Exception as exc:
-                logger.error(
-                    "Failed to delete chunks for %d files: %s",
-                    len(files_to_delete),
-                    exc,
-                )
-                raise
-            timer.stop("Chroma")
-
-        target_paths = change_set.added | change_set.modified | renamed_new_paths
+        # ── 2. Detecting & Extracting (02 DETECT) ─────────────────────────────────
         _emit(
-            "embed",
-            "generating_embeddings",
-            "Generating Embeddings for modified files...",
-            progress=45,
+            "detect", "detecting", "Detecting languages and frameworks...", progress=20
         )
+        timer.start("Parse")
+        mem_tracker.log_phase("before_iter_source_files")
 
-        timer.start("Chunk")
-        timer.start("Embedding")
-        timer.start("Chroma")
-
-        mem_tracker.log_phase("before_chunking")
-        batch_size = _get_batch_size()
-        chunk_buffer = []
-        inserted_count = 0
-        file_chunk_counts = {}
-        batch_idx = 0
+        all_file_paths = []
+        manifest_records = []
+        file_hashes = {}
+        total_bytes = 0
+        file_count = 0
+        t0 = time.perf_counter()
 
         for f in _get_source_files_stream(local_path):
+            file_count += 1
             p = f["path"]
-            if p not in target_paths:
-                continue
-            file_chunks = chunker.chunk_file(p, f["content"])
-            if not file_chunks:
-                continue
-            mem_tracker.record_chunk(len(file_chunks))
-            chunk_buffer.extend(file_chunks)
+            content = f["content"]
+            content_bytes = len(content.encode("utf-8", errors="replace"))
+            total_bytes += content_bytes
+            all_file_paths.append(p)
+            file_hashes[p] = ChangeDetector.compute_content_hash(content)
+            mem_tracker.record_file(content_bytes)
 
-            while len(chunk_buffer) >= batch_size:
-                chunk_batch = chunk_buffer[:batch_size]
-                chunk_buffer = chunk_buffer[batch_size:]
+            if (
+                p.endswith("package.json")
+                or p.endswith("requirements.txt")
+                or p.endswith("pyproject.toml")
+            ):
+                manifest_records.append({"path": p, "content": content})
+            else:
+                manifest_records.append({"path": p})
+
+        elapsed = time.perf_counter() - t0
+        logger.info(
+            "Source file scan completed | repo=%s files=%d bytes=%d elapsed=%.2fs request_id=%s",
+            repo_name,
+            file_count,
+            total_bytes,
+            elapsed,
+            request_id,
+        )
+        mem_tracker.log_phase("after_extraction")
+
+        mem_tracker.log_phase("before_tech_stack_detection")
+        tech_stack, dependencies = detect_tech_stack_and_deps(manifest_records)
+        mem_tracker.log_phase("after_tech_stack_detection")
+        timer.stop("Parse")
+        successful_phases.append("detect")
+        _emit(
+            "detect",
+            "detected",
+            f"✓ Technologies detected: {tech_stack}",
+            stats={"tech_stack": tech_stack},
+            progress=30,
+        )
+
+        # ── 3. Change Detection & Incremental Plan (03 PARSE) ─────────────────────
+        old_manifest_data = snapshot_store.load(repo_name, "build_manifest")
+        old_manifest = None
+        if old_manifest_data:
+            try:
+                old_manifest = BuildManifest.model_validate(old_manifest_data)
+            except Exception as exc:
+                logger.warning("Stale or malformed build manifest ignored: %s", exc)
+
+        mem_tracker.log_phase("before_change_detection")
+        detector = ChangeDetector()
+        change_set, file_hashes, repo_hash = detector.detect_changes_from_hashes(
+            file_hashes, old_manifest
+        )
+        mem_tracker.log_phase("after_change_detection")
+
+        schema_mismatch = False
+        if old_manifest:
+            prev_sym_ver = old_manifest.schema_versions.get("Symbol Index", 0)
+            prev_dep_ver = old_manifest.schema_versions.get("Dependency Graph", 0)
+            if (
+                prev_sym_ver < symbol_service.schema_version
+                or prev_dep_ver < architecture_service.schema_version
+            ):
+                schema_mismatch = True
+
+        is_incremental = (
+            old_manifest is not None and not force_rebuild and not schema_mismatch
+        )
+        renamed_old_paths = set(change_set.renamed.keys())
+        renamed_new_paths = set(change_set.renamed.values())
+        changed_files = (
+            change_set.added
+            | change_set.modified
+            | change_set.deleted
+            | renamed_old_paths
+            | renamed_new_paths
+        )
+        successful_phases.append("parse")
+
+        # ── 4. Granular Chunking & Embedding (04 EMBED) ───────────────────────────
+        _emit(
+            "parse",
+            "parsing",
+            f"Parsing Source Files: {len(all_file_paths)} files",
+            stats={"files_processed": len(all_file_paths)},
+            progress=40,
+        )
+
+        if is_incremental:
+            files_to_delete = list(
+                change_set.modified | change_set.deleted | renamed_old_paths
+            )
+            if files_to_delete:
+                timer.start("Chroma")
+                try:
+                    chroma_store.delete_files(repo_name, files_to_delete)
+                    logger.info(
+                        "Successfully deleted chunks for %d files.",
+                        len(files_to_delete),
+                    )
+                except Exception as exc:
+                    logger.error(
+                        "Failed to delete chunks for %d files: %s",
+                        len(files_to_delete),
+                        exc,
+                    )
+                    raise
+                finally:
+                    timer.stop("Chroma")
+
+            target_paths = change_set.added | change_set.modified | renamed_new_paths
+            _emit(
+                "embed",
+                "generating_embeddings",
+                "Generating Embeddings for modified files...",
+                progress=45,
+            )
+
+            mem_tracker.log_phase("before_chunking")
+            batch_size = _get_batch_size()
+            chunk_buffer = []
+            inserted_count = 0
+            file_chunk_counts = {}
+            batch_idx = 0
+
+            timer.start("Chunk")
+            for f in _get_source_files_stream(local_path):
+                p = f["path"]
+                if p not in target_paths:
+                    continue
+                file_chunks = chunker.chunk_file(p, f["content"])
+                if not file_chunks:
+                    continue
+                mem_tracker.record_chunk(len(file_chunks))
+                chunk_buffer.extend(file_chunks)
+
+                while len(chunk_buffer) >= batch_size:
+                    chunk_batch = chunk_buffer[:batch_size]
+                    chunk_buffer = chunk_buffer[batch_size:]
+                    batch_idx += 1
+                    t0 = time.perf_counter()
+
+                    if batch_idx == 1:
+                        mem_tracker.log_phase("before_first_embedding_batch")
+
+                    timer.stop("Chunk")
+                    timer.start("Embedding")
+                    emb_stats = {}
+                    emb_batch = embedding_service.generate_embeddings(
+                        chunk_batch, stats=emb_stats
+                    )
+                    timer.stop("Embedding")
+
+                    mem_tracker.log_phase(
+                        "after_embedding_batch",
+                        batch=batch_idx,
+                        batch_items=len(chunk_batch),
+                    )
+
+                    bulk_ids = []
+                    bulk_docs = []
+                    bulk_embeddings = []
+                    bulk_metadatas = []
+
+                    for idx, chunk in enumerate(chunk_batch):
+                        c_path = chunk["path"]
+                        chunk_idx = file_chunk_counts.get(c_path, 0)
+                        file_chunk_counts[c_path] = chunk_idx + 1
+
+                        unique_id = f"{repo_name}_{c_path}_{chunk_idx}".replace(
+                            "/", "_"
+                        ).replace(".", "_")
+                        bulk_ids.append(unique_id)
+                        bulk_docs.append(chunk["content"])
+                        bulk_embeddings.append(emb_batch[idx])
+                        bulk_metadatas.append(
+                            {
+                                "repo_name": repo_name,
+                                "file_path": c_path,
+                                "chunk_id": chunk_idx,
+                                "language": chunker.detect_language(c_path),
+                            }
+                        )
+
+                    if bulk_ids:
+                        timer.start("Chroma")
+                        chroma_store.add_code_chunks_bulk(
+                            bulk_ids,
+                            bulk_docs,
+                            bulk_embeddings,
+                            bulk_metadatas,
+                        )
+                        timer.stop("Chroma")
+                        inserted_count += len(bulk_ids)
+                        mem_tracker.record_embeddings_indexed(len(bulk_ids))
+
+                    mem_tracker.log_phase(
+                        "after_vector_store_staging_batch",
+                        batch=batch_idx,
+                        staged=inserted_count,
+                    )
+
+                    elapsed_batch = time.perf_counter() - t0
+                    hits = emb_stats.get("cache_hits", 0)
+                    misses = emb_stats.get("cache_misses", 0)
+                    logger.info(
+                        "Incremental indexing progress batch=%d embedded=%d indexed=%d hits=%d misses=%d elapsed=%.2fs",
+                        batch_idx,
+                        len(emb_batch),
+                        inserted_count,
+                        hits,
+                        misses,
+                        elapsed_batch,
+                    )
+                    _emit(
+                        "embed",
+                        "generating_embeddings",
+                        f"Generating Embeddings: {inserted_count} new chunks | batch={batch_size} | hits={hits} | misses={misses}",
+                        stats={
+                            "chunks_processed": inserted_count,
+                            "embeddings_indexed": inserted_count,
+                            "files_processed": len(target_paths),
+                            "elapsed_seconds": int(time.time() - start_time),
+                            "cache_hits": hits,
+                            "cache_misses": misses,
+                            "batch_size": batch_size,
+                            **emb_stats,
+                        },
+                        progress=50,
+                    )
+
+                    del chunk_batch
+                    del emb_batch
+                    del bulk_ids
+                    del bulk_docs
+                    del bulk_embeddings
+                    del bulk_metadatas
+                    timer.start("Chunk")
+
+            if chunk_buffer:
+                timer.stop("Chunk")
                 batch_idx += 1
                 t0 = time.perf_counter()
-
                 if batch_idx == 1:
                     mem_tracker.log_phase("before_first_embedding_batch")
 
+                timer.start("Embedding")
                 emb_stats = {}
                 emb_batch = embedding_service.generate_embeddings(
-                    chunk_batch, stats=emb_stats
+                    chunk_buffer, stats=emb_stats
                 )
+                timer.stop("Embedding")
+
                 mem_tracker.log_phase(
                     "after_embedding_batch",
                     batch=batch_idx,
-                    batch_items=len(chunk_batch),
+                    batch_items=len(chunk_buffer),
                 )
 
                 bulk_ids = []
@@ -874,7 +1001,7 @@ def execute_repository_analysis(
                 bulk_embeddings = []
                 bulk_metadatas = []
 
-                for idx, chunk in enumerate(chunk_batch):
+                for idx, chunk in enumerate(chunk_buffer):
                     c_path = chunk["path"]
                     chunk_idx = file_chunk_counts.get(c_path, 0)
                     file_chunk_counts[c_path] = chunk_idx + 1
@@ -895,12 +1022,14 @@ def execute_repository_analysis(
                     )
 
                 if bulk_ids:
+                    timer.start("Chroma")
                     chroma_store.add_code_chunks_bulk(
                         bulk_ids,
                         bulk_docs,
                         bulk_embeddings,
                         bulk_metadatas,
                     )
+                    timer.stop("Chroma")
                     inserted_count += len(bulk_ids)
                     mem_tracker.record_embeddings_indexed(len(bulk_ids))
 
@@ -934,339 +1063,356 @@ def execute_repository_analysis(
                         "cache_hits": hits,
                         "cache_misses": misses,
                         "batch_size": batch_size,
+                        **emb_stats,
                     },
-                    progress=50,
+                    progress=55,
                 )
 
-                del chunk_batch
+                del chunk_buffer
                 del emb_batch
                 del bulk_ids
                 del bulk_docs
                 del bulk_embeddings
                 del bulk_metadatas
+            else:
+                timer.stop("Chunk")
 
-        if chunk_buffer:
-            batch_idx += 1
-            t0 = time.perf_counter()
-            if batch_idx == 1:
+            successful_phases.append("embed")
+            logger.info(
+                "Successfully bulk inserted %d new chunks into vector store.",
+                inserted_count,
+            )
+        else:
+            # Full Mode — Optimized cold-path pipeline:
+            # 1. Collect ALL chunks first (single iteration)
+            # 2. Embed ALL chunks in one pass (bulk hash → bulk cache → batch inference)
+            # 3. Batch vector-store writes separately
+            _emit(
+                "embed",
+                "generating_embeddings",
+                "Generating Embeddings: 0 chunks",
+                progress=45,
+            )
+
+            mem_tracker.log_phase("before_chunking")
+            version = uuid.uuid4().hex
+            staged_count = 0
+            batch_size = _get_batch_size()
+            version_staged = False
+
+            try:
+                # ── Phase 1: Collect all chunks ────────────────────────────────
+                timer.start("Chunk")
+                all_chunks_full = []
+                for f in _get_source_files_stream(local_path):
+                    file_chunks = chunker.chunk_file(f["path"], f["content"])
+                    if not file_chunks:
+                        continue
+                    mem_tracker.record_chunk(len(file_chunks))
+                    all_chunks_full.extend(file_chunks)
+
+                total_chunks_full = len(all_chunks_full)
+                timer.stop("Chunk")
                 mem_tracker.log_phase("before_first_embedding_batch")
 
-            emb_stats = {}
-            emb_batch = embedding_service.generate_embeddings(
-                chunk_buffer, stats=emb_stats
-            )
-            mem_tracker.log_phase(
-                "after_embedding_batch",
-                batch=batch_idx,
-                batch_items=len(chunk_buffer),
-            )
-
-            bulk_ids = []
-            bulk_docs = []
-            bulk_embeddings = []
-            bulk_metadatas = []
-
-            for idx, chunk in enumerate(chunk_buffer):
-                c_path = chunk["path"]
-                chunk_idx = file_chunk_counts.get(c_path, 0)
-                file_chunk_counts[c_path] = chunk_idx + 1
-
-                unique_id = f"{repo_name}_{c_path}_{chunk_idx}".replace(
-                    "/", "_"
-                ).replace(".", "_")
-                bulk_ids.append(unique_id)
-                bulk_docs.append(chunk["content"])
-                bulk_embeddings.append(emb_batch[idx])
-                bulk_metadatas.append(
-                    {
-                        "repo_name": repo_name,
-                        "file_path": c_path,
-                        "chunk_id": chunk_idx,
-                        "language": chunker.detect_language(c_path),
-                    }
+                _emit(
+                    "embed",
+                    "generating_embeddings",
+                    f"Generating Embeddings: chunked {total_chunks_full} chunks, starting embedding...",
+                    stats={
+                        "chunks_processed": 0,
+                        "embeddings_indexed": 0,
+                        "files_processed": len(all_file_paths),
+                        "elapsed_seconds": int(time.time() - start_time),
+                        "batch_size": batch_size,
+                    },
+                    progress=48,
                 )
 
-            if bulk_ids:
-                chroma_store.add_code_chunks_bulk(
-                    bulk_ids,
-                    bulk_docs,
-                    bulk_embeddings,
-                    bulk_metadatas,
+                # ── Phase 2: Embed ALL chunks in one pass ──────────────────────
+                timer.start("Embedding")
+                emb_stats = {}
+                all_embeddings_full = embedding_service.generate_embeddings(
+                    all_chunks_full, stats=emb_stats
                 )
-                inserted_count += len(bulk_ids)
-                mem_tracker.record_embeddings_indexed(len(bulk_ids))
+                timer.stop("Embedding")
+                mem_tracker.log_phase(
+                    "after_embedding_batch",
+                    batch=1,
+                    batch_items=total_chunks_full,
+                )
 
-            mem_tracker.log_phase(
-                "after_vector_store_staging_batch",
-                batch=batch_idx,
-                staged=inserted_count,
+                hits = emb_stats.get("cache_hits", 0)
+                misses = emb_stats.get("cache_misses", 0)
+                logger.info(
+                    "Embedding complete: total=%d hits=%d misses=%d elapsed=%.2fs",
+                    total_chunks_full,
+                    hits,
+                    misses,
+                    emb_stats.get("elapsed_ms", 0) / 1000.0,
+                )
+
+                _emit(
+                    "embed",
+                    "generating_embeddings",
+                    f"Generating Embeddings: {total_chunks_full} chunks embedded | hits={hits} | misses={misses}",
+                    stats={
+                        "chunks_processed": total_chunks_full,
+                        "embeddings_indexed": 0,
+                        "files_processed": len(all_file_paths),
+                        "elapsed_seconds": int(time.time() - start_time),
+                        "cache_hits": hits,
+                        "cache_misses": misses,
+                        "batch_size": batch_size,
+                        **emb_stats,
+                    },
+                    progress=55,
+                )
+
+                # ── Phase 3: Batch vector-store writes ─────────────────────────
+                timer.start("Chroma")
+                batch_idx = 0
+                for vs_start in range(0, total_chunks_full, batch_size):
+                    vs_end = min(vs_start + batch_size, total_chunks_full)
+                    chunk_batch = all_chunks_full[vs_start:vs_end]
+                    emb_batch = all_embeddings_full[vs_start:vs_end]
+                    batch_idx += 1
+
+                    staged_batch_count = chroma_store.stage_repository_batch(
+                        repo_name,
+                        version,
+                        chunk_batch,
+                        emb_batch,
+                        staged_count,
+                    )
+                    staged_count += staged_batch_count
+                    version_staged = True
+                    mem_tracker.record_embeddings_indexed(staged_batch_count)
+
+                    if batch_idx % 10 == 0:
+                        mem_tracker.log_phase(
+                            "after_vector_store_staging_batch",
+                            batch=batch_idx,
+                            staged=staged_count,
+                        )
+                        _emit(
+                            "embed",
+                            "generating_embeddings",
+                            f"Indexing: {staged_count}/{total_chunks_full} chunks staged",
+                            stats={
+                                "chunks_processed": total_chunks_full,
+                                "embeddings_indexed": staged_count,
+                                "files_processed": len(all_file_paths),
+                                "elapsed_seconds": int(time.time() - start_time),
+                                "cache_hits": hits,
+                                "cache_misses": misses,
+                                "batch_size": batch_size,
+                                **emb_stats,
+                            },
+                            progress=min(
+                                60,
+                                55
+                                + int((staged_count / max(1, total_chunks_full)) * 5),
+                            ),
+                        )
+
+                logger.info(
+                    "Indexing complete: %d chunks staged in %d batches",
+                    staged_count,
+                    batch_idx,
+                )
+
+                # Free large lists
+                del all_chunks_full
+                del all_embeddings_full
+
+                if version_staged:
+                    chroma_store.publish_repository_version(repo_name, version)
+                successful_phases.append("embed")
+            except Exception:
+                if version_staged:
+                    chroma_store.rollback_staged_version(repo_name, version)
+                raise
+            finally:
+                timer.stop("Chroma")
+                timer.stop("Embedding")
+                timer.stop("Chunk")
+
+        # ── 5. Granular Symbols & Graph builds (05 INDEX) ─────────────────────────
+        _emit("index", "building_symbols", "Building Symbol Index", progress=65)
+        timer.start("Graphs")
+        mem_tracker.log_phase("before_graph_symbol_analysis")
+        try:
+            if is_incremental:
+                symbol_service.build_partial(
+                    repo_name,
+                    changed_files,
+                    repo_path=local_path,
+                )
+            else:
+                symbol_service.build_full(repo_name, repo_path=local_path)
+            successful_phases.append("symbol_index")
+        except Exception as exc_sym:
+            failed_phases.append("symbol_index")
+            phase_errors["symbol_index"] = str(exc_sym)
+            logger.warning("Symbol index build failed for %s: %s", repo_name, exc_sym)
+        mem_tracker.log_phase("after_graph_symbol_analysis")
+
+        _emit("index", "building_dependency", "Building Dependency Graph", progress=70)
+        mem_tracker.log_phase("before_architecture_analysis")
+        try:
+            if is_incremental:
+                architecture_service.build_partial(
+                    repo_name,
+                    changed_files,
+                    repo_path=local_path,
+                )
+            else:
+                architecture_service.build_full(repo_name, repo_path=local_path)
+            successful_phases.append("dependency_graph")
+        except Exception as exc_dep:
+            failed_phases.append("dependency_graph")
+            phase_errors["dependency_graph"] = str(exc_dep)
+            logger.warning(
+                "Dependency graph build failed for %s: %s", repo_name, exc_dep
             )
 
-            elapsed_batch = time.perf_counter() - t0
-            hits = emb_stats.get("cache_hits", 0)
-            misses = emb_stats.get("cache_misses", 0)
-            logger.info(
-                "Incremental indexing progress batch=%d embedded=%d indexed=%d hits=%d misses=%d elapsed=%.2fs",
-                batch_idx,
-                len(emb_batch),
-                inserted_count,
-                hits,
-                misses,
-                elapsed_batch,
-            )
-            _emit(
-                "embed",
-                "generating_embeddings",
-                f"Generating Embeddings: {inserted_count} new chunks | batch={batch_size} | hits={hits} | misses={misses}",
-                stats={
-                    "chunks_processed": inserted_count,
-                    "embeddings_indexed": inserted_count,
-                    "files_processed": len(target_paths),
-                    "elapsed_seconds": int(time.time() - start_time),
-                    "cache_hits": hits,
-                    "cache_misses": misses,
-                    "batch_size": batch_size,
-                },
-                progress=55,
-            )
+        # Call Graph, API Surface
+        _emit("index", "building_call", "Building Call Graph", progress=75)
+        from core.repository_context import RepositoryContext
 
-            del chunk_buffer
-            del emb_batch
-            del bulk_ids
-            del bulk_docs
-            del bulk_embeddings
-            del bulk_metadatas
-
-        timer.stop("Chroma")
-        timer.stop("Embedding")
-        timer.stop("Chunk")
-        logger.info(
-            "Successfully bulk inserted %d new chunks into vector store.",
-            inserted_count,
-        )
-    else:
-        # Full Mode — Optimized cold-path pipeline:
-        # 1. Collect ALL chunks first (single iteration)
-        # 2. Embed ALL chunks in one pass (bulk hash → bulk cache → batch inference)
-        # 3. Batch vector-store writes separately
-        _emit(
-            "embed",
-            "generating_embeddings",
-            "Generating Embeddings: 0 chunks",
-            progress=45,
-        )
-        timer.start("Chunk_Embed_Index")
-
-        mem_tracker.log_phase("before_chunking")
-        version = uuid.uuid4().hex
-        staged_count = 0
-        batch_size = _get_batch_size()
-        version_staged = False
+        context = RepositoryContext(repo_name, repo_path=local_path)
 
         try:
-            # ── Phase 1: Collect all chunks ────────────────────────────────
-            all_chunks_full = []
-            for f in _get_source_files_stream(local_path):
-                file_chunks = chunker.chunk_file(f["path"], f["content"])
-                if not file_chunks:
-                    continue
-                mem_tracker.record_chunk(len(file_chunks))
-                all_chunks_full.extend(file_chunks)
-
-            total_chunks_full = len(all_chunks_full)
-            mem_tracker.log_phase("before_first_embedding_batch")
-
-            _emit(
-                "embed",
-                "generating_embeddings",
-                f"Generating Embeddings: chunked {total_chunks_full} chunks, starting embedding...",
-                stats={
-                    "chunks_processed": 0,
-                    "embeddings_indexed": 0,
-                    "files_processed": len(all_file_paths),
-                    "elapsed_seconds": int(time.time() - start_time),
-                    "batch_size": batch_size,
-                },
-                progress=48,
-            )
-
-            # ── Phase 2: Embed ALL chunks in one pass ──────────────────────
-            emb_stats = {}
-            all_embeddings_full = embedding_service.generate_embeddings(
-                all_chunks_full, stats=emb_stats
-            )
-            mem_tracker.log_phase(
-                "after_embedding_batch",
-                batch=1,
-                batch_items=total_chunks_full,
-            )
-
-            hits = emb_stats.get("cache_hits", 0)
-            misses = emb_stats.get("cache_misses", 0)
-            logger.info(
-                "Embedding complete: total=%d hits=%d misses=%d elapsed=%.2fs",
-                total_chunks_full,
-                hits,
-                misses,
-                emb_stats.get("elapsed_ms", 0) / 1000.0,
-            )
-
-            _emit(
-                "embed",
-                "generating_embeddings",
-                f"Generating Embeddings: {total_chunks_full} chunks embedded | hits={hits} | misses={misses}",
-                stats={
-                    "chunks_processed": total_chunks_full,
-                    "embeddings_indexed": 0,
-                    "files_processed": len(all_file_paths),
-                    "elapsed_seconds": int(time.time() - start_time),
-                    "cache_hits": hits,
-                    "cache_misses": misses,
-                    "batch_size": batch_size,
-                },
-                progress=55,
-            )
-
-            # ── Phase 3: Batch vector-store writes ─────────────────────────
-            batch_idx = 0
-            for vs_start in range(0, total_chunks_full, batch_size):
-                vs_end = min(vs_start + batch_size, total_chunks_full)
-                chunk_batch = all_chunks_full[vs_start:vs_end]
-                emb_batch = all_embeddings_full[vs_start:vs_end]
-                batch_idx += 1
-
-                staged_batch_count = chroma_store.stage_repository_batch(
-                    repo_name,
-                    version,
-                    chunk_batch,
-                    emb_batch,
-                    staged_count,
+            if is_incremental:
+                call_gen = call_graph_service.build_partial(
+                    repo_name, changed_files, context=context
                 )
-                staged_count += staged_batch_count
-                version_staged = True
-                mem_tracker.record_embeddings_indexed(staged_batch_count)
+            else:
+                call_gen = call_graph_service.build_full(repo_name, context=context)
+            if hasattr(call_gen, "__iter__"):
+                list(call_gen)
+            successful_phases.append("call_graph")
+            logger.info("Successfully generated call graph for %s", repo_name)
+        except Exception as exc_call:
+            failed_phases.append("call_graph")
+            phase_errors["call_graph"] = str(exc_call)
+            logger.warning("Call graph build skipped for %s: %s", repo_name, exc_call)
 
-                if batch_idx % 10 == 0:
-                    mem_tracker.log_phase(
-                        "after_vector_store_staging_batch",
-                        batch=batch_idx,
-                        staged=staged_count,
-                    )
-                    _emit(
-                        "embed",
-                        "generating_embeddings",
-                        f"Indexing: {staged_count}/{total_chunks_full} chunks staged",
-                        stats={
-                            "chunks_processed": total_chunks_full,
-                            "embeddings_indexed": staged_count,
-                            "files_processed": len(all_file_paths),
-                            "elapsed_seconds": int(time.time() - start_time),
-                            "cache_hits": hits,
-                            "cache_misses": misses,
-                            "batch_size": batch_size,
-                        },
-                        progress=min(
-                            60,
-                            55 + int((staged_count / max(1, total_chunks_full)) * 5),
-                        ),
-                    )
+        _emit("index", "building_api", "Computing API Surface", progress=80)
+        try:
+            if is_incremental:
+                api_gen = api_surface_service.build_partial(
+                    repo_name, changed_files, context=context
+                )
+            else:
+                api_gen = api_surface_service.build_full(repo_name, context=context)
+            if hasattr(api_gen, "__iter__"):
+                list(api_gen)
+            successful_phases.append("api_surface")
+            logger.info("Successfully generated API surface for %s", repo_name)
+        except Exception as exc_api:
+            failed_phases.append("api_surface")
+            phase_errors["api_surface"] = str(exc_api)
+            logger.warning("API surface build skipped for %s: %s", repo_name, exc_api)
+        timer.stop("Graphs")
+        mem_tracker.log_phase("after_architecture_analysis")
 
-            logger.info(
-                "Indexing complete: %d chunks staged in %d batches",
-                staged_count,
-                batch_idx,
-            )
-
-            # Free large lists
-            del all_chunks_full
-            del all_embeddings_full
-
-            if version_staged:
-                chroma_store.publish_repository_version(repo_name, version)
-        except Exception:
-            if version_staged:
-                chroma_store.rollback_staged_version(repo_name, version)
-            raise
-        finally:
-            timer.stop("Chunk_Embed_Index")
-
-    # ── 5. Granular Symbols & Graph builds (05 INDEX) ─────────────────────────
-    _emit("index", "building_symbols", "Building Symbol Index", progress=65)
-    timer.start("Graphs")
-    mem_tracker.log_phase("before_graph_symbol_analysis")
-    if is_incremental:
-        symbol_service.build_partial(
-            repo_name,
-            changed_files,
-            repo_path=local_path,
+        # ── 6. Architecture Summary (06 ANALYZE) ──────────────────────────────────
+        _emit(
+            "analyze",
+            "computing_intel",
+            "Computing Repository Intelligence",
+            progress=85,
         )
-    else:
-        symbol_service.build_full(repo_name, repo_path=local_path)
-    mem_tracker.log_phase("after_graph_symbol_analysis")
 
-    _emit("index", "building_dependency", "Building Dependency Graph", progress=70)
-    mem_tracker.log_phase("before_architecture_analysis")
-    if is_incremental:
-        architecture_service.build_partial(
-            repo_name,
-            changed_files,
-            repo_path=local_path,
+        timer.start("Summary")
+        mem_tracker.log_phase("before_report_generation")
+        cached_entry = ANALYSIS_STORE.get(repo_name)
+        if cached_entry and is_incremental:
+            architecture_summary = cached_entry["architecture"]
+            successful_phases.append("architecture_summary")
+        else:
+
+            def _get_summary():
+                return asyncio.run(
+                    generate_architecture_summary(repo_name, tech_stack, all_file_paths)
+                )
+
+            try:
+                loop = asyncio.get_running_loop()
+                if loop and loop.is_running():
+                    import concurrent.futures
+
+                    with concurrent.futures.ThreadPoolExecutor() as pool:
+                        architecture_summary = pool.submit(_get_summary).result()
+                else:
+                    architecture_summary = _get_summary()
+                successful_phases.append("architecture_summary")
+            except RuntimeError:
+                architecture_summary = _get_summary()
+                successful_phases.append("architecture_summary")
+            except Exception as exc_summary:
+                failed_phases.append("architecture_summary")
+                phase_errors["architecture_summary"] = str(exc_summary)
+                logger.warning(
+                    "Architecture summary computation failed for %s: %s",
+                    repo_name,
+                    exc_summary,
+                )
+                architecture_summary = {}
+
+        timer.stop("Summary")
+
+        # ── 7. Manifest & Snapshot Store (07 ANSWER) ──────────────────────────────
+        _emit("answer", "generating_report", "Generating Report", progress=92)
+
+        timer.start("Report")
+        structure: Dict[str, List[str]] = {}
+        for path in all_file_paths:
+            parts = path.split("/")
+            parent = ".".join(parts[:-1]) if len(parts) > 1 else "."
+            name_part = parts[-1]
+            structure.setdefault(parent, []).append(name_part)
+
+        analysis_data = RepositoryAnalysis(
+            structure=structure,
+            dependencies=dependencies,
+            tech_stack=tech_stack,
+            metadata={
+                "owner": owner,
+                "name": name,
+                "local_path": local_path,
+            },
         )
-    else:
-        architecture_service.build_full(repo_name, repo_path=local_path)
 
-    # Call Graph, API Surface
-    _emit("index", "building_call", "Building Call Graph", progress=75)
-    from core.repository_context import RepositoryContext
+        ANALYSIS_STORE[repo_name] = {
+            "analysis": analysis_data,
+            "architecture": architecture_summary,
+        }
 
-    context = RepositoryContext(repo_name, repo_path=local_path)
+        new_manifest = BuildManifest(
+            repository_hash=repo_hash,
+            file_hashes=file_hashes,
+            schema_versions={
+                "Symbol Index": symbol_service.schema_version,
+                "Dependency Graph": architecture_service.schema_version,
+            },
+            snapshot_versions={
+                "Symbol Index": symbol_service.schema_version,
+                "Dependency Graph": architecture_service.schema_version,
+            },
+            last_successful_build=time.time(),
+            build_duration_ms=(time.time() - start_time) * 1000,
+        )
+        snapshot_store.save(
+            repo_name,
+            "build_manifest",
+            new_manifest.model_dump(),
+        )
 
-    try:
-        if is_incremental:
-            call_gen = call_graph_service.build_partial(
-                repo_name, changed_files, context=context
-            )
-        else:
-            call_gen = call_graph_service.build_full(repo_name, context=context)
-        if hasattr(call_gen, "__iter__"):
-            list(call_gen)
-    except Exception as exc_call:
-        logger.warning("Call graph build skipped for %s: %s", repo_name, exc_call)
-
-    _emit("index", "building_api", "Computing API Surface", progress=80)
-    try:
-        if is_incremental:
-            api_gen = api_surface_service.build_partial(
-                repo_name, changed_files, context=context
-            )
-        else:
-            api_gen = api_surface_service.build_full(repo_name, context=context)
-        if hasattr(api_gen, "__iter__"):
-            list(api_gen)
-    except Exception as exc_api:
-        logger.warning("API surface build skipped for %s: %s", repo_name, exc_api)
-    timer.stop("Graphs")
-    mem_tracker.log_phase("after_architecture_analysis")
-
-    # ── 6. Architecture Summary (06 ANALYZE) ──────────────────────────────────
-    _emit(
-        "analyze",
-        "computing_intel",
-        "Computing Repository Intelligence",
-        progress=85,
-    )
-
-    timer.start("Summary")
-    mem_tracker.log_phase("before_report_generation")
-    cached_entry = ANALYSIS_STORE.get(repo_name)
-    if cached_entry and is_incremental:
-        architecture_summary = cached_entry["architecture"]
-    else:
-
-        def _get_summary():
-            return asyncio.run(
-                generate_architecture_summary(repo_name, tech_stack, all_file_paths)
-            )
+        def _do_persist():
+            return asyncio.run(_persist_analysis_store())
 
         try:
             loop = asyncio.get_running_loop()
@@ -1274,178 +1420,111 @@ def execute_repository_analysis(
                 import concurrent.futures
 
                 with concurrent.futures.ThreadPoolExecutor() as pool:
-                    architecture_summary = pool.submit(_get_summary).result()
+                    pool.submit(_do_persist).result()
             else:
-                architecture_summary = _get_summary()
+                _do_persist()
         except RuntimeError:
-            architecture_summary = _get_summary()
+            _do_persist()
 
-    timer.stop("Summary")
+        commit_sha = "unknown"
+        if local_path and os.path.exists(os.path.join(local_path, ".git")):
+            try:
+                res_sha = run_safe_command(
+                    ["git", "rev-parse", "HEAD"],
+                    cwd=local_path,
+                    timeout=SHORT_GIT_TIMEOUT,
+                    check=True,
+                )
+                commit_sha = res_sha.stdout.strip()
+            except Exception as exc_git:
+                logger.warning("Failed to resolve commit SHA: %s", exc_git)
+                commit_sha = repo_hash
+        else:
+            commit_sha = repo_hash
 
-    # ── 7. Manifest & Snapshot Store (07 ANSWER) ──────────────────────────────
-    _emit("answer", "generating_report", "Generating Report", progress=92)
+        try:
+            twin = repository_twin_builder.build_twin(repo_name)
+            engineering_memory_service.create_snapshot(
+                repo_name,
+                commit_sha,
+                branch,
+                twin.model_dump(),
+                change_set,
+            )
+            successful_phases.append("engineering_memory")
+            logger.info(
+                "Successfully recorded Engineering Memory Snapshot for commit %s",
+                commit_sha,
+            )
+        except Exception as exc_memory:
+            failed_phases.append("engineering_memory")
+            phase_errors["engineering_memory"] = str(exc_memory)
+            logger.error(
+                "Failed to create memory snapshot: %s", exc_memory, exc_info=True
+            )
 
-    timer.start("Report")
-    structure: Dict[str, List[str]] = {}
-    for path in all_file_paths:
-        parts = path.split("/")
-        parent = ".".join(parts[:-1]) if len(parts) > 1 else "."
-        name_part = parts[-1]
-        structure.setdefault(parent, []).append(name_part)
+        try:
+            dead_code_service.analyze_dead_code(owner, name)
+            successful_phases.append("dead_code")
+            logger.info("Successfully generated dead code analysis for %s", repo_name)
+        except Exception as exc_dc:
+            failed_phases.append("dead_code")
+            phase_errors["dead_code"] = str(exc_dc)
+            logger.warning("Dead code analysis skipped for %s: %s", repo_name, exc_dc)
 
-    analysis_data = RepositoryAnalysis(
-        structure=structure,
-        dependencies=dependencies,
-        tech_stack=tech_stack,
-        metadata={
+        try:
+            report_composer.compose_report(repo_name)
+            successful_phases.append("health_report")
+            logger.info("Successfully generated health report for %s", repo_name)
+        except Exception as exc_rep:
+            failed_phases.append("health_report")
+            phase_errors["health_report"] = str(exc_rep)
+            logger.warning(
+                "Health report generation skipped for %s: %s", repo_name, exc_rep
+            )
+
+        timer.stop("Report")
+        mem_tracker.log_phase("after_report_generation")
+
+        report_msg = timer.format_report()
+        logger.info(report_msg)
+        status_label = "partial" if failed_phases else "complete"
+        _emit(
+            "answer",
+            status_label,
+            "✓ Repository Ready"
+            if status_label == "complete"
+            else "⚠ Repository Analysis Completed (Partial Artifacts)",
+            stats={"report": report_msg, "failed_phases": failed_phases},
+            progress=100,
+        )
+
+        mem_tracker.log_phase("pipeline_shutdown")
+
+        final_status = "partial" if failed_phases else "completed"
+
+        return {
+            "repo": repo_name,
             "owner": owner,
             "name": name,
-            "local_path": local_path,
-        },
-    )
-
-    ANALYSIS_STORE[repo_name] = {
-        "analysis": analysis_data,
-        "architecture": architecture_summary,
-    }
-
-    new_manifest = BuildManifest(
-        repository_hash=repo_hash,
-        file_hashes=file_hashes,
-        schema_versions={
-            "Symbol Index": symbol_service.schema_version,
-            "Dependency Graph": architecture_service.schema_version,
-        },
-        snapshot_versions={
-            "Symbol Index": symbol_service.schema_version,
-            "Dependency Graph": architecture_service.schema_version,
-        },
-        last_successful_build=time.time(),
-        build_duration_ms=(time.time() - start_time) * 1000,
-    )
-    snapshot_store.save(
-        repo_name,
-        "build_manifest",
-        new_manifest.model_dump(),
-    )
-
-    def _do_persist():
-        return asyncio.run(_persist_analysis_store())
-
-    try:
-        loop = asyncio.get_running_loop()
-        if loop and loop.is_running():
-            import concurrent.futures
-
-            with concurrent.futures.ThreadPoolExecutor() as pool:
-                pool.submit(_do_persist).result()
-        else:
-            _do_persist()
-    except RuntimeError:
-        _do_persist()
-
-    commit_sha = "unknown"
-    if local_path and os.path.exists(os.path.join(local_path, ".git")):
-        try:
-            res_sha = run_safe_command(
-                ["git", "rev-parse", "HEAD"],
-                cwd=local_path,
-                timeout=SHORT_GIT_TIMEOUT,
-                check=True,
-            )
-            commit_sha = res_sha.stdout.strip()
-        except Exception as exc_git:
-            logger.warning("Failed to resolve commit SHA: %s", exc_git)
-            commit_sha = repo_hash
-    else:
-        commit_sha = repo_hash
-
-    try:
-        twin = repository_twin_builder.build_twin(repo_name)
-        engineering_memory_service.create_snapshot(
-            repo_name,
-            commit_sha,
-            branch,
-            twin.model_dump(),
-            change_set,
-        )
-        logger.info(
-            "Successfully recorded Engineering Memory Snapshot for commit %s",
-            commit_sha,
-        )
-    except Exception as exc_memory:
-        logger.error("Failed to create memory snapshot: %s", exc_memory, exc_info=True)
-
-    # Pre-build Call Graph, API Surface, Dead Code, and Health Report
-    source_files = []
-    if local_path and os.path.exists(local_path):
-        try:
-            source_files = github_service.extract_source_files(local_path)
-        except Exception as exc_src:
-            logger.debug("Could not extract source files directly: %s", exc_src)
-
-    try:
-        gen_cg = call_graph_service.build(repo_name, source_files)
-        for _ in gen_cg:
-            pass
-        logger.info("Successfully generated call graph for %s", repo_name)
-    except Exception as exc_cg:
-        logger.warning("Call graph generation skipped for %s: %s", repo_name, exc_cg)
-
-    try:
-        gen_api = api_surface_service.build(repo_name, source_files)
-        for _ in gen_api:
-            pass
-        logger.info("Successfully generated API surface for %s", repo_name)
-    except Exception as exc_api:
-        logger.warning("API surface generation skipped for %s: %s", repo_name, exc_api)
-
-    try:
-        dead_code_service.analyze_dead_code(owner, name)
-        logger.info("Successfully generated dead code analysis for %s", repo_name)
-    except Exception as exc_dc:
-        logger.warning("Dead code analysis skipped for %s: %s", repo_name, exc_dc)
-
-    try:
-        report_composer.compose_report(repo_name)
-        logger.info("Successfully generated health report for %s", repo_name)
-    except Exception as exc_rep:
-        logger.warning(
-            "Health report generation skipped for %s: %s", repo_name, exc_rep
-        )
-
-    timer.stop("Report")
-    mem_tracker.log_phase("after_report_generation")
-
-    report_msg = timer.format_report()
-    logger.info(report_msg)
-    _emit(
-        "answer",
-        "complete",
-        "✓ Repository Ready",
-        stats={"report": report_msg},
-        progress=100,
-    )
-
-    mem_tracker.log_phase("pipeline_shutdown")
-
-    return {
-        "repo": repo_name,
-        "owner": owner,
-        "name": name,
-        "analysis": (
-            analysis_data.model_dump()
-            if hasattr(analysis_data, "model_dump")
-            else analysis_data
-        ),
-        "architecture": (
-            architecture_summary.model_dump()
-            if hasattr(architecture_summary, "model_dump")
-            else architecture_summary
-        ),
-        "report": report_msg,
-        "duration_seconds": time.time() - start_time,
-    }
+            "status": final_status,
+            "successful_phases": successful_phases,
+            "failed_phases": failed_phases,
+            "skipped_phases": skipped_phases,
+            "phase_errors": phase_errors,
+            "analysis": (
+                analysis_data.model_dump()
+                if hasattr(analysis_data, "model_dump")
+                else analysis_data
+            ),
+            "architecture": (
+                architecture_summary.model_dump()
+                if hasattr(architecture_summary, "model_dump")
+                else architecture_summary
+            ),
+            "report": report_msg,
+            "duration_seconds": time.time() - start_time,
+        }
 
 
 # ---------------------------------------------------------------------------
@@ -1634,18 +1713,27 @@ async def get_analysis_status(job_id: str):
             },
         )
 
-    if status == "completed":
+    if status in ("completed", "partial"):
         return JSONResponse(
             status_code=200,
             content={
                 "job_id": job_id,
                 "request_id": job.get("request_id", job_id),
-                "status": "completed",
+                "status": status,
                 "step_id": "complete",
-                "message": job.get("message", "Analysis completed successfully"),
+                "message": job.get(
+                    "message",
+                    "Analysis completed with partial artifact status"
+                    if status == "partial"
+                    else "Analysis completed successfully",
+                ),
                 "progress": 100,
                 "stats": stats,
                 "result": job.get("result"),
+                "successful_phases": job.get("successful_phases", []),
+                "failed_phases": job.get("failed_phases", []),
+                "skipped_phases": job.get("skipped_phases", []),
+                "phase_errors": job.get("phase_errors", {}),
                 "repo": job.get("repo", {}),
                 "started_at": started_at,
                 "completed_at": job.get("completed_at"),
