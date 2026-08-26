@@ -7,7 +7,7 @@ and enriched architectural metadata (category, source priority, language).
 import os
 from typing import Dict, List, Any
 
-from core.file_classifier import classify_file, CATEGORY_PRODUCTION
+from core.file_classifier import classify_file, CATEGORY_PRODUCTION, CATEGORY_GENERATED
 
 
 class CodeChunker:
@@ -63,6 +63,10 @@ class CodeChunker:
         language = classification.get("language", "text").lower()
         category = classification.get("category", CATEGORY_PRODUCTION)
         source_priority = classification.get("source_priority", 1.0)
+
+        # Skip clearly machine-generated artifacts (lockfiles, minified files, map files)
+        if category == CATEGORY_GENERATED or source_priority == 0.0:
+            return []
 
         # Candidate entry point check
         fn = os.path.basename(file_path).lower()
@@ -175,18 +179,13 @@ class CodeChunker:
             current_chunk_lines.append(line)
             current_chunk_size += line_len
 
-        # Add any remaining text
-        if current_chunk_lines:
-            chunks.append(
-                {
-                    "path": file_path,
-                    "chunk_id": chunk_id,
-                    "content": "\n".join(current_chunk_lines),
-                    "language": language,
-                    "category": category,
-                    "source_priority": source_priority,
-                    "is_entry_point": is_entry,
-                }
-            )
+        # Filter empty chunks and re-index chunk_id
+        valid_chunks = []
+        c_idx = 1
+        for c in chunks:
+            if c.get("content") and c["content"].strip():
+                c["chunk_id"] = c_idx
+                valid_chunks.append(c)
+                c_idx += 1
 
-        return self._format_chunks(chunks)
+        return self._format_chunks(valid_chunks)

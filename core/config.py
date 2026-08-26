@@ -46,6 +46,9 @@ class Settings(BaseSettings):
     gemini_api_key: Optional[str] = Field(None, alias="GEMINI_API_KEY")
     gemini_model: str = Field("gemini-2.5-flash", alias="GEMINI_MODEL")
     embedding_model: str = Field("BAAI/bge-small-en-v1.5", alias="EMBEDDING_MODEL")
+    embedding_batch_size: int = Field(64, alias="EMBEDDING_BATCH_SIZE")
+    embedding_encode_batch_size: int = Field(64, alias="EMBEDDING_ENCODE_BATCH_SIZE")
+    embedding_cache_size: int = Field(50000, alias="EMBEDDING_CACHE_SIZE")
 
     # DB & Cache Config
     sqlite_db_path: str = Field("data/repo_understanding.db", alias="SQLITE_DB_PATH")

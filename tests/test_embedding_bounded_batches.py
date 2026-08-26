@@ -8,7 +8,10 @@ from services.embedding_service import EmbeddingService
 
 
 def test_embedding_multiple_outer_batches_and_persistence(caplog):
-    """Verify that multiple outer batches are used and each batch persists incrementally."""
+    """Verify that multiple outer batches are used and persistence is deferred to one bulk write."""
+    from services.embedding_service import _clear_l1_cache
+
+    _clear_l1_cache()
     service = EmbeddingService(
         model_name="test-model", max_outer_batch_size=2, encode_batch_size=2
     )
@@ -40,7 +43,7 @@ def test_embedding_multiple_outer_batches_and_persistence(caplog):
         texts = ["text_1", "text_2", "text_3", "text_4", "text_5"]
         embeddings = service.generate_embeddings_batch(texts)
 
-        # 1. Assert model.encode was called 3 times
+        # 1. Assert model.encode was called 3 times (bounded batches)
         assert mock_model.encode.call_count == 3
 
         # 2. Check each batch size passed to encode
@@ -49,11 +52,9 @@ def test_embedding_multiple_outer_batches_and_persistence(caplog):
         assert len(calls[1][0][0]) == 2
         assert len(calls[2][0][0]) == 1
 
-        # 3. Assert incremental persistence occurred after each batch
-        assert len(saved_batches) == 3
-        assert len(saved_batches[0]) == 2
-        assert len(saved_batches[1]) == 2
-        assert len(saved_batches[2]) == 1
+        # 3. Assert deferred bulk persistence: single write with all 5 records
+        assert len(saved_batches) == 1
+        assert len(saved_batches[0]) == 5
 
         # 4. Assert ordering is preserved
         assert len(embeddings) == 5
@@ -226,9 +227,10 @@ def test_embedding_cache_hits_avoid_re_encoding():
     """Verify cached items are not sent to model.encode and are seamlessly merged."""
     service = EmbeddingService(model_name="test-model", max_outer_batch_size=2)
 
-    import hashlib
+    from services.embedding_service import compute_chunk_hash, _clear_l1_cache
 
-    hash_a = hashlib.md5("Represent this sentence: A".encode("utf-8")).hexdigest()
+    _clear_l1_cache()
+    hash_a = compute_chunk_hash("Represent this sentence: A", "test-model", "1.5")
     cached_map = {hash_a: [9.9] * 384}
 
     mock_model = MagicMock()
@@ -356,3 +358,319 @@ def test_concurrent_embedding_calls_thread_safety():
 
         assert len(results) == 16
         assert all(r == 5 for r in results)
+
+
+# ---------------------------------------------------------------------------
+# Tests for cold-path bulk optimization
+# ---------------------------------------------------------------------------
+
+
+def test_bulk_hash_consistency():
+    """Verify compute_chunk_hashes_bulk produces identical results to individual compute_chunk_hash."""
+    from services.embedding_service import compute_chunk_hash, compute_chunk_hashes_bulk
+
+    texts = [
+        "def foo(): return 1",
+        "class Bar:\n    pass",
+        "import os\nprint(os.getcwd())",
+        "  whitespace  ",
+        "",
+    ]
+
+    individual = [compute_chunk_hash(t, "BAAI/bge-small-en-v1.5", "1.5") for t in texts]
+    bulk = compute_chunk_hashes_bulk(texts, "BAAI/bge-small-en-v1.5", "1.5")
+
+    assert individual == bulk
+
+
+def test_bulk_l1_lookup():
+    """Verify _get_l1_cached_bulk retrieves all cached items in single lock acquisition."""
+    from services.embedding_service import (
+        _clear_l1_cache,
+        _put_l1_cached_bulk,
+        _get_l1_cached_bulk,
+    )
+
+    _clear_l1_cache()
+
+    # Populate L1 with known data
+    data = {
+        "hash_a": [1.0] * 384,
+        "hash_b": [2.0] * 384,
+        "hash_c": [3.0] * 384,
+    }
+    _put_l1_cached_bulk(data)
+
+    # Bulk lookup: mix of hits and misses
+    result = _get_l1_cached_bulk(["hash_a", "hash_missing", "hash_c", "hash_b"])
+
+    assert "hash_a" in result
+    assert "hash_b" in result
+    assert "hash_c" in result
+    assert "hash_missing" not in result
+    assert result["hash_a"] == [1.0] * 384
+    assert result["hash_c"] == [3.0] * 384
+
+
+def test_bulk_l2_lookup_and_write():
+    """Verify bulk L2 cache write and read roundtrip."""
+    from services.embedding_service import (
+        _save_embeddings_to_cache_bulk,
+        _get_cached_embeddings_bulk,
+        _init_sqlite_cache_table,
+    )
+
+    _init_sqlite_cache_table()
+
+    # Write bulk records
+    records = [
+        {
+            "chunk_hash": f"test_bulk_hash_{i}",
+            "embedding": [float(i)] * 384,
+            "model_name": "test-bulk-model",
+            "model_version": "1.0",
+        }
+        for i in range(10)
+    ]
+    _save_embeddings_to_cache_bulk(records)
+
+    # Read them back in bulk
+    hashes = [f"test_bulk_hash_{i}" for i in range(10)]
+    result = _get_cached_embeddings_bulk(hashes, "test-bulk-model")
+
+    assert len(result) == 10
+    for i in range(10):
+        assert result[f"test_bulk_hash_{i}"] == [float(i)] * 384
+
+    # Cleanup
+    from storage.migrations import get_db_connection
+
+    conn = get_db_connection()
+    try:
+        with conn:
+            conn.execute(
+                "DELETE FROM embedding_cache WHERE model_name = ?",
+                ["test-bulk-model"],
+            )
+    finally:
+        conn.close()
+
+
+def test_all_miss_cold_path():
+    """Cold path: 0% cache hits, all items go through model inference."""
+    from services.embedding_service import _clear_l1_cache
+
+    _clear_l1_cache()
+    service = EmbeddingService(model_name="test-cold", max_outer_batch_size=64)
+
+    mock_model = MagicMock()
+    mock_model.encode.return_value = np.array([[0.5] * 384] * 4)
+
+    with (
+        patch("services.embedding_service._get_model", return_value=mock_model),
+        patch(
+            "services.embedding_service._get_cached_embeddings_bulk", return_value={}
+        ),
+        patch("services.embedding_service._save_embeddings_to_cache_bulk") as mock_save,
+    ):
+        texts = ["alpha", "beta", "gamma", "delta"]
+        stats = {}
+        embeddings = service.generate_embeddings_batch(texts, stats=stats)
+
+        assert len(embeddings) == 4
+        assert stats["cache_hits"] == 0
+        assert stats["cache_misses"] == 4
+        mock_model.encode.assert_called_once()
+        mock_save.assert_called_once()
+        assert len(mock_save.call_args[0][0]) == 4
+
+
+def test_all_hit_warm_path():
+    """Warm path: 100% cache hits, no model inference needed."""
+    from services.embedding_service import _clear_l1_cache, compute_chunk_hash
+
+    _clear_l1_cache()
+    service = EmbeddingService(model_name="test-warm", max_outer_batch_size=64)
+
+    # Pre-compute hashes for the texts
+    texts = ["alpha", "beta", "gamma"]
+    prefixed = [f"Represent this sentence: {t}" for t in texts]
+    cache_map = {}
+    for pt in prefixed:
+        h = compute_chunk_hash(pt, "test-warm", "1.5")
+        cache_map[h] = [9.0] * 384
+
+    mock_model = MagicMock()
+
+    with (
+        patch("services.embedding_service._get_model", return_value=mock_model),
+        patch(
+            "services.embedding_service._get_cached_embeddings_bulk",
+            return_value=cache_map,
+        ),
+        patch("services.embedding_service._save_embeddings_to_cache_bulk") as mock_save,
+    ):
+        stats = {}
+        embeddings = service.generate_embeddings_batch(texts, stats=stats)
+
+        assert len(embeddings) == 3
+        assert stats["cache_hits"] == 3
+        assert stats["cache_misses"] == 0
+        mock_model.encode.assert_not_called()
+        mock_save.assert_not_called()
+        assert all(e == [9.0] * 384 for e in embeddings)
+
+
+def test_mixed_hit_miss_path():
+    """Mixed path: some cache hits, some misses."""
+    from services.embedding_service import _clear_l1_cache, compute_chunk_hash
+
+    _clear_l1_cache()
+    service = EmbeddingService(model_name="test-mixed", max_outer_batch_size=64)
+
+    # Cache only "alpha" and "gamma"
+    texts = ["alpha", "beta", "gamma", "delta"]
+    prefixed = [f"Represent this sentence: {t}" for t in texts]
+    cache_map = {}
+    h_alpha = compute_chunk_hash(prefixed[0], "test-mixed", "1.5")
+    h_gamma = compute_chunk_hash(prefixed[2], "test-mixed", "1.5")
+    cache_map[h_alpha] = [1.0] * 384
+    cache_map[h_gamma] = [3.0] * 384
+
+    mock_model = MagicMock()
+    mock_model.encode.return_value = np.array([[2.0] * 384, [4.0] * 384])
+
+    with (
+        patch("services.embedding_service._get_model", return_value=mock_model),
+        patch(
+            "services.embedding_service._get_cached_embeddings_bulk",
+            return_value=cache_map,
+        ),
+        patch("services.embedding_service._save_embeddings_to_cache_bulk") as mock_save,
+    ):
+        stats = {}
+        embeddings = service.generate_embeddings_batch(texts, stats=stats)
+
+        assert len(embeddings) == 4
+        assert stats["cache_hits"] == 2
+        assert stats["cache_misses"] == 2
+        # Cached items
+        assert embeddings[0] == [1.0] * 384
+        assert embeddings[2] == [3.0] * 384
+        # Encoded items
+        assert embeddings[1] == [2.0] * 384
+        assert embeddings[3] == [4.0] * 384
+        # Only misses encoded
+        mock_model.encode.assert_called_once()
+        encoded_texts = mock_model.encode.call_args[0][0]
+        assert len(encoded_texts) == 2
+        # Only misses saved
+        mock_save.assert_called_once()
+        assert len(mock_save.call_args[0][0]) == 2
+
+
+def test_model_version_cache_isolation():
+    """Embeddings cached under one model version are not returned for another."""
+    from services.embedding_service import (
+        _clear_l1_cache,
+        compute_chunk_hash,
+    )
+
+    _clear_l1_cache()
+
+    text = "Represent this sentence: def authenticate()"
+    h_v15 = compute_chunk_hash(text, "BAAI/bge-small-en-v1.5", "1.5")
+    h_v20 = compute_chunk_hash(text, "BAAI/bge-small-en-v1.5", "2.0")
+    h_other = compute_chunk_hash(text, "other-model", "1.5")
+
+    # All hashes are different
+    assert h_v15 != h_v20
+    assert h_v15 != h_other
+    assert h_v20 != h_other
+
+
+def test_vector_dimensions_preserved():
+    """All embeddings must be exactly 384 dimensions."""
+    from services.embedding_service import _clear_l1_cache
+
+    _clear_l1_cache()
+    service = EmbeddingService(model_name="test-dim", max_outer_batch_size=64)
+
+    mock_model = MagicMock()
+    mock_model.encode.return_value = np.array([[0.1] * 384, [0.2] * 384, [0.3] * 384])
+
+    with (
+        patch("services.embedding_service._get_model", return_value=mock_model),
+        patch(
+            "services.embedding_service._get_cached_embeddings_bulk", return_value={}
+        ),
+        patch("services.embedding_service._save_embeddings_to_cache_bulk"),
+    ):
+        embeddings = service.generate_embeddings_batch(["a", "b", "c"])
+        for emb in embeddings:
+            assert len(emb) == 384
+
+
+def test_l1_l2_interaction_promotion():
+    """L2 hits are promoted to L1 for subsequent instant reuse."""
+    from services.embedding_service import (
+        _clear_l1_cache,
+        _get_l1_cached_bulk,
+        compute_chunk_hash,
+    )
+
+    _clear_l1_cache()
+    service = EmbeddingService(model_name="test-promote", max_outer_batch_size=64)
+
+    texts = ["promote_this_text"]
+    prefixed = [f"Represent this sentence: {t}" for t in texts]
+    h = compute_chunk_hash(prefixed[0], "test-promote", "1.5")
+    l2_map = {h: [7.7] * 384}
+
+    mock_model = MagicMock()
+
+    with (
+        patch("services.embedding_service._get_model", return_value=mock_model),
+        patch(
+            "services.embedding_service._get_cached_embeddings_bulk",
+            return_value=l2_map,
+        ),
+        patch("services.embedding_service._save_embeddings_to_cache_bulk"),
+    ):
+        embeddings = service.generate_embeddings_batch(texts)
+        assert embeddings[0] == [7.7] * 384
+
+    # Now check L1 has the promoted entry
+    l1_result = _get_l1_cached_bulk([h])
+    assert h in l1_result
+    assert l1_result[h] == [7.7] * 384
+
+
+def test_granular_telemetry_fields():
+    """Verify new telemetry fields are populated."""
+    from services.embedding_service import _clear_l1_cache
+
+    _clear_l1_cache()
+    service = EmbeddingService(model_name="test-tel", max_outer_batch_size=64)
+
+    mock_model = MagicMock()
+    mock_model.encode.return_value = np.array([[0.1] * 384])
+
+    with (
+        patch("services.embedding_service._get_model", return_value=mock_model),
+        patch(
+            "services.embedding_service._get_cached_embeddings_bulk", return_value={}
+        ),
+        patch("services.embedding_service._save_embeddings_to_cache_bulk"),
+    ):
+        service.generate_embeddings_batch(["test"])
+        tel = service.get_telemetry()
+
+        assert "hash_time_ms" in tel
+        assert "l1_lookup_time_ms" in tel
+        assert "l2_lookup_time_ms" in tel
+        assert "l2_write_time_ms" in tel
+        assert "total_embed_time_ms" in tel
+        assert tel["hash_time_ms"] >= 0
+        assert tel["l1_lookup_time_ms"] >= 0
+        assert tel["total_embed_time_ms"] > 0

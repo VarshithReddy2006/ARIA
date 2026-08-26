@@ -318,11 +318,13 @@ def _get_source_files_stream(local_path: str):
 
 
 def _get_batch_size() -> int:
-    """Return configured max_outer_batch_size or default integer if mocked."""
-    val = getattr(embedding_service, "max_outer_batch_size", 256)
+    """Return configured max_outer_batch_size from embedding service, settings, or default."""
+    val = getattr(embedding_service, "max_outer_batch_size", None)
     if isinstance(val, int) and val > 0:
         return val
-    return 256
+    from core.config import settings
+
+    return getattr(settings, "embedding_batch_size", 64)
 
 
 @router.post("/index")
@@ -857,7 +859,10 @@ def execute_repository_analysis(
                 if batch_idx == 1:
                     mem_tracker.log_phase("before_first_embedding_batch")
 
-                emb_batch = embedding_service.generate_embeddings(chunk_batch)
+                emb_stats = {}
+                emb_batch = embedding_service.generate_embeddings(
+                    chunk_batch, stats=emb_stats
+                )
                 mem_tracker.log_phase(
                     "after_embedding_batch",
                     batch=batch_idx,
@@ -906,22 +911,29 @@ def execute_repository_analysis(
                 )
 
                 elapsed_batch = time.perf_counter() - t0
+                hits = emb_stats.get("cache_hits", 0)
+                misses = emb_stats.get("cache_misses", 0)
                 logger.info(
-                    "Incremental indexing progress batch=%d embedded=%d indexed=%d elapsed=%.2fs",
+                    "Incremental indexing progress batch=%d embedded=%d indexed=%d hits=%d misses=%d elapsed=%.2fs",
                     batch_idx,
                     len(emb_batch),
                     inserted_count,
+                    hits,
+                    misses,
                     elapsed_batch,
                 )
                 _emit(
                     "embed",
                     "generating_embeddings",
-                    f"Generating Embeddings: {inserted_count} new chunks",
+                    f"Generating Embeddings: {inserted_count} new chunks | batch={batch_size} | hits={hits} | misses={misses}",
                     stats={
                         "chunks_processed": inserted_count,
                         "embeddings_indexed": inserted_count,
                         "files_processed": len(target_paths),
                         "elapsed_seconds": int(time.time() - start_time),
+                        "cache_hits": hits,
+                        "cache_misses": misses,
+                        "batch_size": batch_size,
                     },
                     progress=50,
                 )
@@ -939,7 +951,10 @@ def execute_repository_analysis(
             if batch_idx == 1:
                 mem_tracker.log_phase("before_first_embedding_batch")
 
-            emb_batch = embedding_service.generate_embeddings(chunk_buffer)
+            emb_stats = {}
+            emb_batch = embedding_service.generate_embeddings(
+                chunk_buffer, stats=emb_stats
+            )
             mem_tracker.log_phase(
                 "after_embedding_batch",
                 batch=batch_idx,
@@ -988,22 +1003,29 @@ def execute_repository_analysis(
             )
 
             elapsed_batch = time.perf_counter() - t0
+            hits = emb_stats.get("cache_hits", 0)
+            misses = emb_stats.get("cache_misses", 0)
             logger.info(
-                "Incremental indexing progress batch=%d embedded=%d indexed=%d elapsed=%.2fs",
+                "Incremental indexing progress batch=%d embedded=%d indexed=%d hits=%d misses=%d elapsed=%.2fs",
                 batch_idx,
                 len(emb_batch),
                 inserted_count,
+                hits,
+                misses,
                 elapsed_batch,
             )
             _emit(
                 "embed",
                 "generating_embeddings",
-                f"Generating Embeddings: {inserted_count} new chunks",
+                f"Generating Embeddings: {inserted_count} new chunks | batch={batch_size} | hits={hits} | misses={misses}",
                 stats={
                     "chunks_processed": inserted_count,
                     "embeddings_indexed": inserted_count,
                     "files_processed": len(target_paths),
                     "elapsed_seconds": int(time.time() - start_time),
+                    "cache_hits": hits,
+                    "cache_misses": misses,
+                    "batch_size": batch_size,
                 },
                 progress=55,
             )
@@ -1023,7 +1045,10 @@ def execute_repository_analysis(
             inserted_count,
         )
     else:
-        # Full Mode
+        # Full Mode — Optimized cold-path pipeline:
+        # 1. Collect ALL chunks first (single iteration)
+        # 2. Embed ALL chunks in one pass (bulk hash → bulk cache → batch inference)
+        # 3. Batch vector-store writes separately
         _emit(
             "embed",
             "generating_embeddings",
@@ -1036,138 +1061,125 @@ def execute_repository_analysis(
         version = uuid.uuid4().hex
         staged_count = 0
         batch_size = _get_batch_size()
-        chunk_buffer = []
-        batch_idx = 0
         version_staged = False
 
         try:
+            # ── Phase 1: Collect all chunks ────────────────────────────────
+            all_chunks_full = []
             for f in _get_source_files_stream(local_path):
                 file_chunks = chunker.chunk_file(f["path"], f["content"])
                 if not file_chunks:
                     continue
                 mem_tracker.record_chunk(len(file_chunks))
-                chunk_buffer.extend(file_chunks)
+                all_chunks_full.extend(file_chunks)
 
-                while len(chunk_buffer) >= batch_size:
-                    chunk_batch = chunk_buffer[:batch_size]
-                    chunk_buffer = chunk_buffer[batch_size:]
-                    batch_idx += 1
-                    t0 = time.perf_counter()
+            total_chunks_full = len(all_chunks_full)
+            mem_tracker.log_phase("before_first_embedding_batch")
 
-                    if batch_idx == 1:
-                        mem_tracker.log_phase("before_first_embedding_batch")
+            _emit(
+                "embed",
+                "generating_embeddings",
+                f"Generating Embeddings: chunked {total_chunks_full} chunks, starting embedding...",
+                stats={
+                    "chunks_processed": 0,
+                    "embeddings_indexed": 0,
+                    "files_processed": len(all_file_paths),
+                    "elapsed_seconds": int(time.time() - start_time),
+                    "batch_size": batch_size,
+                },
+                progress=48,
+            )
 
-                    emb_batch = embedding_service.generate_embeddings(chunk_batch)
-                    mem_tracker.log_phase(
-                        "after_embedding_batch",
-                        batch=batch_idx,
-                        batch_items=len(chunk_batch),
-                    )
+            # ── Phase 2: Embed ALL chunks in one pass ──────────────────────
+            emb_stats = {}
+            all_embeddings_full = embedding_service.generate_embeddings(
+                all_chunks_full, stats=emb_stats
+            )
+            mem_tracker.log_phase(
+                "after_embedding_batch",
+                batch=1,
+                batch_items=total_chunks_full,
+            )
 
-                    staged_batch_count = chroma_store.stage_repository_batch(
-                        repo_name,
-                        version,
-                        chunk_batch,
-                        emb_batch,
-                        staged_count,
-                    )
-                    staged_count += staged_batch_count
-                    version_staged = True
-                    mem_tracker.record_embeddings_indexed(staged_batch_count)
-                    mem_tracker.log_phase(
-                        "after_vector_store_staging_batch",
-                        batch=batch_idx,
-                        staged=staged_count,
-                    )
+            hits = emb_stats.get("cache_hits", 0)
+            misses = emb_stats.get("cache_misses", 0)
+            logger.info(
+                "Embedding complete: total=%d hits=%d misses=%d elapsed=%.2fs",
+                total_chunks_full,
+                hits,
+                misses,
+                emb_stats.get("elapsed_ms", 0) / 1000.0,
+            )
 
-                    elapsed_batch = time.perf_counter() - t0
+            _emit(
+                "embed",
+                "generating_embeddings",
+                f"Generating Embeddings: {total_chunks_full} chunks embedded | hits={hits} | misses={misses}",
+                stats={
+                    "chunks_processed": total_chunks_full,
+                    "embeddings_indexed": 0,
+                    "files_processed": len(all_file_paths),
+                    "elapsed_seconds": int(time.time() - start_time),
+                    "cache_hits": hits,
+                    "cache_misses": misses,
+                    "batch_size": batch_size,
+                },
+                progress=55,
+            )
 
-                    logger.info(
-                        "Indexing progress batch=%d embedded=%d indexed=%d elapsed=%.2fs",
-                        batch_idx,
-                        len(emb_batch),
-                        staged_count,
-                        elapsed_batch,
-                    )
-                    _emit(
-                        "embed",
-                        "generating_embeddings",
-                        f"Generating Embeddings: {staged_count} chunks",
-                        stats={
-                            "chunks_processed": staged_count,
-                            "embeddings_indexed": staged_count,
-                            "files_processed": len(all_file_paths),
-                            "elapsed_seconds": int(time.time() - start_time),
-                        },
-                        progress=min(
-                            60,
-                            45
-                            + int(
-                                (
-                                    staged_count
-                                    / max(1, staged_count + len(chunk_buffer))
-                                )
-                                * 15
-                            ),
-                        ),
-                    )
-
-                    del chunk_batch
-                    del emb_batch
-
-            if chunk_buffer:
+            # ── Phase 3: Batch vector-store writes ─────────────────────────
+            batch_idx = 0
+            for vs_start in range(0, total_chunks_full, batch_size):
+                vs_end = min(vs_start + batch_size, total_chunks_full)
+                chunk_batch = all_chunks_full[vs_start:vs_end]
+                emb_batch = all_embeddings_full[vs_start:vs_end]
                 batch_idx += 1
-                t0 = time.perf_counter()
-                if batch_idx == 1:
-                    mem_tracker.log_phase("before_first_embedding_batch")
-
-                emb_batch = embedding_service.generate_embeddings(chunk_buffer)
-                mem_tracker.log_phase(
-                    "after_embedding_batch",
-                    batch=batch_idx,
-                    batch_items=len(chunk_buffer),
-                )
 
                 staged_batch_count = chroma_store.stage_repository_batch(
                     repo_name,
                     version,
-                    chunk_buffer,
+                    chunk_batch,
                     emb_batch,
                     staged_count,
                 )
                 staged_count += staged_batch_count
                 version_staged = True
                 mem_tracker.record_embeddings_indexed(staged_batch_count)
-                mem_tracker.log_phase(
-                    "after_vector_store_staging_batch",
-                    batch=batch_idx,
-                    staged=staged_count,
-                )
 
-                elapsed_batch = time.perf_counter() - t0
+                if batch_idx % 10 == 0:
+                    mem_tracker.log_phase(
+                        "after_vector_store_staging_batch",
+                        batch=batch_idx,
+                        staged=staged_count,
+                    )
+                    _emit(
+                        "embed",
+                        "generating_embeddings",
+                        f"Indexing: {staged_count}/{total_chunks_full} chunks staged",
+                        stats={
+                            "chunks_processed": total_chunks_full,
+                            "embeddings_indexed": staged_count,
+                            "files_processed": len(all_file_paths),
+                            "elapsed_seconds": int(time.time() - start_time),
+                            "cache_hits": hits,
+                            "cache_misses": misses,
+                            "batch_size": batch_size,
+                        },
+                        progress=min(
+                            60,
+                            55 + int((staged_count / max(1, total_chunks_full)) * 5),
+                        ),
+                    )
 
-                logger.info(
-                    "Indexing progress batch=%d embedded=%d indexed=%d elapsed=%.2fs",
-                    batch_idx,
-                    len(emb_batch),
-                    staged_count,
-                    elapsed_batch,
-                )
-                _emit(
-                    "embed",
-                    "generating_embeddings",
-                    f"Generating Embeddings: {staged_count} chunks",
-                    stats={
-                        "chunks_processed": staged_count,
-                        "embeddings_indexed": staged_count,
-                        "files_processed": len(all_file_paths),
-                        "elapsed_seconds": int(time.time() - start_time),
-                    },
-                    progress=60,
-                )
+            logger.info(
+                "Indexing complete: %d chunks staged in %d batches",
+                staged_count,
+                batch_idx,
+            )
 
-                del chunk_buffer
-                del emb_batch
+            # Free large lists
+            del all_chunks_full
+            del all_embeddings_full
 
             if version_staged:
                 chroma_store.publish_repository_version(repo_name, version)

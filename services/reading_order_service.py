@@ -27,7 +27,7 @@ Algorithm
 """
 
 import logging
-from typing import Dict, List, Optional, Set, Tuple
+from typing import Any, Dict, List, Optional, Set, Tuple
 
 import networkx as nx
 
@@ -101,9 +101,11 @@ class ReadingOrderService:
         self,
         architecture_service: Optional[ArchitectureService] = None,
         graph_service: Optional[GraphService] = None,
+        analysis_store: Optional[Any] = None,
     ) -> None:
         self.architecture_service = architecture_service or ArchitectureService()
         self.graph_service = graph_service or GraphService()
+        self.analysis_store = analysis_store
 
     # ------------------------------------------------------------------
     # Public API
@@ -127,10 +129,80 @@ class ReadingOrderService:
         """
         # 1. Load graph and summary
         graph = self.graph_service.load_graph(repo_name)
-        if graph is None or graph.number_of_nodes() == 0:
+        if graph is None:
             raise ValueError(
                 f"No dependency graph found for '{repo_name}'. "
-                "Run POST /api/architecture/build first."
+                "Please analyze the repository first."
+            )
+
+        if graph.number_of_nodes() == 0:
+            files: List[str] = []
+            if self.analysis_store:
+                try:
+                    store_entry = self.analysis_store.get(repo_name)
+                    if store_entry and "analysis" in store_entry:
+                        analysis = store_entry["analysis"]
+                        struct = (
+                            analysis.structure
+                            if hasattr(analysis, "structure")
+                            else analysis.get("structure", {})
+                        )
+                        for parent, filenames in struct.items():
+                            for fn in filenames:
+                                fpath = f"{parent}/{fn}" if parent != "." else fn
+                                files.append(fpath)
+                except Exception:
+                    pass
+
+            if not files:
+                try:
+                    from storage.snapshot_store import JsonSnapshotStore
+
+                    store = JsonSnapshotStore()
+                    parsed_snap = store.load(repo_name, "parsed_files")
+                    if parsed_snap and isinstance(parsed_snap, dict):
+                        file_list = parsed_snap.get("files", []) or parsed_snap.get(
+                            "parsed", []
+                        )
+                        files = [
+                            f.get("path")
+                            for f in file_list
+                            if isinstance(f, dict) and f.get("path")
+                        ]
+                except Exception:
+                    pass
+
+            if files:
+                files = sorted(set(files))[:_MAX_LISTED_FILES]
+                entries = [
+                    ReadingOrderEntry(
+                        rank=i + 1,
+                        file_path=f,
+                        reason="Repository documentation / standalone file",
+                        tier="other",
+                        score=round(1.0 / (i + 1), 2),
+                    )
+                    for i, f in enumerate(files)
+                ]
+                return ReadingOrder(
+                    repo=repo_name,
+                    ordered_files=entries,
+                    reasoning=[
+                        "No code dependency graph detected in this repository.",
+                        "Showing available repository files in alphabetical order.",
+                    ],
+                    estimated_reading_time=1,
+                    total_files_ranked=len(files),
+                )
+
+            return ReadingOrder(
+                repo=repo_name,
+                ordered_files=[],
+                reasoning=[
+                    "No reading path can be generated because this repository contains no analyzable code symbols."
+                ],
+                estimated_reading_time=0,
+                total_files_ranked=0,
             )
 
         summary = self.architecture_service.get_summary(repo_name)
