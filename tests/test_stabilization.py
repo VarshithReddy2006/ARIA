@@ -121,10 +121,19 @@ def test_sqlite_embedding_cache_and_deduplication():
         assert embeddings[0] == [0.1] * 1536
         assert embeddings[2] == [0.2] * 1536
 
-        # 3. Assert bulk save was called with the unique embeddings
+        # 3. Assert bulk save was called with the unique embeddings (deduplicated before write)
         mock_save_cache.assert_called_once()
         cached_records = mock_save_cache.call_args[0][0]
-        assert len(cached_records) == 3
+        assert len(cached_records) == 2
+
+        # Verify chunk hashes are unique
+        cached_hashes = [r["chunk_hash"] for r in cached_records]
+        assert len(set(cached_hashes)) == 2
+
+        # Verify both expected embeddings are present in the persisted records
+        persisted_embeddings = [r["embedding"] for r in cached_records]
+        assert [0.1] * 1536 in persisted_embeddings
+        assert [0.2] * 1536 in persisted_embeddings
 
 
 @pytest.mark.anyio
