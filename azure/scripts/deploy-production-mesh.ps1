@@ -179,11 +179,6 @@ properties:
         volumeMounts:
           - volumeName: aria-data-volume
             mountPath: /app/data
-        command:
-          - python
-          - -m
-          - backend.worker
-          - --run-once
 "@
 
 $ApiTemp = Join-Path $env:TEMP "aria-api-mesh.yaml"

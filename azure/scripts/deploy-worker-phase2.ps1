@@ -123,11 +123,6 @@ properties:
         volumeMounts:
           - volumeName: aria-data-volume
             mountPath: /app/data
-        command:
-          - python
-          - -m
-          - backend.worker
-          - --run-once
 "@
 
 $WorkerTemp = Join-Path $env:TEMP "aria-worker-job-p2.yaml"

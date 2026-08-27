@@ -289,3 +289,114 @@ class TestApiJobDispatch:
         body = res.json()
         assert body["job_id"] == job_id
         assert body["status"] == "running"
+
+
+# ---------------------------------------------------------------------------
+# 6. Worker Container & Azure Job Deployment Configuration
+# ---------------------------------------------------------------------------
+class TestWorkerDeploymentConfiguration:
+    def test_dockerfile_worker_cmd_is_one_shot(self) -> None:
+        """Verify Dockerfile.worker explicitly defines one-shot execution by default."""
+        import os
+
+        root_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+        dockerfile_path = os.path.join(root_dir, "Dockerfile.worker")
+        assert os.path.exists(dockerfile_path), (
+            "Dockerfile.worker must exist in project root"
+        )
+
+        with open(dockerfile_path, "r", encoding="utf-8") as f:
+            content = f.read()
+
+        expected_cmd = 'CMD ["python", "-u", "-m", "backend.worker", "--run-once"]'
+        assert expected_cmd in content, (
+            f"Dockerfile.worker must set '{expected_cmd}' for Azure Container Apps Job execution"
+        )
+
+    def test_container_apps_job_yaml_preserves_constraints_and_relies_on_image_cmd(
+        self,
+    ) -> None:
+        """Verify azure/container-apps-job.yaml preserves resource constraints and inherits image CMD."""
+        import os
+        import yaml
+
+        root_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+        job_yaml_path = os.path.join(root_dir, "azure", "container-apps-job.yaml")
+        assert os.path.exists(job_yaml_path), "azure/container-apps-job.yaml must exist"
+
+        with open(job_yaml_path, "r", encoding="utf-8") as f:
+            doc = yaml.safe_load(f)
+
+        props = doc["properties"]
+        config = props["configuration"]
+        assert config["triggerType"] == "Event"
+        assert config["replicaTimeout"] == 3600
+        assert config["replicaRetryLimit"] == 3
+
+        rules = config["eventTriggerConfig"]["scale"]["rules"]
+        assert len(rules) >= 1
+        assert rules[0]["type"] == "azure-queue"
+        assert rules[0]["metadata"]["queueName"] == "aria-analysis-jobs"
+
+        template = props["template"]
+        assert len(template["volumes"]) >= 1
+        assert template["volumes"][0]["name"] == "aria-data-volume"
+        assert template["volumes"][0]["storageName"] == "ariadata"
+
+        container = template["containers"][0]
+        assert container["name"] == "aria-worker"
+        assert container["resources"]["cpu"] in (2.0, "2.0", 2)
+        assert container["resources"]["memory"] in ("4.0Gi", "4Gi")
+
+        # Command / args should not override container defaults with malformed strings
+        assert "command" not in container or container["command"] is None
+        assert "args" not in container or container["args"] is None
+
+        # Verify environment variables
+        env_dict = {
+            e["name"]: e.get("value") or e.get("secretRef")
+            for e in container.get("env", [])
+        }
+        assert env_dict.get("AZURE_STORAGE_QUEUE_NAME") == "aria-analysis-jobs"
+        assert env_dict.get("SQLITE_DB_PATH") == "/app/data/repo_understanding.db"
+        assert env_dict.get("ANALYSIS_STORE_PATH") == "/app/data/analysis_store.json"
+        assert env_dict.get("JOB_STATE_DIR") == "/app/data/jobs"
+
+    def test_worker_main_cli_run_once_dispatch(self) -> None:
+        """Verify backend.worker.main dispatches to run_once when --run-once flag is passed."""
+        import sys
+        from backend.worker import main
+
+        with (
+            patch.object(
+                sys, "argv", ["backend.worker", "--run-once", "--memory-queue"]
+            ),
+            patch("backend.worker.AnalysisWorker") as mock_worker_cls,
+        ):
+            mock_instance = MagicMock()
+            mock_instance.run_once.return_value = True
+            mock_worker_cls.return_value = mock_instance
+
+            main()
+
+            mock_worker_cls.assert_called_once()
+            mock_instance.run_once.assert_called_once()
+            mock_instance.run_loop.assert_not_called()
+
+    def test_worker_main_cli_default_run_loop(self) -> None:
+        """Verify backend.worker.main dispatches to run_loop when no flags are passed."""
+        import sys
+        from backend.worker import main
+
+        with (
+            patch.object(sys, "argv", ["backend.worker", "--memory-queue"]),
+            patch("backend.worker.AnalysisWorker") as mock_worker_cls,
+        ):
+            mock_instance = MagicMock()
+            mock_worker_cls.return_value = mock_instance
+
+            main()
+
+            mock_worker_cls.assert_called_once()
+            mock_instance.run_loop.assert_called_once()
+            mock_instance.run_once.assert_not_called()

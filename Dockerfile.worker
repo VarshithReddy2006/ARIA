@@ -68,4 +68,4 @@ ENV APP_ENV=production \
 # Run as root for Azure Files CIFS mount write permissions
 # USER appuser
 
-CMD ["python", "-u", "-m", "backend.worker"]
+CMD ["python", "-u", "-m", "backend.worker", "--run-once"]
