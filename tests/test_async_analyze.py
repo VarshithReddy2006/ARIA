@@ -21,14 +21,17 @@ def test_post_analyze_returns_immediately_with_job_id(client):
         "url": "https://github.com/fastapi/fastapi",
         "branch": "main",
     }
-    response = client.post("/api/v1/analyze", json=payload)
-    assert response.status_code == 202
-    data = response.json()
-    assert "job_id" in data
-    assert data["status"] == "queued"
-    assert "request_id" in data
-    assert data["repo"]["owner"] == "fastapi"
-    assert data["repo"]["name"] == "fastapi"
+    with patch(
+        "infrastructure.job_executor.LocalJobExecutor.spawn_analysis", return_value=True
+    ):
+        response = client.post("/api/v1/analyze", json=payload)
+        assert response.status_code == 202
+        data = response.json()
+        assert "job_id" in data
+        assert data["status"] == "queued"
+        assert "request_id" in data
+        assert data["repo"]["owner"] == "fastapi"
+        assert data["repo"]["name"] == "fastapi"
 
 
 def test_get_analyze_status_unknown_job(client):

@@ -91,6 +91,9 @@ def test_clone_branch_auto_discovery():
 
 def test_sqlite_embedding_cache_and_deduplication():
     """Verify SQLite embedding cache reads, writes, and batch deduplication."""
+    from services.embedding_service import _clear_l1_cache
+
+    _clear_l1_cache()
     service = EmbeddingService(model_name="test-model")
 
     mock_model = MagicMock()
@@ -100,6 +103,9 @@ def test_sqlite_embedding_cache_and_deduplication():
 
     with (
         patch("services.embedding_service._get_model", return_value=mock_model),
+        patch(
+            "services.embedding_service._get_cached_embeddings_bulk", return_value={}
+        ),
         patch("services.embedding_service._get_cached_embedding", return_value=None),
         patch(
             "services.embedding_service._save_embeddings_to_cache_bulk"
