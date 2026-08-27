@@ -402,8 +402,12 @@ class TestWorkerDeploymentConfiguration:
         assert job_vol["storageName"] == "ariadata"
 
         # Volume mounts on both containers
-        api_mount = api_doc["properties"]["template"]["containers"][0]["volumeMounts"][0]
-        job_mount = job_doc["properties"]["template"]["containers"][0]["volumeMounts"][0]
+        api_mount = api_doc["properties"]["template"]["containers"][0]["volumeMounts"][
+            0
+        ]
+        job_mount = job_doc["properties"]["template"]["containers"][0]["volumeMounts"][
+            0
+        ]
 
         assert api_mount["volumeName"] == "aria-data-volume"
         assert job_mount["volumeName"] == "aria-data-volume"
@@ -430,8 +434,12 @@ class TestWorkerDeploymentConfiguration:
         import os
 
         root_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-        p2_script = os.path.join(root_dir, "azure", "scripts", "deploy-worker-phase2.ps1")
-        mesh_script = os.path.join(root_dir, "azure", "scripts", "deploy-production-mesh.ps1")
+        p2_script = os.path.join(
+            root_dir, "azure", "scripts", "deploy-worker-phase2.ps1"
+        )
+        mesh_script = os.path.join(
+            root_dir, "azure", "scripts", "deploy-production-mesh.ps1"
+        )
 
         for script_path in (p2_script, mesh_script):
             assert os.path.exists(script_path), f"{script_path} must exist"
