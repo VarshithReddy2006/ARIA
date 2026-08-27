@@ -338,9 +338,13 @@ class TestWorkerDeploymentConfiguration:
         assert rules[0]["type"] == "azure-queue"
         assert rules[0]["metadata"]["queueName"] == "aria-analysis-jobs"
 
+        assert config["eventTriggerConfig"]["parallelism"] == 1
+        assert config["eventTriggerConfig"]["replicaCompletionCount"] == 1
+
         template = props["template"]
         assert len(template["volumes"]) >= 1
         assert template["volumes"][0]["name"] == "aria-data-volume"
+        assert template["volumes"][0]["storageType"] == "AzureFile"
         assert template["volumes"][0]["storageName"] == "ariadata"
 
         container = template["containers"][0]
@@ -352,6 +356,11 @@ class TestWorkerDeploymentConfiguration:
         assert "command" not in container or container["command"] is None
         assert "args" not in container or container["args"] is None
 
+        # Verify volume mount
+        assert len(container["volumeMounts"]) >= 1
+        assert container["volumeMounts"][0]["volumeName"] == "aria-data-volume"
+        assert container["volumeMounts"][0]["mountPath"] == "/app/data"
+
         # Verify environment variables
         env_dict = {
             e["name"]: e.get("value") or e.get("secretRef")
@@ -361,6 +370,79 @@ class TestWorkerDeploymentConfiguration:
         assert env_dict.get("SQLITE_DB_PATH") == "/app/data/repo_understanding.db"
         assert env_dict.get("ANALYSIS_STORE_PATH") == "/app/data/analysis_store.json"
         assert env_dict.get("JOB_STATE_DIR") == "/app/data/jobs"
+
+    def test_api_and_worker_share_identical_azure_file_storage_volume_and_mount(
+        self,
+    ) -> None:
+        """Verify aria-api and aria-worker-job use the identical Azure File volume and mount path."""
+        import os
+        import yaml
+
+        root_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+        api_yaml_path = os.path.join(root_dir, "azure", "container-apps-api.yaml")
+        job_yaml_path = os.path.join(root_dir, "azure", "container-apps-job.yaml")
+
+        assert os.path.exists(api_yaml_path), "container-apps-api.yaml must exist"
+        assert os.path.exists(job_yaml_path), "container-apps-job.yaml must exist"
+
+        with open(api_yaml_path, "r", encoding="utf-8") as f:
+            api_doc = yaml.safe_load(f)
+        with open(job_yaml_path, "r", encoding="utf-8") as f:
+            job_doc = yaml.safe_load(f)
+
+        # Volumes on both manifests
+        api_vol = api_doc["properties"]["template"]["volumes"][0]
+        job_vol = job_doc["properties"]["template"]["volumes"][0]
+
+        assert api_vol["name"] == "aria-data-volume"
+        assert job_vol["name"] == "aria-data-volume"
+        assert api_vol["storageType"] == "AzureFile"
+        assert job_vol["storageType"] == "AzureFile"
+        assert api_vol["storageName"] == "ariadata"
+        assert job_vol["storageName"] == "ariadata"
+
+        # Volume mounts on both containers
+        api_mount = api_doc["properties"]["template"]["containers"][0]["volumeMounts"][0]
+        job_mount = job_doc["properties"]["template"]["containers"][0]["volumeMounts"][0]
+
+        assert api_mount["volumeName"] == "aria-data-volume"
+        assert job_mount["volumeName"] == "aria-data-volume"
+        assert api_mount["mountPath"] == "/app/data"
+        assert job_mount["mountPath"] == "/app/data"
+
+        # Environment storage paths must match identically
+        api_env = {
+            e["name"]: e.get("value")
+            for e in api_doc["properties"]["template"]["containers"][0].get("env", [])
+        }
+        job_env = {
+            e["name"]: e.get("value")
+            for e in job_doc["properties"]["template"]["containers"][0].get("env", [])
+        }
+
+        for path_key in ("SQLITE_DB_PATH", "ANALYSIS_STORE_PATH", "JOB_STATE_DIR"):
+            assert api_env.get(path_key) == job_env.get(path_key), (
+                f"Mismatch for {path_key}: API={api_env.get(path_key)} vs Job={job_env.get(path_key)}"
+            )
+
+    def test_deployment_scripts_declare_shared_azure_file_volume(self) -> None:
+        """Verify PowerShell deployment scripts construct manifests with aria-data-volume mount."""
+        import os
+
+        root_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+        p2_script = os.path.join(root_dir, "azure", "scripts", "deploy-worker-phase2.ps1")
+        mesh_script = os.path.join(root_dir, "azure", "scripts", "deploy-production-mesh.ps1")
+
+        for script_path in (p2_script, mesh_script):
+            assert os.path.exists(script_path), f"{script_path} must exist"
+            with open(script_path, "r", encoding="utf-8") as f:
+                content = f.read()
+
+            assert "name: aria-data-volume" in content
+            assert "storageType: AzureFile" in content
+            assert "storageName: ariadata" in content
+            assert "volumeName: aria-data-volume" in content
+            assert "mountPath: /app/data" in content
 
     def test_worker_main_cli_run_once_dispatch(self) -> None:
         """Verify backend.worker.main dispatches to run_once when --run-once flag is passed."""

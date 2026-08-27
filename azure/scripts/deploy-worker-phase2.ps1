@@ -42,6 +42,8 @@ properties:
     replicaTimeout: 3600
     replicaRetryLimit: 3
     eventTriggerConfig:
+      parallelism: 1
+      replicaCompletionCount: 1
       scale:
         minExecutions: 0
         maxExecutions: 5
