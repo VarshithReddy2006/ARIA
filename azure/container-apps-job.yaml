@@ -22,15 +22,19 @@ properties:
               queueName: aria-analysis-jobs
               queueLength: 1
             auth:
-              - secretRef: storage-connection-string
+              - secretRef: storage-conn
                 triggerParameter: connection
     secrets:
-      - name: storage-connection-string
+      - name: storage-conn
         value: "<AZURE_STORAGE_CONNECTION_STRING>"
-      - name: qdrant-api-key
-        value: "<QDRANT_API_KEY>"
-      - name: gemini-api-key
+      - name: gemini-key
         value: "<GEMINI_API_KEY>"
+      - name: ariacr3ab8azurecrio-ariacr3ab8
+        value: "<ACR_PASSWORD>"
+    registries:
+      - server: ariacr3ab8.azurecr.io
+        username: ariacr3ab8
+        passwordSecretRef: ariacr3ab8azurecrio-ariacr3ab8
   template:
     volumes:
       - name: aria-data-volume
@@ -46,17 +50,17 @@ properties:
           - name: AZURE_STORAGE_QUEUE_NAME
             value: aria-analysis-jobs
           - name: AZURE_STORAGE_CONNECTION_STRING
-            secretRef: storage-connection-string
-          - name: QDRANT_URL
-            value: "<QDRANT_URL>"
-          - name: QDRANT_API_KEY
-            secretRef: qdrant-api-key
+            secretRef: storage-conn
           - name: GEMINI_API_KEY
-            secretRef: gemini-api-key
+            secretRef: gemini-key
           - name: SQLITE_DB_PATH
             value: /app/data/repo_understanding.db
           - name: ANALYSIS_STORE_PATH
             value: /app/data/analysis_store.json
+          - name: APP_ENV
+            value: production
+          - name: ALLOWED_HOSTS
+            value: aria-api.lemonriver-308dc42a.eastasia.azurecontainerapps.io
           - name: JOB_STATE_DIR
             value: /app/data/jobs
         volumeMounts:

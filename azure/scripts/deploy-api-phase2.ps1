@@ -71,7 +71,7 @@ properties:
         value: "$GeminiKey"
       - name: api-key
         value: "$ApiKey"
-      - name: acr-pass
+      - name: $($RegistryName)azurecrio-$RegistryName
         value: "$AcrPass"
       - name: deepseek-key
         value: "$DeepSeekKey"
@@ -80,9 +80,9 @@ properties:
       - name: qdrant-key
         value: "$QdrantApiKey"
     registries:
-      - server: ariacr3ab8.azurecr.io
-        username: ariacr3ab8
-        passwordSecretRef: acr-pass
+      - server: $RegistryName.azurecr.io
+        username: $RegistryName
+        passwordSecretRef: $($RegistryName)azurecrio-$RegistryName
   template:
     revisionSuffix: "$RevSuffix"
     volumes:

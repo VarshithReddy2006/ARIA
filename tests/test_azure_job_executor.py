@@ -316,7 +316,7 @@ class TestWorkerDeploymentConfiguration:
     def test_container_apps_job_yaml_preserves_constraints_and_relies_on_image_cmd(
         self,
     ) -> None:
-        """Verify azure/container-apps-job.yaml preserves resource constraints and inherits image CMD."""
+        """Verify azure/container-apps-job.yaml preserves resource constraints, ACR registry, and inherits image CMD."""
         import os
         import yaml
 
@@ -337,18 +337,38 @@ class TestWorkerDeploymentConfiguration:
         assert len(rules) >= 1
         assert rules[0]["type"] == "azure-queue"
         assert rules[0]["metadata"]["queueName"] == "aria-analysis-jobs"
+        assert rules[0]["auth"][0]["secretRef"] == "storage-conn"
+        assert rules[0]["auth"][0]["triggerParameter"] == "connection"
 
         assert config["eventTriggerConfig"]["parallelism"] == 1
         assert config["eventTriggerConfig"]["replicaCompletionCount"] == 1
 
+        # 1. Verify ACR registry and matching passwordSecretRef
+        assert "registries" in config, "configuration.registries must be defined"
+        assert len(config["registries"]) == 1
+        reg = config["registries"][0]
+        assert reg["server"] == "ariacr3ab8.azurecr.io"
+        assert reg["username"] == "ariacr3ab8"
+        assert reg["passwordSecretRef"] == "ariacr3ab8azurecrio-ariacr3ab8"
+
+        # 2. Verify referenced secret names in configuration.secrets with placeholder values
+        secrets_dict = {s["name"]: s.get("value") for s in config.get("secrets", [])}
+        assert reg["passwordSecretRef"] in secrets_dict
+        assert secrets_dict["storage-conn"] == "<AZURE_STORAGE_CONNECTION_STRING>"
+        assert secrets_dict["gemini-key"] == "<GEMINI_API_KEY>"
+        assert secrets_dict["ariacr3ab8azurecrio-ariacr3ab8"] == "<ACR_PASSWORD>"
+
+        # 3. Verify Azure File volume
         template = props["template"]
         assert len(template["volumes"]) >= 1
         assert template["volumes"][0]["name"] == "aria-data-volume"
         assert template["volumes"][0]["storageType"] == "AzureFile"
         assert template["volumes"][0]["storageName"] == "ariadata"
 
+        # 4. Verify container image placeholder and resources
         container = template["containers"][0]
         assert container["name"] == "aria-worker"
+        assert container["image"] == "ariacr3ab8.azurecr.io/aria-worker:<IMAGE_TAG>"
         assert container["resources"]["cpu"] in (2.0, "2.0", 2)
         assert container["resources"]["memory"] in ("4.0Gi", "4Gi")
 
@@ -367,9 +387,64 @@ class TestWorkerDeploymentConfiguration:
             for e in container.get("env", [])
         }
         assert env_dict.get("AZURE_STORAGE_QUEUE_NAME") == "aria-analysis-jobs"
+        assert env_dict.get("AZURE_STORAGE_CONNECTION_STRING") == "storage-conn"
+        assert env_dict.get("GEMINI_API_KEY") == "gemini-key"
         assert env_dict.get("SQLITE_DB_PATH") == "/app/data/repo_understanding.db"
         assert env_dict.get("ANALYSIS_STORE_PATH") == "/app/data/analysis_store.json"
+        assert env_dict.get("APP_ENV") == "production"
+        assert env_dict.get("ALLOWED_HOSTS") == "aria-api.lemonriver-308dc42a.eastasia.azurecontainerapps.io"
         assert env_dict.get("JOB_STATE_DIR") == "/app/data/jobs"
+
+    def test_canonical_yaml_structural_consistency_with_live_worker_job(
+        self,
+    ) -> None:
+        """Verify canonical YAML has ACR registry, secret references, volumes, mounts, and image tag placeholders."""
+        import os
+        import yaml
+
+        root_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+        job_yaml_path = os.path.join(root_dir, "azure", "container-apps-job.yaml")
+        assert os.path.exists(job_yaml_path), "azure/container-apps-job.yaml must exist"
+
+        with open(job_yaml_path, "r", encoding="utf-8") as f:
+            doc = yaml.safe_load(f)
+
+        config = doc["properties"]["configuration"]
+
+        # 1. ACR registry and matching passwordSecretRef
+        assert "registries" in config
+        reg = config["registries"][0]
+        assert reg["server"] == "ariacr3ab8.azurecr.io"
+        assert reg["username"] == "ariacr3ab8"
+        assert reg["passwordSecretRef"] == "ariacr3ab8azurecrio-ariacr3ab8"
+
+        # 2. Secret names present in configuration.secrets
+        secret_names = [s["name"] for s in config["secrets"]]
+        assert "storage-conn" in secret_names
+        assert "gemini-key" in secret_names
+        assert "ariacr3ab8azurecrio-ariacr3ab8" in secret_names
+        assert reg["passwordSecretRef"] in secret_names
+
+        # 3. Azure File volume and mount
+        volumes = doc["properties"]["template"]["volumes"]
+        assert any(
+            v["name"] == "aria-data-volume"
+            and v["storageType"] == "AzureFile"
+            and v["storageName"] == "ariadata"
+            for v in volumes
+        )
+        container = doc["properties"]["template"]["containers"][0]
+        assert any(
+            m["volumeName"] == "aria-data-volume" and m["mountPath"] == "/app/data"
+            for m in container["volumeMounts"]
+        )
+
+        # 4. Image uses <IMAGE_TAG>
+        assert container["image"] == "ariacr3ab8.azurecr.io/aria-worker:<IMAGE_TAG>"
+
+        # 5. Resource constraints
+        assert container["resources"]["cpu"] in (2.0, "2.0", 2)
+        assert container["resources"]["memory"] in ("4.0Gi", "4Gi")
 
     def test_api_and_worker_share_identical_azure_file_storage_volume_and_mount(
         self,
@@ -430,7 +505,7 @@ class TestWorkerDeploymentConfiguration:
             )
 
     def test_deployment_scripts_declare_shared_azure_file_volume(self) -> None:
-        """Verify PowerShell deployment scripts construct manifests with aria-data-volume mount."""
+        """Verify PowerShell deployment scripts construct manifests with aria-data-volume mount and matching registry secrets."""
         import os
 
         root_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -440,8 +515,11 @@ class TestWorkerDeploymentConfiguration:
         mesh_script = os.path.join(
             root_dir, "azure", "scripts", "deploy-production-mesh.ps1"
         )
+        api_p2_script = os.path.join(
+            root_dir, "azure", "scripts", "deploy-api-phase2.ps1"
+        )
 
-        for script_path in (p2_script, mesh_script):
+        for script_path in (p2_script, mesh_script, api_p2_script):
             assert os.path.exists(script_path), f"{script_path} must exist"
             with open(script_path, "r", encoding="utf-8") as f:
                 content = f.read()
@@ -451,6 +529,7 @@ class TestWorkerDeploymentConfiguration:
             assert "storageName: ariadata" in content
             assert "volumeName: aria-data-volume" in content
             assert "mountPath: /app/data" in content
+            assert "passwordSecretRef: $($RegistryName)azurecrio-$RegistryName" in content
 
     def test_worker_main_cli_run_once_dispatch(self) -> None:
         """Verify backend.worker.main dispatches to run_once when --run-once flag is passed."""
