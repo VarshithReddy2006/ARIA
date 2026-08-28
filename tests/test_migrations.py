@@ -68,3 +68,90 @@ def test_migrations_are_idempotent():
             assert i in applied
     finally:
         conn.close()
+
+
+def test_concurrent_migrations_same_db():
+    """Verify that multiple concurrent callers of run_migrations() against the same DB succeed without locking."""
+    import concurrent.futures
+
+    errors = []
+
+    def _worker_migrate():
+        try:
+            run_migrations()
+        except Exception as e:
+            errors.append(e)
+
+    # Spawn 8 threads simultaneously attempting migration
+    with concurrent.futures.ThreadPoolExecutor(max_workers=8) as executor:
+        futures = [executor.submit(_worker_migrate) for _ in range(8)]
+        concurrent.futures.wait(futures)
+
+    assert not errors, f"Concurrent migrations encountered errors: {errors}"
+
+    conn = get_db_connection()
+    try:
+        applied = get_applied_versions(conn)
+        assert len(applied) >= 3
+        # Verify no duplicate entries in schema_migrations
+        cursor = conn.cursor()
+        cursor.execute(
+            "SELECT version, COUNT(*) FROM schema_migrations GROUP BY version HAVING COUNT(*) > 1"
+        )
+        duplicates = cursor.fetchall()
+        assert not duplicates, (
+            f"Found duplicate migration version records: {duplicates}"
+        )
+    finally:
+        conn.close()
+
+
+def test_concurrent_api_and_worker_startup_against_same_db():
+    """Verify that concurrent API migration and worker embedding cache init/access operate safely without locks."""
+    import concurrent.futures
+    from services.embedding_service import (
+        EmbeddingService,
+        _save_embeddings_to_cache_bulk,
+        _get_cached_embeddings_bulk,
+    )
+
+    errors = []
+
+    def _api_task():
+        try:
+            run_migrations()
+        except Exception as e:
+            errors.append(("api", e))
+
+    def _worker_task(worker_id: int):
+        try:
+            _ = EmbeddingService(model_name="test-concurrent-model")
+            records = [
+                {
+                    "chunk_hash": f"chunk_{worker_id}_{i}",
+                    "embedding": [0.1 * i, 0.2 * i],
+                    "model_name": "test-concurrent-model",
+                    "model_version": "1.5",
+                }
+                for i in range(5)
+            ]
+            _save_embeddings_to_cache_bulk(records)
+            res = _get_cached_embeddings_bulk(
+                [f"chunk_{worker_id}_0"], "test-concurrent-model"
+            )
+            assert f"chunk_{worker_id}_0" in res
+        except Exception as e:
+            errors.append((f"worker_{worker_id}", e))
+
+    with concurrent.futures.ThreadPoolExecutor(max_workers=6) as executor:
+        futures = [
+            executor.submit(_api_task),
+            executor.submit(_api_task),
+            executor.submit(_worker_task, 1),
+            executor.submit(_worker_task, 2),
+            executor.submit(_worker_task, 3),
+            executor.submit(_api_task),
+        ]
+        concurrent.futures.wait(futures)
+
+    assert not errors, f"Concurrent API/Worker startup encountered errors: {errors}"

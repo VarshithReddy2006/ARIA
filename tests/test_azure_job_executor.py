@@ -389,7 +389,7 @@ class TestWorkerDeploymentConfiguration:
         assert env_dict.get("AZURE_STORAGE_QUEUE_NAME") == "aria-analysis-jobs"
         assert env_dict.get("AZURE_STORAGE_CONNECTION_STRING") == "storage-conn"
         assert env_dict.get("GEMINI_API_KEY") == "gemini-key"
-        assert env_dict.get("SQLITE_DB_PATH") == "/app/data/repo_understanding.db"
+        assert env_dict.get("SQLITE_DB_PATH") == "/tmp/repo_understanding.db"
         assert env_dict.get("ANALYSIS_STORE_PATH") == "/app/data/analysis_store.json"
         assert env_dict.get("APP_ENV") == "production"
         assert (
@@ -574,3 +574,148 @@ class TestWorkerDeploymentConfiguration:
             mock_worker_cls.assert_called_once()
             mock_instance.run_loop.assert_called_once()
             mock_instance.run_once.assert_not_called()
+
+
+# ---------------------------------------------------------------------------
+# 7. Option C: Local SQLite + Shared Azure File Artifacts
+# ---------------------------------------------------------------------------
+class TestOptionCProductionArchitecture:
+    """Validate Option C production architecture separating local SQLite from shared Azure File artifacts."""
+
+    def test_production_config_resolves_container_local_sqlite_path(
+        self, monkeypatch
+    ) -> None:
+        """Verify production configuration resolves SQLITE_DB_PATH to /tmp/repo_understanding.db."""
+        from core.config import Settings
+
+        monkeypatch.delenv("SQLITE_DB_PATH", raising=False)
+        prod_settings = Settings(APP_ENV="production")
+        assert prod_settings.sqlite_db_path == "/tmp/repo_understanding.db"
+
+        # Explicit /app/data passed in is normalized to /tmp for safety
+        normalized_settings = Settings(
+            APP_ENV="production",
+            SQLITE_DB_PATH="/app/data/repo_understanding.db",
+        )
+        assert normalized_settings.sqlite_db_path == "/tmp/repo_understanding.db"
+
+    def test_azure_manifests_declare_local_sqlite_and_shared_data_mount(
+        self,
+    ) -> None:
+        """Verify Azure Container Apps API and Job manifests configure local SQLite and mount Azure File."""
+        import os
+        import yaml
+
+        root_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+        api_yaml_path = os.path.join(root_dir, "azure", "container-apps-api.yaml")
+        job_yaml_path = os.path.join(root_dir, "azure", "container-apps-job.yaml")
+
+        with open(api_yaml_path, "r", encoding="utf-8") as f:
+            api_doc = yaml.safe_load(f)
+        with open(job_yaml_path, "r", encoding="utf-8") as f:
+            job_doc = yaml.safe_load(f)
+
+        for name, doc in [("API", api_doc), ("Job", job_doc)]:
+            container = doc["properties"]["template"]["containers"][0]
+            env_map = {
+                e["name"]: e.get("value") or e.get("secretRef")
+                for e in container.get("env", [])
+            }
+            assert env_map.get("SQLITE_DB_PATH") == "/tmp/repo_understanding.db", (
+                f"{name} manifest must set SQLITE_DB_PATH to /tmp/repo_understanding.db"
+            )
+            assert env_map.get("ANALYSIS_STORE_PATH") == (
+                "/app/data/analysis_store.json"
+            )
+            assert env_map.get("JOB_STATE_DIR") == "/app/data/jobs"
+
+            # Both still mount aria-data-volume to /app/data
+            volumes = doc["properties"]["template"]["volumes"]
+            assert any(
+                v["name"] == "aria-data-volume"
+                and v["storageType"] == "AzureFile"
+                and v["storageName"] == "ariadata"
+                for v in volumes
+            ), f"{name} must declare aria-data-volume"
+            mounts = container["volumeMounts"]
+            assert any(
+                m["volumeName"] == "aria-data-volume" and m["mountPath"] == "/app/data"
+                for m in mounts
+            ), f"{name} must mount aria-data-volume at /app/data"
+
+    def test_deployment_scripts_declare_local_sqlite_path(self) -> None:
+        """Verify PowerShell deployment scripts configure SQLITE_DB_PATH as /tmp and not /app/data."""
+        import os
+
+        root_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+        scripts = [
+            os.path.join(root_dir, "azure", "scripts", "deploy-api-phase2.ps1"),
+            os.path.join(root_dir, "azure", "scripts", "deploy-worker-phase2.ps1"),
+            os.path.join(root_dir, "azure", "scripts", "deploy-production-mesh.ps1"),
+        ]
+
+        for s in scripts:
+            assert os.path.exists(s), f"{s} must exist"
+            with open(s, "r", encoding="utf-8") as fh:
+                content = fh.read()
+            assert "value: /tmp/repo_understanding.db" in content
+            assert "value: /app/data/repo_understanding.db" not in content
+
+    def test_report_summary_resolves_from_shared_json_artifact(
+        self, tmp_path, monkeypatch
+    ) -> None:
+        """Verify get_report_summary retrieves health score and grade from shared reports JSON artifact without SQLite."""
+        import json
+        from backend.routers.report import get_report_summary
+        from core.config import settings
+
+        reports_dir = tmp_path / "reports"
+        reports_dir.mkdir(parents=True, exist_ok=True)
+        store_file = tmp_path / "analysis_store.json"
+        store_file.write_text("{}", encoding="utf-8")
+
+        monkeypatch.setenv("ANALYSIS_STORE_PATH", str(store_file))
+        monkeypatch.setattr(
+            settings, "analysis_store_path", str(store_file), raising=False
+        )
+
+        # Write a mock report JSON artifact
+        report_data = {
+            "metadata": {
+                "repo_name": "acme/shared-test",
+                "generated_at": "2026-08-28T12:00:00Z",
+            },
+            "scores": {
+                "overall": 94.5,
+                "grade": "A",
+            },
+        }
+        report_file = reports_dir / "acme_shared-test.json"
+        report_file.write_text(json.dumps(report_data), encoding="utf-8")
+
+        summary = get_report_summary("acme", "shared-test")
+        assert summary["repo_name"] == "acme/shared-test"
+        assert summary["score"] == 94.5
+        assert summary["grade"] == "A"
+        assert summary["analyzed_at"] == "2026-08-28T12:00:00Z"
+
+    def test_embedding_cache_operates_as_local_optimization(
+        self, tmp_path, monkeypatch
+    ) -> None:
+        """Verify EmbeddingService generates embeddings correctly even when SQLite cache is cold or cleared."""
+        from services.embedding_service import EmbeddingService
+        from core.config import settings
+
+        temp_db = tmp_path / "local_cache.db"
+        monkeypatch.setattr(settings, "sqlite_db_path", str(temp_db))
+
+        service = EmbeddingService(model_name="test-local-opt")
+        emb = service.generate_embedding("def calculate_tax(amount): pass")
+        assert isinstance(emb, list)
+        assert len(emb) > 0
+
+        # Clearing cache doesn't prevent subsequent generations
+        service.clear_cache(clear_disk=True)
+        emb2 = service.generate_embedding("def calculate_tax(amount): pass")
+        assert isinstance(emb2, list)
+        assert len(emb2) == len(emb)

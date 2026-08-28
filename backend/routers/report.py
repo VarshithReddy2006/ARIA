@@ -55,44 +55,76 @@ def build_report(owner: str, repo: str) -> ReportDataModel:
 @router.get("/{owner}/{repo}/summary")
 def get_report_summary(owner: str, repo: str):
     """Fetches the latest summarized health scores and grade for a repository."""
+    import json
+    import os
+    from core.config import settings
+
     repo_name = f"{owner}/{repo}"
-    conn = get_db_connection()
+    safe_name = repo_name.replace("/", "_").replace("\\", "_")
+
+    analysis_path = getattr(settings, "analysis_store_path", None) or os.environ.get(
+        "ANALYSIS_STORE_PATH"
+    )
+    base = os.path.dirname(os.path.abspath(analysis_path)) if analysis_path else "data"
+    report_file = os.path.join(base, "reports", f"{safe_name}.json")
+
+    # 1. Check shared JSON artifact first (cross-container authoritative)
+    if os.path.isfile(report_file):
+        try:
+            with open(report_file, "r", encoding="utf-8") as fh:
+                data = json.load(fh)
+            scores = data.get("scores", {})
+            metadata = data.get("metadata", {})
+            return {
+                "repo_name": repo_name,
+                "score": scores.get("overall", 0.0),
+                "grade": scores.get("grade", "N/A"),
+                "analyzed_at": metadata.get("generated_at"),
+            }
+        except Exception:
+            pass
+
+    # 2. Check local SQLite cache if present
     try:
-        cursor = conn.cursor()
-        cursor.execute(
-            """
-            SELECT overall_score, grade, generated_at 
-            FROM repo_reports 
-            WHERE repo_name = ? 
-            ORDER BY generated_at DESC 
-            LIMIT 1
-            """,
-            (repo_name,),
-        )
-        row = cursor.fetchone()
-        if row is None:
-            # If not in DB, compose it dynamically
-            try:
-                report = report_composer.compose_report(repo_name)
+        conn = get_db_connection()
+        try:
+            cursor = conn.cursor()
+            cursor.execute(
+                """
+                SELECT overall_score, grade, generated_at
+                FROM repo_reports
+                WHERE repo_name = ?
+                ORDER BY generated_at DESC
+                LIMIT 1
+                """,
+                (repo_name,),
+            )
+            row = cursor.fetchone()
+            if row is not None:
                 return {
                     "repo_name": repo_name,
-                    "score": report.scores.overall,
-                    "grade": report.scores.grade,
-                    "analyzed_at": report.metadata.generated_at,
+                    "score": row[0],
+                    "grade": row[1],
+                    "analyzed_at": row[2],
                 }
-            except ValueError as exc:
-                raise HTTPException(status_code=404, detail=str(exc))
-            except Exception as exc:
-                raise HTTPException(status_code=500, detail=str(exc))
+        finally:
+            conn.close()
+    except Exception:
+        pass
 
+    # 3. Dynamic composition fallback
+    try:
+        report = report_composer.compose_report(repo_name)
         return {
             "repo_name": repo_name,
-            "score": row[0],
-            "grade": row[1],
-            "analyzed_at": row[2],
+            "score": report.scores.overall,
+            "grade": report.scores.grade,
+            "analyzed_at": report.metadata.generated_at,
         }
-    finally:
-        conn.close()
+    except ValueError as exc:
+        raise HTTPException(status_code=404, detail=str(exc))
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=str(exc))
 
 
 @router.get("/{owner}/{repo}/download")

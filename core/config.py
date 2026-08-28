@@ -51,7 +51,18 @@ class Settings(BaseSettings):
     embedding_cache_size: int = Field(50000, alias="EMBEDDING_CACHE_SIZE")
 
     # DB & Cache Config
-    sqlite_db_path: str = Field("data/repo_understanding.db", alias="SQLITE_DB_PATH")
+    sqlite_db_path: str = Field(
+        default="/tmp/repo_understanding.db"
+        if is_production
+        else "data/repo_understanding.db",
+        alias="SQLITE_DB_PATH",
+    )
+    analysis_store_path: str = Field(
+        default="/app/data/analysis_store.json"
+        if is_production
+        else "data/analysis_store.json",
+        alias="ANALYSIS_STORE_PATH",
+    )
     chroma_db_path: str = Field("data/chroma_db", alias="CHROMA_DB_PATH")
     cache_file_path: str = Field("data/cache.json", alias="CACHE_FILE_PATH")
     cloned_repos_path: str = Field("data/cloned_repos", alias="CLONED_REPOS_PATH")
@@ -191,6 +202,26 @@ class Settings(BaseSettings):
                     "A wildcard (['*']) is not permitted."
                 )
         return v
+
+    @field_validator("sqlite_db_path", mode="before")
+    @classmethod
+    def resolve_sqlite_db_path(cls, v: Any, info) -> str:
+        app_env = "development"
+        if hasattr(info, "data") and isinstance(info.data, dict):
+            app_env = info.data.get("app_env", "development")
+        if isinstance(v, str) and v.strip():
+            val = v.strip()
+            if val == "/app/data/repo_understanding.db":
+                return "/tmp/repo_understanding.db"
+            if (
+                val == "data/repo_understanding.db"
+                and str(app_env).lower() == "production"
+            ):
+                return "/tmp/repo_understanding.db"
+            return val
+        if str(app_env).lower() == "production":
+            return "/tmp/repo_understanding.db"
+        return "data/repo_understanding.db"
 
 
 # Instantiate settings singleton

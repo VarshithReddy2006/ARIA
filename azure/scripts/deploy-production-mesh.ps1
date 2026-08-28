@@ -94,7 +94,7 @@ properties:
           - name: ALLOWED_HOSTS
             value: "aria-api.lemonriver-308dc42a.eastasia.azurecontainerapps.io,lemonriver-308dc42a.eastasia.azurecontainerapps.io,localhost,127.0.0.1"
           - name: SQLITE_DB_PATH
-            value: /app/data/repo_understanding.db
+            value: /tmp/repo_understanding.db
           - name: ANALYSIS_STORE_PATH
             value: /app/data/analysis_store.json
           - name: JOB_STATE_DIR
@@ -171,7 +171,7 @@ properties:
           - name: ALLOWED_HOSTS
             value: "localhost,127.0.0.1"
           - name: SQLITE_DB_PATH
-            value: /app/data/repo_understanding.db
+            value: /tmp/repo_understanding.db
           - name: ANALYSIS_STORE_PATH
             value: /app/data/analysis_store.json
           - name: JOB_STATE_DIR

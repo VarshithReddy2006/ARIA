@@ -122,12 +122,11 @@ def _clear_l1_cache() -> None:
 # L2 SQLite Persistent Cache Helpers
 # ---------------------------------------------------------------------------
 def _init_sqlite_cache_table() -> None:
-    """Ensure SQLite cache table and index exist with WAL mode."""
-    conn = get_db_connection()
+    """Ensure SQLite cache table and index exist with WAL mode and concurrency safety."""
     try:
-        with conn:
-            conn.execute("PRAGMA journal_mode=WAL;")
-            conn.execute("PRAGMA synchronous=NORMAL;")
+        conn = get_db_connection()
+        try:
+            conn.execute("BEGIN IMMEDIATE;")
             conn.execute(
                 """
                 CREATE TABLE IF NOT EXISTS embedding_cache (
@@ -146,10 +145,17 @@ def _init_sqlite_cache_table() -> None:
                 ON embedding_cache(model_name, chunk_hash);
                 """
             )
+            conn.execute("COMMIT;")
+        except Exception as exc:
+            try:
+                conn.execute("ROLLBACK;")
+            except Exception:
+                pass
+            logger.debug("SQLite cache table init notice: %s", exc)
+        finally:
+            conn.close()
     except Exception as exc:
-        logger.debug("SQLite cache table init note: %s", exc)
-    finally:
-        conn.close()
+        logger.debug("SQLite cache connection notice: %s", exc)
 
 
 def _get_cached_embedding(
@@ -198,36 +204,48 @@ def _save_embeddings_to_cache_bulk(records: List[Dict[str, Any]]) -> None:
     """Save newly generated embeddings to L2 SQLite cache in bounded transactions.
 
     Processes records in batches of CACHE_WRITE_BATCH_SIZE for memory safety.
-    Uses a single connection with WAL mode for the entire operation.
+    Uses a single connection with WAL mode and BEGIN IMMEDIATE for concurrency safety.
     """
     if not records:
         return
-    conn = get_db_connection()
     try:
-        conn.execute("PRAGMA journal_mode=WAL;")
-        conn.execute("PRAGMA synchronous=NORMAL;")
-        for i in range(0, len(records), CACHE_WRITE_BATCH_SIZE):
-            batch = records[i : i + CACHE_WRITE_BATCH_SIZE]
-            with conn:
-                conn.executemany(
-                    """
-                    INSERT OR REPLACE INTO embedding_cache (chunk_hash, embedding, model_name, model_version, updated_at)
-                    VALUES (?, ?, ?, ?, CURRENT_TIMESTAMP)
-                    """,
-                    [
-                        (
-                            r["chunk_hash"],
-                            json.dumps(r["embedding"]),
-                            r["model_name"],
-                            r["model_version"],
-                        )
-                        for r in batch
-                    ],
-                )
+        conn = get_db_connection()
+        try:
+            for i in range(0, len(records), CACHE_WRITE_BATCH_SIZE):
+                batch = records[i : i + CACHE_WRITE_BATCH_SIZE]
+                try:
+                    conn.execute("BEGIN IMMEDIATE;")
+                    conn.executemany(
+                        """
+                        INSERT OR REPLACE INTO embedding_cache (chunk_hash, embedding, model_name, model_version, updated_at)
+                        VALUES (?, ?, ?, ?, CURRENT_TIMESTAMP)
+                        """,
+                        [
+                            (
+                                r["chunk_hash"],
+                                json.dumps(r["embedding"]),
+                                r["model_name"],
+                                r["model_version"],
+                            )
+                            for r in batch
+                        ],
+                    )
+                    conn.execute("COMMIT;")
+                except Exception as batch_exc:
+                    try:
+                        conn.execute("ROLLBACK;")
+                    except Exception:
+                        pass
+                    logger.warning(
+                        "Failed to save batch of embeddings to SQLite cache: %s",
+                        batch_exc,
+                    )
+        finally:
+            conn.close()
     except Exception as e:
-        logger.warning("Failed to save embeddings in SQLite cache: %s", e)
-    finally:
-        conn.close()
+        logger.warning(
+            "Failed to open connection to save embeddings in SQLite cache: %s", e
+        )
 
 
 # ---------------------------------------------------------------------------
@@ -402,17 +420,25 @@ class EmbeddingService:
         """Clear L1 in-memory cache and optionally L2 disk cache."""
         _clear_l1_cache()
         if clear_disk:
-            conn = get_db_connection()
             try:
-                with conn:
+                conn = get_db_connection()
+                try:
+                    conn.execute("BEGIN IMMEDIATE;")
                     conn.execute(
                         "DELETE FROM embedding_cache WHERE model_name = ?",
                         [self.model_name],
                     )
+                    conn.execute("COMMIT;")
+                except Exception as e:
+                    try:
+                        conn.execute("ROLLBACK;")
+                    except Exception:
+                        pass
+                    logger.warning("Failed to clear SQLite cache: %s", e)
+                finally:
+                    conn.close()
             except Exception as e:
-                logger.warning("Failed to clear SQLite cache: %s", e)
-            finally:
-                conn.close()
+                logger.warning("Failed to connect to SQLite to clear cache: %s", e)
 
     def generate_embedding(self, text: str) -> List[float]:
         """Generate a single embedding vector for the given text."""

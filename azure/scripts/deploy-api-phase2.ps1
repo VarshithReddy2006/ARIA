@@ -121,7 +121,7 @@ properties:
           - name: QDRANT_API_KEY
             secretRef: qdrant-key
           - name: SQLITE_DB_PATH
-            value: /app/data/repo_understanding.db
+            value: /tmp/repo_understanding.db
           - name: ANALYSIS_STORE_PATH
             value: /app/data/analysis_store.json
           - name: JOB_STATE_DIR

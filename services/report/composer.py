@@ -23,6 +23,40 @@ from models.report import (
 from storage.migrations import get_db_connection
 
 
+def _get_reports_dir() -> str:
+    import os
+    from core.config import settings
+
+    analysis_path = getattr(settings, "analysis_store_path", None) or os.environ.get(
+        "ANALYSIS_STORE_PATH"
+    )
+    if analysis_path:
+        base = os.path.dirname(os.path.abspath(analysis_path))
+    else:
+        base = "data"
+    reports_dir = os.path.join(base, "reports")
+    os.makedirs(reports_dir, exist_ok=True)
+    return reports_dir
+
+
+def save_report_artifact(report: ReportDataModel) -> None:
+    """Persists report JSON artifact to shared reports directory."""
+    import logging
+    import os
+    from core.concurrency import write_json_atomic
+
+    try:
+        reports_dir = _get_reports_dir()
+        safe_name = report.metadata.repo_name.replace("/", "_").replace("\\", "_")
+        report_file = os.path.join(reports_dir, f"{safe_name}.json")
+        data = report.model_dump(mode="json")
+        write_json_atomic(report_file, data, indent=2)
+    except Exception as exc:
+        logging.getLogger(__name__).warning(
+            "Failed to save report JSON artifact: %s", exc
+        )
+
+
 class ReportComposer:
     """Calculates and aggregates codebase analysis data into a ReportDataModel."""
 
@@ -271,7 +305,8 @@ class ReportComposer:
             ai_summary=None,
         )
 
-        # Persist summary results to SQLite
+        # Persist summary results to shared JSON artifact and local SQLite
+        save_report_artifact(report_model)
         self.save_report_to_db(report_model)
 
         return report_model
@@ -280,7 +315,8 @@ class ReportComposer:
         """Saves report metadata and serialized JSON content to SQLite."""
         try:
             conn = get_db_connection()
-            with conn:
+            try:
+                conn.execute("BEGIN IMMEDIATE;")
                 conn.execute(
                     "INSERT OR IGNORE INTO repositories (repo_name, owner, name) VALUES (?, ?, ?)",
                     (
@@ -309,10 +345,22 @@ class ReportComposer:
                         report.model_dump_json(),
                     ),
                 )
-            conn.close()
+                conn.execute("COMMIT;")
+            except Exception as exc:
+                try:
+                    conn.execute("ROLLBACK;")
+                except Exception:
+                    pass
+                import logging
+
+                logging.getLogger(__name__).error(
+                    "Failed to save report to SQLite: %s", exc
+                )
+            finally:
+                conn.close()
         except Exception as exc:
             import logging
 
             logging.getLogger(__name__).error(
-                "Failed to save report to SQLite: %s", exc
+                "Failed to open connection to save report: %s", exc
             )
