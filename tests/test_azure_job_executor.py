@@ -588,13 +588,17 @@ class TestOptionCProductionArchitecture:
         """Verify production configuration resolves SQLITE_DB_PATH to /tmp/repo_understanding.db."""
         from core.config import Settings
 
+        monkeypatch.setenv("APP_ENV", "production")
+        monkeypatch.setenv("LLM_PROVIDER", "gemini")
+        monkeypatch.setenv("GEMINI_API_KEY", "test-placeholder-key")
+        monkeypatch.setenv("ALLOWED_HOSTS", '["api.test.local"]')
         monkeypatch.delenv("SQLITE_DB_PATH", raising=False)
-        prod_settings = Settings(APP_ENV="production")
+
+        prod_settings = Settings()
         assert prod_settings.sqlite_db_path == "/tmp/repo_understanding.db"
 
         # Explicit /app/data passed in is normalized to /tmp for safety
         normalized_settings = Settings(
-            APP_ENV="production",
             SQLITE_DB_PATH="/app/data/repo_understanding.db",
         )
         assert normalized_settings.sqlite_db_path == "/tmp/repo_understanding.db"
