@@ -392,7 +392,10 @@ class TestWorkerDeploymentConfiguration:
         assert env_dict.get("SQLITE_DB_PATH") == "/app/data/repo_understanding.db"
         assert env_dict.get("ANALYSIS_STORE_PATH") == "/app/data/analysis_store.json"
         assert env_dict.get("APP_ENV") == "production"
-        assert env_dict.get("ALLOWED_HOSTS") == "aria-api.lemonriver-308dc42a.eastasia.azurecontainerapps.io"
+        assert (
+            env_dict.get("ALLOWED_HOSTS")
+            == "aria-api.lemonriver-308dc42a.eastasia.azurecontainerapps.io"
+        )
         assert env_dict.get("JOB_STATE_DIR") == "/app/data/jobs"
 
     def test_canonical_yaml_structural_consistency_with_live_worker_job(
@@ -529,7 +532,9 @@ class TestWorkerDeploymentConfiguration:
             assert "storageName: ariadata" in content
             assert "volumeName: aria-data-volume" in content
             assert "mountPath: /app/data" in content
-            assert "passwordSecretRef: $($RegistryName)azurecrio-$RegistryName" in content
+            assert (
+                "passwordSecretRef: $($RegistryName)azurecrio-$RegistryName" in content
+            )
 
     def test_worker_main_cli_run_once_dispatch(self) -> None:
         """Verify backend.worker.main dispatches to run_once when --run-once flag is passed."""
