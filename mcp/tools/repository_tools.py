@@ -132,12 +132,42 @@ def register(server: Any) -> None:
                 # Clone. GitHubService exposes clone_repository(); clone_repo()
                 # no longer exists.
                 local_path = github_service.clone_repository(repo_url, branch=branch)
-
-                # Parse tech stack
-                analysis = detect_tech_stack_and_deps(local_path, repo_name)
+                files = github_service.extract_source_files(local_path)
+                tech_stack, dependencies = detect_tech_stack_and_deps(files)
+                all_file_paths = [f.get("path", "") for f in files if f.get("path")]
 
                 # Generate architecture summary
-                architecture = generate_architecture_summary(analysis, local_path)
+                import asyncio
+                architecture = asyncio.run(
+                    generate_architecture_summary(
+                        repo_name=repo_name,
+                        tech_stack=tech_stack,
+                        file_paths=all_file_paths,
+                    )
+                )
+
+                structure: Dict[str, List[str]] = {}
+                for path in all_file_paths:
+                    parts = path.split("/")
+                    parent = ".".join(parts[:-1]) if len(parts) > 1 else "."
+                    name_part = parts[-1]
+                    structure.setdefault(parent, []).append(name_part)
+
+                parts = repo_name.split("/")
+                owner = parts[0] if len(parts) > 1 else ""
+                name = parts[1] if len(parts) > 1 else repo_name
+
+                from models.schemas import RepositoryAnalysis
+                analysis = RepositoryAnalysis(
+                    structure=structure,
+                    dependencies=dependencies,
+                    tech_stack=tech_stack,
+                    metadata={
+                        "owner": owner,
+                        "name": name,
+                        "local_path": local_path,
+                    },
+                )
 
                 # Store results
                 ANALYSIS_STORE[repo_name] = {

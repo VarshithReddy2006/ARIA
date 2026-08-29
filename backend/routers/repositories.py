@@ -29,6 +29,9 @@ from pydantic import BaseModel, Field
 from backend.dependencies import (
     ANALYSIS_STORE,
     persist_analysis_store_sync,
+    _load_analysis_store,
+    recover_analysis_from_jobs,
+    normalize_repo_name,
     get_architecture_service,
     get_chroma_store,
     get_chunker,
@@ -502,12 +505,16 @@ def get_job_state(job_id: str) -> Optional[Dict[str, Any]]:
         except Exception as exc:
             logger.debug("Could not read job %s from modal.Dict: %s", job_id, exc)
 
-    # Candidate directories for job persistence across local and containerized environments
-    candidate_dirs = [
-        _get_jobs_dir(),
-        "/app/data/jobs",
-        os.path.join("data", "jobs"),
-    ]
+    # Authoritative job directory from configuration or candidate fallback directories
+    jobs_dir_env = os.environ.get("JOB_STATE_DIR")
+    if jobs_dir_env:
+        candidate_dirs = [jobs_dir_env]
+    else:
+        candidate_dirs = [
+            _get_jobs_dir(),
+            "/app/data/jobs",
+            os.path.join("data", "jobs"),
+        ]
 
     newest_disk_state = None
     newest_mtime = -1.0
@@ -1769,7 +1776,33 @@ async def get_analysis_status(job_id: str):
 async def get_analysis_details(owner: str, repo_name: str):
     """Retrieve computed analysis and architecture summary for a repository."""
     full_name = f"{owner}/{repo_name}"
-    if full_name not in ANALYSIS_STORE:
+
+    # 1. Check in-memory store (exact match or case-insensitive)
+    entry = None
+    if full_name in ANALYSIS_STORE:
+        entry = ANALYSIS_STORE[full_name]
+    else:
+        for k, v in list(ANALYSIS_STORE.items()):
+            if normalize_repo_name(k) == normalize_repo_name(full_name):
+                entry = v
+                break
+
+    # 2. If missing, reload analysis_store.json
+    if entry is None:
+        _load_analysis_store(target_repo=full_name)
+        if full_name in ANALYSIS_STORE:
+            entry = ANALYSIS_STORE[full_name]
+        else:
+            for k, v in list(ANALYSIS_STORE.items()):
+                if normalize_repo_name(k) == normalize_repo_name(full_name):
+                    entry = v
+                    break
+
+    # 3. If still missing, search JOB_STATE_DIR for completed successful jobs
+    if entry is None:
+        entry = recover_analysis_from_jobs(full_name)
+
+    if entry is None:
         raise HTTPException(
             status_code=404,
             detail=(
@@ -1777,7 +1810,7 @@ async def get_analysis_details(owner: str, repo_name: str):
                 "Please analyse or index first."
             ),
         )
-    return ANALYSIS_STORE[full_name]
+    return entry
 
 
 @router.post("/repos/repair")

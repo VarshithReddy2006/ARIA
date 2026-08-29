@@ -16,7 +16,7 @@ import logging
 import os
 import sys
 import threading
-from typing import TYPE_CHECKING, Any, Dict, Optional, Type
+from typing import TYPE_CHECKING, Any, Dict, List, Optional, Type
 
 from fastapi import Request
 from ria.container import Container, build_container
@@ -87,8 +87,301 @@ _ANALYSIS_STORE_PATH = _get_analysis_store_path()
 _persist_lock = threading.Lock()
 
 
+def normalize_repo_name(name_or_url: Any) -> str:
+    """Normalize owner/repo or repository URL into standard lowercase 'owner/repo'."""
+    if not name_or_url:
+        return ""
+    if isinstance(name_or_url, dict):
+        if "metadata" in name_or_url and isinstance(name_or_url["metadata"], dict):
+            meta_res = normalize_repo_name(name_or_url["metadata"])
+            if meta_res:
+                return meta_res
+        full = name_or_url.get("full_name") or name_or_url.get("repo_name")
+        if full:
+            return normalize_repo_name(full)
+        owner = name_or_url.get("owner")
+        repo = name_or_url.get("name") or name_or_url.get("repo")
+        if owner and repo:
+            return f"{str(owner).strip().lower()}/{str(repo).strip().lower()}"
+        return ""
+
+    val = str(name_or_url).strip()
+    if not val:
+        return ""
+
+    # Strip trailing slashes first
+    val = val.rstrip("/")
+
+    # Handle SSH URLs: git@github.com:owner/repo.git or ssh://git@github.com/owner/repo.git
+    if "git@" in val and ":" in val:
+        val = val.split(":", 1)[-1]
+
+    # Handle protocol URLs: http:// or https://
+    if "://" in val:
+        val = val.split("://", 1)[-1]
+        # Remove host domain e.g. github.com/...
+        if "/" in val:
+            val = val.split("/", 1)[-1]
+
+    # Handle domain prefix without protocol: github.com/owner/repo or gitlab.com/owner/repo
+    for domain in ("github.com/", "gitlab.com/", "bitbucket.org/"):
+        if domain in val:
+            val = val.split(domain, 1)[-1]
+
+    val = val.strip("/")
+
+    if val.endswith(".git"):
+        val = val[:-4]
+
+    val = val.strip("/")
+
+    # Keep only owner/repo parts if formatted as path
+    parts = [p for p in val.split("/") if p]
+    if len(parts) >= 2:
+        return f"{parts[0].lower()}/{parts[1].lower()}"
+    elif len(parts) == 1:
+        return parts[0].lower()
+
+    return val.lower()
+
+
+def _get_candidate_job_dirs() -> List[str]:
+    """Return authoritative job state directories according to configuration."""
+    jobs_dir_env = os.environ.get("JOB_STATE_DIR")
+    if jobs_dir_env:
+        return [jobs_dir_env]
+
+    candidate_dirs = []
+    try:
+        from core.config import settings
+
+        db_path = os.environ.get("SQLITE_DB_PATH") or getattr(
+            settings, "sqlite_db_path", None
+        )
+        if db_path:
+            base = os.path.dirname(os.path.abspath(db_path))
+            candidate_dirs.append(os.path.join(base, "jobs"))
+    except Exception:
+        pass
+
+    if os.path.exists("/app/data/jobs"):
+        candidate_dirs.append("/app/data/jobs")
+    candidate_dirs.append(os.path.join("data", "jobs"))
+
+    seen = set()
+    res = []
+    for d in candidate_dirs:
+        norm = os.path.abspath(d) if d else ""
+        if norm and norm not in seen:
+            seen.add(norm)
+            res.append(d)
+    return res
+
+
+def recover_analysis_from_jobs(target_repo: str) -> Optional[Dict[str, Any]]:
+    """Recover completed repository analysis from completed job files in JOB_STATE_DIR.
+    
+    Self-heals ANALYSIS_STORE and attempts to persist to analysis_store.json.
+    """
+    target_norm = normalize_repo_name(target_repo)
+    if not target_norm:
+        return None
+
+    acceptable_statuses = {"completed", "success", "successful"}
+    best_job: Optional[Dict[str, Any]] = None
+    best_timestamp: float = -1.0
+    best_job_id: str = ""
+    best_analysis_raw = None
+    best_arch_raw = None
+
+    candidate_dirs = _get_candidate_job_dirs()
+    for directory in candidate_dirs:
+        if not directory or not os.path.isdir(directory):
+            continue
+        try:
+            entries = os.listdir(directory)
+        except Exception as exc:
+            logger.warning("Could not list directory %s for job recovery: %s", directory, exc)
+            continue
+
+        for fname in entries:
+            if not fname.endswith(".json"):
+                continue
+            job_file = os.path.join(directory, fname)
+            try:
+                with open(job_file, "r", encoding="utf-8") as fh:
+                    job_data = json.load(fh)
+            except Exception as exc:
+                logger.debug("Failed to read job file %s: %s", job_file, exc)
+                continue
+
+            if not isinstance(job_data, dict):
+                continue
+
+            status = str(job_data.get("status", "")).strip().lower()
+            if status not in acceptable_statuses:
+                continue
+
+            candidates = [
+                job_data.get("repo_url"),
+                job_data.get("repo"),
+                job_data.get("repo_name"),
+                job_data.get("url"),
+            ]
+            if isinstance(job_data.get("repo"), dict):
+                r_dict = job_data["repo"]
+                if r_dict.get("owner") and r_dict.get("name"):
+                    candidates.append(f"{r_dict.get('owner')}/{r_dict.get('name')}")
+            res_dict = job_data.get("result")
+            if isinstance(res_dict, dict):
+                candidates.extend([
+                    res_dict.get("repo"),
+                    res_dict.get("full_name"),
+                    res_dict.get("repo_url"),
+                    f"{res_dict.get('owner')}/{res_dict.get('name')}" if res_dict.get("owner") and res_dict.get("name") else None,
+                ])
+                analysis_meta = res_dict.get("analysis", {})
+                if isinstance(analysis_meta, dict):
+                    meta = analysis_meta.get("metadata", {})
+                    if isinstance(meta, dict) and meta.get("owner") and meta.get("name"):
+                        candidates.append(f"{meta.get('owner')}/{meta.get('name')}")
+
+            if not any(normalize_repo_name(c) == target_norm for c in candidates if c):
+                continue
+
+            # Extract analysis payload
+            analysis_raw = None
+            arch_raw = None
+            if isinstance(res_dict, dict) and "analysis" in res_dict:
+                analysis_raw = res_dict["analysis"]
+                arch_raw = res_dict.get("architecture")
+            elif "analysis" in job_data:
+                analysis_raw = job_data["analysis"]
+                arch_raw = job_data.get("architecture")
+            elif isinstance(res_dict, dict) and ("tech_stack" in res_dict or "structure" in res_dict):
+                analysis_raw = res_dict
+                arch_raw = job_data.get("architecture")
+
+            if not analysis_raw:
+                continue
+
+            # Determine timestamp
+            ts = 0.0
+            for k in ("completed_at", "updated_at", "started_at", "created_at"):
+                val = job_data.get(k)
+                if val is not None:
+                    try:
+                        ts = float(val)
+                        if ts > 0.0:
+                            break
+                    except (ValueError, TypeError):
+                        pass
+            if ts <= 0.0:
+                try:
+                    ts = os.path.getmtime(job_file)
+                except Exception:
+                    ts = 0.0
+
+            if best_job is None or ts > best_timestamp:
+                best_job = job_data
+                best_timestamp = ts
+                best_job_id = job_data.get("job_id") or fname.rsplit(".", 1)[0]
+                best_analysis_raw = analysis_raw
+                best_arch_raw = arch_raw
+
+    if not best_job:
+        return None
+
+    try:
+        if isinstance(best_analysis_raw, RepositoryAnalysis):
+            analysis_obj = best_analysis_raw
+        elif isinstance(best_analysis_raw, dict):
+            analysis_obj = RepositoryAnalysis.model_validate(best_analysis_raw)
+        else:
+            analysis_obj = best_analysis_raw
+    except Exception as exc:
+        logger.warning("Could not validate recovered RepositoryAnalysis for %s: %s", target_repo, exc, exc_info=True)
+        analysis_obj = best_analysis_raw
+
+    try:
+        if isinstance(best_arch_raw, ArchitectureSummary):
+            architecture_obj = best_arch_raw
+        elif isinstance(best_arch_raw, dict) and best_arch_raw:
+            try:
+                architecture_obj = ArchitectureSummary.model_validate(best_arch_raw)
+            except Exception:
+                relationships = [
+                    ComponentRelationship(**r) if isinstance(r, dict) else r
+                    for r in best_arch_raw.get("relationships", [])
+                ]
+                architecture_obj = ArchitectureSummary(
+                    summary=best_arch_raw.get("summary", ""),
+                    reading_order=best_arch_raw.get("reading_order", []),
+                    relationships=relationships,
+                )
+        else:
+            architecture_obj = ArchitectureSummary(
+                summary="",
+                reading_order=[],
+                relationships=[],
+            )
+    except Exception as exc:
+        logger.warning("Could not validate recovered ArchitectureSummary for %s: %s", target_repo, exc, exc_info=True)
+        architecture_obj = ArchitectureSummary(
+            summary="",
+            reading_order=[],
+            relationships=[],
+        )
+
+    store_entry = {
+        "analysis": analysis_obj,
+        "architecture": architecture_obj,
+    }
+
+    canonical_key = target_repo
+    if hasattr(analysis_obj, "metadata") and isinstance(analysis_obj.metadata, dict):
+        owner = analysis_obj.metadata.get("owner")
+        name = analysis_obj.metadata.get("name")
+        if owner and name:
+            canonical_key = f"{owner}/{name}"
+    elif isinstance(analysis_obj, dict) and "metadata" in analysis_obj and isinstance(analysis_obj["metadata"], dict):
+        owner = analysis_obj["metadata"].get("owner")
+        name = analysis_obj["metadata"].get("name")
+        if owner and name:
+            canonical_key = f"{owner}/{name}"
+
+    dict.__setitem__(ANALYSIS_STORE, canonical_key, store_entry)
+    if canonical_key != target_repo:
+        dict.__setitem__(ANALYSIS_STORE, target_repo, store_entry)
+
+    logger.info(
+        "Recovered repository analysis for '%s' from completed job '%s' (timestamp=%.1f)",
+        canonical_key,
+        best_job_id,
+        best_timestamp,
+    )
+
+    try:
+        persist_analysis_store_sync()
+        logger.info(
+            "Successfully self-healed and persisted analysis store for '%s' from job '%s'",
+            canonical_key,
+            best_job_id,
+        )
+    except Exception as exc:
+        logger.error(
+            "Failed to persist self-healed analysis store for '%s' (job=%s): %s",
+            canonical_key,
+            best_job_id,
+            exc,
+            exc_info=True,
+        )
+
+    return store_entry
+
+
 class AnalysisStoreDict(dict):
-    """Dynamic dict wrapper for ANALYSIS_STORE that reloads from disk on cache miss."""
+    """Dynamic dict wrapper for ANALYSIS_STORE that reloads from disk on cache miss and falls back to completed jobs."""
 
     def __contains__(self, key: object) -> bool:
         if super().__contains__(key):
@@ -100,6 +393,9 @@ class AnalysisStoreDict(dict):
             for k in list(super().keys()):
                 if k.lower() == key.lower():
                     return True
+            recovered = recover_analysis_from_jobs(key)
+            if recovered is not None:
+                return True
         return False
 
     def __getitem__(self, key: Any) -> Any:
@@ -109,6 +405,9 @@ class AnalysisStoreDict(dict):
                 for k in list(super().keys()):
                     if k.lower() == key.lower():
                         return super().__getitem__(k)
+                recovered = recover_analysis_from_jobs(key)
+                if recovered is not None:
+                    return recovered
         return super().__getitem__(key)
 
     def get(self, key: Any, default: Any = None) -> Any:
@@ -118,6 +417,9 @@ class AnalysisStoreDict(dict):
                 for k in list(super().keys()):
                     if k.lower() == key.lower():
                         return super().__getitem__(k)
+                recovered = recover_analysis_from_jobs(key)
+                if recovered is not None:
+                    return recovered
         return super().get(key, default)
 
 
@@ -133,7 +435,12 @@ def _load_disk_raw(path: str) -> Dict[str, Any]:
             data = json.load(fh)
             return data if isinstance(data, dict) else {}
     except Exception as exc:
-        logger.warning("Could not read existing analysis store from %s: %s", path, exc)
+        logger.warning(
+            "Could not read existing analysis store from %s: %s",
+            path,
+            exc,
+            exc_info=True,
+        )
         return {}
 
 
@@ -141,12 +448,16 @@ def _load_analysis_store(target_repo: Optional[str] = None) -> None:
     """Load persisted analysis data from disk into ANALYSIS_STORE."""
     global ANALYSIS_STORE
 
-    store_path = _get_analysis_store_path()
-    candidate_paths = [store_path]
-    if store_path != "/app/data/analysis_store.json":
-        candidate_paths.append("/app/data/analysis_store.json")
-    if store_path != os.path.join("data", "analysis_store.json"):
-        candidate_paths.append(os.path.join("data", "analysis_store.json"))
+    store_path_env = os.environ.get("ANALYSIS_STORE_PATH")
+    if store_path_env:
+        candidate_paths = [store_path_env]
+    else:
+        store_path = _get_analysis_store_path()
+        candidate_paths = [store_path]
+        if store_path != "/app/data/analysis_store.json":
+            candidate_paths.append("/app/data/analysis_store.json")
+        if store_path != os.path.join("data", "analysis_store.json"):
+            candidate_paths.append(os.path.join("data", "analysis_store.json"))
 
     for path in candidate_paths:
         if not os.path.exists(path):
@@ -182,7 +493,19 @@ def _load_analysis_store(target_repo: Optional[str] = None) -> None:
                         "Skipping malformed store entry for '%s': %s", repo_name, exc
                     )
         except Exception as exc:
-            logger.debug("Could not read analysis store from %s: %s", path, exc)
+            logger.warning(
+                "Could not read analysis store from %s: %s",
+                path,
+                exc,
+                exc_info=True,
+            )
+
+    if target_repo:
+        in_store = target_repo in dict(ANALYSIS_STORE) or any(
+            k.lower() == target_repo.lower() for k in dict(ANALYSIS_STORE).keys()
+        )
+        if not in_store:
+            recover_analysis_from_jobs(target_repo)
 
 
 def _serialise_store(store_dict: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
@@ -213,8 +536,11 @@ def _serialise_store(store_dict: Optional[Dict[str, Any]] = None) -> Dict[str, A
                 ),
             }
         except Exception as exc:
-            logger.warning(
-                "Could not serialise store entry for '%s': %s", repo_name, exc
+            logger.error(
+                "Could not serialise store entry for '%s': %s",
+                repo_name,
+                exc,
+                exc_info=True,
             )
     return out
 
@@ -229,22 +555,31 @@ def persist_analysis_store_sync(
     target_path = store_path or _get_analysis_store_path()
     lock_file = f"{target_path}.lock"
 
-    with _persist_lock:
-        with interprocess_file_lock(lock_file, timeout=30.0):
-            # 1. Read existing disk store to preserve any other repository entries
-            disk_data = _load_disk_raw(target_path)
-            # 2. Serialize current in-memory entries snapshot
-            source_store = store if store is not None else ANALYSIS_STORE
-            mem_data = _serialise_store(source_store)
-            # 3. Merge: in-memory entries take precedence or add to disk entries
-            merged: Dict[str, Any] = {**disk_data, **mem_data}
-            # 4. Atomically write the merged dictionary to disk
-            _write_store_atomic(merged, target_path)
-            logger.info(
-                "Analysis store persisted successfully (%d total entries) to %s.",
-                len(merged),
-                target_path,
-            )
+    try:
+        with _persist_lock:
+            with interprocess_file_lock(lock_file, timeout=30.0):
+                # 1. Read existing disk store to preserve any other repository entries
+                disk_data = _load_disk_raw(target_path)
+                # 2. Serialize current in-memory entries snapshot
+                source_store = store if store is not None else ANALYSIS_STORE
+                mem_data = _serialise_store(source_store)
+                # 3. Merge: in-memory entries take precedence or add to disk entries
+                merged: Dict[str, Any] = {**disk_data, **mem_data}
+                # 4. Atomically write the merged dictionary to disk
+                _write_store_atomic(merged, target_path)
+                logger.info(
+                    "Analysis store persisted successfully (%d total entries) to %s.",
+                    len(merged),
+                    target_path,
+                )
+    except Exception as exc:
+        logger.error(
+            "Failed to persist analysis store to %s: %s",
+            target_path,
+            exc,
+            exc_info=True,
+        )
+        raise
 
 
 def _persist_analysis_store_sync(
