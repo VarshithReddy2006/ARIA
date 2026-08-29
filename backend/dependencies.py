@@ -180,7 +180,7 @@ def _get_candidate_job_dirs() -> List[str]:
 
 def recover_analysis_from_jobs(target_repo: str) -> Optional[Dict[str, Any]]:
     """Recover completed repository analysis from completed job files in JOB_STATE_DIR.
-    
+
     Self-heals ANALYSIS_STORE and attempts to persist to analysis_store.json.
     """
     target_norm = normalize_repo_name(target_repo)
@@ -201,7 +201,9 @@ def recover_analysis_from_jobs(target_repo: str) -> Optional[Dict[str, Any]]:
         try:
             entries = os.listdir(directory)
         except Exception as exc:
-            logger.warning("Could not list directory %s for job recovery: %s", directory, exc)
+            logger.warning(
+                "Could not list directory %s for job recovery: %s", directory, exc
+            )
             continue
 
         for fname in entries:
@@ -234,16 +236,24 @@ def recover_analysis_from_jobs(target_repo: str) -> Optional[Dict[str, Any]]:
                     candidates.append(f"{r_dict.get('owner')}/{r_dict.get('name')}")
             res_dict = job_data.get("result")
             if isinstance(res_dict, dict):
-                candidates.extend([
-                    res_dict.get("repo"),
-                    res_dict.get("full_name"),
-                    res_dict.get("repo_url"),
-                    f"{res_dict.get('owner')}/{res_dict.get('name')}" if res_dict.get("owner") and res_dict.get("name") else None,
-                ])
+                candidates.extend(
+                    [
+                        res_dict.get("repo"),
+                        res_dict.get("full_name"),
+                        res_dict.get("repo_url"),
+                        f"{res_dict.get('owner')}/{res_dict.get('name')}"
+                        if res_dict.get("owner") and res_dict.get("name")
+                        else None,
+                    ]
+                )
                 analysis_meta = res_dict.get("analysis", {})
                 if isinstance(analysis_meta, dict):
                     meta = analysis_meta.get("metadata", {})
-                    if isinstance(meta, dict) and meta.get("owner") and meta.get("name"):
+                    if (
+                        isinstance(meta, dict)
+                        and meta.get("owner")
+                        and meta.get("name")
+                    ):
                         candidates.append(f"{meta.get('owner')}/{meta.get('name')}")
 
             if not any(normalize_repo_name(c) == target_norm for c in candidates if c):
@@ -258,7 +268,9 @@ def recover_analysis_from_jobs(target_repo: str) -> Optional[Dict[str, Any]]:
             elif "analysis" in job_data:
                 analysis_raw = job_data["analysis"]
                 arch_raw = job_data.get("architecture")
-            elif isinstance(res_dict, dict) and ("tech_stack" in res_dict or "structure" in res_dict):
+            elif isinstance(res_dict, dict) and (
+                "tech_stack" in res_dict or "structure" in res_dict
+            ):
                 analysis_raw = res_dict
                 arch_raw = job_data.get("architecture")
 
@@ -300,7 +312,12 @@ def recover_analysis_from_jobs(target_repo: str) -> Optional[Dict[str, Any]]:
         else:
             analysis_obj = best_analysis_raw
     except Exception as exc:
-        logger.warning("Could not validate recovered RepositoryAnalysis for %s: %s", target_repo, exc, exc_info=True)
+        logger.warning(
+            "Could not validate recovered RepositoryAnalysis for %s: %s",
+            target_repo,
+            exc,
+            exc_info=True,
+        )
         analysis_obj = best_analysis_raw
 
     try:
@@ -326,7 +343,12 @@ def recover_analysis_from_jobs(target_repo: str) -> Optional[Dict[str, Any]]:
                 relationships=[],
             )
     except Exception as exc:
-        logger.warning("Could not validate recovered ArchitectureSummary for %s: %s", target_repo, exc, exc_info=True)
+        logger.warning(
+            "Could not validate recovered ArchitectureSummary for %s: %s",
+            target_repo,
+            exc,
+            exc_info=True,
+        )
         architecture_obj = ArchitectureSummary(
             summary="",
             reading_order=[],
@@ -344,7 +366,11 @@ def recover_analysis_from_jobs(target_repo: str) -> Optional[Dict[str, Any]]:
         name = analysis_obj.metadata.get("name")
         if owner and name:
             canonical_key = f"{owner}/{name}"
-    elif isinstance(analysis_obj, dict) and "metadata" in analysis_obj and isinstance(analysis_obj["metadata"], dict):
+    elif (
+        isinstance(analysis_obj, dict)
+        and "metadata" in analysis_obj
+        and isinstance(analysis_obj["metadata"], dict)
+    ):
         owner = analysis_obj["metadata"].get("owner")
         name = analysis_obj["metadata"].get("name")
         if owner and name:

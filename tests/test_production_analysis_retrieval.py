@@ -88,13 +88,19 @@ def _create_job_file(
                     "local_path": f"/tmp/{name}",
                     "job_id": job_id,
                 },
-            } if include_analysis else None,
+            }
+            if include_analysis
+            else None,
             "architecture": {
                 "summary": f"Architecture summary for {repo_name} from job {job_id}",
                 "reading_order": ["main.py"],
                 "relationships": [],
-            } if include_analysis else None,
-        } if include_analysis else None,
+            }
+            if include_analysis
+            else None,
+        }
+        if include_analysis
+        else None,
     }
     file_path = os.path.join(directory, f"{job_id}.json")
     with open(file_path, "w", encoding="utf-8") as fh:
@@ -159,7 +165,10 @@ def test_2_completed_job_recovery(tmp_path, monkeypatch):
                 assert data["analysis"]["metadata"]["owner"] == "VarshithReddy2006"
                 assert data["analysis"]["metadata"]["name"] == "ARIA"
                 assert data["analysis"]["metadata"]["job_id"] == job_id
-                assert "63c7b91b6a0c440ba063e11e539626ba" in data["architecture"]["summary"]
+                assert (
+                    "63c7b91b6a0c440ba063e11e539626ba"
+                    in data["architecture"]["summary"]
+                )
 
                 # Verify store file was self-healed on disk
                 disk_data = json.loads(store_file.read_text(encoding="utf-8"))
@@ -271,14 +280,14 @@ def test_5_cache_persistence_failure_resilience(tmp_path, monkeypatch, caplog):
                 "backend.dependencies.persist_analysis_store_sync",
                 side_effect=IOError("Simulated Disk Full on Persistence"),
             ):
-                with patch(
-                    "backend.dependencies.logger.error"
-                ) as mock_logger_error:
+                with patch("backend.dependencies.logger.error") as mock_logger_error:
                     with TestClient(app) as client:
                         res = client.get("/api/v1/analysis/VarshithReddy2006/ARIA")
                         assert res.status_code == 200
                         data = res.json()
-                        assert data["analysis"]["metadata"]["owner"] == "VarshithReddy2006"
+                        assert (
+                            data["analysis"]["metadata"]["owner"] == "VarshithReddy2006"
+                        )
                         assert data["analysis"]["metadata"]["name"] == "ARIA"
                         # Verify failure was logged with traceback/context
                         assert mock_logger_error.called
@@ -362,7 +371,9 @@ def test_7_repository_url_normalization(tmp_path, monkeypatch):
     empty_store = AnalysisStoreDict()
     with patch("backend.dependencies.ANALYSIS_STORE", empty_store):
         with patch("backend.routers.repositories.ANALYSIS_STORE", empty_store):
-            recovered = recover_analysis_from_jobs("git@github.com:VarshithReddy2006/ARIA.git")
+            recovered = recover_analysis_from_jobs(
+                "git@github.com:VarshithReddy2006/ARIA.git"
+            )
             assert recovered is not None
             assert recovered["analysis"].metadata["job_id"] == "job_norm_test"
 

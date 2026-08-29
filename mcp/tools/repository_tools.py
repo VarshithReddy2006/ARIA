@@ -138,6 +138,7 @@ def register(server: Any) -> None:
 
                 # Generate architecture summary
                 import asyncio
+
                 architecture = asyncio.run(
                     generate_architecture_summary(
                         repo_name=repo_name,
@@ -158,6 +159,7 @@ def register(server: Any) -> None:
                 name = parts[1] if len(parts) > 1 else repo_name
 
                 from models.schemas import RepositoryAnalysis
+
                 analysis = RepositoryAnalysis(
                     structure=structure,
                     dependencies=dependencies,
