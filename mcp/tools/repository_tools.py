@@ -6,7 +6,7 @@ All business logic delegates to existing services.
 
 import json
 import logging
-from typing import Any
+from typing import Any, Dict, List
 
 from mcp.errors import ToolFailure, require_repo, require_text, tool_boundary
 from mcp.metadata import ToolMetadata

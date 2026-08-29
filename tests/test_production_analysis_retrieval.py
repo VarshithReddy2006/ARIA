@@ -12,7 +12,6 @@ Covers:
 """
 
 import json
-import logging
 import os
 import time
 from unittest.mock import AsyncMock, patch
@@ -21,10 +20,8 @@ from starlette.testclient import TestClient
 
 from backend.api import app
 from backend.dependencies import (
-    ANALYSIS_STORE,
     AnalysisStoreDict,
     normalize_repo_name,
-    persist_analysis_store_sync,
     recover_analysis_from_jobs,
 )
 from models.schemas import ArchitectureSummary, RepositoryAnalysis
