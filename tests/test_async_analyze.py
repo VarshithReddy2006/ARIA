@@ -152,7 +152,7 @@ def test_execute_repository_analysis_invokes_callback(tmp_path):
             return_value=MagicMock(model_dump=lambda: {}),
         ),
         patch("backend.routers.repositories.snapshot_store.save"),
-        patch("backend.routers.repositories._persist_analysis_store"),
+        patch("backend.routers.repositories.persist_analysis_store_sync"),
         patch(
             "backend.routers.repositories.engineering_memory_service.create_snapshot"
         ),

@@ -28,7 +28,7 @@ from pydantic import BaseModel, Field
 
 from backend.dependencies import (
     ANALYSIS_STORE,
-    _persist_analysis_store,
+    persist_analysis_store_sync,
     get_architecture_service,
     get_chroma_store,
     get_chunker,
@@ -1411,20 +1411,20 @@ def execute_repository_analysis(
             new_manifest.model_dump(),
         )
 
-        def _do_persist():
-            return asyncio.run(_persist_analysis_store())
-
+        # Synchronous thread-safe read-merge-write persistence
         try:
-            loop = asyncio.get_running_loop()
-            if loop and loop.is_running():
-                import concurrent.futures
-
-                with concurrent.futures.ThreadPoolExecutor() as pool:
-                    pool.submit(_do_persist).result()
-            else:
-                _do_persist()
-        except RuntimeError:
-            _do_persist()
+            persist_analysis_store_sync()
+            successful_phases.append("persistence")
+        except Exception as exc_persist:
+            failed_phases.append("persistence")
+            phase_errors["persistence"] = str(exc_persist)
+            logger.error(
+                "Failed to persist analysis store for %s: %s",
+                repo_name,
+                exc_persist,
+                exc_info=True,
+            )
+            raise
 
         commit_sha = "unknown"
         if local_path and os.path.exists(os.path.join(local_path, ".git")):

@@ -84,7 +84,7 @@ def test_analyze_repository_success() -> None:
             "backend.routers.repositories.generate_architecture_summary"
         ) as mock_summary,
         patch("backend.routers.repositories.snapshot_store") as mock_store,
-        patch("backend.routers.repositories._persist_analysis_store"),
+        patch("backend.routers.repositories.persist_analysis_store_sync"),
     ):
         mock_gh.clone_repository.return_value = "/dummy/path"
         mock_gh.extract_source_files.return_value = [

@@ -84,7 +84,7 @@ def _get_analysis_store_path() -> str:
 
 
 _ANALYSIS_STORE_PATH = _get_analysis_store_path()
-_persist_lock = asyncio.Lock()
+_persist_lock = threading.Lock()
 
 
 class AnalysisStoreDict(dict):
@@ -122,6 +122,19 @@ class AnalysisStoreDict(dict):
 
 
 ANALYSIS_STORE: Dict[str, Dict[str, Any]] = AnalysisStoreDict()
+
+
+def _load_disk_raw(path: str) -> Dict[str, Any]:
+    """Safely load raw dict from disk store if it exists."""
+    if not os.path.exists(path):
+        return {}
+    try:
+        with open(path, "r", encoding="utf-8") as fh:
+            data = json.load(fh)
+            return data if isinstance(data, dict) else {}
+    except Exception as exc:
+        logger.warning("Could not read existing analysis store from %s: %s", path, exc)
+        return {}
 
 
 def _load_analysis_store(target_repo: Optional[str] = None) -> None:
@@ -172,13 +185,21 @@ def _load_analysis_store(target_repo: Optional[str] = None) -> None:
             logger.debug("Could not read analysis store from %s: %s", path, exc)
 
 
-def _serialise_store() -> Dict[str, Any]:
-    """Serialise ANALYSIS_STORE to a plain JSON-safe dict."""
+def _serialise_store(store_dict: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
+    """Serialise an analysis store dict (or ANALYSIS_STORE) to a plain JSON-safe dict."""
+    target = store_dict if store_dict is not None else ANALYSIS_STORE
     out: Dict[str, Any] = {}
-    for repo_name, entry in ANALYSIS_STORE.items():
+    # Extract items snapshot to avoid concurrent dictionary mutation
+    try:
+        items = list(target.items()) if hasattr(target, "items") else []
+    except Exception:
+        items = []
+    for repo_name, entry in items:
+        if not isinstance(entry, dict):
+            continue
         try:
-            analysis_obj = entry["analysis"]
-            arch_obj = entry["architecture"]
+            analysis_obj = entry.get("analysis")
+            arch_obj = entry.get("architecture")
             out[repo_name] = {
                 "analysis": (
                     analysis_obj.model_dump()
@@ -198,23 +219,59 @@ def _serialise_store() -> Dict[str, Any]:
     return out
 
 
-async def _persist_analysis_store() -> None:
-    """Write ANALYSIS_STORE to disk atomically (tmp file → rename)."""
-    async with _persist_lock:
-        try:
-            payload = _serialise_store()
-            await asyncio.to_thread(_write_store_atomic, payload)
-            logger.debug("Analysis store persisted (%d entries).", len(payload))
-        except Exception as exc:
-            logger.error("Failed to persist analysis store: %s", exc, exc_info=True)
+def persist_analysis_store_sync(
+    store: Optional[Dict[str, Any]] = None,
+    store_path: Optional[str] = None,
+) -> None:
+    """Synchronously persist analysis store to disk using read-merge-write and inter-process locking."""
+    from core.concurrency import interprocess_file_lock
+
+    target_path = store_path or _get_analysis_store_path()
+    lock_file = f"{target_path}.lock"
+
+    with _persist_lock:
+        with interprocess_file_lock(lock_file, timeout=30.0):
+            # 1. Read existing disk store to preserve any other repository entries
+            disk_data = _load_disk_raw(target_path)
+            # 2. Serialize current in-memory entries snapshot
+            source_store = store if store is not None else ANALYSIS_STORE
+            mem_data = _serialise_store(source_store)
+            # 3. Merge: in-memory entries take precedence or add to disk entries
+            merged: Dict[str, Any] = {**disk_data, **mem_data}
+            # 4. Atomically write the merged dictionary to disk
+            _write_store_atomic(merged, target_path)
+            logger.info(
+                "Analysis store persisted successfully (%d total entries) to %s.",
+                len(merged),
+                target_path,
+            )
 
 
-def _write_store_atomic(payload: Dict[str, Any]) -> None:
+def _persist_analysis_store_sync(
+    store: Optional[Dict[str, Any]] = None,
+    store_path: Optional[str] = None,
+) -> None:
+    """Alias for persist_analysis_store_sync."""
+    persist_analysis_store_sync(store=store, store_path=store_path)
+
+
+async def _persist_analysis_store(
+    store: Optional[Dict[str, Any]] = None,
+    store_path: Optional[str] = None,
+) -> None:
+    """Async compatibility wrapper around synchronous thread-safe persistence."""
+    loop = asyncio.get_running_loop()
+    await loop.run_in_executor(None, persist_analysis_store_sync, store, store_path)
+
+
+def _write_store_atomic(
+    payload: Dict[str, Any], store_path: Optional[str] = None
+) -> None:
     """Write payload to active store path via atomic rename."""
     from core.concurrency import write_json_atomic
 
-    store_path = _get_analysis_store_path()
-    write_json_atomic(store_path, payload, indent=2)
+    target_path = store_path or _get_analysis_store_path()
+    write_json_atomic(target_path, payload, indent=2)
 
 
 # ---------------------------------------------------------------------------

@@ -34,11 +34,13 @@ from backend.dependencies import (
     get_chroma_store,
     get_chunker,
     get_git_history_service,
+    persist_analysis_store_sync,
     _persist_analysis_store,
 )
 
 __all__ = [
     "ANALYSIS_STORE",
+    "persist_analysis_store_sync",
     "get_symbol_service",
     "get_call_graph_service",
     "get_dead_code_service",

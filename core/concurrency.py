@@ -7,10 +7,63 @@ import json
 import logging
 import os
 import threading
+import time
 import uuid
 from typing import Any, Dict, Generator, Optional
 
 logger = logging.getLogger(__name__)
+
+
+@contextlib.contextmanager
+def interprocess_file_lock(
+    lock_path: str, timeout: float = 30.0, poll_interval: float = 0.05
+) -> Generator[bool, None, None]:
+    """Cross-process file lock protecting critical multi-process file operations.
+
+    Uses `filelock.FileLock` if available, with a built-in cross-platform
+    atomic lockfile fallback if filelock is absent.
+    """
+    os.makedirs(os.path.dirname(os.path.abspath(lock_path)), exist_ok=True)
+    try:
+        from filelock import FileLock, Timeout
+
+        lock = FileLock(lock_path, timeout=timeout)
+        try:
+            with lock:
+                yield True
+        except Timeout as exc:
+            logger.error(
+                "Timed out waiting for inter-process file lock on %s", lock_path
+            )
+            raise TimeoutError(
+                f"Timed out acquiring inter-process lock on {lock_path}"
+            ) from exc
+    except ImportError:
+        start = time.time()
+        lock_fd = None
+        while True:
+            try:
+                lock_fd = os.open(lock_path, os.O_CREAT | os.O_EXCL | os.O_RDWR)
+                break
+            except (FileExistsError, OSError):
+                if time.time() - start > timeout:
+                    raise TimeoutError(
+                        f"Timed out acquiring inter-process lock on {lock_path}"
+                    )
+                time.sleep(poll_interval)
+        try:
+            yield True
+        finally:
+            if lock_fd is not None:
+                try:
+                    os.close(lock_fd)
+                except Exception:
+                    pass
+                try:
+                    os.remove(lock_path)
+                except Exception:
+                    pass
+
 
 # In-process per-repository lock registry
 _REPO_LOCKS: Dict[str, threading.Lock] = {}

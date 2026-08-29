@@ -113,7 +113,7 @@ def register(server: Any) -> None:
         from mcp.dependencies import (
             ANALYSIS_STORE,
             get_github_service,
-            _persist_analysis_store,
+            persist_analysis_store_sync,
         )
         from services.ingestion_service import (
             detect_tech_stack_and_deps,
@@ -145,17 +145,15 @@ def register(server: Any) -> None:
                     "architecture": architecture,
                 }
 
-                # Persist asynchronously (best-effort in sync context)
-                import asyncio
-
+                # Persist synchronously with thread-safe read-merge-write
                 try:
-                    loop = asyncio.get_event_loop()
-                    if loop.is_running():
-                        loop.create_task(_persist_analysis_store())
-                    else:
-                        loop.run_until_complete(_persist_analysis_store())
-                except RuntimeError:
-                    pass  # No event loop available in stdio context
+                    persist_analysis_store_sync()
+                except Exception as exc:
+                    logger.warning(
+                        "MCP analysis store persistence warning for %s: %s",
+                        repo_name,
+                        exc,
+                    )
 
                 return json.dumps(
                     {

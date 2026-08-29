@@ -93,7 +93,7 @@ class TestCleanColdStartSimulation:
                     }
                 ),
             ),
-            patch("backend.routers.repositories._persist_analysis_store"),
+            patch("backend.routers.repositories.persist_analysis_store_sync"),
         ):
             result = execute_repository_analysis(
                 repo_url=repo_url,
