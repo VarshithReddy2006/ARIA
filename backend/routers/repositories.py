@@ -845,12 +845,11 @@ def execute_repository_analysis(
                         len(files_to_delete),
                     )
                 except Exception as exc:
-                    logger.error(
-                        "Failed to delete chunks for %d files: %s",
+                    logger.warning(
+                        "Non-fatal error deleting chunks for %d files: %s",
                         len(files_to_delete),
                         exc,
                     )
-                    raise
                 finally:
                     timer.stop("Chroma")
 
@@ -862,45 +861,146 @@ def execute_repository_analysis(
                 progress=45,
             )
 
-            mem_tracker.log_phase("before_chunking")
-            batch_size = _get_batch_size()
-            chunk_buffer = []
-            inserted_count = 0
-            file_chunk_counts = {}
-            batch_idx = 0
+            try:
+                mem_tracker.log_phase("before_chunking")
+                batch_size = _get_batch_size()
+                chunk_buffer = []
+                inserted_count = 0
+                file_chunk_counts = {}
+                batch_idx = 0
 
-            timer.start("Chunk")
-            for f in _get_source_files_stream(local_path):
-                p = f["path"]
-                if p not in target_paths:
-                    continue
-                file_chunks = chunker.chunk_file(p, f["content"])
-                if not file_chunks:
-                    continue
-                mem_tracker.record_chunk(len(file_chunks))
-                chunk_buffer.extend(file_chunks)
+                timer.start("Chunk")
+                for f in _get_source_files_stream(local_path):
+                    p = f["path"]
+                    if p not in target_paths:
+                        continue
+                    file_chunks = chunker.chunk_file(p, f["content"])
+                    if not file_chunks:
+                        continue
+                    mem_tracker.record_chunk(len(file_chunks))
+                    chunk_buffer.extend(file_chunks)
 
-                while len(chunk_buffer) >= batch_size:
-                    chunk_batch = chunk_buffer[:batch_size]
-                    chunk_buffer = chunk_buffer[batch_size:]
+                    while len(chunk_buffer) >= batch_size:
+                        chunk_batch = chunk_buffer[:batch_size]
+                        chunk_buffer = chunk_buffer[batch_size:]
+                        batch_idx += 1
+                        t0 = time.perf_counter()
+
+                        if batch_idx == 1:
+                            mem_tracker.log_phase("before_first_embedding_batch")
+
+                        timer.stop("Chunk")
+                        timer.start("Embedding")
+                        emb_stats = {}
+                        emb_batch = embedding_service.generate_embeddings(
+                            chunk_batch, stats=emb_stats
+                        )
+                        timer.stop("Embedding")
+
+                        mem_tracker.log_phase(
+                            "after_embedding_batch",
+                            batch=batch_idx,
+                            batch_items=len(chunk_batch),
+                        )
+
+                        bulk_ids = []
+                        bulk_docs = []
+                        bulk_embeddings = []
+                        bulk_metadatas = []
+
+                        for idx, chunk in enumerate(chunk_batch):
+                            c_path = chunk["path"]
+                            chunk_idx = file_chunk_counts.get(c_path, 0)
+                            file_chunk_counts[c_path] = chunk_idx + 1
+
+                            unique_id = f"{repo_name}_{c_path}_{chunk_idx}".replace(
+                                "/", "_"
+                            ).replace(".", "_")
+                            bulk_ids.append(unique_id)
+                            bulk_docs.append(chunk["content"])
+                            bulk_embeddings.append(emb_batch[idx])
+                            bulk_metadatas.append(
+                                {
+                                    "repo_name": repo_name,
+                                    "file_path": c_path,
+                                    "chunk_id": chunk_idx,
+                                    "language": chunker.detect_language(c_path),
+                                }
+                            )
+
+                        if bulk_ids:
+                            timer.start("Chroma")
+                            chroma_store.add_code_chunks_bulk(
+                                bulk_ids,
+                                bulk_docs,
+                                bulk_embeddings,
+                                bulk_metadatas,
+                            )
+                            timer.stop("Chroma")
+                            inserted_count += len(bulk_ids)
+                            mem_tracker.record_embeddings_indexed(len(bulk_ids))
+
+                        mem_tracker.log_phase(
+                            "after_vector_store_staging_batch",
+                            batch=batch_idx,
+                            staged=inserted_count,
+                        )
+
+                        elapsed_batch = time.perf_counter() - t0
+                        hits = emb_stats.get("cache_hits", 0)
+                        misses = emb_stats.get("cache_misses", 0)
+                        logger.info(
+                            "Incremental indexing progress batch=%d embedded=%d indexed=%d hits=%d misses=%d elapsed=%.2fs",
+                            batch_idx,
+                            len(emb_batch),
+                            inserted_count,
+                            hits,
+                            misses,
+                            elapsed_batch,
+                        )
+                        _emit(
+                            "embed",
+                            "generating_embeddings",
+                            f"Generating Embeddings: {inserted_count} new chunks | batch={batch_size} | hits={hits} | misses={misses}",
+                            stats={
+                                "chunks_processed": inserted_count,
+                                "embeddings_indexed": inserted_count,
+                                "files_processed": len(target_paths),
+                                "elapsed_seconds": int(time.time() - start_time),
+                                "cache_hits": hits,
+                                "cache_misses": misses,
+                                "batch_size": batch_size,
+                                **emb_stats,
+                            },
+                            progress=50,
+                        )
+
+                        del chunk_batch
+                        del emb_batch
+                        del bulk_ids
+                        del bulk_docs
+                        del bulk_embeddings
+                        del bulk_metadatas
+                        timer.start("Chunk")
+
+                if chunk_buffer:
+                    timer.stop("Chunk")
                     batch_idx += 1
                     t0 = time.perf_counter()
-
                     if batch_idx == 1:
                         mem_tracker.log_phase("before_first_embedding_batch")
 
-                    timer.stop("Chunk")
                     timer.start("Embedding")
                     emb_stats = {}
                     emb_batch = embedding_service.generate_embeddings(
-                        chunk_batch, stats=emb_stats
+                        chunk_buffer, stats=emb_stats
                     )
                     timer.stop("Embedding")
 
                     mem_tracker.log_phase(
                         "after_embedding_batch",
                         batch=batch_idx,
-                        batch_items=len(chunk_batch),
+                        batch_items=len(chunk_buffer),
                     )
 
                     bulk_ids = []
@@ -908,7 +1008,7 @@ def execute_repository_analysis(
                     bulk_embeddings = []
                     bulk_metadatas = []
 
-                    for idx, chunk in enumerate(chunk_batch):
+                    for idx, chunk in enumerate(chunk_buffer):
                         c_path = chunk["path"]
                         chunk_idx = file_chunk_counts.get(c_path, 0)
                         file_chunk_counts[c_path] = chunk_idx + 1
@@ -972,123 +1072,32 @@ def execute_repository_analysis(
                             "batch_size": batch_size,
                             **emb_stats,
                         },
-                        progress=50,
+                        progress=55,
                     )
 
-                    del chunk_batch
+                    del chunk_buffer
                     del emb_batch
                     del bulk_ids
                     del bulk_docs
                     del bulk_embeddings
                     del bulk_metadatas
-                    timer.start("Chunk")
+                else:
+                    timer.stop("Chunk")
 
-            if chunk_buffer:
-                timer.stop("Chunk")
-                batch_idx += 1
-                t0 = time.perf_counter()
-                if batch_idx == 1:
-                    mem_tracker.log_phase("before_first_embedding_batch")
-
-                timer.start("Embedding")
-                emb_stats = {}
-                emb_batch = embedding_service.generate_embeddings(
-                    chunk_buffer, stats=emb_stats
-                )
-                timer.stop("Embedding")
-
-                mem_tracker.log_phase(
-                    "after_embedding_batch",
-                    batch=batch_idx,
-                    batch_items=len(chunk_buffer),
-                )
-
-                bulk_ids = []
-                bulk_docs = []
-                bulk_embeddings = []
-                bulk_metadatas = []
-
-                for idx, chunk in enumerate(chunk_buffer):
-                    c_path = chunk["path"]
-                    chunk_idx = file_chunk_counts.get(c_path, 0)
-                    file_chunk_counts[c_path] = chunk_idx + 1
-
-                    unique_id = f"{repo_name}_{c_path}_{chunk_idx}".replace(
-                        "/", "_"
-                    ).replace(".", "_")
-                    bulk_ids.append(unique_id)
-                    bulk_docs.append(chunk["content"])
-                    bulk_embeddings.append(emb_batch[idx])
-                    bulk_metadatas.append(
-                        {
-                            "repo_name": repo_name,
-                            "file_path": c_path,
-                            "chunk_id": chunk_idx,
-                            "language": chunker.detect_language(c_path),
-                        }
-                    )
-
-                if bulk_ids:
-                    timer.start("Chroma")
-                    chroma_store.add_code_chunks_bulk(
-                        bulk_ids,
-                        bulk_docs,
-                        bulk_embeddings,
-                        bulk_metadatas,
-                    )
-                    timer.stop("Chroma")
-                    inserted_count += len(bulk_ids)
-                    mem_tracker.record_embeddings_indexed(len(bulk_ids))
-
-                mem_tracker.log_phase(
-                    "after_vector_store_staging_batch",
-                    batch=batch_idx,
-                    staged=inserted_count,
-                )
-
-                elapsed_batch = time.perf_counter() - t0
-                hits = emb_stats.get("cache_hits", 0)
-                misses = emb_stats.get("cache_misses", 0)
+                successful_phases.append("embed")
                 logger.info(
-                    "Incremental indexing progress batch=%d embedded=%d indexed=%d hits=%d misses=%d elapsed=%.2fs",
-                    batch_idx,
-                    len(emb_batch),
+                    "Successfully bulk inserted %d new chunks into vector store.",
                     inserted_count,
-                    hits,
-                    misses,
-                    elapsed_batch,
                 )
-                _emit(
-                    "embed",
-                    "generating_embeddings",
-                    f"Generating Embeddings: {inserted_count} new chunks | batch={batch_size} | hits={hits} | misses={misses}",
-                    stats={
-                        "chunks_processed": inserted_count,
-                        "embeddings_indexed": inserted_count,
-                        "files_processed": len(target_paths),
-                        "elapsed_seconds": int(time.time() - start_time),
-                        "cache_hits": hits,
-                        "cache_misses": misses,
-                        "batch_size": batch_size,
-                        **emb_stats,
-                    },
-                    progress=55,
+            except Exception as exc_embed:
+                failed_phases.append("embed")
+                phase_errors["embed"] = str(exc_embed)
+                logger.error(
+                    "Incremental vector store embedding failed for %s (continuing deterministic analysis): %s",
+                    repo_name,
+                    exc_embed,
+                    exc_info=True,
                 )
-
-                del chunk_buffer
-                del emb_batch
-                del bulk_ids
-                del bulk_docs
-                del bulk_embeddings
-                del bulk_metadatas
-            else:
-                timer.stop("Chunk")
-
-            successful_phases.append("embed")
-            logger.info(
-                "Successfully bulk inserted %d new chunks into vector store.",
-                inserted_count,
-            )
         else:
             # Full Mode — Optimized cold-path pipeline:
             # 1. Collect ALL chunks first (single iteration)
@@ -1236,10 +1245,20 @@ def execute_repository_analysis(
                 if version_staged:
                     chroma_store.publish_repository_version(repo_name, version)
                 successful_phases.append("embed")
-            except Exception:
+            except Exception as exc_embed:
                 if version_staged:
-                    chroma_store.rollback_staged_version(repo_name, version)
-                raise
+                    try:
+                        chroma_store.rollback_staged_version(repo_name, version)
+                    except Exception:
+                        pass
+                failed_phases.append("embed")
+                phase_errors["embed"] = str(exc_embed)
+                logger.error(
+                    "Vector store embedding/indexing failed for %s (continuing deterministic analysis): %s",
+                    repo_name,
+                    exc_embed,
+                    exc_info=True,
+                )
             finally:
                 timer.stop("Chroma")
                 timer.stop("Embedding")

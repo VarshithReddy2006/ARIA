@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useMemo } from 'react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { apiUrl } from '../../lib/api';
@@ -12,20 +12,44 @@ import {
   FileCode,
   AlertTriangle,
   ChevronDown,
+  ChevronRight,
   ChevronUp,
   Copy,
   CheckCircle2,
   StopCircle,
+  ArrowRight,
+  Workflow,
+  FileText,
+  Trash2,
+  Shield,
+  Layers,
+  Code2,
+  ExternalLink,
+  Info,
+  Check,
 } from 'lucide-react';
 
 import { tokenizeCode, type Token } from '../../lib/tokenizer';
 import { sanitizeMarkdown } from '../../lib/sanitizer';
+import {
+  detectChatIntent,
+  generateSuggestedPrompts,
+  generateFollowUpPrompts,
+  redactSecrets,
+  resolvePronouns,
+  parseAnswerHierarchy,
+  deduplicateSources,
+  type ChatIntent,
+  type IntentAnalysis,
+  type EvidenceLevel,
+  type StructuredEvidenceItem,
+} from '../../lib/chatIntelligence';
 
 // ---------------------------------------------------------------------------
 // Types
 // ---------------------------------------------------------------------------
 
-interface Message {
+export interface Message {
   id: string;
   sender: 'user' | 'assistant';
   text: string;
@@ -38,9 +62,16 @@ interface Message {
   fallbackMode?: boolean;
   /** True when this is an inline error (no_repo_selected, etc.). */
   isError?: boolean;
+  /** Classified engineering intent of the user prompt */
+  intent?: ChatIntent;
+  /** Follow-up prompt recommendations */
+  followUps?: string[];
+  /** Primary cross-surface action */
+  actionTarget?: IntentAnalysis['actionTarget'];
+  actionLabel?: string;
 }
 
-interface ChatInterfaceProps {
+export interface ChatInterfaceProps {
   repoName: string;
   /**
    * A question pushed in from elsewhere in the dashboard (e.g. "Ask about this
@@ -49,12 +80,30 @@ interface ChatInterfaceProps {
    */
   pendingPrompt?: { text: string; token: number } | null;
   onPendingPromptConsumed?: () => void;
+  /** Optional metadata passed to enrich dynamic suggested prompts */
+  repoMetadata?: {
+    techStack?: string[];
+    dependencies?: string[];
+    entryPoints?: string[];
+    cyclesCount?: number;
+    componentCount?: number;
+    readingSteps?: number;
+    healthScore?: number;
+  };
 }
 
 const createChatSessionId = (): string =>
   typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function'
     ? crypto.randomUUID()
     : `${Date.now()}-${Math.random().toString(36).slice(2)}`;
+
+/**
+ * Normalized localStorage key generator for repository conversation history.
+ */
+function getChatStorageKey(repo: string): string {
+  const normalized = (repo || 'default').trim().toLowerCase();
+  return `aria-chat-history:${normalized}`;
+}
 
 // ---------------------------------------------------------------------------
 // Custom Sub-components for Markdown & Layout
@@ -183,15 +232,32 @@ const CodeBlock: React.FC<{ inline?: boolean; className?: string; children: Reac
   );
 };
 
-/** Markdown Component mapping GFM styles to Tailwind classes */
-const Markdown: React.FC<{ content: string; isStreaming: boolean }> = ({ content, isStreaming }) => {
-  const sanitized = sanitizeMarkdown(content);
+/** Markdown Component mapping GFM styles to Tailwind classes with secret redaction */
+const Markdown: React.FC<{ content: string; isStreaming: boolean; activeRepo?: string }> = ({
+  content,
+  isStreaming,
+  activeRepo,
+}) => {
+  const redacted = redactSecrets(content);
+  const sanitized = sanitizeMarkdown(redacted);
   const textWithCursor = isStreaming ? sanitized + ' %%CURSOR%%' : sanitized;
 
-  // Debug logging when DEBUG_RENDERING is set
-  if (typeof window !== 'undefined' && (window as any).DEBUG_RENDERING) {
-    console.log('[DEBUG_RENDERING]', { raw: content, sanitized, textWithCursor });
-  }
+  const handleNavigate = (pathOrFile: string) => {
+    if (typeof window !== 'undefined') {
+      const [owner, repo] = (activeRepo || '').split('/');
+      window.dispatchEvent(
+        new CustomEvent('aria-open-graph', {
+          detail: {
+            owner: owner || undefined,
+            repo: repo || undefined,
+            file: pathOrFile,
+            path: pathOrFile,
+            source: 'chat',
+          },
+        })
+      );
+    }
+  };
 
   return (
     <ReactMarkdown
@@ -200,6 +266,22 @@ const Markdown: React.FC<{ content: string; isStreaming: boolean }> = ({ content
         code: ({ className, children }) => {
           const match = /language-(\w+)/.exec(className || '');
           const isInline = !match;
+          const strVal = String(children).trim();
+
+          // If inline token matches a file path or symbol, make it interactive
+          if (isInline && (strVal.includes('/') || strVal.includes('.'))) {
+            return (
+              <button
+                type="button"
+                onClick={() => handleNavigate(strVal)}
+                className="bg-surface-3 hover:bg-primary/20 hover:text-primary px-1.5 py-0.5 rounded text-xs text-primary font-mono inline-flex items-center gap-1 transition-colors cursor-pointer border border-white/[0.05]"
+                title={`Inspect ${strVal} in File Graph`}
+              >
+                <span>{strVal}</span>
+              </button>
+            );
+          }
+
           return (
             <CodeBlock inline={isInline} className={className}>
               {children}
@@ -241,16 +323,100 @@ const TypingIndicator: React.FC = () => (
   </div>
 );
 
-/** Citations, Grounded Evidence, and Structural Sources container */
-const SourcesPanel: React.FC<{ sources: string[]; confidence: number; fallbackMode: boolean; activeRepo?: string }> = ({
-  sources,
-  confidence,
-  fallbackMode,
+/** Semantic Badge helper component */
+const EvidenceBadge: React.FC<{ level: EvidenceLevel }> = ({ level }) => {
+  switch (level) {
+    case 'VERIFIED':
+      return (
+        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[9.5px] font-mono font-bold bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
+          <Shield className="h-2.5 w-2.5" /> VERIFIED
+        </span>
+      );
+    case 'STRONGLY INFERRED':
+      return (
+        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[9.5px] font-mono font-bold bg-primary/10 text-primary border border-primary/20">
+          <Workflow className="h-2.5 w-2.5" /> STRONGLY INFERRED
+        </span>
+      );
+    case 'INFERRED':
+      return (
+        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[9.5px] font-mono font-bold bg-amber-500/10 text-amber-400 border border-amber-500/20">
+          <Info className="h-2.5 w-2.5" /> INFERRED
+        </span>
+      );
+    default:
+      return (
+        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[9.5px] font-mono font-bold bg-zinc-500/10 text-zinc-400 border border-zinc-500/20">
+          <AlertTriangle className="h-2.5 w-2.5" /> UNKNOWN
+        </span>
+      );
+  }
+};
+
+/** Key Files Table/List */
+const KeyFilesSection: React.FC<{ files: { filePath: string; role: string }[]; activeRepo?: string }> = ({
+  files,
   activeRepo,
 }) => {
-  const [open, setOpen] = useState(true);
+  if (!files || files.length < 2) return null;
 
-  const displayConfidence = Math.min(Math.max(Math.round(confidence), 0), 100);
+  const handleNavigate = (path: string) => {
+    if (typeof window !== 'undefined') {
+      const [owner, repo] = (activeRepo || '').split('/');
+      window.dispatchEvent(
+        new CustomEvent('aria-open-graph', {
+          detail: { owner, repo, file: path, path, source: 'chat' },
+        })
+      );
+    }
+  };
+
+  return (
+    <div className="my-3 p-3 rounded-xl border border-white/[0.08] bg-surface-1/70 shadow-card">
+      <div className="flex items-center gap-2 mb-2.5 text-[10px] font-mono font-bold text-text-muted uppercase tracking-wider">
+        <FileText className="h-3.5 w-3.5 text-primary" /> Key Files & Subsystem Roles
+      </div>
+      <div className="grid grid-cols-1 gap-1.5">
+        {files.map((kf, i) => (
+          <div
+            key={i}
+            className="flex items-center justify-between gap-3 p-2 rounded-lg bg-surface-2/40 border border-white/[0.04] text-[11px]"
+          >
+            <button
+              type="button"
+              onClick={() => handleNavigate(kf.filePath)}
+              className="font-mono text-primary hover:underline font-semibold truncate text-left"
+              title={`Inspect ${kf.filePath}`}
+            >
+              {kf.filePath}
+            </button>
+            <span className="font-sans text-text-muted text-[10px] shrink-0 text-right">
+              {kf.role}
+            </span>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+};
+
+/** Progressive Evidence Disclosure Component */
+const ProgressiveEvidencePanel: React.FC<{
+  evidenceItems: StructuredEvidenceItem[];
+  groundingStatus: string;
+  fallbackMode: boolean;
+  activeRepo?: string;
+}> = ({ evidenceItems, groundingStatus, fallbackMode, activeRepo }) => {
+  const [panelOpen, setPanelOpen] = useState(true);
+  // Auto-expand the top / most relevant evidence item
+  const [expandedMap, setExpandedMap] = useState<Record<string, boolean>>({
+    [evidenceItems[0]?.id || '0']: true,
+  });
+  const [copiedId, setCopiedId] = useState<string | null>(null);
+
+  const toggleItem = (id: string) => {
+    setExpandedMap((prev) => ({ ...prev, [id]: !prev[id] }));
+  };
 
   const handleNavigateToGraph = (filePath: string) => {
     if (typeof window !== 'undefined') {
@@ -266,74 +432,134 @@ const SourcesPanel: React.FC<{ sources: string[]; confidence: number; fallbackMo
           },
         })
       );
-      // If we are on standalone /chat, offer direct link
-      if (window.location.pathname === '/chat' && activeRepo) {
-        if (owner && repo) {
-          window.location.href = `/analysis?owner=${owner}&repo=${repo}&tab=graph&file=${encodeURIComponent(filePath)}`;
-        }
+      if (window.location.pathname === '/chat' && activeRepo && owner && repo) {
+        window.location.href = `/analysis?owner=${owner}&repo=${repo}&tab=graph&file=${encodeURIComponent(filePath)}`;
       }
     }
   };
 
+  const handleCopyPath = (filePath: string, id: string) => {
+    navigator.clipboard.writeText(filePath);
+    setCopiedId(id);
+    setTimeout(() => setCopiedId(null), 2000);
+  };
+
+  if (evidenceItems.length === 0) return null;
+
   return (
-    <div className="border border-white/[0.08] rounded-xl overflow-hidden bg-surface-1 text-[11px] font-sans shadow-card fade-up select-none">
+    <div className="border border-white/[0.08] rounded-xl overflow-hidden bg-surface-1 text-[11px] font-sans shadow-card fade-up select-none mt-2">
+      {/* Header */}
       <button
         type="button"
-        onClick={() => setOpen((o) => !o)}
-        className="w-full flex items-center justify-between px-3.5 py-2.5 bg-surface-2/70 hover:bg-surface-2 transition-colors focus-visible:outline-none border-b border-white/[0.04]"
+        onClick={() => setPanelOpen((o) => !o)}
+        className="w-full flex items-center justify-between px-3.5 py-2.5 bg-surface-2/80 hover:bg-surface-2 transition-colors focus-visible:outline-none border-b border-white/[0.04]"
       >
         <div className="flex items-center gap-3">
           <span className="font-mono text-xs font-bold text-text flex items-center gap-1.5">
-            <FileCode className="h-3.5 w-3.5 text-primary" /> Grounded Evidence ({sources.length})
+            <FileCode className="h-3.5 w-3.5 text-primary" /> Supporting Evidence ({evidenceItems.length})
           </span>
-          {fallbackMode ? (
-            <span className="text-amber-400 font-mono text-[10px] font-semibold">Fallback Mode</span>
-          ) : (
-            <span className="text-text-subtle text-[10px] font-mono">
-              Retrieval Grounding:{' '}
-              <span className="font-bold text-emerald-400">{displayConfidence}% Confidence</span>
-            </span>
-          )}
+          <span className="font-mono text-[9.5px] px-2 py-0.5 rounded bg-surface-3/80 text-text-muted border border-white/[0.04]">
+            {fallbackMode ? 'Fallback Mode' : `Grounding: ${groundingStatus}`}
+          </span>
         </div>
-        {open ? <ChevronUp className="h-3.5 w-3.5 text-text-muted" /> : <ChevronDown className="h-3.5 w-3.5 text-text-muted" />}
+        {panelOpen ? <ChevronUp className="h-3.5 w-3.5 text-text-muted" /> : <ChevronDown className="h-3.5 w-3.5 text-text-muted" />}
       </button>
 
-      {open && (
-        <div className="p-3 bg-canvas/60 space-y-2 max-h-56 overflow-y-auto">
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-            {sources.map((src, i) => {
-              const fileName = src.split('/').pop() || src;
-              const dir = src.includes('/') ? src.substring(0, src.lastIndexOf('/')) : '';
-              return (
-                <div
-                  key={i}
-                  className="flex items-center justify-between gap-2 p-2 rounded-lg border border-white/[0.06] bg-surface-1/90 hover:border-primary/40 transition-all group"
+      {/* Expandable Rows */}
+      {panelOpen && (
+        <div className="p-3 bg-canvas/60 space-y-2.5">
+          {evidenceItems.map((item, idx) => {
+            const isExpanded = !!expandedMap[item.id];
+            const fileName = item.filePath.split('/').pop() || item.filePath;
+            const dir = item.filePath.includes('/') ? item.filePath.substring(0, item.filePath.lastIndexOf('/')) : '';
+
+            return (
+              <div
+                key={item.id || idx}
+                className="border border-white/[0.06] rounded-lg overflow-hidden bg-surface-1/90 transition-all hover:border-primary/30"
+              >
+                {/* Row Header Toggle */}
+                <button
+                  type="button"
+                  onClick={() => toggleItem(item.id)}
+                  className="w-full flex items-center justify-between p-2.5 text-left bg-surface-2/30 hover:bg-surface-2/60 transition-colors focus-visible:outline-none"
                 >
-                  <div className="min-w-0 pr-1 flex items-center gap-2">
-                    <FileCode className="h-3.5 w-3.5 text-primary/70 shrink-0 group-hover:text-primary transition-colors" />
+                  <div className="flex items-center gap-2 min-w-0 pr-2">
+                    {isExpanded ? (
+                      <ChevronDown className="h-3.5 w-3.5 text-primary shrink-0" />
+                    ) : (
+                      <ChevronRight className="h-3.5 w-3.5 text-text-muted shrink-0" />
+                    )}
                     <div className="truncate">
-                      <p className="font-mono text-[11px] font-semibold text-text truncate" title={src}>
+                      <span className="font-mono text-[11px] font-semibold text-text truncate">
                         {fileName}
-                      </p>
+                      </span>
                       {dir && (
-                        <p className="font-mono text-[9px] text-text-subtle truncate" title={dir}>
-                          {dir}/
-                        </p>
+                        <span className="font-mono text-[9px] text-text-subtle ml-1.5 truncate">
+                          ({dir}/)
+                        </span>
                       )}
                     </div>
                   </div>
-                  <button
-                    type="button"
-                    onClick={() => handleNavigateToGraph(src)}
-                    className="shrink-0 text-[9px] font-mono font-semibold px-2 py-1 rounded bg-primary/10 border border-primary/20 text-primary hover:bg-primary hover:text-white transition-colors"
-                    title={`View ${fileName} in Structural Graph`}
-                  >
-                    View in Graph →
-                  </button>
-                </div>
-              );
-            })}
-          </div>
+                  <div className="shrink-0 flex items-center gap-2">
+                    {item.subsystem && (
+                      <span className="hidden sm:inline font-mono text-[9px] text-text-subtle px-1.5 py-0.5 rounded bg-surface-3/50 border border-white/[0.04]">
+                        {item.subsystem}
+                      </span>
+                    )}
+                    <EvidenceBadge level={item.level} />
+                  </div>
+                </button>
+
+                {/* Expanded Details */}
+                {isExpanded && (
+                  <div className="p-3 border-t border-white/[0.04] bg-surface-1/40 space-y-2.5 fade-up">
+                    <div className="space-y-1">
+                      <span className="text-[9px] font-mono uppercase tracking-wider text-text-subtle font-bold">
+                        Why this evidence matters
+                      </span>
+                      <p className="text-[11px] font-sans text-text/90 leading-relaxed">
+                        {item.whyItMatters}
+                      </p>
+                    </div>
+
+                    <div className="flex items-center justify-between pt-1 text-[10px] font-mono border-t border-white/[0.04] flex-wrap gap-2">
+                      <span className="text-text-subtle">
+                        Role: <span className="text-text font-semibold">{item.role}</span>
+                      </span>
+
+                      <div className="flex items-center gap-2">
+                        <button
+                          type="button"
+                          onClick={() => handleCopyPath(item.filePath, item.id)}
+                          className="px-2 py-1 rounded bg-surface-3/70 hover:bg-surface-3 text-text-muted hover:text-text transition-colors flex items-center gap-1"
+                        >
+                          {copiedId === item.id ? (
+                            <>
+                              <Check className="h-3 w-3 text-emerald-400" />
+                              <span className="text-emerald-400">Copied</span>
+                            </>
+                          ) : (
+                            <>
+                              <Copy className="h-3 w-3" />
+                              <span>Copy Path</span>
+                            </>
+                          )}
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => handleNavigateToGraph(item.filePath)}
+                          className="px-2 py-1 rounded bg-primary/10 border border-primary/25 text-primary hover:bg-primary hover:text-white transition-colors flex items-center gap-1 font-semibold"
+                        >
+                          <span>Inspect in Graph →</span>
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </div>
+            );
+          })}
         </div>
       )}
     </div>
@@ -348,6 +574,7 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({
   repoName,
   pendingPrompt,
   onPendingPromptConsumed,
+  repoMetadata,
 }) => {
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState('');
@@ -367,17 +594,64 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({
   });
   const [copiedAnswerId, setCopiedAnswerId] = useState<string | null>(null);
   const [noRepoError, setNoRepoError] = useState(false);
+  const [lastReferencedEntity, setLastReferencedEntity] = useState<string | null>(null);
 
   const bottomRef = useRef<HTMLDivElement>(null);
   const abortControllerRef = useRef<AbortController | null>(null);
   const sessionIdRef = useRef<string>(createChatSessionId());
 
-  const suggestedQuestions = [
-    'What does this codebase do, and what are its main entry points?',
-    'Show me any circular dependencies in this project.',
-    'Are there any dead/unused functions, and where are they located?',
-    'What is the architectural overview of this repository?',
-  ];
+  // Dynamic Suggested Prompts based on repository intelligence
+  const dynamicPrompts = useMemo(() => {
+    return generateSuggestedPrompts({
+      repoName: activeRepo,
+      techStack: repoMetadata?.techStack,
+      dependencies: repoMetadata?.dependencies,
+      entryPoints: repoMetadata?.entryPoints,
+      cyclesCount: repoMetadata?.cyclesCount,
+      componentCount: repoMetadata?.componentCount,
+      readingSteps: repoMetadata?.readingSteps,
+      healthScore: repoMetadata?.healthScore,
+    });
+  }, [activeRepo, repoMetadata]);
+
+  // Load persisted chat history for active repository
+  useEffect(() => {
+    if (!activeRepo) {
+      setMessages([]);
+      return;
+    }
+    const storageKey = getChatStorageKey(activeRepo);
+    try {
+      const stored = localStorage.getItem(storageKey);
+      if (stored) {
+        setMessages(JSON.parse(stored));
+      } else {
+        setMessages([]);
+      }
+    } catch (e) {
+      console.error('Failed to load chat history', e);
+      setMessages([]);
+    }
+  }, [activeRepo]);
+
+  // Persist chat history changes to localStorage
+  const saveChatHistory = (nextMessages: Message[]) => {
+    if (!activeRepo || typeof window === 'undefined') return;
+    const storageKey = getChatStorageKey(activeRepo);
+    try {
+      localStorage.setItem(storageKey, JSON.stringify(nextMessages));
+    } catch (e) {
+      console.error('Failed to persist chat history', e);
+    }
+  };
+
+  const handleClearHistory = () => {
+    setMessages([]);
+    if (activeRepo && typeof window !== 'undefined') {
+      const storageKey = getChatStorageKey(activeRepo);
+      localStorage.removeItem(storageKey);
+    }
+  };
 
   // Sync active repo changes from prop
   useEffect(() => {
@@ -410,7 +684,7 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({
     }
   }, [activeRepo]);
 
-  // Window events
+  // Window events for active repo synchronization
   useEffect(() => {
     const handleRepoChanged = (e: Event) => {
       const customEvent = e as CustomEvent<string>;
@@ -432,20 +706,10 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({
     };
   }, []);
 
-  // Reset conversation on active repo change
-  useEffect(() => {
-    if (!activeRepo) {
-      setMessages([]);
-      return;
-    }
-    setNoRepoError(false);
-    setMessages([]);
-  }, [activeRepo]);
-
-  // Scroll bottom
+  // Scroll bottom on new messages
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
-  }, [messages]);
+  }, [messages, isStreaming]);
 
   const handleCopyAnswer = (text: string, id: string) => {
     navigator.clipboard.writeText(text);
@@ -453,15 +717,56 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({
     setTimeout(() => setCopiedAnswerId(null), 2000);
   };
 
-  const triggerStreamResponse = async (userPrompt: string, updatedHistory: Message[]) => {
+  // Cross-surface navigation helper
+  const handleCrossSurfaceAction = (target?: IntentAnalysis['actionTarget'], file?: string) => {
+    if (!target || typeof window === 'undefined') return;
+    const [owner, repo] = (activeRepo || '').split('/');
+
+    if (target === 'graph') {
+      window.dispatchEvent(
+        new CustomEvent('aria-open-graph', {
+          detail: { owner, repo, file, path: file, source: 'chat' },
+        })
+      );
+    } else if (target === 'pr_intelligence') {
+      window.dispatchEvent(
+        new CustomEvent('aria-open-impact', {
+          detail: { owner, repo, source: 'chat' },
+        })
+      );
+    }
+
+    if (owner && repo) {
+      const targetUrl = `/analysis?owner=${owner}&repo=${repo}&tab=${target}${file ? `&file=${encodeURIComponent(file)}` : ''}`;
+      if (window.location.pathname === '/chat') {
+        window.location.href = targetUrl;
+      } else {
+        const url = new URL(window.location.href);
+        url.searchParams.set('tab', target);
+        if (file) url.searchParams.set('file', file);
+        window.history.pushState({}, '', url.toString());
+        window.dispatchEvent(new PopStateEvent('popstate'));
+      }
+    }
+  };
+
+  const triggerStreamResponse = async (userPrompt: string, updatedHistory: Message[], intentInfo: IntentAnalysis) => {
     setIsStreaming(true);
     const assistantId = Math.random().toString();
     const timestamp = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
 
-    setMessages((prev) => [
-      ...prev,
-      { id: assistantId, sender: 'assistant', text: '', timestamp },
-    ]);
+    const initialAssistantMsg: Message = {
+      id: assistantId,
+      sender: 'assistant',
+      text: '',
+      timestamp,
+      intent: intentInfo.intent,
+      actionTarget: intentInfo.actionTarget,
+      actionLabel: intentInfo.actionLabel,
+    };
+
+    const nextHistory = [...updatedHistory, initialAssistantMsg];
+    setMessages(nextHistory);
 
     const controller = new AbortController();
     abortControllerRef.current = controller;
@@ -495,13 +800,16 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({
             }
           }
         } catch { /* ignore */ }
-        setMessages((prev) =>
-          prev.map((msg) =>
+        
+        setMessages((prev) => {
+          const updated = prev.map((msg) =>
             msg.id === assistantId
               ? { ...msg, text: detail, isError: true }
-              : msg,
-          ),
-        );
+              : msg
+          );
+          saveChatHistory(updated);
+          return updated;
+        });
         return;
       }
 
@@ -525,12 +833,18 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({
             const data = JSON.parse(line.slice(6));
 
             if (data.error) {
+              const fallbackSources = deduplicateSources(data.sources ?? []);
               setMessages((prev) =>
                 prev.map((msg) =>
                   msg.id === assistantId
-                    ? { ...msg, text: data.message ?? data.error, isError: true }
-                    : msg,
-                ),
+                    ? {
+                        ...msg,
+                        text: data.message ?? data.error,
+                        fallbackMode: true,
+                        sources: fallbackSources.length > 0 ? fallbackSources : msg.sources,
+                      }
+                    : msg
+                )
               );
               continue;
             }
@@ -541,25 +855,35 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({
                 prev.map((msg) =>
                   msg.id === assistantId
                     ? { ...msg, text: msg.text + data.text }
-                    : msg,
-                ),
+                    : msg
+                )
               );
             }
 
             if (data.status === 'done') {
-              setMessages((prev) =>
-                prev.map((msg) => {
+              const finalSources: string[] = deduplicateSources(data.sources ?? []);
+              if (finalSources.length > 0) {
+                setLastReferencedEntity(finalSources[0]);
+              }
+              const serverFollowUps = Array.isArray(data.follow_ups) && data.follow_ups.length > 0 ? data.follow_ups : null;
+              const followUps = serverFollowUps || generateFollowUpPrompts(userPrompt, intentInfo.intent, accumulatedText, finalSources);
+
+              setMessages((prev) => {
+                const finalTxt = accumulatedText.trim() || '⚠️ The AI provider returned an empty response. Repository intelligence fallback applied.';
+                const updated = prev.map((msg) => {
                   if (msg.id !== assistantId) return msg;
-                  const finalTxt = msg.text.trim() || accumulatedText.trim() || '⚠️ The AI provider returned an empty response. Repository intelligence fallback applied.';
                   return {
                     ...msg,
                     text: finalTxt,
-                    sources: data.sources ?? [],
+                    sources: finalSources,
                     confidence: data.confidence ?? 0,
                     fallbackMode: data.fallback_mode ?? false,
+                    followUps,
                   };
-                }),
-              );
+                });
+                saveChatHistory(updated);
+                return updated;
+              });
             }
           } catch {
             /* ignore JSON parse errors */
@@ -569,36 +893,42 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({
 
       // Final check: if stream finished cleanly but accumulatedText is empty
       if (!accumulatedText.trim()) {
-        setMessages((prev) =>
-          prev.map((msg) =>
+        setMessages((prev) => {
+          const updated = prev.map((msg) =>
             msg.id === assistantId && !msg.text.trim()
               ? { ...msg, text: '⚠️ The AI provider returned an empty response. Repository intelligence fallback applied.', isError: true }
-              : msg,
-          ),
-        );
+              : msg
+          );
+          saveChatHistory(updated);
+          return updated;
+        });
       }
     } catch (err: any) {
       if (err.name === 'AbortError') {
-        setMessages((prev) =>
-          prev.map((msg) =>
+        setMessages((prev) => {
+          const updated = prev.map((msg) =>
             msg.id === assistantId
               ? { ...msg, text: msg.text + '\n\n*Stream generation stopped.*' }
-              : msg,
-          ),
-        );
+              : msg
+          );
+          saveChatHistory(updated);
+          return updated;
+        });
       } else {
         console.error('Chat stream error:', err);
-        setMessages((prev) =>
-          prev.map((msg) =>
+        setMessages((prev) => {
+          const updated = prev.map((msg) =>
             msg.id === assistantId
               ? {
                   ...msg,
                   text: 'Could not reach the agent backend. Please verify that the backend server is running and reachable.',
                   isError: true,
                 }
-              : msg,
-          ),
-        );
+              : msg
+          );
+          saveChatHistory(updated);
+          return updated;
+        });
       }
     } finally {
       setIsStreaming(false);
@@ -607,26 +937,36 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({
   };
 
   const handleSend = async (textToSend: string) => {
-    if (!textToSend.trim() || isStreaming) return;
+    const rawText = textToSend.trim();
+    if (!rawText || isStreaming) return;
+
+    // Detect intent and resolve context/pronouns
+    const intentInfo = detectChatIntent(rawText);
+    const resolvedPrompt = resolvePronouns(rawText, lastReferencedEntity);
+
+    // Update referenced entity if explicit file mentioned
+    if (intentInfo.entities.length > 0) {
+      setLastReferencedEntity(intentInfo.entities[0].normalized);
+    }
 
     const timestamp = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
     const userMessage: Message = {
       id: Math.random().toString(),
       sender: 'user',
-      text: textToSend,
+      text: rawText,
       timestamp,
+      intent: intentInfo.intent,
     };
+
     const nextHistory = [...messages, userMessage];
-    
     setMessages(nextHistory);
     setInput('');
 
-    await triggerStreamResponse(textToSend, nextHistory);
+    await triggerStreamResponse(resolvedPrompt, nextHistory, intentInfo);
   };
 
   /**
-   * Dispatches a question handed in from another panel. Kept as a thin trigger
-   * around the existing send path so request/streaming behaviour is unchanged.
+   * Dispatches a question handed in from another panel.
    */
   const consumedPromptTokenRef = useRef<number | null>(null);
   useEffect(() => {
@@ -637,8 +977,6 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({
     consumedPromptTokenRef.current = pendingPrompt.token;
     onPendingPromptConsumed?.();
     void handleSend(pendingPrompt.text);
-    // handleSend is recreated each render; depending on it would re-fire the
-    // effect, so the token guard above is what makes this run exactly once.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [pendingPrompt?.text, pendingPrompt?.token, isStreaming]);
 
@@ -654,12 +992,13 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({
     const lastUserMsg = userMsgs[userMsgs.length - 1];
 
     let nextMsgs = [...messages];
-    if (nextMsgs[nextMsgs.length - 1].sender === 'assistant') {
+    if (nextMsgs[nextMsgs.length - 1]?.sender === 'assistant') {
       nextMsgs.pop();
     }
 
+    const intentInfo = detectChatIntent(lastUserMsg.text);
     setMessages(nextMsgs);
-    await triggerStreamResponse(lastUserMsg.text, nextMsgs);
+    await triggerStreamResponse(lastUserMsg.text, nextMsgs, intentInfo);
   };
 
   return (
@@ -669,12 +1008,27 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({
         <div className="flex items-center gap-2">
           <MessageSquareCode className="h-4 w-4 text-primary" />
           <span className="font-mono text-xs font-bold text-text uppercase tracking-wider">
-            Codebase Companion
+            Repository Engineering Copilot
           </span>
         </div>
-        <span className="text-[10px] font-mono border border-primary/25 text-primary px-2.5 py-0.5 rounded-md bg-primary/5 truncate max-w-[200px]">
-          {activeRepo || 'no repo'}
-        </span>
+
+        <div className="flex items-center gap-2">
+          {messages.length > 0 && (
+            <button
+              type="button"
+              onClick={handleClearHistory}
+              className="text-[10px] font-mono text-text-subtle hover:text-text hover:underline flex items-center gap-1 mr-1 transition-colors"
+              title="Clear conversation history"
+            >
+              <Trash2 className="h-3 w-3" />
+              <span>Clear</span>
+            </button>
+          )}
+
+          <span className="text-[10px] font-mono border border-primary/25 text-primary px-2.5 py-0.5 rounded-md bg-primary/5 truncate max-w-[200px]">
+            {activeRepo || 'no repo'}
+          </span>
+        </div>
       </div>
 
       {/* No-repo state */}
@@ -692,25 +1046,25 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({
         </div>
       )}
 
-      {/* Empty State Welcome Dashboard */}
+      {/* Empty State Welcome Dashboard with Dynamic Prompts */}
       {!noRepoError && messages.length === 0 && (
-        <div className="flex-grow flex flex-col items-center justify-center p-6 gap-6 text-center max-w-xl mx-auto my-auto fade-up">
+        <div className="flex-grow flex flex-col items-center justify-center p-6 gap-6 text-center max-w-2xl mx-auto my-auto fade-up">
           <div className="h-12 w-12 rounded-full bg-primary/10 border border-primary/20 flex items-center justify-center text-primary select-none">
             <Sparkles className="h-6 w-6" />
           </div>
           <div className="space-y-2">
             <h2 className="text-base font-bold text-text font-mono">Chat with {activeRepo}</h2>
-            <p className="text-xs text-text-muted leading-relaxed font-sans max-w-sm">
-              Ask about function callers, class inheritances, endpoints, or planned code refactors.
+            <p className="text-xs text-text-muted leading-relaxed font-sans max-w-md">
+              Ask about execution flows, function callers, change planning, blast radius impact, or architectural bottlenecks.
             </p>
           </div>
 
-          <div className="w-full text-left mt-3 select-none">
+          <div className="w-full text-left mt-2 select-none">
             <p className="text-[10px] uppercase font-mono tracking-widest text-text-subtle font-semibold mb-3 flex items-center gap-1.5 justify-center">
-              Suggested Prompts
+              Suggested Engineering Inquiries
             </p>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-              {suggestedQuestions.map((q) => (
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+              {dynamicPrompts.map((q) => (
                 <button
                   key={q}
                   onClick={() => handleSend(q)}
@@ -728,113 +1082,168 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({
       {/* Message thread */}
       {!noRepoError && messages.length > 0 && (
         <div className="flex-grow overflow-y-auto p-5 space-y-5 font-sans text-xs">
-          {messages.map((msg, idx) => (
-            <div
-              key={msg.id}
-              className={`flex gap-3 fade-up ${
-                msg.sender === 'user' ? 'ml-auto flex-row-reverse max-w-[85%]' : 'max-w-[92%]'
-              }`}
-            >
-              {/* Avatar */}
+          {messages.map((msg, idx) => {
+            const hierarchy = msg.sender === 'assistant' ? parseAnswerHierarchy(msg.text, msg.sources, msg.confidence) : null;
+
+            return (
               <div
-                className={`h-8 w-8 rounded-full flex items-center justify-center shrink-0 border select-none ${
-                  msg.sender === 'user'
-                    ? 'bg-primary/10 border-primary/30 text-primary'
-                    : msg.isError
-                    ? 'bg-red-500/10 border-red-500/30 text-red-400'
-                    : 'bg-card border-border text-text-muted'
+                key={msg.id}
+                className={`flex gap-3 fade-up ${
+                  msg.sender === 'user' ? 'ml-auto flex-row-reverse max-w-[85%]' : 'max-w-[94%]'
                 }`}
               >
-                {msg.sender === 'user' ? (
-                  <User className="h-4 w-4" />
-                ) : (
-                  <Bot className="h-4 w-4" />
-                )}
-              </div>
-
-              {/* Bubble + Citations */}
-              <div className="flex flex-col gap-1.5 min-w-0">
+                {/* Avatar */}
                 <div
-                  className={`p-3.5 rounded-xl border leading-relaxed break-words shadow-card ${
+                  className={`h-8 w-8 rounded-full flex items-center justify-center shrink-0 border select-none ${
                     msg.sender === 'user'
-                      ? 'bg-primary/10 border-primary/20 text-text'
+                      ? 'bg-primary/10 border-primary/30 text-primary'
                       : msg.isError
-                      ? 'bg-red-500/5 border-red-500/20 text-red-400 font-mono'
-                      : msg.fallbackMode
-                      ? 'bg-amber-500/5 border-amber-500/20 text-text'
-                      : 'bg-card/40 border-border text-text'
+                      ? 'bg-red-500/10 border-red-500/30 text-red-400'
+                      : 'bg-card border-border text-text-muted'
                   }`}
                 >
                   {msg.sender === 'user' ? (
-                    <p className="whitespace-pre-wrap leading-relaxed break-words text-text/95">
-                      {msg.text}
-                    </p>
-                  ) : msg.text === '' ? (
-                    <TypingIndicator />
+                    <User className="h-4 w-4" />
                   ) : (
-                    <div className="markdown-body font-sans text-[12px] overflow-hidden">
-                      <Markdown content={msg.text} isStreaming={isStreaming && idx === messages.length - 1} />
-                    </div>
+                    <Bot className="h-4 w-4" />
                   )}
                 </div>
 
-                {/* Message Timestamp */}
-                {msg.timestamp && (
-                  <span className={`text-[8px] font-mono text-text-muted mt-0.5 px-1 select-none ${
-                    msg.sender === 'user' ? 'self-end' : 'self-start'
-                  }`}>
-                    {msg.timestamp}
-                  </span>
-                )}
+                {/* Bubble + Citations + Actions */}
+                <div className="flex flex-col gap-1.5 min-w-0 flex-1">
+                  {/* Intent indicator if present */}
+                  {msg.sender === 'user' && msg.intent && msg.intent !== 'GENERAL_REPOSITORY' && (
+                    <span className="text-[9px] font-mono uppercase text-text-subtle self-end px-1">
+                      Intent: {msg.intent.replace('_', ' ')}
+                    </span>
+                  )}
 
-                {/* Toolbar under assistant bubble */}
-                {msg.sender === 'assistant' && msg.text !== '' && (
-                  <div className="flex items-center gap-3.5 mt-0.5 pl-1.5 text-[10px] text-text-muted select-none">
-                    <button
-                      type="button"
-                      onClick={() => handleCopyAnswer(msg.text, msg.id)}
-                      className="flex items-center gap-1 hover:text-text transition-colors"
-                    >
-                      {copiedAnswerId === msg.id ? (
-                        <>
-                          <CheckCircle2 className="h-3.5 w-3.5 text-emerald-500" />
-                          <span className="text-emerald-500 font-semibold">Copied answer</span>
-                        </>
-                      ) : (
-                        <>
-                          <Copy className="h-3.5 w-3.5" />
-                          <span>Copy answer</span>
-                        </>
-                      )}
-                    </button>
-                    
-                    {idx === messages.length - 1 && !isStreaming && (
-                      <button
-                        type="button"
-                        onClick={handleRegenerate}
-                        className="flex items-center gap-1 hover:text-text transition-colors font-semibold"
-                      >
-                        <RefreshCw className="h-3.5 w-3.5" />
-                        <span>Regenerate</span>
-                      </button>
+                  <div
+                    className={`p-3.5 rounded-xl border leading-relaxed break-words shadow-card ${
+                      msg.sender === 'user'
+                        ? 'bg-primary/10 border-primary/20 text-text'
+                        : msg.isError
+                        ? 'bg-red-500/5 border-red-500/20 text-red-400 font-mono'
+                        : msg.fallbackMode
+                        ? 'bg-amber-500/5 border-amber-500/20 text-text'
+                        : 'bg-card/40 border-border text-text'
+                    }`}
+                  >
+                    {msg.sender === 'user' ? (
+                      <p className="whitespace-pre-wrap leading-relaxed break-words text-text/95">
+                        {msg.text}
+                      </p>
+                    ) : msg.text === '' ? (
+                      <TypingIndicator />
+                    ) : (
+                      <div className="markdown-body font-sans text-[12px] overflow-hidden">
+                        <Markdown
+                          content={msg.text}
+                          isStreaming={isStreaming && idx === messages.length - 1}
+                          activeRepo={activeRepo}
+                        />
+
+                        {/* First-class Key Files Section */}
+                        {hierarchy && hierarchy.keyFiles.length >= 2 && !isStreaming && (
+                          <KeyFilesSection files={hierarchy.keyFiles} activeRepo={activeRepo} />
+                        )}
+                      </div>
                     )}
                   </div>
-                )}
 
-                {/* Collapsible citations & grounded evidence panel */}
-                {msg.sender === 'assistant' &&
-                  msg.sources &&
-                  msg.sources.length > 0 && (
-                    <SourcesPanel
-                      sources={msg.sources}
-                      confidence={msg.confidence ?? 0}
-                      fallbackMode={msg.fallbackMode ?? false}
-                      activeRepo={activeRepo}
-                    />
+                  {/* Message Timestamp */}
+                  {msg.timestamp && (
+                    <span className={`text-[8px] font-mono text-text-muted mt-0.5 px-1 select-none ${
+                      msg.sender === 'user' ? 'self-end' : 'self-start'
+                    }`}>
+                      {msg.timestamp}
+                    </span>
                   )}
+
+                  {/* Toolbar & Cross-Surface Action Bar under assistant bubble */}
+                  {msg.sender === 'assistant' && msg.text !== '' && (
+                    <div className="space-y-2 mt-1 pl-1">
+                      <div className="flex items-center gap-3.5 text-[10px] text-text-muted select-none flex-wrap">
+                        <button
+                          type="button"
+                          onClick={() => handleCopyAnswer(msg.text, msg.id)}
+                          className="flex items-center gap-1 hover:text-text transition-colors"
+                        >
+                          {copiedAnswerId === msg.id ? (
+                            <>
+                              <CheckCircle2 className="h-3.5 w-3.5 text-emerald-500" />
+                              <span className="text-emerald-500 font-semibold">Copied answer</span>
+                            </>
+                          ) : (
+                            <>
+                              <Copy className="h-3.5 w-3.5" />
+                              <span>Copy answer</span>
+                            </>
+                          )}
+                        </button>
+                        
+                        {idx === messages.length - 1 && !isStreaming && (
+                          <button
+                            type="button"
+                            onClick={handleRegenerate}
+                            className="flex items-center gap-1 hover:text-text transition-colors font-semibold"
+                          >
+                            <RefreshCw className="h-3.5 w-3.5" />
+                            <span>Regenerate</span>
+                          </button>
+                        )}
+
+                        {/* Primary Cross-Surface Action Button */}
+                        {msg.actionTarget && (
+                          <button
+                            type="button"
+                            onClick={() => handleCrossSurfaceAction(msg.actionTarget, msg.sources?.[0])}
+                            className="action-chip text-[10px] px-2 py-0.5 inline-flex items-center gap-1 text-primary bg-primary/10 border-primary/25 hover:bg-primary/20 transition-colors focus-visible:outline-none"
+                          >
+                            <ArrowRight className="h-3 w-3" />
+                            <span>{msg.actionLabel || 'Inspect in Graph'}</span>
+                          </button>
+                        )}
+                      </div>
+
+                      {/* Contextual Follow-up Suggestions */}
+                      {msg.followUps && msg.followUps.length > 0 && !isStreaming && idx === messages.length - 1 && (
+                        <div className="pt-2 border-t border-white/[0.05] space-y-1.5">
+                          <span className="mono-detail text-[9.5px] text-text-subtle uppercase tracking-wider block">
+                            SUGGESTED FOLLOW-UP INQUIRIES
+                          </span>
+                          <div className="flex flex-wrap gap-1.5">
+                            {msg.followUps.map((prompt) => (
+                              <button
+                                key={prompt}
+                                type="button"
+                                onClick={() => handleSend(prompt.replace(/^→\s*/, ''))}
+                                className="text-[11px] font-sans px-2.5 py-1 rounded-md bg-surface-1/60 border border-white/[0.06] text-text-muted hover:text-primary hover:border-primary/40 transition-colors text-left"
+                              >
+                                {prompt}
+                              </button>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  )}
+
+                  {/* Progressively Disclosed Grounded Evidence Panel */}
+                  {msg.sender === 'assistant' &&
+                    hierarchy &&
+                    hierarchy.evidenceItems.length > 0 && (
+                      <ProgressiveEvidencePanel
+                        evidenceItems={hierarchy.evidenceItems}
+                        groundingStatus={hierarchy.groundingStatus}
+                        fallbackMode={msg.fallbackMode ?? false}
+                        activeRepo={activeRepo}
+                      />
+                    )}
+                </div>
               </div>
-            </div>
-          ))}
+            );
+          })}
 
           {/* Inline Stop button while streaming */}
           {isStreaming && (

@@ -45,6 +45,7 @@ from .provider_manager import ProviderManager
 from .fallback_renderer import render_fallback, render_mid_stream_termination
 from .citation_verifier import CitationVerifier
 from .observability import ChatObservability, PipelineTrace, chat_observability
+from .followup_engine import FollowUpEngine
 
 logger = logging.getLogger(__name__)
 
@@ -70,6 +71,7 @@ class RetrievalPipeline:
         symbol_service: Optional[Any] = None,
         orchestrator: Optional[ConversationOrchestrator] = None,
         citation_verifier: Optional[CitationVerifier] = None,
+        followup_engine: Optional[FollowUpEngine] = None,
     ) -> None:
         self.embedding_service = embedding_service
         self.chroma_store = chroma_store
@@ -87,6 +89,7 @@ class RetrievalPipeline:
             memory_store=self.memory_store
         )
         self.citation_verifier = citation_verifier or CitationVerifier()
+        self.followup_engine = followup_engine or FollowUpEngine()
 
     @staticmethod
     def _session_id(session_id: Optional[str]) -> str:
@@ -236,8 +239,13 @@ class RetrievalPipeline:
         context_build_ms = (time.perf_counter() - t_cb) * 1000
         non_llm_latency_ms = (time.perf_counter() - trace._start_time) * 1000
         trace.context_estimated_tokens = built.estimated_tokens
-        trace.context_slot_breakdown = built.slot_breakdown
-
+        logger.info(
+            "[CHAT_CONTEXT] repo=%s session=%s estimated_tokens=%d slots=%s",
+            repo_name,
+            session_id,
+            built.estimated_tokens,
+            list(built.slot_breakdown.keys()),
+        )
         logger.info(
             "CHAT_LATENCY | embedding=%.1fms retrieval/ranking=%.1fms context_building=%.1fms non_llm=%.1fms",
             ret_metrics.get("embed_ms", 0.0),
@@ -293,8 +301,18 @@ class RetrievalPipeline:
                 orchestration_result=orch_res,
             )
 
-        # 9. Collect sources
+        # 9. Collect sources & Synthesize Follow-ups
         all_sources = sorted(set(intelligence.source_files + built.source_files))
+        follow_ups = self.followup_engine.synthesize_follow_ups(
+            repo_name=repo_name,
+            question=resolved_question,
+            answer=answer,
+            intent=intent_result.intent.value,
+            code_chunks=chunks,
+            source_files=all_sources,
+            conversation_history=history,
+            structured_context=intelligence.structured_context,
+        )
 
         trace.finish()
         self.observability.emit(trace)
@@ -310,6 +328,7 @@ class RetrievalPipeline:
             "evaluation": {},
             "intent": intent_result.intent.value,
             "fallback_mode": fallback_triggered,
+            "follow_ups": follow_ups,
         }
 
     # ------------------------------------------------------------------
@@ -564,9 +583,20 @@ class RetrievalPipeline:
                 orchestration_result=orch_res,
             )
 
-        # ── 9. Collect sources + terminal done event ─────────────────────
+        # ── 9. Collect sources + Synthesize Follow-ups + terminal done event ──
         all_sources = sorted(set(intelligence.source_files + built.source_files))
         confidence = ret_metrics.get("confidence", 85) if not fallback_triggered else 0
+
+        follow_ups = self.followup_engine.synthesize_follow_ups(
+            repo_name=repo_name,
+            question=resolved_question,
+            answer=full_text,
+            intent=intent_result.intent.value,
+            code_chunks=chunks,
+            source_files=all_sources,
+            conversation_history=history,
+            structured_context=intelligence.structured_context,
+        )
 
         trace.fallback_triggered = fallback_triggered
         trace.fallback_reason = fallback_reason
@@ -582,12 +612,17 @@ class RetrievalPipeline:
                     "citation_report": citation_report,
                     "fallback_mode": fallback_triggered,
                     "intent": intent_result.intent.value,
+                    "follow_ups": follow_ups,
                     "status": "done",
                 }
             )
         finally:
             logger.info(
-                "CHAT_STREAM_COMPLETED repo=%s session=%s", repo_name, session_id
+                "CHAT_STREAM_COMPLETED repo=%s session=%s intent=%s follow_ups=%d",
+                repo_name,
+                session_id,
+                intent_result.intent.value,
+                len(follow_ups),
             )
 
     # ------------------------------------------------------------------

@@ -36,6 +36,10 @@ class Settings(BaseSettings):
     # Services Config
     github_token: Optional[str] = Field(None, alias="GITHUB_TOKEN")
     llm_provider: str = Field("gemini", alias="LLM_PROVIDER")
+    llm_primary_provider: Optional[str] = Field(None, alias="LLM_PRIMARY_PROVIDER")
+    llm_fallback_provider: str = Field("deepseek", alias="LLM_FALLBACK_PROVIDER")
+    llm_failover_enabled: bool = Field(True, alias="LLM_FAILOVER_ENABLED")
+
     deepseek_api_key: Optional[str] = Field(None, alias="DEEPSEEK_API_KEY")
     deepseek_base_url: str = Field(
         "https://integrate.api.nvidia.com/v1", alias="DEEPSEEK_BASE_URL"
@@ -44,7 +48,22 @@ class Settings(BaseSettings):
         "deepseek-ai/deepseek-v4-flash-0731", alias="DEEPSEEK_MODEL"
     )
     gemini_api_key: Optional[str] = Field(None, alias="GEMINI_API_KEY")
-    gemini_model: str = Field("gemini-2.5-flash", alias="GEMINI_MODEL")
+    gemini_model: str = Field("gemini-3.1-flash-lite", alias="GEMINI_MODEL")
+    gemini_fallback_models: str = Field(
+        "gemini-3.5-flash,gemini-3-flash-preview,gemini-flash-lite-latest,gemini-2.5-flash",
+        alias="GEMINI_FALLBACK_MODELS",
+    )
+
+    llm_connect_timeout: float = Field(10.0, alias="LLM_CONNECT_TIMEOUT")
+    llm_read_timeout: float = Field(45.0, alias="LLM_READ_TIMEOUT")
+    llm_total_timeout: float = Field(60.0, alias="LLM_TOTAL_TIMEOUT")
+    llm_circuit_breaker_cooldown_seconds: float = Field(
+        60.0, alias="LLM_CIRCUIT_BREAKER_COOLDOWN_SECONDS"
+    )
+    llm_circuit_breaker_failure_threshold: int = Field(
+        3, alias="LLM_CIRCUIT_BREAKER_FAILURE_THRESHOLD"
+    )
+
     embedding_model: str = Field("BAAI/bge-small-en-v1.5", alias="EMBEDDING_MODEL")
     embedding_batch_size: int = Field(64, alias="EMBEDDING_BATCH_SIZE")
     embedding_encode_batch_size: int = Field(64, alias="EMBEDDING_ENCODE_BATCH_SIZE")

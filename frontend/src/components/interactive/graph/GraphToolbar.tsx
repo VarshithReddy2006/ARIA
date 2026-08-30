@@ -17,15 +17,18 @@ import {
   ZoomOut,
   Crosshair,
 } from 'lucide-react';
-import type { GraphMode } from './types';
+import type { GraphMode, AbstractionLevel } from './types';
 
 interface GraphToolbarProps {
   mode: GraphMode;
+  level?: AbstractionLevel;
   traceDir: 'forward' | 'backward' | 'both';
   focusNode: string | null;
   loading: boolean;
   nodeCount: number;
   edgeCount: number;
+  onSetMode?: (mode: GraphMode) => void;
+  onSetLevel?: (level: AbstractionLevel) => void;
   onFitView: () => void;
   onReset: () => void;
   onTraceForward: () => void;
@@ -47,7 +50,7 @@ interface ToolButtonProps {
   disabled?: boolean;
   title: string;
   children: React.ReactNode;
-  variant?: 'default' | 'danger';
+  variant?: 'default' | 'danger' | 'accent';
 }
 
 const ToolButton: React.FC<ToolButtonProps> = ({
@@ -59,18 +62,20 @@ const ToolButton: React.FC<ToolButtonProps> = ({
   variant = 'default',
 }) => {
   const base =
-    'flex items-center gap-1.5 px-2.5 py-1.5 rounded text-[10px] font-mono font-semibold transition-all border';
+    'flex items-center gap-1.5 px-2.5 py-1.5 rounded text-[10px] font-mono font-semibold transition-all border shrink-0';
   const inactive =
-    'bg-canvas border-border text-text-muted hover:text-text hover:border-primary/50';
+    'bg-zinc-900/80 border-zinc-800 text-zinc-400 hover:text-zinc-100 hover:border-indigo-500/50';
   const activeStyle =
-    'bg-primary/10 border-primary text-primary';
+    'bg-indigo-500/20 border-indigo-500 text-indigo-200 shadow-sm';
+  const accentStyle =
+    'bg-amber-500/15 border-amber-500/40 text-amber-300 hover:bg-amber-500/25';
   const dangerStyle =
     'bg-red-500/10 border-red-500/30 text-red-400 hover:bg-red-500/20';
   const disabledStyle = 'opacity-40 cursor-not-allowed';
 
   const cls = [
     base,
-    disabled ? disabledStyle : variant === 'danger' ? dangerStyle : active ? activeStyle : inactive,
+    disabled ? disabledStyle : active ? activeStyle : variant === 'danger' ? dangerStyle : variant === 'accent' ? accentStyle : inactive,
   ].join(' ');
 
   return (
@@ -79,15 +84,21 @@ const ToolButton: React.FC<ToolButtonProps> = ({
     </button>
   );
 };
+
 const NODE_LEGEND = [
-  { label: 'Module',    color: '#5e6ad2' },
-  { label: 'Service',   color: '#10b981' },
-  { label: 'Utility',   color: '#f59e0b' },
-  { label: 'Config',    color: '#9ca0a8' },
-  { label: 'Test',      color: '#3b82f6' },
+  { label: 'Entry Point',    color: '#10b981' },
+  { label: 'Core Module',    color: '#3b82f6' },
+  { label: 'Domain Layer',   color: '#8b5cf6' },
+  { label: 'Service',        color: '#6366f1' },
+  { label: 'Controller',     color: '#ec4899' },
+  { label: 'High Coupling',  color: '#f97316' },
+  { label: 'Infrastructure', color: '#0ea5e9' },
+  { label: 'Utility',        color: '#64748b' },
+  { label: 'Test Suite',     color: '#06b6d4' },
 ];
 
 const SHORTCUTS = [
+  { key: '/',          desc: 'Focus search' },
   { key: 'F',          desc: 'Fit view' },
   { key: 'R',          desc: 'Reset graph' },
   { key: 'Scroll',     desc: 'Zoom in / out' },
@@ -95,14 +106,16 @@ const SHORTCUTS = [
   { key: 'Click node', desc: 'Select & inspect' },
 ];
 
-
 export const GraphToolbar: React.FC<GraphToolbarProps> = ({
   mode,
+  level = 'files',
   traceDir,
   focusNode,
   loading,
   nodeCount,
   edgeCount,
+  onSetMode,
+  onSetLevel,
   onFitView,
   onReset,
   onTraceForward,
@@ -125,52 +138,113 @@ export const GraphToolbar: React.FC<GraphToolbarProps> = ({
   const [showShortcuts, setShowShortcuts] = useState(false);
 
   return (
-    <div className="px-3 py-2 border-b border-border bg-canvas/40 flex flex-wrap items-center gap-2 z-10 relative">
-      {/* Left — interaction mode buttons */}
-      <div className="flex items-center gap-1.5">
+    <div className="px-3 py-2 border-b border-border/80 bg-zinc-950/60 flex flex-wrap items-center gap-2 z-10 relative select-none">
+      {/* Abstraction Level Selector */}
+      <div className="flex items-center bg-zinc-900 border border-zinc-800 rounded p-0.5 text-[9px] font-mono shrink-0">
+        <span className="text-zinc-500 uppercase font-bold px-1.5 hidden sm:inline">Level:</span>
+        <button
+          onClick={() => onSetLevel && onSetLevel('system')}
+          className={`px-2 py-1 rounded transition-all font-bold ${
+            level === 'system'
+              ? 'bg-indigo-600 text-white shadow-sm'
+              : 'text-zinc-400 hover:text-zinc-200'
+          }`}
+          title="System Level: High-level architectural clusters"
+        >
+          SYSTEM
+        </button>
+        <button
+          onClick={() => onSetLevel && onSetLevel('components')}
+          className={`px-2 py-1 rounded transition-all font-bold ${
+            level === 'components'
+              ? 'bg-indigo-600 text-white shadow-sm'
+              : 'text-zinc-400 hover:text-zinc-200'
+          }`}
+          title="Component Level: Expanded active components"
+        >
+          COMPONENTS
+        </button>
+        <button
+          onClick={() => onSetLevel && onSetLevel('files')}
+          className={`px-2 py-1 rounded transition-all font-bold ${
+            level === 'files'
+              ? 'bg-indigo-600 text-white shadow-sm'
+              : 'text-zinc-400 hover:text-zinc-200'
+          }`}
+          title="File Level: Full granular file topology"
+        >
+          FILES
+        </button>
+      </div>
+
+      {/* Divider */}
+      <div className="h-4 w-px bg-border hidden sm:block" />
+
+      {/* Left — Primary Investigation Modes */}
+      <div className="flex items-center gap-1.5 overflow-x-auto py-0.5">
+        <span className="text-[9px] font-bold text-zinc-500 uppercase tracking-wider mr-1 hidden lg:inline">
+          Mode:
+        </span>
+
         <ToolButton
-          onClick={onNeighbors}
-          active={mode === 'neighbors'}
-          disabled={!hasFocus}
-          title={hasFocus ? `Expand neighbours of ${focusNode}` : 'Click a node first'}
+          onClick={() => onSetMode ? onSetMode('overview') : onReset()}
+          active={mode === 'overview' || mode === 'full'}
+          title="Overview: Show major repository topology"
         >
           <Network className="h-3 w-3" />
-          <span>Expand</span>
+          <span>Overview</span>
         </ToolButton>
 
         <ToolButton
           onClick={onTraceForward}
-          active={mode === 'trace_fwd' && traceDir === 'forward'}
+          active={mode === 'trace_fwd' || mode === 'dependencies'}
           disabled={!hasFocus}
-          title={hasFocus ? `Trace forward deps of ${focusNode}` : 'Click a node first'}
+          title={hasFocus ? `Dependencies: Trace forward deps of ${focusNode}` : 'Select a node first'}
         >
           <ArrowRight className="h-3 w-3" />
-          <span>Deps →</span>
+          <span>Dependencies →</span>
         </ToolButton>
 
         <ToolButton
           onClick={onTraceBackward}
-          active={mode === 'trace_bwd' && traceDir === 'backward'}
+          active={mode === 'trace_bwd' || mode === 'callers'}
           disabled={!hasFocus}
-          title={hasFocus ? `Trace who imports ${focusNode}` : 'Click a node first'}
+          title={hasFocus ? `Callers: Trace who imports ${focusNode}` : 'Select a node first'}
         >
           <ArrowLeft className="h-3 w-3" />
-          <span>← Users</span>
+          <span>← Callers</span>
         </ToolButton>
 
         <ToolButton
-          onClick={onTraceBoth}
-          active={mode === 'trace_fwd' && traceDir === 'both'}
+          onClick={() => onSetMode ? onSetMode('impact') : onTraceBackward()}
+          active={mode === 'impact'}
           disabled={!hasFocus}
-          title={hasFocus ? `Trace both directions from ${focusNode}` : 'Click a node first'}
+          variant="accent"
+          title={hasFocus ? `Impact: Show full downstream blast radius of ${focusNode}` : 'Select a node first'}
         >
           <ArrowLeftRight className="h-3 w-3" />
-          <span>Both</span>
+          <span>Impact</span>
+        </ToolButton>
+
+        <ToolButton
+          onClick={() => onSetMode && onSetMode('hotspots')}
+          active={mode === 'hotspots'}
+          title="Hotspots: Highlight highly coupled and central nodes"
+        >
+          <span>🔥 Hotspots</span>
+        </ToolButton>
+
+        <ToolButton
+          onClick={() => onSetMode && onSetMode('entry_points')}
+          active={mode === 'entry_points'}
+          title="Entry Points: Highlight application and executable roots"
+        >
+          <span>🚀 Entry Points</span>
         </ToolButton>
       </div>
 
       {/* Divider */}
-      <div className="h-4 w-px bg-border" />
+      <div className="h-4 w-px bg-border hidden md:block" />
 
       {/* View controls */}
       <div className="flex items-center gap-1.5">
@@ -179,46 +253,45 @@ export const GraphToolbar: React.FC<GraphToolbarProps> = ({
           <span>Fit</span>
         </ToolButton>
 
-        <ToolButton onClick={onReset} title="Reset to full graph" variant={mode !== 'full' ? 'danger' : 'default'}>
+        <ToolButton onClick={onReset} title="Reset to full graph" variant={mode !== 'full' && mode !== 'overview' ? 'danger' : 'default'}>
           <RotateCcw className="h-3 w-3" />
           <span>Reset</span>
         </ToolButton>
       </div>
 
       {/* Divider */}
-      <div className="h-4 w-px bg-border" />
+      <div className="h-4 w-px bg-border hidden xl:block" />
 
       {/* Viewport Pan/Zoom Controls */}
-      <div className="flex items-center gap-1">
+      <div className="hidden xl:flex items-center gap-1">
         <ToolButton onClick={onPanLeft} title="Move Left">
-          <ChevronLeft className="h-3.5 w-3.5" />
+          <ChevronLeft className="h-3 w-3" />
         </ToolButton>
         <ToolButton onClick={onPanUp} title="Move Up">
-          <ChevronUp className="h-3.5 w-3.5" />
+          <ChevronUp className="h-3 w-3" />
         </ToolButton>
         <ToolButton onClick={onPanDown} title="Move Down">
-          <ChevronDown className="h-3.5 w-3.5" />
+          <ChevronDown className="h-3 w-3" />
         </ToolButton>
         <ToolButton onClick={onPanRight} title="Move Right">
-          <ChevronRight className="h-3.5 w-3.5" />
+          <ChevronRight className="h-3 w-3" />
         </ToolButton>
         
         <div className="w-1" />
         
         <ToolButton onClick={onZoomIn} title="Zoom In">
-          <ZoomIn className="h-3.5 w-3.5" />
+          <ZoomIn className="h-3 w-3" />
         </ToolButton>
         <ToolButton onClick={onZoomOut} title="Zoom Out">
-          <ZoomOut className="h-3.5 w-3.5" />
+          <ZoomOut className="h-3 w-3" />
         </ToolButton>
         <ToolButton onClick={onCenterGraph} title="Center Graph">
-          <Crosshair className="h-3.5 w-3.5" />
+          <Crosshair className="h-3 w-3" />
         </ToolButton>
       </div>
 
-
       {/* Divider */}
-      <div className="h-4 w-px bg-border" />
+      <div className="h-4 w-px bg-border hidden md:block" />
 
       {/* Legend + shortcuts */}
       <div className="flex items-center gap-1.5">

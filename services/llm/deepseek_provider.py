@@ -59,7 +59,12 @@ class DeepSeekProvider(BaseLLMProvider):
 
         self.model = resolved_model
         self.max_retries = max_retries
-        self.timeout = timeout
+        self.timeout = (
+            timeout
+            if timeout != _DEFAULT_TIMEOUT
+            else (current_settings.llm_read_timeout or _DEFAULT_TIMEOUT)
+        )
+        self.connect_timeout = current_settings.llm_connect_timeout or 10.0
 
         if not self.api_key:
             logger.warning(
@@ -282,14 +287,14 @@ class DeepSeekProvider(BaseLLMProvider):
 
         try:
             timeout_cfg = httpx.Timeout(
-                connect=15.0, read=self.timeout, write=15.0, pool=15.0
+                connect=self.connect_timeout, read=self.timeout, write=15.0, pool=15.0
             )
             async with httpx.AsyncClient(timeout=timeout_cfg) as client:
                 response = await self._post_with_retry(client, payload)
         except Exception as exc:
             error = classify_deepseek_error(exc, "deepseek")
             logger.error(
-                "DeepSeek generate failed: model=%s error_type=%s exc_type=%s",
+                "[LLM_PROVIDER] provider=deepseek model=%s failed error_type=%s exc_type=%s",
                 self.model,
                 error.error_type.value,
                 type(exc).__name__,
@@ -329,7 +334,7 @@ class DeepSeekProvider(BaseLLMProvider):
         t0 = time.perf_counter()
 
         logger.info(
-            "STREAM_START provider=deepseek model=%s prompt_size=%d",
+            "[LLM_STREAM_START] provider=deepseek model=%s prompt_size=%d",
             self.model,
             len(prompt),
         )
@@ -342,7 +347,10 @@ class DeepSeekProvider(BaseLLMProvider):
 
             try:
                 timeout_cfg = httpx.Timeout(
-                    connect=15.0, read=self.timeout, write=15.0, pool=15.0
+                    connect=self.connect_timeout,
+                    read=self.timeout,
+                    write=15.0,
+                    pool=15.0,
                 )
                 async with httpx.AsyncClient(timeout=timeout_cfg) as client:
                     async with client.stream(

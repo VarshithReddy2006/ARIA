@@ -32,19 +32,67 @@ export interface GraphResponse {
 
 export type GraphMode =
   | 'full'
+  | 'overview'
   | 'neighbors'
   | 'trace_fwd'
   | 'trace_bwd'
+  | 'dependencies'
+  | 'callers'
+  | 'impact'
+  | 'architecture'
+  | 'hotspots'
+  | 'entry_points'
   | 'search';
 
 export type HeatmapMode =
   | 'none'
+  | 'centrality'
   | 'coupling'
   | 'complexity'
   | 'churn'
+  | 'fan_in'
   | 'fan_out'
   | 'file_size'
-  | 'violations';
+  | 'violations'
+  | 'impact';
+
+export type AbstractionLevel = 'system' | 'components' | 'files';
+
+export interface ArchitectureCluster {
+  id: string;
+  name: string;
+  category: string;
+  fileCount: number;
+  nodeIds: string[];
+  internalEdgeCount: number;
+  externalEdgeCount: number;
+  primaryRole: string;
+  mostCentralModule: { id: string; label: string; centrality: number } | null;
+  isExpanded: boolean;
+}
+
+export interface GraphSignals {
+  mostCentralNode: { id: string; label: string; centrality: number } | null;
+  highestCouplingNode: { id: string; label: string; degree: number } | null;
+  entryPointCount: number;
+  hotspotCount: number;
+  cycleClusterCount: number;
+  components: number;
+  architecturalStory: string;
+}
+
+export interface BlastRadiusResult {
+  nodeId: string;
+  directDependents: string[];
+  transitiveDependents: string[];
+  directCount: number;
+  transitiveCount: number;
+  totalAffectedCount: number;
+  blastRadiusPct: number;
+  affectedComponentsCount: number;
+  affectedEntryPoints: string[];
+  riskLevel: 'Low' | 'Medium' | 'High' | 'Critical';
+}
 
 export type ArchitectureLayer =
   | 'Presentation'
@@ -191,27 +239,39 @@ export interface DependencyPath {
 }
 
 export const CATEGORY_COLORS: Record<string, string> = {
-  entry_point:   '#10b981', // emerald-500
-  core_module:   '#3b82f6', // blue-500
-  high_coupling: '#f97316', // orange-500
-  directory:     '#a855f7', // purple-500
-  focus:         '#ffffff', // white
-  regular:       '#71717a', // zinc-500
-  service:       '#6366f1', // indigo-500
-  controller:    '#ec4899', // pink-500
-  utility:       '#64748b', // slate-500
-  test:          '#06b6d4', // cyan-500
+  entry_point:    '#10b981', // emerald-500
+  core_module:    '#3b82f6', // blue-500
+  high_coupling:  '#f97316', // orange-500
+  directory:      '#a855f7', // purple-500
+  focus:          '#ffffff', // white
+  regular:        '#71717a', // zinc-500
+  service:        '#6366f1', // indigo-500
+  controller:     '#ec4899', // pink-500
+  domain:         '#8b5cf6', // violet-500
+  infrastructure: '#0ea5e9', // sky-500
+  worker:         '#eab308', // yellow-500
+  utility:        '#64748b', // slate-500
+  test:           '#06b6d4', // cyan-500
+  config:         '#78716c', // stone-500
+  documentation:  '#94a3b8', // slate-400
+  unknown:        '#52525b', // zinc-600
 };
 
 export const CATEGORY_LABELS: Record<string, string> = {
-  entry_point:   'Entry Point',
-  core_module:   'Core Module',
-  high_coupling: 'High Coupling',
-  directory:     'Directory',
-  focus:         'Focus',
-  regular:       'Regular',
-  service:       'Service',
-  controller:    'Controller',
-  utility:       'Utility',
-  test:          'Test Suite',
+  entry_point:    'Entry Point',
+  core_module:    'Core Module',
+  high_coupling:  'High Coupling',
+  directory:      'Directory',
+  focus:          'Focus Target',
+  regular:        'Regular Module',
+  service:        'Service',
+  controller:     'Controller',
+  domain:         'Domain Layer',
+  infrastructure: 'Infrastructure',
+  worker:         'Worker / Job',
+  utility:        'Utility',
+  test:           'Test Suite',
+  config:         'Configuration',
+  documentation:  'Documentation',
+  unknown:        'Unknown',
 };

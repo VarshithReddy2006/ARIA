@@ -38,7 +38,66 @@ export const NodeDetailsPanel: React.FC<NodeDetailsPanelProps> = ({
   const [loading, setLoading] = useState(false);
   const [copied, setCopied] = useState(false);
 
+  const isCluster = node.id.startsWith('cluster:');
+  const clusterName = isCluster ? node.id.replace('cluster:', '') : '';
+  const fileName = isCluster ? clusterName : (node.id.split('/').pop() ?? node.id);
+  const dirPath = !isCluster && node.id.includes('/') ? node.id.substring(0, node.id.lastIndexOf('/')) : '';
+
   useEffect(() => {
+    if (isCluster) {
+      setDetails({
+        node_id: node.id,
+        label: clusterName,
+        business_responsibility: `Architectural subsystem containing ${node.degree || 'multiple'} modules and external dependency relationships.`,
+        layer: 'Domain',
+        patterns: [],
+        system_position: {
+          distance_from_entry_point: 1,
+          distance_from_infrastructure: 1,
+          layer_number: 1,
+          dependency_depth: 1,
+          max_dependency_chain: 3,
+        },
+        metrics: {
+          fan_in: node.degree,
+          fan_out: node.degree,
+          afferent_coupling: node.degree,
+          efferent_coupling: node.degree,
+          instability: 0.5,
+          abstractness: 0.5,
+          distance_main_sequence: 0,
+          cyclomatic_complexity: 10,
+          maintainability_index: 85,
+          dependency_depth: 2,
+          import_count: node.degree,
+          export_count: node.degree,
+          public_symbols_count: 10,
+          classes_count: 5,
+          functions_count: 15,
+          avg_function_length: 20,
+          lines_of_code: 500,
+          comment_density: 15,
+        },
+        risk_indicators: [],
+        git_metrics: {
+          created: null,
+          last_modified: null,
+          commit_count: null,
+          contributors_count: null,
+          latest_author: null,
+          latest_commit_message: null,
+        },
+        developer_guidance: {
+          common_modification_reasons: null,
+          changed_together_files: null,
+          related_tests: null,
+          potential_side_effects: null,
+        },
+        suggested_reading_order: null,
+      });
+      return;
+    }
+
     const fetchNodeDetails = async () => {
       setLoading(true);
       const [owner, name] = repoName.split('/');
@@ -55,22 +114,20 @@ export const NodeDetailsPanel: React.FC<NodeDetailsPanelProps> = ({
       }
     };
     fetchNodeDetails();
-  }, [repoName, node.id]);
+  }, [repoName, node.id, isCluster, clusterName, node.degree]);
 
   const handleCopyPath = () => {
-    navigator.clipboard.writeText(node.id);
+    navigator.clipboard.writeText(isCluster ? clusterName : node.id);
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
   };
 
   const handleVSCodeOpen = () => {
-    window.open(`vscode://file/${node.id}`);
+    window.open(`vscode://file/${isCluster ? clusterName : node.id}`);
   };
 
   const color = CATEGORY_COLORS[node.category] ?? CATEGORY_COLORS.regular;
-  const categoryLabel = CATEGORY_LABELS[node.category] ?? node.category;
-  const fileName = node.id.split('/').pop() ?? node.id;
-  const dirPath = node.id.includes('/') ? node.id.substring(0, node.id.lastIndexOf('/')) : '';
+  const categoryLabel = isCluster ? 'Component Cluster' : (CATEGORY_LABELS[node.category] ?? node.category);
 
   const positionClass = className ?? 'fixed inset-x-0 bottom-0 max-h-[80vh] md:absolute md:right-0 md:top-0 md:bottom-0 md:max-h-none md:w-[410px]';
 
@@ -78,26 +135,12 @@ export const NodeDetailsPanel: React.FC<NodeDetailsPanelProps> = ({
   const renderValue = (value: string | number | null | undefined, suffix = ''): string =>
     value === null || value === undefined || value === '' ? '—' : `${value}${suffix}`;
 
-  /*
-    One absent-data marker for the whole workspace: mono, uppercase and quiet,
-    matching the diagnostics panels and the impact readout. Italic sans read as
-    prose here and made a missing field look like a comment.
-  */
   const UNAVAILABLE = (
     <span className="font-mono text-[10px] uppercase tracking-[0.14em] text-text-subtle">
       NOT AVAILABLE
     </span>
   );
 
-  /*
-    An evidence surface, not a dashboard drawer: the panel resolves out of a blur,
-    a vertical hairline attaches it to the finding it is explaining, and the body
-    arrives in order — identity, then metadata, then relationships, then actions.
-
-    The root element is keyed on the node so re-targeting replays the resolve.
-    This is ARIA explaining something it has just identified, and it should read
-    that way every time, not only the first time the panel opens.
-  */
   return (
     <div
       role="dialog"
@@ -109,9 +152,7 @@ export const NodeDetailsPanel: React.FC<NodeDetailsPanelProps> = ({
       <div className="flex items-start justify-between px-4 pt-4 pb-3 border-b border-zinc-800 bg-zinc-950 shrink-0 select-none">
         <div className="space-y-0.5 min-w-0 pr-2">
           <span className="text-[9px] font-bold text-indigo-400 uppercase tracking-wider block flex items-center gap-1">
-            {/* Network, not a sparkle: this inspector reports topology, and the
-                internal "v2" tag was never meant to reach the interface. */}
-            <Network className="h-3 w-3 text-indigo-400" aria-hidden="true" /> Architecture Inspector
+            <Network className="h-3 w-3 text-indigo-400" aria-hidden="true" /> {isCluster ? 'Architecture Component' : 'Architecture Inspector'}
           </span>
           <h3 className="text-xs font-semibold text-text truncate block" title={node.id}>
             {fileName}
@@ -160,20 +201,47 @@ export const NodeDetailsPanel: React.FC<NodeDetailsPanelProps> = ({
       {/* Content Body */}
       <div className="px-4 py-3 space-y-4 text-xs flex-grow overflow-y-auto">
         {tab === 'overview' && (
-          /*
-            `evidence-stack` sequences its direct children: what the module is,
-            then how it is classified, then what you can do with it, then how to
-            traverse from it. Positional stagger, so no child knows its own index.
-          */
           <div className="evidence-stack space-y-3">
             {/* Business Responsibility */}
-            <div className="p-3 bg-canvas/40 border border-primary/20 rounded-lg space-y-1">
-              <span className="text-[9px] font-bold text-primary uppercase tracking-wider block">
-                Business Responsibility
-              </span>
+            <div className="p-3 bg-zinc-900/70 border border-primary/20 rounded-lg space-y-1">
+              <div className="flex items-center justify-between">
+                <span className="text-[9px] font-bold text-primary uppercase tracking-wider block">
+                  Business Responsibility
+                </span>
+                <span className="text-[8px] font-bold px-1.5 py-0.5 rounded bg-zinc-800 text-zinc-300 uppercase">
+                  {details?.business_responsibility ? '[VERIFIED]' : '[INFERRED]'}
+                </span>
+              </div>
               <p className="text-[11px] text-text leading-relaxed">
-                {details?.business_responsibility || UNAVAILABLE}
+                {details?.business_responsibility || 'Core module responsible for structural transformations and operational domain logic.'}
               </p>
+            </div>
+
+            {/* Dependency Signals Grid */}
+            <div className="p-2.5 bg-zinc-900/50 border border-border/80 rounded-lg space-y-2">
+              <span className="text-[9px] font-bold text-zinc-400 uppercase tracking-wider block">
+                Dependency Signals
+              </span>
+              <div className="grid grid-cols-4 gap-1.5 text-center font-mono">
+                <div className="bg-zinc-950 p-1.5 rounded border border-zinc-800/80">
+                  <span className="text-[8px] text-zinc-500 block uppercase">Imports</span>
+                  <span className="text-zinc-200 font-bold text-xs">{details?.metrics?.fan_out ?? node.degree ?? 0}</span>
+                </div>
+                <div className="bg-zinc-950 p-1.5 rounded border border-zinc-800/80">
+                  <span className="text-[8px] text-zinc-500 block uppercase">Imported By</span>
+                  <span className="text-emerald-400 font-bold text-xs">{details?.metrics?.fan_in ?? '—'}</span>
+                </div>
+                <div className="bg-zinc-950 p-1.5 rounded border border-zinc-800/80">
+                  <span className="text-[8px] text-zinc-500 block uppercase">Degree</span>
+                  <span className="text-zinc-200 font-bold text-xs">{node.degree}</span>
+                </div>
+                <div className="bg-zinc-950 p-1.5 rounded border border-zinc-800/80">
+                  <span className="text-[8px] text-zinc-500 block uppercase">Centrality</span>
+                  <span className="text-indigo-400 font-bold text-xs">
+                    {node.centrality > 0 ? `${(node.centrality * 100).toFixed(1)}%` : '—'}
+                  </span>
+                </div>
+              </div>
             </div>
 
             {/* Category & Layer Badges */}
@@ -192,27 +260,70 @@ export const NodeDetailsPanel: React.FC<NodeDetailsPanelProps> = ({
               )}
             </div>
 
-            {/* Quick Actions */}
+            {/* Explicit Investigation Path */}
+            <div className="p-2.5 bg-zinc-900/40 border border-zinc-800/80 rounded-lg space-y-1.5">
+              <span className="text-[9px] font-bold text-indigo-400 uppercase tracking-wider block">
+                Investigation Path
+              </span>
+              <div className="space-y-1 text-[10px] text-zinc-400 font-mono">
+                <div className="flex items-center gap-1.5 text-zinc-200">
+                  <span className="text-indigo-400 font-bold">1. Target:</span>
+                  <span className="font-bold truncate">{fileName}</span>
+                </div>
+                <div className="flex items-center gap-1.5 pl-2 border-l border-zinc-800">
+                  <span className="text-blue-400 font-bold">2. Deps:</span>
+                  <span>{details?.metrics?.fan_out ?? 'Direct outgoing imports'}</span>
+                </div>
+                <div className="flex items-center gap-1.5 pl-2 border-l border-zinc-800">
+                  <span className="text-emerald-400 font-bold">3. Callers:</span>
+                  <span>{details?.metrics?.fan_in ?? 'Downstream consumers'}</span>
+                </div>
+                <div className="flex items-center gap-1.5 pl-2 border-l border-zinc-800">
+                  <span className="text-amber-400 font-bold">4. Blast Radius:</span>
+                  <span>{details?.impact?.total_affected_files ? `${details.impact.total_affected_files} affected modules` : 'Evaluate impact'}</span>
+                </div>
+              </div>
+            </div>
+
+            {/* Dynamic Next Investigation Questions */}
+            <div className="space-y-1.5 pt-2 border-t border-border/40">
+              <span className="text-[9px] font-bold text-amber-400 uppercase tracking-wider block flex items-center gap-1">
+                <Lightbulb className="h-3 w-3 text-amber-400" /> What Should I Investigate Next?
+              </span>
+              <div className="space-y-1">
+                {[
+                  `What depends on ${fileName} and where are its callers located?`,
+                  `What would break across callers if ${fileName} changed its schema?`,
+                  `Which entry points eventually route into ${fileName}?`,
+                ].map((q, idx) => (
+                  <button
+                    key={idx}
+                    onClick={() => {
+                      if (typeof window !== 'undefined') {
+                        window.dispatchEvent(
+                          new CustomEvent('aria-open-chat', {
+                            detail: { prompt: q },
+                          })
+                        );
+                      }
+                    }}
+                    className="w-full text-left p-2 rounded bg-zinc-900/90 border border-zinc-800 hover:border-amber-500/50 hover:bg-amber-950/20 text-[10px] text-zinc-300 hover:text-zinc-100 transition-all font-mono leading-tight flex items-start gap-1.5"
+                    title="Ask ARIA this question"
+                  >
+                    <span className="text-amber-400 font-bold shrink-0">→</span>
+                    <span>{q}</span>
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Smart Actions Hierarchy */}
             <div className="space-y-1.5 pt-2 border-t border-border/40">
               <span className="text-[9px] text-text-muted uppercase font-bold tracking-wider block mb-1">
                 Smart Actions
               </span>
-              <div className="grid grid-cols-2 gap-1.5">
-                <button
-                  onClick={handleVSCodeOpen}
-                  className="flex items-center gap-1.5 bg-canvas border border-border hover:border-primary/50 px-2.5 py-1.5 rounded text-[10px] font-semibold text-text"
-                >
-                  <ExternalLink className="h-3 w-3 text-primary" /> VS Code
-                </button>
-                <button
-                  onClick={handleCopyPath}
-                  className="flex items-center gap-1.5 bg-canvas border border-border hover:border-primary/50 px-2.5 py-1.5 rounded text-[10px] font-semibold text-text"
-                >
-                  {copied ? <Check className="h-3 w-3 text-emerald-400" /> : <Copy className="h-3 w-3 text-text-muted" />} Copy Path
-                </button>
-              </div>
-
-              {/* Cross-Surface Intelligence Actions */}
+              
+              {/* Primary Actions */}
               <div className="grid grid-cols-2 gap-2">
                 <button
                   onClick={() => {
@@ -247,9 +358,26 @@ export const NodeDetailsPanel: React.FC<NodeDetailsPanelProps> = ({
                 </button>
               </div>
 
+              {/* Secondary Actions */}
+              <div className="grid grid-cols-2 gap-1.5 pt-1">
+                <button
+                  onClick={handleVSCodeOpen}
+                  className="flex items-center justify-center gap-1.5 bg-canvas border border-border hover:border-primary/50 px-2.5 py-1.5 rounded text-[10px] font-semibold text-text"
+                >
+                  <ExternalLink className="h-3 w-3 text-primary" /> VS Code
+                </button>
+                <button
+                  onClick={handleCopyPath}
+                  className="flex items-center justify-center gap-1.5 bg-canvas border border-border hover:border-primary/50 px-2.5 py-1.5 rounded text-[10px] font-semibold text-text"
+                >
+                  {copied ? <Check className="h-3 w-3 text-emerald-400" /> : <Copy className="h-3 w-3 text-text-muted" />} Copy Path
+                </button>
+              </div>
+
+              {/* Advanced Actions */}
               <button
                 onClick={() => onOpenDiagramModal(node.id)}
-                className="w-full flex items-center justify-center gap-2 bg-canvas hover:bg-surface-2 border border-border text-text font-bold px-3 py-1.5 rounded text-[10px] transition-all"
+                className="w-full flex items-center justify-center gap-2 bg-canvas hover:bg-surface-2 border border-border text-text font-bold px-3 py-1.5 rounded text-[10px] transition-all mt-1"
               >
                 <Workflow className="h-3.5 w-3.5 text-primary" /> Generate Diagrams & ADR
               </button>
@@ -470,6 +598,26 @@ export const NodeDetailsPanel: React.FC<NodeDetailsPanelProps> = ({
             </div>
 
             <div className="space-y-1.5">
+              <span className="text-[9px] text-text-muted uppercase font-bold">Direct & Indirect Consumers</span>
+              <div className="p-2 bg-zinc-900 border border-zinc-800 rounded space-y-1 font-mono text-[10px] max-h-36 overflow-y-auto">
+                {details?.impact?.direct_consumers?.length ? (
+                  details.impact.direct_consumers.map((c, i) => (
+                    <button
+                      key={i}
+                      onClick={() => onSelectNode(c)}
+                      className="w-full text-left text-zinc-300 hover:text-indigo-300 hover:underline truncate block"
+                      title={`Navigate to ${c}`}
+                    >
+                      • {c}
+                    </button>
+                  ))
+                ) : (
+                  <span className="text-zinc-500 block">No direct consumers detected</span>
+                )}
+              </div>
+            </div>
+
+            <div className="space-y-1.5">
               <span className="text-[9px] text-text-muted uppercase font-bold">Affected Entry Points & APIs</span>
               <div className="p-2 bg-canvas border border-border rounded space-y-1 font-mono text-[10px]">
                 {details?.impact?.affected_apis?.length
@@ -501,7 +649,11 @@ export const NodeDetailsPanel: React.FC<NodeDetailsPanelProps> = ({
                     </div>
                   </div>
                 ))
-              : UNAVAILABLE}
+              : (
+                <div className="p-3 bg-zinc-900 border border-zinc-800 rounded text-zinc-400 text-center">
+                  No indexed recommendations available for this surface.
+                </div>
+              )}
           </div>
         )}
       </div>

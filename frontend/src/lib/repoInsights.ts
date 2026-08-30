@@ -20,6 +20,10 @@ export interface Insight {
   tooltip: string;
   /** Named icon, resolved to a component by the presentation layer. */
   icon: InsightIcon;
+  /** Concrete repository evidence backing the signal. */
+  evidence?: string;
+  /** Contextual nuance or caveat. */
+  caveat?: string;
 }
 
 export type InsightIcon =
@@ -143,6 +147,8 @@ export function deriveInsights(input: InsightInputs): Insight[] {
         tooltip:
           'Cycles were found by depth-first traversal of the component relationship graph. ' +
           'They make modules hard to test and change in isolation.',
+        evidence: `${cycleCount} circular dependency path(s) detected across ${componentCount} components.`,
+        caveat: 'Cycles create tight architectural coupling and prevent isolated refactoring or unit testing.',
         icon: 'cycle',
       });
     } else {
@@ -154,6 +160,8 @@ export function deriveInsights(input: InsightInputs): Insight[] {
         tooltip:
           'Depth-first traversal of the component relationship graph found no cycles, ' +
           'so components can be reasoned about in dependency order.',
+        evidence: `Depth-first traversal of ${relationshipCount} component relationship edges found 0 cycles.`,
+        caveat: 'Components can be safely refactored and tested in topological dependency order.',
         icon: 'architecture',
       });
     }
@@ -166,6 +174,8 @@ export function deriveInsights(input: InsightInputs): Insight[] {
       tooltip:
         'The architecture agent found no imports between top-level packages. This is common ' +
         'in flat layouts and in repositories of independent services.',
+      evidence: `0 cross-module import edges detected between top-level directories.`,
+      caveat: 'Modules operate as decoupled packages or independent scripts.',
       icon: 'architecture',
     });
   }
@@ -180,6 +190,8 @@ export function deriveInsights(input: InsightInputs): Insight[] {
       tooltip:
         'Entry points are inferred from conventional filenames (main, app, index, server, manage). ' +
         'Several of them usually indicates multiple deployable surfaces.',
+      evidence: `${entryPointCount} conventional executable roots detected in repository files.`,
+      caveat: 'Indicates multi-target application surfaces (e.g. API, CLI, workers, or client scripts).',
       icon: 'entrypoint',
     });
   } else if (entryPointCount === 1) {
@@ -189,6 +201,8 @@ export function deriveInsights(input: InsightInputs): Insight[] {
       detail: 'One executable entry point — a focused, single-surface project.',
       severity: 'good',
       tooltip: 'Entry points are inferred from conventional filenames such as main, app, index, or server.',
+      evidence: '1 primary execution starting point resolved.',
+      caveat: 'Centralized runtime initialization through a single entry file.',
       icon: 'entrypoint',
     });
   }
@@ -203,6 +217,8 @@ export function deriveInsights(input: InsightInputs): Insight[] {
       tooltip:
         `Resolved from the repository's dependency manifests. Above ~${HIGH_DEPENDENCY_COUNT} packages, ` +
         'upgrade and vulnerability review becomes a recurring maintenance cost.',
+      evidence: `${dependencyCount} external packages resolved across project dependency manifests.`,
+      caveat: 'Higher external surface area increases supply-chain audit and vulnerability review overhead.',
       icon: 'dependency',
     });
   } else if (dependencyCount > 0) {
@@ -214,6 +230,8 @@ export function deriveInsights(input: InsightInputs): Insight[] {
       tooltip:
         'Resolved from the repository dependency manifests. A small external surface keeps ' +
         'upgrades and security review cheap.',
+      evidence: `${dependencyCount} declared dependencies keep the external dependency footprint small.`,
+      caveat: 'Low supply-chain surface minimizes breaking changes and security review overhead.',
       icon: 'dependency',
     });
   }
@@ -229,6 +247,8 @@ export function deriveInsights(input: InsightInputs): Insight[] {
       tooltip:
         `Averages ${filesPerDir.toFixed(1)} files per directory. Large or densely packed trees ` +
         'take longer to navigate, so lean on the reading path and graph rather than browsing.',
+      evidence: `${fileCount} files across ${directoryCount} directories (~${filesPerDir.toFixed(1)} files/directory).`,
+      caveat: 'Densely populated directories require navigating via architecture graphs and reading paths.',
       icon: 'scale',
     });
   } else {
@@ -239,6 +259,8 @@ export function deriveInsights(input: InsightInputs): Insight[] {
       severity: 'good',
       tooltip:
         `Averages ${filesPerDir.toFixed(1)} files per directory — small enough to explore directly.`,
+      evidence: `${fileCount} total files in ${directoryCount} directories (~${filesPerDir.toFixed(1)} files/directory).`,
+      caveat: 'Repository scale allows direct directory browsing and rapid conceptual orientation.',
       icon: 'scale',
     });
   }
@@ -254,6 +276,8 @@ export function deriveInsights(input: InsightInputs): Insight[] {
       tooltip:
         'Estimated from the ranked reading path at roughly six minutes of attentive reading per file. ' +
         'Treat it as relative effort, not a precise duration.',
+      evidence: `Topological reading path indexes ${readingSteps} critical files (~${readingMinutes} min).`,
+      caveat: 'Reading time represents attentive onboarding through core centrality files.',
       icon: 'onboarding',
     });
   }
@@ -269,6 +293,8 @@ export function deriveInsights(input: InsightInputs): Insight[] {
       tooltip:
         `Detected conventional workspace roots: ${workspaces.slice(0, 6).join(', ')}` +
         `${workspaces.length > 6 ? '…' : ''}. Shared packages are usually the highest-leverage reading.`,
+      evidence: `${workspaces.length} distinct workspace packages detected: ${workspaces.slice(0, 4).join(', ')}.`,
+      caveat: 'Workspaces share tooling and dependencies under a unified repository root.',
       icon: 'monorepo',
     });
   }
@@ -284,6 +310,8 @@ export function deriveInsights(input: InsightInputs): Insight[] {
       tooltip:
         'Counts Markdown files matching conventional documentation names (README, ARCHITECTURE, ' +
         'CONTRIBUTING, docs/, and similar).',
+      evidence: `${docCount} markdown documentation files indexed in repository tree.`,
+      caveat: 'High documentation presence accelerates architectural ramp-up.',
       icon: 'docs',
     });
   } else if (docCount === 0) {
@@ -295,6 +323,8 @@ export function deriveInsights(input: InsightInputs): Insight[] {
       tooltip:
         'No Markdown files matched conventional documentation names. Expect to rely on code ' +
         'reading and the AI chat instead of prose.',
+      evidence: `No markdown documentation files (README, ARCHITECTURE, CONTRIBUTING, docs/) resolved.`,
+      caveat: 'Developers must rely on AST symbol inspection, comments, and ARIA chat.',
       icon: 'docs',
     });
   }
@@ -310,6 +340,8 @@ export function deriveInsights(input: InsightInputs): Insight[] {
       tooltip:
         'Counts files whose path contains test, spec, or __tests__. This measures presence, ' +
         'not coverage — no tests were executed.',
+      evidence: `${testCount} test files matching test/spec/__tests__ path conventions.`,
+      caveat: 'Automated test suite presence detected (indicates test infrastructure exists).',
       icon: 'tests',
     });
   } else {
@@ -321,6 +353,8 @@ export function deriveInsights(input: InsightInputs): Insight[] {
       tooltip:
         'No path contained test, spec, or __tests__. Tests may exist under a non-standard ' +
         'layout, so treat this as a hint rather than a verdict.',
+      evidence: `No 'test', 'spec', or '__tests__' paths detected in repository file index.`,
+      caveat: 'Tests may exist under a non-standard layout or external testing repository.',
       icon: 'tests',
     });
   }
@@ -338,6 +372,10 @@ export function deriveInsights(input: InsightInputs): Insight[] {
           'reviewer expertise and more toolchain setup.'
         : 'A small number of languages and frameworks were detected, which keeps the required ' +
           'context narrow.',
+      evidence: `${techStack.length} tech stack signals identified in codebase manifests: ${techStack.slice(0, 4).join(', ')}.`,
+      caveat: polyglot
+        ? 'Multiple technologies require broad engineering expertise and toolchain configuration.'
+        : 'Narrow technology focus keeps developer context tight and manageable.',
       icon: 'language',
     });
   }

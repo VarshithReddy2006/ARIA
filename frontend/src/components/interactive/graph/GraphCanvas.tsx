@@ -45,14 +45,27 @@ function nodeClassName(
   const dim = isDimmed ? 'opacity-[0.16]' : 'opacity-100';
 
   if (heatmapMode !== 'none') {
-    if (heatmapMode === 'coupling' || heatmapMode === 'fan_out') {
+    if (heatmapMode === 'centrality') {
+      if (degree > 10) return `${base} ${dim} !bg-indigo-950/90 !border-indigo-400 !text-indigo-200 font-bold`;
+      if (degree > 5) return `${base} ${dim} !bg-indigo-950/60 !border-indigo-500/70 !text-indigo-300 font-semibold`;
+      return `${base} ${dim} !bg-zinc-900 !border-zinc-800 !text-zinc-400`;
+    }
+    if (heatmapMode === 'coupling' || heatmapMode === 'impact') {
       if (degree > 10) return `${base} ${dim} !bg-red-950/80 !border-red-500 !text-red-300 font-bold`;
       if (degree > 5) return `${base} ${dim} !bg-amber-950/80 !border-amber-500 !text-amber-300 font-bold`;
       return `${base} ${dim} !bg-zinc-900 !border-zinc-800 !text-zinc-400`;
     }
-    if (heatmapMode === 'complexity' || heatmapMode === 'violations') {
-      // Colour alone carries the severity — a permanently pulsing node reads as
-      // live activity rather than as a static classification.
+    if (heatmapMode === 'fan_in') {
+      if (degree > 8) return `${base} ${dim} !bg-emerald-950/90 !border-emerald-400 !text-emerald-200 font-bold`;
+      if (degree > 3) return `${base} ${dim} !bg-emerald-950/60 !border-emerald-500/70 !text-emerald-300`;
+      return `${base} ${dim} !bg-zinc-900 !border-zinc-800 !text-zinc-400`;
+    }
+    if (heatmapMode === 'fan_out') {
+      if (degree > 8) return `${base} ${dim} !bg-blue-950/90 !border-blue-400 !text-blue-200 font-bold`;
+      if (degree > 3) return `${base} ${dim} !bg-blue-950/60 !border-blue-500/70 !text-blue-300`;
+      return `${base} ${dim} !bg-zinc-900 !border-zinc-800 !text-zinc-400`;
+    }
+    if (heatmapMode === 'complexity' || heatmapMode === 'violations' || heatmapMode === 'churn') {
       if (category === 'high_coupling') return `${base} ${dim} !bg-rose-950/90 !border-rose-500 !text-rose-300 font-bold`;
       return `${base} ${dim} !bg-zinc-900 !border-zinc-800 !text-zinc-400`;
     }
@@ -75,6 +88,8 @@ function nodeClassName(
       return `${base} ${dim} !bg-zinc-900/90 !border-emerald-500/60 !text-emerald-300 font-medium hover:!border-emerald-400`;
     case 'core_module':
       return `${base} ${dim} !bg-zinc-900/90 !border-blue-500/60 !text-blue-300 font-medium hover:!border-blue-400`;
+    case 'domain':
+      return `${base} ${dim} !bg-zinc-900/90 !border-violet-500/60 !text-violet-300 font-medium hover:!border-violet-400`;
     case 'high_coupling':
       return `${base} ${dim} !bg-zinc-900/90 !border-amber-500/60 !text-amber-300 hover:!border-amber-400`;
     case 'directory':
@@ -83,8 +98,16 @@ function nodeClassName(
       return `${base} ${dim} !bg-zinc-900/90 !border-indigo-500/60 !text-indigo-300 font-medium hover:!border-indigo-400`;
     case 'controller':
       return `${base} ${dim} !bg-zinc-900/90 !border-pink-500/60 !text-pink-300 font-medium hover:!border-pink-400`;
+    case 'infrastructure':
+      return `${base} ${dim} !bg-zinc-900/90 !border-sky-500/60 !text-sky-300 font-medium hover:!border-sky-400`;
+    case 'worker':
+      return `${base} ${dim} !bg-zinc-900/90 !border-yellow-500/60 !text-yellow-300 font-medium hover:!border-yellow-400`;
     case 'test':
       return `${base} ${dim} !bg-zinc-900/90 !border-cyan-500/50 !text-cyan-300 hover:!border-cyan-400`;
+    case 'config':
+      return `${base} ${dim} !bg-zinc-900/90 !border-stone-500/50 !text-stone-300 hover:!border-stone-400`;
+    case 'utility':
+      return `${base} ${dim} !bg-zinc-900/90 !border-slate-500/50 !text-slate-300 hover:!border-slate-400`;
     default:
       return `${base} ${dim} !bg-zinc-900/80 !border-zinc-800 !text-zinc-300 hover:!border-zinc-600`;
   }
@@ -311,7 +334,7 @@ export const GraphCanvas: React.FC<GraphCanvasProps> = ({
         nodesConnectable={false}
         elementsSelectable
       >
-        <Controls showInteractive={false} className="!bg-zinc-950/80 !border-zinc-800/80 !rounded-lg backdrop-blur-sm" />
+        <Controls showInteractive={false} className="!bg-zinc-950/90 !border-zinc-800/80 !rounded-md backdrop-blur-md shadow-2xl" />
         <PanControls />
         <MiniMap
           nodeColor={(node) => {
@@ -319,14 +342,14 @@ export const GraphCanvas: React.FC<GraphCanvasProps> = ({
             if (!raw) return '#27272a';
             if (raw.is_focus) return '#818cf8';
             if (raw.highlighted) return '#f59e0b';
-            return CATEGORY_COLORS[raw.category] ?? '#71717a';
+            return CATEGORY_COLORS[raw.category] ?? '#52525b';
           }}
-          maskColor="rgba(3, 3, 3, 0.85)"
-          className="!bg-zinc-950/95 !border-zinc-800/80 !rounded-lg overflow-hidden"
+          maskColor="rgba(3, 3, 3, 0.88)"
+          className="!bg-zinc-950/95 !border-zinc-800/80 !rounded-md overflow-hidden shadow-2xl"
           nodeStrokeWidth={0}
-          nodeBorderRadius={3}
+          nodeBorderRadius={2}
         />
-        <Background color="#1e1e24" gap={18} size={1} />
+        <Background color="rgba(255, 255, 255, 0.035)" gap={20} size={1} />
       </ReactFlow>
 
       {/* Hover Micro-Inspector Tooltip */}

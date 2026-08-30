@@ -126,8 +126,8 @@ class TestLLMFailover:
             assert res == "DeepSeek response text"
             assert provider_used == "deepseek"
 
-            # Verify that client's generate_content was called twice (initial + 1 retry)
-            assert mock_models.generate_content.call_count == 2
+            # Verify that client's generate_content was called for candidate models before failover
+            assert mock_models.generate_content.call_count >= 2
 
             # Gemini circuit breaker is NOT open because a timeout failure was recorded
             # only once at the circuit breaker level (consecutive failure threshold is 3)

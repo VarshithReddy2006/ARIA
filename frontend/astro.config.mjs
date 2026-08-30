@@ -15,6 +15,11 @@ export default defineConfig({
     }),
   ],
   vite: {
+    server: {
+      watch: {
+        ignored: ['**/.vercel/**', '**/dist/**', '**/.astro/**'],
+      },
+    },
     optimizeDeps: {
       include: ['reactflow', 'dagre', 'react-markdown', 'remark-gfm', 'lucide-react', 'framer-motion'],
     },

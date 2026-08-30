@@ -9,7 +9,7 @@
     "preview": "astro preview",
     "astro": "astro",
     "lint": "tsc --noEmit",
-    "test": "node --experimental-strip-types --test tests/**/*.test.ts"
+    "test": "node --experimental-strip-types --test --test-concurrency=1 tests/**/*.test.ts"
   },
   "engines": {
     "node": ">=20.0.0"

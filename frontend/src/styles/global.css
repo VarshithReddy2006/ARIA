@@ -22,15 +22,11 @@
   --border-subtle: rgba(255, 255, 255, 0.035);
   --border-dim:    rgba(255, 255, 255, 0.02);
 
-  /*
-    text — off-white, cool muted grays.
+  /* typography tokens — Space Grotesk (Primary UI) + JetBrains Mono (Technical) */
+  --font-ui:       'Space Grotesk', 'Inter', ui-sans-serif, system-ui, -apple-system, sans-serif;
+  --font-tech:     'JetBrains Mono', 'Fira Code', ui-monospace, SFMono-Regular, Menlo, monospace;
 
-    Primary text sits at #f5f5f5 (96% L). Lifted from #ededed (93%), which read
-    slightly grey against the near-black canvas. It deliberately stops short of
-    pure white: #ffffff is reserved for hover and active emphasis across the
-    Analysis surfaces (`.lumen-hover`, `.spec-row--slide`, `.hub-row`, `.gh-row`),
-    so the resting tone has to leave headroom for that response to be visible.
-  */
+  /* text — off-white, cool muted grays. */
   --text:          #f5f5f5;
   --text-muted:    #8e939e;
   --text-subtle:   #525660;
@@ -133,13 +129,75 @@ html.dark, html { color-scheme: dark; }
     color: var(--text-muted);
   }
 
+  /* ── Typography Hierarchy System ────────────────────────────────────── */
+  .font-ui { font-family: var(--font-ui); }
+  .font-tech { font-family: var(--font-tech); }
+
+  .page-title {
+    font-family: var(--font-ui);
+    font-size: clamp(2.25rem, 4vw, 2.75rem);
+    font-weight: 700;
+    line-height: 1.1;
+    letter-spacing: -0.035em;
+  }
+
+  .section-heading {
+    font-family: var(--font-ui);
+    font-size: clamp(1.25rem, 2vw, 1.5rem);
+    font-weight: 600;
+    line-height: 1.25;
+    letter-spacing: -0.02em;
+  }
+
+  .body-ui {
+    font-family: var(--font-ui);
+    font-size: 0.9375rem;
+    font-weight: 400;
+    line-height: 1.6;
+  }
+
+  .metric-display {
+    font-family: var(--font-ui);
+    font-size: clamp(1.75rem, 2.5vw, 2.5rem);
+    font-weight: 700;
+    line-height: 1;
+    letter-spacing: -0.03em;
+  }
+
+  .tech-meta {
+    font-family: var(--font-tech);
+    font-size: 0.75rem;
+    font-weight: 500;
+    letter-spacing: 0.01em;
+  }
+
+  .code-text {
+    font-family: var(--font-tech);
+    font-size: 0.8125rem;
+    font-weight: 500;
+  }
+
+  .tech-eyebrow {
+    font-family: var(--font-tech);
+    font-size: 10.5px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.16em;
+    color: var(--text-subtle);
+  }
+
   /* Section label — editorial eyebrow */
   .section-label {
-    @apply text-[11px] font-mono font-medium uppercase tracking-[0.25em];
+    font-family: var(--font-tech);
+    font-size: 10.5px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.16em;
     color: var(--text-subtle);
   }
 
   .editorial-headline {
+    font-family: var(--font-ui);
     font-size: clamp(2.25rem, 5vw, 4.5rem);
     line-height: 1.0;
     letter-spacing: -0.04em;
@@ -147,6 +205,7 @@ html.dark, html { color-scheme: dark; }
   }
 
   .editorial-sub {
+    font-family: var(--font-ui);
     font-size: clamp(1rem, 2vw, 1.25rem);
     line-height: 1.5;
     color: var(--text-muted);
@@ -541,12 +600,73 @@ html.dark, html { color-scheme: dark; }
   border: 1px solid rgba(255,255,255,0.06);
 }
 
-/* Custom React Flow Dark Theme Polishing */
+/* ===========================================================================
+ * React Flow Dark Architecture Theme (Seamless ARIA Integration)
+ * ========================================================================= */
+.react-flow {
+  background: transparent !important;
+  color: var(--text) !important;
+}
+
+.react-flow__renderer,
+.react-flow__container,
+.react-flow__viewport,
+.react-flow__pane {
+  background: transparent !important;
+}
+
+.react-flow__background {
+  background-color: #030303 !important;
+}
+
+.react-flow__background-pattern {
+  stroke: rgba(255, 255, 255, 0.035) !important;
+}
+
+/* Eliminate default white node styling from React Flow stylesheet */
+.react-flow__node {
+  background: transparent !important;
+  border: none !important;
+  color: inherit !important;
+  padding: 0 !important;
+  box-shadow: none !important;
+}
+
+.react-flow__node.react-flow__node-default,
+.react-flow__node.react-flow__node-input,
+.react-flow__node.react-flow__node-output,
+.react-flow__node-default {
+  background: transparent !important;
+  border: none !important;
+  color: inherit !important;
+  box-shadow: none !important;
+}
+
+/* Minimap dark seamless integration */
+.react-flow__minimap {
+  background: rgba(8, 9, 13, 0.95) !important;
+  border: 1px solid rgba(255, 255, 255, 0.08) !important;
+  border-radius: 6px !important;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.6) !important;
+}
+
+.react-flow__minimap-mask {
+  fill: rgba(3, 3, 3, 0.85) !important;
+  stroke: rgba(99, 102, 241, 0.3) !important;
+  stroke-width: 1px !important;
+}
+
+.react-flow__minimap-node {
+  fill: #3f3f46 !important;
+  stroke: none !important;
+}
+
+/* Custom React Flow Dark Theme Controls */
 .react-flow__controls {
-  background: var(--surface-1) !important;
-  border: 1px solid rgba(255,255,255,0.06) !important;
-  border-radius: 8px !important;
-  box-shadow: var(--shadow-float) !important;
+  background: rgba(13, 14, 20, 0.9) !important;
+  border: 1px solid rgba(255, 255, 255, 0.08) !important;
+  border-radius: 6px !important;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.5) !important;
   overflow: hidden;
   display: flex !important;
   flex-direction: column !important;
@@ -555,7 +675,7 @@ html.dark, html { color-scheme: dark; }
 }
 .react-flow__controls-button {
   background: transparent !important;
-  border-bottom: 1px solid rgba(255,255,255,0.04) !important;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.04) !important;
   color: var(--text-muted) !important;
   fill: currentColor !important;
   transition: all 0.2s !important;
@@ -566,7 +686,7 @@ html.dark, html { color-scheme: dark; }
   justify-content: center !important;
 }
 .react-flow__controls-button:hover {
-  background: var(--canvas) !important;
+  background: rgba(255, 255, 255, 0.06) !important;
   color: var(--text) !important;
 }
 .react-flow__controls-button:last-child {
@@ -575,6 +695,17 @@ html.dark, html { color-scheme: dark; }
 .react-flow__controls-button svg {
   width: 12px !important;
   height: 12px !important;
+  fill: currentColor !important;
+}
+
+/* Attribution removal / dark style */
+.react-flow__attribution {
+  background: transparent !important;
+  opacity: 0.3 !important;
+  font-size: 8px !important;
+}
+.react-flow__attribution a {
+  color: var(--text-subtle) !important;
 }
 /* ===========================================================================
  * ARIA STORY SYSTEM — editorial landing experience
@@ -657,18 +788,18 @@ html.dark, html { color-scheme: dark; }
 
 /* Small uppercase mono metadata label */
 .mono-label {
-  font-family: 'JetBrains Mono', ui-monospace, monospace;
-  font-size: 10px;
-  font-weight: 500;
-  letter-spacing: 0.28em;
+  font-family: var(--font-tech);
+  font-size: 10.5px;
+  font-weight: 600;
+  letter-spacing: 0.16em;
   text-transform: uppercase;
-  color: rgba(255, 255, 255, 0.48);
+  color: rgba(255, 255, 255, 0.55);
 }
 .mono-label-accent { color: var(--primary); }
 
 /* Numeric / path monospace detail */
 .mono-detail {
-  font-family: 'JetBrains Mono', ui-monospace, monospace;
+  font-family: var(--font-tech);
   font-size: 11px;
   letter-spacing: 0.02em;
   color: var(--text-muted);

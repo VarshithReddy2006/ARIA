@@ -115,11 +115,17 @@ class IntentRouter:
         dispatch = {
             Intent.ARCHITECTURE: self._handle_architecture,
             Intent.CIRCULAR_DEPENDENCY: self._handle_circular_dependency,
+            Intent.DEPENDENCY: self._handle_circular_dependency,
             Intent.API_SURFACE: self._handle_api_surface,
+            Intent.API_FLOW: self._handle_api_surface,
             Intent.CALL_GRAPH: self._handle_call_graph,
+            Intent.DEBUGGING: self._handle_call_graph,
             Intent.SYMBOL: self._handle_symbol,
+            Intent.SYMBOL_EXPLANATION: self._handle_symbol,
+            Intent.FILE_EXPLANATION: self._handle_symbol,
             Intent.READING_ORDER: self._handle_reading_order,
             Intent.IMPACT_ANALYSIS: self._handle_impact_analysis,
+            Intent.CHANGE_PLANNING: self._handle_impact_analysis,
         }
 
         handler = dispatch.get(intent)

@@ -18,9 +18,10 @@ import { GraphFilterBar } from './GraphFilterBar';
 import { GraphBreadcrumbNav } from './GraphBreadcrumbNav';
 import { ArchitectureDiagramModal } from './ArchitectureDiagramModal';
 import { GraphWorkspaceProvider, useGraphWorkspace } from './workspaceStore';
-import { computeGraphStats } from './graphStats';
+import { computeGraphStats, computeGraphSignals } from './graphStats';
+import { buildAbstractedGraph, buildArchitectureClusters } from './architectureClustering';
 import { CATEGORY_COLORS, CATEGORY_LABELS } from './types';
-import type { GraphNode, GraphEdge, GraphMode, GraphResponse } from './types';
+import type { GraphNode, GraphEdge, GraphMode, GraphResponse, AbstractionLevel, ArchitectureCluster } from './types';
 import { EmptyState } from '../../ui/EmptyState';
 import { Button } from '../../ui/Button';
 
@@ -95,6 +96,11 @@ const InteractiveDependencyGraphInner: React.FC<
   const [apiNodes, setApiNodes] = useState<GraphNode[]>([]);
   const [apiEdges, setApiEdges] = useState<GraphEdge[]>([]);
   const [matchCount, setMatchCount] = useState<number | null>(null);
+
+  // ── Progressive Abstraction state ─────────────────────────────────────────
+  const [level, setLevel] = useState<AbstractionLevel>('files');
+  const [expandedClusterIds, setExpandedClusterIds] = useState<Set<string>>(new Set());
+  const [hotspotFilter, setHotspotFilter] = useState<'top5' | 'top10' | 'all'>('top10');
 
   // ── Interaction state ───────────────────────────────────────────────────
   const [mode, setMode] = useState<GraphMode>('full');
@@ -448,20 +454,53 @@ const InteractiveDependencyGraphInner: React.FC<
     [selectNode],
   );
 
-  // Compute lightweight stats client-side over current view
+  // Compute lightweight stats and deep architectural signals client-side over current view
   const stats = useMemo(() => computeGraphStats(apiNodes, apiEdges), [apiNodes, apiEdges]);
+  const signals = useMemo(() => computeGraphSignals(apiNodes, apiEdges), [apiNodes, apiEdges]);
 
   // Diagram Modal state
   const [diagramModalNodeId, setDiagramModalNodeId] = useState<string | null>(null);
 
+  // Global keyboard shortcut '/' to focus search
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === '/' && document.activeElement?.tagName !== 'INPUT' && document.activeElement?.tagName !== 'TEXTAREA') {
+        e.preventDefault();
+        const searchInput = document.querySelector('input[placeholder*="Search"]') as HTMLInputElement | null;
+        searchInput?.focus();
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, []);
+
+  // ── Abstracted / Clustered Graph computation ────────────────────────────
+  const abstractedGraph = useMemo(() => {
+    let baseNodes = apiNodes;
+    let baseEdges = apiEdges;
+
+    if (mode === 'hotspots') {
+      const sorted = [...apiNodes].sort((a, b) => (b.centrality || b.degree) - (a.centrality || a.degree));
+      if (hotspotFilter === 'top5') baseNodes = sorted.slice(0, 5);
+      else if (hotspotFilter === 'top10') baseNodes = sorted.slice(0, 10);
+      else baseNodes = sorted.filter((n) => n.category === 'high_coupling' || n.degree >= 8 || n.centrality >= 0.15);
+    } else if (mode === 'entry_points') {
+      baseNodes = apiNodes.filter((n) => n.category === 'entry_point' || n.degree <= 2);
+    }
+
+    return buildAbstractedGraph(baseNodes, baseEdges, level, expandedClusterIds, selectedNode?.id || null);
+  }, [apiNodes, apiEdges, mode, hotspotFilter, level, expandedClusterIds, selectedNode?.id]);
+
   // ── Render ────────────────────────────────────────────────────────────────
   return (
-    <div className="card overflow-hidden flex flex-col h-[700px] relative border border-border/70 bg-[#030303]">
+    <div className="overflow-hidden flex flex-col h-[760px] relative border border-zinc-800/60 rounded-lg bg-[#030303] shadow-2xl">
       {/* Editorial Technical Header */}
-      <div className="px-4 py-2.5 border-b border-border/80 bg-zinc-950/90 flex items-center justify-between gap-4 z-10 flex-wrap font-mono">
+      <div className="px-4 py-2 border-b border-zinc-800/60 bg-zinc-950/95 flex items-center justify-between gap-4 z-10 flex-wrap font-mono">
         <div className="flex items-center gap-3">
           <div className="flex items-center gap-2">
             <span className="text-[10px] font-bold text-indigo-400 tracking-wider uppercase">FILE GRAPH</span>
+            <span className="text-zinc-600 text-[10px]">/</span>
+            <span className="text-[10px] font-bold text-zinc-300 tracking-wider uppercase">ARCHITECTURE MAP</span>
             <span className="text-zinc-600 text-[10px]">/</span>
             <span className="text-[10px] text-zinc-400 uppercase tracking-wider">REPOSITORY TOPOLOGY</span>
           </div>
@@ -506,6 +545,94 @@ const InteractiveDependencyGraphInner: React.FC<
         </div>
       </div>
 
+      {/* Architecture Signals Strip */}
+      <div className="px-4 py-1.5 bg-zinc-950/80 border-b border-border/60 flex items-center justify-between gap-3 text-[10px] font-mono overflow-x-auto select-none">
+        <div className="flex items-center gap-4 shrink-0">
+          <span className="text-[9px] font-bold text-zinc-500 uppercase tracking-wider">Architecture Signals:</span>
+          
+          {signals.mostCentralNode ? (
+            <button
+              onClick={() => {
+                const target = apiNodes.find((n) => n.id === signals.mostCentralNode?.id);
+                if (target) {
+                  handleNodeSelect(target);
+                  centerOnNode(target.id);
+                }
+              }}
+              className="flex items-center gap-1 text-zinc-400 hover:text-indigo-300 transition-colors"
+              title="Click to focus most central module"
+            >
+              <span className="text-zinc-500">Most Central:</span>
+              <span className="text-zinc-200 font-bold underline decoration-indigo-500/50">{signals.mostCentralNode.label}</span>
+              <span className="text-indigo-400">({(signals.mostCentralNode.centrality * 100).toFixed(1)}%)</span>
+            </button>
+          ) : (
+            <span className="text-zinc-500">Most Central: <span className="text-zinc-400">Not determined</span></span>
+          )}
+
+          {signals.highestCouplingNode && (
+            <button
+              onClick={() => {
+                const target = apiNodes.find((n) => n.id === signals.highestCouplingNode?.id);
+                if (target) {
+                  handleNodeSelect(target);
+                  centerOnNode(target.id);
+                }
+              }}
+              className="flex items-center gap-1 text-zinc-400 hover:text-amber-300 transition-colors"
+              title="Click to focus highest coupled module"
+            >
+              <span className="text-zinc-500">Highest Coupling:</span>
+              <span className="text-zinc-200 font-bold underline decoration-amber-500/50">{signals.highestCouplingNode.label}</span>
+              <span className="text-amber-400">(Deg {signals.highestCouplingNode.degree})</span>
+            </button>
+          )}
+
+          <div className="flex items-center gap-1 text-zinc-400">
+            <span className="text-zinc-500">Entry Points:</span>
+            <span className="text-emerald-400 font-bold">{signals.entryPointCount}</span>
+          </div>
+
+          <div className="flex items-center gap-1 text-zinc-400">
+            <span className="text-zinc-500">Hotspots:</span>
+            <span className="text-rose-400 font-bold">{signals.hotspotCount}</span>
+            {mode === 'hotspots' && (
+              <span className="inline-flex gap-1 ml-1 text-[9px]">
+                <button
+                  onClick={() => setHotspotFilter('top5')}
+                  className={`px-1 rounded ${hotspotFilter === 'top5' ? 'bg-rose-950 text-rose-300 font-bold' : 'text-zinc-500'}`}
+                >
+                  Top 5
+                </button>
+                <button
+                  onClick={() => setHotspotFilter('top10')}
+                  className={`px-1 rounded ${hotspotFilter === 'top10' ? 'bg-rose-950 text-rose-300 font-bold' : 'text-zinc-500'}`}
+                >
+                  Top 10
+                </button>
+                <button
+                  onClick={() => setHotspotFilter('all')}
+                  className={`px-1 rounded ${hotspotFilter === 'all' ? 'bg-rose-950 text-rose-300 font-bold' : 'text-zinc-500'}`}
+                >
+                  All
+                </button>
+              </span>
+            )}
+          </div>
+
+          <div className="flex items-center gap-1 text-zinc-400">
+            <span className="text-zinc-500">Cycles:</span>
+            <span className="text-amber-400 font-bold">{signals.cycleClusterCount}</span>
+          </div>
+        </div>
+
+        {/* Storytelling snippet */}
+        <div className="hidden 2xl:flex items-center gap-1 text-zinc-400 text-[9px] truncate max-w-lg">
+          <span className="text-indigo-400 font-bold">Topology Insight:</span>
+          <span className="truncate">{signals.architecturalStory}</span>
+        </div>
+      </div>
+
       {/* Filter Bar & Breadcrumb Navigation */}
       <GraphFilterBar />
       <GraphBreadcrumbNav />
@@ -513,11 +640,21 @@ const InteractiveDependencyGraphInner: React.FC<
       {/* ── Toolbar ─────────────────────────────────────────────────── */}
       <GraphToolbar
         mode={mode}
+        level={level}
         traceDir={traceDir}
         focusNode={focusNode}
         loading={loading}
-        nodeCount={apiNodes.length}
-        edgeCount={apiEdges.length}
+        nodeCount={abstractedGraph.nodes.length}
+        edgeCount={abstractedGraph.edges.length}
+        onSetLevel={(lvl) => setLevel(lvl)}
+        onSetMode={(newMode) => {
+          setMode(newMode);
+          if (newMode === 'overview' || newMode === 'full') {
+            handleReset();
+          } else if (newMode === 'impact' && focusNode) {
+            handleTraceBackward();
+          }
+        }}
         onFitView={handleFitView}
         onReset={handleReset}
         onTraceForward={() => handleTraceForward()}
@@ -579,8 +716,8 @@ const InteractiveDependencyGraphInner: React.FC<
         {/* React Flow canvas */}
         <div className="flex-grow h-full bg-[#030303]">
           <GraphCanvas
-            apiNodes={apiNodes}
-            apiEdges={apiEdges}
+            apiNodes={abstractedGraph.nodes}
+            apiEdges={abstractedGraph.edges}
             onNodeSelect={handleNodeSelect}
             fitViewRef={fitViewRef}
           />

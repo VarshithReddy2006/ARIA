@@ -17,6 +17,7 @@ Design decisions:
 from __future__ import annotations
 
 import logging
+import re
 import threading
 import time
 import uuid
@@ -127,36 +128,63 @@ class ConversationSession:
         if not question:
             return question
 
-        ctx = self.get_context()
-        if ctx.current_file or ctx.recently_discussed_symbols:
+        target = None
+        if self.last_entities:
+            target = self.last_entities[0]
+        elif self.last_files:
+            target = self.last_files[0]
+        else:
+            ctx = self.get_context()
             target = ctx.current_file or (
                 ctx.recently_discussed_symbols[0]
                 if ctx.recently_discussed_symbols
                 else None
             )
-            if target:
-                q_lower = question.lower().strip()
-                if self.last_entities:
-                    last = self.last_entities[0]
-                    for p in [
-                        " it ",
-                        " it?",
-                        " it.",
-                        " it,",
-                        " this?",
-                        " that?",
-                        " them ",
-                        " them?",
-                    ]:
-                        if p in f" {q_lower} ":
-                            question = question.replace(p.strip(), last, 1)
-                            break
-                    if q_lower.startswith(
-                        ("what calls it", "who calls it", "what uses it")
-                    ):
-                        question = question.replace("it", last, 1)
 
-        return question
+        if not target:
+            return question
+
+        resolved = question
+        patterns = [
+            (r"\bthat function\b", target),
+            (r"\bthis function\b", target),
+            (r"\bthis endpoint\b", target),
+            (r"\bthat endpoint\b", target),
+            (r"\bthis file\b", target),
+            (r"\bthat file\b", target),
+            (r"\bits callers\b", f"callers of `{target}`"),
+            (r"\bwho calls it\b", f"who calls `{target}`"),
+            (r"\bwhat calls it\b", f"what calls `{target}`"),
+            (r"\bwhat depends on it\??", f"what depends on `{target}`?"),
+            (
+                r"\bwhat happens if (?:I|we) change it\??",
+                f"what happens if we change `{target}`?",
+            ),
+            (
+                r"\bhow (?:would|do) (?:I|we) test (?:that|it)\??",
+                f"how to test `{target}`?",
+            ),
+            (r"\bhow to safely modify it\??", f"how to safely modify `{target}`?"),
+        ]
+
+        for pat, repl in patterns:
+            if re.search(pat, resolved, re.I):
+                resolved = re.sub(pat, repl, resolved, count=1, flags=re.I)
+
+        # Standalone pronoun replacements (" it ", " that ")
+        if target and target.lower() not in resolved.lower():
+            for p in [" it ", " it?", " it.", " that?", " that."]:
+                if p in f" {resolved.lower()} ":
+                    resolved = re.sub(
+                        re.escape(p.strip()),
+                        f"`{target}`",
+                        resolved,
+                        count=1,
+                        flags=re.I,
+                    )
+                    break
+
+        return resolved
 
     def get_history_for_llm(self) -> List[Dict]:
         """Return turns formatted for LLM provider history."""

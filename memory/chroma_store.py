@@ -1,20 +1,59 @@
 """ChromaDB store module for vector embeddings.
 
-Manages code chunk indexing, file storage, and semantic searches.
+Manages code chunk indexing, file storage, and semantic searches with
+narrow collection-level corruption detection, bounded self-healing, and observability.
 """
 
-import os
+from __future__ import annotations
+
 import logging
+import os
+import shutil
 import threading
+import time
 import uuid
+from typing import Any, Callable, Dict, List, Optional, TypeVar
+
 import chromadb
-from typing import Dict, List, Any, Optional
+from chromadb.api.models.Collection import Collection
 
 logger = logging.getLogger(__name__)
 
+T = TypeVar("T")
+
+
+def _is_corrupted_exception(exc: Exception) -> bool:
+    """Determine whether an exception indicates vector index / segment corruption.
+
+    Distinguishes internal HNSW segment corruption, broken index readers, or disk
+    malformations from expected errors (such as missing items or invalid input).
+    """
+    err_str = str(exc).lower()
+    corruption_markers = (
+        "hnsw",
+        "segment reader",
+        "segment not found",
+        "compactor",
+        "error loading hnsw index",
+        "error constructing hnsw segment reader",
+        "corrupted",
+        "database disk image is malformed",
+        "disk i/o error",
+        "memory allocation of",
+        "cannot open file",
+        "database is locked",
+    )
+    if isinstance(exc, getattr(chromadb.errors, "InternalError", Exception)):
+        return True
+    return any(marker in err_str for marker in corruption_markers)
+
 
 class ChromaStore:
-    """Interface to interact with ChromaDB local client vector database."""
+    """Interface to interact with ChromaDB local client vector database.
+
+    Provides collection-level corruption detection, self-healing recovery,
+    versioned index publication, and concurrency safety.
+    """
 
     def __init__(self, persist_directory: str) -> None:
         """Initializes the ChromaStore connection.
@@ -23,20 +62,155 @@ class ChromaStore:
             persist_directory: Path to the directory where ChromaDB stores its data.
         """
         self.persist_directory = persist_directory
-        # Ensure the directory exists
         os.makedirs(self.persist_directory, exist_ok=True)
         self.client = chromadb.PersistentClient(path=self.persist_directory)
-        # We create a single collection to store code chunks.
+        self._publication_lock = threading.RLock()
+        self._init_collections()
+
+    def _init_collections(self) -> None:
+        """Initialize collections and verify health via safe probing with auto-recovery."""
+        with self._publication_lock:
+            # 1. Main chunk collection
+            try:
+                self.collection = self.client.get_or_create_collection(
+                    name="repository_chunks"
+                )
+                self.collection.count()
+            except Exception as exc:
+                if _is_corrupted_exception(exc):
+                    logger.error(
+                        "[CHROMA_RECOVERY] collection=repository_chunks operation=init reason=%s action=reset_storage_directory",
+                        exc,
+                    )
+                    self.collection = self._reset_storage_directory("repository_chunks")
+                else:
+                    raise
+
+            # 2. Version metadata collection
+            try:
+                self._versions = self.client.get_or_create_collection(
+                    name="repository_index_versions"
+                )
+                self._versions.count()
+            except Exception as exc:
+                if _is_corrupted_exception(exc):
+                    logger.error(
+                        "[CHROMA_RECOVERY] collection=repository_index_versions operation=init reason=%s action=reset_storage_directory",
+                        exc,
+                    )
+                    self._versions = self._reset_storage_directory(
+                        "repository_index_versions"
+                    )
+                else:
+                    raise
+
+    def _recreate_collection_internal(self, name: str) -> Collection:
+        """Safely recreate a single collection. Falls back to directory recovery if unreadable."""
+        logger.warning(
+            "[CHROMA_RECOVERY] collection=%s reason=corruption_detected action=recreate_collection",
+            name,
+        )
+        try:
+            self.client.delete_collection(name=name)
+            new_col = self.client.get_or_create_collection(name=name)
+            new_col.count()
+            if name == "repository_chunks":
+                self.collection = new_col
+            elif name == "repository_index_versions":
+                self._versions = new_col
+            return new_col
+        except Exception as del_exc:
+            logger.error(
+                "[CHROMA_RECOVERY] collection=%s deletion_failed=%s action=database_directory_reset",
+                name,
+                del_exc,
+            )
+            return self._reset_storage_directory(name)
+
+    def _reset_storage_directory(self, target_collection: str) -> Collection:
+        """Reset corrupted storage directory with timestamped backup when collection deletion fails."""
+        backup_dir = f"{self.persist_directory}_corrupted_backup_{int(time.time())}"
+        logger.warning(
+            "[CHROMA_RECOVERY] directory=%s backup=%s reason=unrecoverable_sqlite_corruption action=recreate_directory",
+            self.persist_directory,
+            backup_dir,
+        )
+        try:
+            self.client = None
+            if os.path.exists(self.persist_directory):
+                # Try atomic rename to preserve backup for diagnostics
+                shutil.move(self.persist_directory, backup_dir)
+        except Exception as move_exc:
+            logger.error(
+                "Could not move corrupted chroma directory (%s). Cleaning files...",
+                move_exc,
+            )
+            if os.path.exists(self.persist_directory):
+                for item in os.listdir(self.persist_directory):
+                    item_path = os.path.join(self.persist_directory, item)
+                    try:
+                        if os.path.isdir(item_path):
+                            shutil.rmtree(item_path, ignore_errors=True)
+                        else:
+                            os.remove(item_path)
+                    except Exception:
+                        pass
+
+        os.makedirs(self.persist_directory, exist_ok=True)
+        self.client = chromadb.PersistentClient(path=self.persist_directory)
         self.collection = self.client.get_or_create_collection(name="repository_chunks")
         self._versions = self.client.get_or_create_collection(
             name="repository_index_versions"
         )
-        self._publication_lock = threading.RLock()
+        return (
+            self.collection
+            if target_collection == "repository_chunks"
+            else self._versions
+        )
+
+    def _execute_with_recovery(
+        self,
+        collection_name: str,
+        operation_name: str,
+        fn: Callable[[], T],
+        max_retries: int = 1,
+    ) -> T:
+        """Execute a collection operation with bounded corruption recovery."""
+        attempts = 0
+        while True:
+            try:
+                return fn()
+            except Exception as exc:
+                attempts += 1
+                if attempts <= max_retries and _is_corrupted_exception(exc):
+                    logger.error(
+                        "[CHROMA_RECOVERY] collection=%s operation=%s reason=%s action=recreate_collection (attempt %d/%d)",
+                        collection_name,
+                        operation_name,
+                        exc,
+                        attempts,
+                        max_retries,
+                    )
+                    with self._publication_lock:
+                        self._recreate_collection_internal(collection_name)
+                    continue
+                raise
 
     def _active_version(self, repo_name: str) -> Optional[str]:
-        record = self._versions.get(ids=[repo_name], include=["documents"])
-        documents = record.get("documents", []) if record else []
-        return documents[0] if documents else None
+        def _get():
+            record = self._versions.get(ids=[repo_name], include=["documents"])
+            documents = record.get("documents", []) if record else []
+            return documents[0] if documents else None
+
+        try:
+            return self._execute_with_recovery(
+                "repository_index_versions", "active_version", _get
+            )
+        except Exception as exc:
+            logger.warning(
+                "Failed to resolve active version for %s: %s", repo_name, exc
+            )
+            return None
 
     @staticmethod
     def _where_for_repository(
@@ -52,10 +226,15 @@ class ChromaStore:
         return filters[0] if len(filters) == 1 else {"$and": filters}
 
     def _publish_version(self, repo_name: str, version: str) -> None:
-        self._versions.upsert(
-            ids=[repo_name],
-            documents=[version],
-            metadatas=[{"repo_name": repo_name}],
+        def _upsert():
+            self._versions.upsert(
+                ids=[repo_name],
+                documents=[version],
+                metadatas=[{"repo_name": repo_name}],
+            )
+
+        self._execute_with_recovery(
+            "repository_index_versions", "publish_version", _upsert
         )
 
     @staticmethod
@@ -77,19 +256,11 @@ class ChromaStore:
         embeddings: List[List[float]],
         metadata: List[Dict[str, Any]],
     ) -> None:
-        """Adds code chunks with their precomputed embeddings and metadata to ChromaDB.
-
-        Args:
-            file_path: Relative or absolute path of the file being indexed.
-            chunks: A list of text/code blocks.
-            embeddings: Parallel list of float-vector embeddings.
-            metadata: Parallel list of dictionaries containing chunk details.
-        """
+        """Adds code chunks with their precomputed embeddings and metadata to ChromaDB."""
         if not chunks:
             return
 
         ids = [f"{file_path}_{i}" for i in range(len(chunks))]
-
         cleaned_metadata = self._clean_metadata(metadata)
         for meta in cleaned_metadata:
             r_name = meta.get("repo_name")
@@ -99,9 +270,15 @@ class ChromaStore:
                 if v is not None:
                     meta["index_version"] = v
 
-        self.collection.upsert(
-            ids=ids, documents=chunks, embeddings=embeddings, metadatas=cleaned_metadata
-        )
+        def _upsert():
+            self.collection.upsert(
+                ids=ids,
+                documents=chunks,
+                embeddings=embeddings,
+                metadatas=cleaned_metadata,
+            )
+
+        self._execute_with_recovery("repository_chunks", "add_code_chunks", _upsert)
 
     def add_code_chunks_bulk(
         self,
@@ -110,14 +287,7 @@ class ChromaStore:
         embeddings: List[List[float]],
         metadatas: List[Dict[str, Any]],
     ) -> None:
-        """Adds code chunks in bulk with their precomputed embeddings and metadata to ChromaDB.
-
-        Args:
-            ids: List of unique chunk IDs.
-            documents: List of text/code blocks.
-            embeddings: Parallel list of float-vector embeddings.
-            metadatas: Parallel list of dictionaries containing chunk details.
-        """
+        """Adds code chunks in bulk with their precomputed embeddings and metadata to ChromaDB."""
         if not ids:
             return
 
@@ -155,12 +325,20 @@ class ChromaStore:
 
         batch_size = 2000
         for i in range(0, len(unique_ids), batch_size):
-            self.collection.add(
-                ids=unique_ids[i : i + batch_size],
-                documents=unique_docs[i : i + batch_size],
-                embeddings=unique_embs[i : i + batch_size],
-                metadatas=unique_metas[i : i + batch_size],
-            )
+            b_ids = unique_ids[i : i + batch_size]
+            b_docs = unique_docs[i : i + batch_size]
+            b_embs = unique_embs[i : i + batch_size]
+            b_metas = unique_metas[i : i + batch_size]
+
+            def _batch_add():
+                self.collection.add(
+                    ids=b_ids,
+                    documents=b_docs,
+                    embeddings=b_embs,
+                    metadatas=b_metas,
+                )
+
+            self._execute_with_recovery("repository_chunks", "add_batch", _batch_add)
 
     def search_similar(
         self,
@@ -168,19 +346,20 @@ class ChromaStore:
         limit: int = 5,
         where_filter: Optional[Dict[str, Any]] = None,
     ) -> List[Dict[str, Any]]:
-        """Performs a vector search to find code chunks similar to the query embedding.
+        """Performs a vector search to find code chunks similar to the query embedding."""
 
-        Args:
-            query_embedding: The float vector of the query phrase/code.
-            limit: Maximum number of search results.
-            where_filter: Key-value dictionary to filter metadata matches.
+        def _query():
+            return self.collection.query(
+                query_embeddings=[query_embedding], n_results=limit, where=where_filter
+            )
 
-        Returns:
-            A list of dictionary objects representing the matched chunks and their metadata.
-        """
-        results = self.collection.query(
-            query_embeddings=[query_embedding], n_results=limit, where=where_filter
-        )
+        try:
+            results = self._execute_with_recovery(
+                "repository_chunks", "search_similar", _query
+            )
+        except Exception as exc:
+            logger.warning("Vector search query failed: %s", exc)
+            return []
 
         formatted_results = []
         if results and "documents" in results and results["documents"]:
@@ -225,17 +404,21 @@ class ChromaStore:
             retrieval_cache.invalidate_all()
         except ImportError:
             pass
-        for name in ("repository_chunks", "repository_index_versions"):
-            try:
-                self.client.delete_collection(name=name)
-            except Exception as exc:
-                logger.debug(
-                    "Failed to delete collection %s during clear: %s", name, exc
-                )
-        self.collection = self.client.get_or_create_collection(name="repository_chunks")
-        self._versions = self.client.get_or_create_collection(
-            name="repository_index_versions"
-        )
+
+        with self._publication_lock:
+            for name in ("repository_chunks", "repository_index_versions"):
+                try:
+                    self.client.delete_collection(name=name)
+                except Exception as exc:
+                    logger.debug(
+                        "Failed to delete collection %s during clear: %s", name, exc
+                    )
+            self.collection = self.client.get_or_create_collection(
+                name="repository_chunks"
+            )
+            self._versions = self.client.get_or_create_collection(
+                name="repository_index_versions"
+            )
 
     def stage_repository_batch(
         self,
@@ -298,18 +481,31 @@ class ChromaStore:
         with self._publication_lock:
             previous_version = self._active_version(repo_name)
             self._publish_version(repo_name, version)
-            if previous_version is None:
-                self.collection.delete(
-                    where={
-                        "$and": [
-                            {"repo_name": repo_name},
-                            {"index_version": {"$ne": version}},
-                        ]
-                    }
+
+            def _clean_old():
+                if previous_version is None:
+                    self.collection.delete(
+                        where={
+                            "$and": [
+                                {"repo_name": repo_name},
+                                {"index_version": {"$ne": version}},
+                            ]
+                        }
+                    )
+                elif previous_version != version:
+                    self.collection.delete(
+                        where=self._where_for_repository(repo_name, previous_version)
+                    )
+
+            try:
+                self._execute_with_recovery(
+                    "repository_chunks", "publish_cleanup", _clean_old
                 )
-            elif previous_version != version:
-                self.collection.delete(
-                    where=self._where_for_repository(repo_name, previous_version)
+            except Exception as exc:
+                logger.warning(
+                    "Non-fatal error cleaning old index version for %s: %s",
+                    repo_name,
+                    exc,
                 )
 
         try:
@@ -326,7 +522,15 @@ class ChromaStore:
     ) -> None:
         """Clean up staged chunks if indexing failed before publication."""
         try:
-            self.collection.delete(where=self._where_for_repository(repo_name, version))
+
+            def _rollback():
+                self.collection.delete(
+                    where=self._where_for_repository(repo_name, version)
+                )
+
+            self._execute_with_recovery(
+                "repository_chunks", "rollback_staged", _rollback
+            )
         except Exception as cleanup_error:
             logger.warning(
                 "Failed to clean staged index for %s: %s", repo_name, cleanup_error
@@ -375,10 +579,21 @@ class ChromaStore:
         """Return paths from the currently published repository revision."""
         with self._publication_lock:
             version = self._active_version(repo_name)
-            result = self.collection.get(
-                where=self._where_for_repository(repo_name, version),
-                include=["metadatas"],
-            )
+
+            def _get_paths():
+                return self.collection.get(
+                    where=self._where_for_repository(repo_name, version),
+                    include=["metadatas"],
+                )
+
+            try:
+                result = self._execute_with_recovery(
+                    "repository_chunks", "get_file_paths", _get_paths
+                )
+            except Exception as exc:
+                logger.warning("Failed to get file paths for %s: %s", repo_name, exc)
+                return []
+
         return sorted(
             {
                 meta["file_path"]
@@ -391,10 +606,25 @@ class ChromaStore:
         """Return chunks for one file from the currently published revision."""
         with self._publication_lock:
             version = self._active_version(repo_name)
-            return self.collection.get(
-                where=self._where_for_repository(repo_name, version, file_path),
-                include=["documents", "metadatas"],
-            )
+
+            def _get_chunks():
+                return self.collection.get(
+                    where=self._where_for_repository(repo_name, version, file_path),
+                    include=["documents", "metadatas"],
+                )
+
+            try:
+                return self._execute_with_recovery(
+                    "repository_chunks", "get_file_chunks", _get_chunks
+                )
+            except Exception as exc:
+                logger.warning(
+                    "Failed to get file chunks for %s (%s): %s",
+                    repo_name,
+                    file_path,
+                    exc,
+                )
+                return {"documents": [], "metadatas": []}
 
     def delete_files(self, repo_name: str, file_paths: List[str]) -> None:
         """Remove paths from the currently published repository revision."""
@@ -408,7 +638,19 @@ class ChromaStore:
             ]
             if version is not None:
                 filters.append({"index_version": version})
-            self.collection.delete(where={"$and": filters})
+
+            def _delete():
+                self.collection.delete(where={"$and": filters})
+
+            try:
+                self._execute_with_recovery(
+                    "repository_chunks", "delete_files", _delete
+                )
+            except Exception as exc:
+                logger.warning(
+                    "Non-fatal delete_files error for %s: %s", repo_name, exc
+                )
+
         try:
             from services.chat.retrieval_cache import retrieval_cache
 
@@ -419,13 +661,36 @@ class ChromaStore:
     def delete_repository(self, repo_name: str) -> None:
         """Delete all revisions associated with a repository."""
         with self._publication_lock:
-            self.collection.delete(where={"repo_name": repo_name})
+
+            def _delete_chunks():
+                self.collection.delete(where={"repo_name": repo_name})
+
             try:
-                self._versions.delete(ids=[repo_name])
+                self._execute_with_recovery(
+                    "repository_chunks", "delete_repository", _delete_chunks
+                )
+            except Exception as exc:
+                logger.warning(
+                    "Non-fatal error deleting repository chunks for %s: %s",
+                    repo_name,
+                    exc,
+                )
+
+            try:
+
+                def _delete_versions():
+                    self._versions.delete(ids=[repo_name])
+
+                self._execute_with_recovery(
+                    "repository_index_versions",
+                    "delete_repo_versions",
+                    _delete_versions,
+                )
             except Exception as exc:
                 logger.debug(
                     "Repository version %s could not be deleted: %s", repo_name, exc
                 )
+
         try:
             from services.chat.retrieval_cache import retrieval_cache
 
@@ -442,8 +707,14 @@ class ChromaStore:
                 where_clause = {
                     "$and": [{"repo_name": repo_name}, {"index_version": version}]
                 }
+
+            def _get():
+                return self.collection.get(where=where_clause, include=["metadatas"])
+
             try:
-                results = self.collection.get(where=where_clause, include=["metadatas"])
+                results = self._execute_with_recovery(
+                    "repository_chunks", "get_indexed_files", _get
+                )
                 metadatas = results.get("metadatas") or []
                 files = {
                     m.get("file_path") for m in metadatas if m and m.get("file_path")

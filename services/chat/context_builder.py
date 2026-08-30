@@ -302,18 +302,8 @@ class ContextBuilder:
 
         prompt_parts.append(f"## Question\n{question}")
 
-        # ── Add suggested next questions hint for the LLM
-        prompt_parts.append(
-            "## Response Format\n"
-            "Structure your response with these sections (use only what is relevant):\n"
-            "1. **Summary** — 1–2 sentence direct answer\n"
-            "2. **Explanation** — technical detail with file/function references. Always cite the exact file, line numbers, chunk ID, and exact symbols when discussing code parts.\n"
-            "3. **Evidence** — structured file citations (**File:** `path`, **Lines:** X–Y, **Reason:** ..., **Confidence:** N%). Never dump large raw code blocks; show at most 3–10 lines if excerpting.\n"
-            "4. **Repository Insights** — patterns, risks, or architecture notes\n"
-            "5. **Relevant Files** — bullet list of key files with line ranges and symbols defined\n"
-            "6. **Suggested Next Questions** — 2–3 natural follow-ups\n\n"
-            "Keep code blocks accurate — only show code from the context above."
-        )
+        # ── Dynamic Intent-Aware Response Format
+        prompt_parts.append(self._get_response_format_for_intent(intent_name))
 
         prompt = "\n\n".join(prompt_parts)
         estimated_tokens = len(prompt) // _CHARS_PER_TOKEN
@@ -322,9 +312,10 @@ class ContextBuilder:
         source_files = self._collect_source_files(code_chunks)
 
         logger.debug(
-            "ContextBuilder: slots=%s estimated_tokens=%d",
+            "ContextBuilder: slots=%s estimated_tokens=%d intent=%s",
             list(breakdown.keys()),
             estimated_tokens,
+            intent_name,
         )
 
         return BuiltContext(
@@ -339,22 +330,16 @@ class ContextBuilder:
     # Private helpers
     # ------------------------------------------------------------------
 
+    def _get_response_format_for_intent(self, intent_name: str) -> str:
+        """Derive intent-tailored dynamic answer schema."""
+        from services.chat.response_schema import ResponseSchemaBuilder
+
+        return ResponseSchemaBuilder.build_format_prompt(intent_name)
+
     def _build_system_instruction(self, repo_name: str) -> str:
-        return (
-            "You are ARIA — an AI-Powered Repository Intelligence Agent (Principal Engineer-level assistant) "
-            f"specialising in the `{repo_name}` codebase.\n\n"
-            "RULES:\n"
-            "1. Answer ONLY using the repository context provided. Never invent file paths, "
-            "class names, or function names not present in the context.\n"
-            "2. If context is insufficient, state what was found and what was missing. "
-            "Suggest files the user should check.\n"
-            "3. You MAY use general programming knowledge to explain language or framework "
-            "concepts — but never make repository-specific claims beyond the provided context.\n"
-            "4. Always cite specific file paths when making repository-specific statements.\n"
-            "5. Keep code snippets accurate — reproduce only what is in the context.\n"
-            "6. Never dump hundreds of lines of raw code — summarise and excerpt.\n"
-            "7. Produce professional, structured, readable responses."
-        )
+        from services.chat.response_schema import ResponseSchemaBuilder
+
+        return ResponseSchemaBuilder.build_system_instruction(repo_name)
 
     def _split_chunks_by_tier(
         self, chunks: List[Dict[str, Any]]
