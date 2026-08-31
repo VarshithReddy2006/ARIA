@@ -185,42 +185,64 @@ class RetrievalPipeline:
                 "fallback_mode": False,
             }
 
-        # 3. Intent routing
+        # 3, 4, 5. Concurrent Fan-Out: Intent Routing + Vector Retrieval + Architecture Context
+        arch_task = asyncio.to_thread(self.arch_context_service.get_context, repo_name)
         if det_match:
-            # Bypass intent router for deterministic retrieval
             intelligence = RepositoryIntelligence(intent=intent_result.intent)
+            route_task = None
         else:
-            intelligence = self.intent_router.route(
-                repo_name, resolved_question, intent_result
+            route_task = asyncio.to_thread(
+                self.intent_router.route, repo_name, resolved_question, intent_result
             )
+
+        retrieval_task = asyncio.to_thread(
+            intelligent_retrieve,
+            question=resolved_question,
+            repo_name=repo_name,
+            embedding_service=self.embedding_service,
+            chroma_store=self.chroma_store,
+            symbol_service=self.symbol_service,
+            conversation_context=orch_res.context,
+            conversation_settings=self.orchestrator.settings,
+            disable_previous_boosts=orch_res.disable_previous_boosts,
+        )
+
+        if route_task is not None:
+            ret_res, arch_res, router_res = await asyncio.gather(
+                retrieval_task, arch_task, route_task, return_exceptions=True
+            )
+            if isinstance(router_res, Exception) or not hasattr(
+                router_res, "structured_context"
+            ):
+                logger.warning(
+                    "IntentRouter fan-out failed: %s", router_res, exc_info=True
+                )
+                intelligence = RepositoryIntelligence(intent=intent_result.intent)
+            else:
+                intelligence = router_res
+        else:
+            ret_res, arch_res = await asyncio.gather(
+                retrieval_task, arch_task, return_exceptions=True
+            )
+
         trace.router_has_data = intelligence.has_data
         trace.router_elapsed_ms = intelligence.router_elapsed_ms
 
-        # 4. Vector/Deterministic retrieval
-        try:
-            chunks, ret_metrics = await asyncio.to_thread(
-                intelligent_retrieve,
-                question=resolved_question,
-                repo_name=repo_name,
-                embedding_service=self.embedding_service,
-                chroma_store=self.chroma_store,
-                symbol_service=self.symbol_service,
-                conversation_context=orch_res.context,
-                conversation_settings=self.orchestrator.settings,
-                disable_previous_boosts=orch_res.disable_previous_boosts,
-            )
-            trace.from_retrieval_metrics(ret_metrics)
-            trace.from_chunks(chunks)
-        except Exception as exc:
-            logger.error("RetrievalPipeline.retrieve: retrieval failed: %s", exc)
+        if isinstance(ret_res, Exception):
+            logger.error("RetrievalPipeline.retrieve: retrieval failed: %s", ret_res)
             chunks = []
             ret_metrics = {}
             trace.fallback_triggered = True
-            trace.fallback_reason = f"retrieval_error: {exc}"
+            trace.fallback_reason = f"retrieval_error: {ret_res}"
+        else:
+            chunks, ret_metrics = ret_res
+            trace.from_retrieval_metrics(ret_metrics)
+            trace.from_chunks(chunks)
 
-        # 5. Architecture context
-        arch_ctx = self.arch_context_service.get_context(repo_name)
-        arch_block = arch_ctx.to_prompt_block() if arch_ctx.available else ""
+        if isinstance(arch_res, Exception) or not hasattr(arch_res, "available"):
+            arch_block = ""
+        else:
+            arch_block = arch_res.to_prompt_block() if arch_res.available else ""
 
         # 6. Build context
         t_cb = time.perf_counter()
@@ -399,48 +421,69 @@ class RetrievalPipeline:
             )
             return
 
-        # ── 3. Intent routing ────────────────────────────────────────────
+        # ── 3, 4, 5. Concurrent Fan-Out: Intent Routing + Vector Retrieval + Architecture Context ──
+        arch_task = asyncio.to_thread(self.arch_context_service.get_context, repo_name)
         if det_match:
-            # Bypass intent router for deterministic retrieval
             intelligence = RepositoryIntelligence(intent=intent_result.intent)
+            route_task = None
         else:
-            intelligence = self.intent_router.route(
-                repo_name, resolved_question, intent_result
+            route_task = asyncio.to_thread(
+                self.intent_router.route, repo_name, resolved_question, intent_result
             )
+
+        retrieval_task = asyncio.to_thread(
+            intelligent_retrieve,
+            question=resolved_question,
+            repo_name=repo_name,
+            embedding_service=self.embedding_service,
+            chroma_store=self.chroma_store,
+            symbol_service=self.symbol_service,
+            conversation_context=orch_res.context,
+            conversation_settings=self.orchestrator.settings,
+            disable_previous_boosts=orch_res.disable_previous_boosts,
+        )
+
+        if route_task is not None:
+            ret_res, arch_res, router_res = await asyncio.gather(
+                retrieval_task, arch_task, route_task, return_exceptions=True
+            )
+            if isinstance(router_res, Exception) or not hasattr(
+                router_res, "structured_context"
+            ):
+                logger.warning(
+                    "IntentRouter stream fan-out failed: %s", router_res, exc_info=True
+                )
+                intelligence = RepositoryIntelligence(intent=intent_result.intent)
+            else:
+                intelligence = router_res
+        else:
+            ret_res, arch_res = await asyncio.gather(
+                retrieval_task, arch_task, return_exceptions=True
+            )
+
         trace.router_has_data = intelligence.has_data
         trace.router_elapsed_ms = intelligence.router_elapsed_ms
 
-        # ── 4. Vector/Deterministic retrieval ────────────────────────────
         chunks: List[Dict] = []
-        try:
-            chunks, ret_metrics = await asyncio.to_thread(
-                intelligent_retrieve,
-                question=resolved_question,
-                repo_name=repo_name,
-                embedding_service=self.embedding_service,
-                chroma_store=self.chroma_store,
-                symbol_service=self.symbol_service,
-                conversation_context=orch_res.context,
-                conversation_settings=self.orchestrator.settings,
-                disable_previous_boosts=orch_res.disable_previous_boosts,
-            )
-            trace.from_retrieval_metrics(ret_metrics)
-            trace.from_chunks(chunks)
-        except Exception as exc:
+        if isinstance(ret_res, Exception):
             logger.error(
-                "RetrievalPipeline.stream: retrieval failed "
-                "repo=%s exc_type=%s fallback_triggered=true",
+                "RetrievalPipeline.stream: retrieval failed repo=%s exc_type=%s",
                 repo_name,
-                type(exc).__name__,
+                type(ret_res).__name__,
                 exc_info=True,
             )
             ret_metrics = {}
             trace.fallback_triggered = True
-            trace.fallback_reason = f"retrieval_error: {exc}"
+            trace.fallback_reason = f"retrieval_error: {ret_res}"
+        else:
+            chunks, ret_metrics = ret_res
+            trace.from_retrieval_metrics(ret_metrics)
+            trace.from_chunks(chunks)
 
-        # ── 5. Architecture context ──────────────────────────────────────
-        arch_ctx = self.arch_context_service.get_context(repo_name)
-        arch_block = arch_ctx.to_prompt_block() if arch_ctx.available else ""
+        if isinstance(arch_res, Exception) or not hasattr(arch_res, "available"):
+            arch_block = ""
+        else:
+            arch_block = arch_res.to_prompt_block() if arch_res.available else ""
 
         # ── 6. Build context ─────────────────────────────────────────────
         t_cb = time.perf_counter()

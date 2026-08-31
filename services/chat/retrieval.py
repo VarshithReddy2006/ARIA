@@ -27,9 +27,10 @@ import hashlib
 import logging
 import os
 import re
+import threading
 import time
 from typing import Any, Dict, List, Optional
-from collections import defaultdict
+from collections import defaultdict, OrderedDict
 
 from .retrieval_cache import retrieval_cache
 
@@ -337,15 +338,35 @@ def detect_deterministic_retrieval(
     return None
 
 
+_FILE_LINES_LOCK = threading.Lock()
+_FILE_LINES_CACHE: OrderedDict[str, List[str]] = OrderedDict()
+_MAX_FILE_LINES_CACHE = 128
+
+
 def find_matched_symbols(
-    question: str, repo_name: str, symbol_service
+    question: str,
+    repo_name: str,
+    symbol_service: Any,
+    symbol_index: Optional[Any] = None,
 ) -> Dict[str, List[Any]]:
     """Return a dictionary mapping normalized file paths to Symbol objects matched in the question."""
-    matched = {}
+    matched: Dict[str, List[Any]] = {}
     try:
-        index = symbol_service.load(repo_name)
-        if index and index.symbols:
-            # Extract words from question
+        index = symbol_index or (
+            symbol_service.load(repo_name) if symbol_service else None
+        )
+        if index and hasattr(index, "name_symbol_map"):
+            words = set(re.findall(r"[a-zA-Z_]\w*", question))
+            words_lower = {w.lower() for w in words}
+            name_map = index.name_symbol_map
+            for w in words_lower:
+                if w in name_map:
+                    for s in name_map[w]:
+                        norm_p = s.file_path.replace("\\", "/").lower()
+                        if norm_p not in matched:
+                            matched[norm_p] = []
+                        matched[norm_p].append(s)
+        elif index and index.symbols:
             words = set(re.findall(r"[a-zA-Z_]\w*", question))
             words_lower = {w.lower() for w in words}
             for s in index.symbols:
@@ -365,10 +386,25 @@ def find_chunk_line_numbers(
     """Find the 1-indexed start and end line numbers of chunk_content in file_path on disk."""
     try:
         test_path = file_path
-        if not os.path.exists(test_path):
+        if not test_path:
             return None
-        with open(test_path, "r", encoding="utf-8", errors="ignore") as f:
-            lines = f.readlines()
+
+        # Check in-memory line cache to avoid repeated disk reads
+        lines: Optional[List[str]] = None
+        with _FILE_LINES_LOCK:
+            if test_path in _FILE_LINES_CACHE:
+                _FILE_LINES_CACHE.move_to_end(test_path)
+                lines = _FILE_LINES_CACHE[test_path]
+
+        if lines is None:
+            if not os.path.exists(test_path):
+                return None
+            with open(test_path, "r", encoding="utf-8", errors="ignore") as f:
+                lines = f.readlines()
+            with _FILE_LINES_LOCK:
+                if len(_FILE_LINES_CACHE) >= _MAX_FILE_LINES_CACHE:
+                    _FILE_LINES_CACHE.popitem(last=False)
+                _FILE_LINES_CACHE[test_path] = lines
 
         chunk_lines = [
             line.strip() for line in chunk_content.splitlines() if line.strip()
@@ -745,7 +781,11 @@ def calculate_chunk_confidence(
 
 
 def populate_chunk_symbols_and_lines(
-    chunk: Dict[str, Any], repo_name: str, question: str, symbol_service: Any
+    chunk: Dict[str, Any],
+    repo_name: str,
+    question: str,
+    symbol_service: Any,
+    symbol_index: Optional[Any] = None,
 ) -> None:
     """Populate line numbers and defined/matched symbols into chunk metadata."""
     meta = chunk.setdefault("metadata", {})
@@ -753,7 +793,7 @@ def populate_chunk_symbols_and_lines(
     if not file_path:
         return
 
-    # Find line numbers dynamically if not already populated
+    # Find line numbers dynamically only if missing
     start_line = meta.get("start_line")
     end_line = meta.get("end_line")
     if not start_line or not end_line:
@@ -763,31 +803,35 @@ def populate_chunk_symbols_and_lines(
             meta["start_line"] = start_line
             meta["end_line"] = end_line
 
-    # Load and map symbols from symbol service
-    symbols_in_chunk = []
+    # Load and map symbols from symbol index (O(1) lookup)
+    symbols_in_chunk: List[str] = []
     try:
-        if symbol_service:
-            index = symbol_service.load(repo_name)
-            if index and index.symbols:
-                norm_file_path = file_path.replace("\\", "/").lower()
+        index = symbol_index or (
+            symbol_service.load(repo_name) if symbol_service else None
+        )
+        if index:
+            norm_file_path = file_path.replace("\\", "/").lower()
+            if hasattr(index, "file_symbol_map"):
+                file_symbols = index.file_symbol_map.get(norm_file_path, [])
+            else:
                 file_symbols = [
                     s
                     for s in index.symbols
                     if s.file_path.replace("\\", "/").lower() == norm_file_path
                 ]
 
-                words = set(re.findall(r"[a-zA-Z_]\w*", question))
-                for s in file_symbols:
-                    in_range = False
-                    if start_line and end_line:
-                        if start_line <= s.line_number <= end_line:
-                            in_range = True
+            words = set(re.findall(r"[a-zA-Z_]\w*", question))
+            for s in file_symbols:
+                in_range = False
+                if start_line and end_line:
+                    if start_line <= s.line_number <= end_line:
+                        in_range = True
 
-                    in_question = s.name in words
+                in_question = s.name in words
 
-                    if in_range or in_question:
-                        type_str = f" ({s.type})" if s.type else ""
-                        symbols_in_chunk.append(f"{s.name}{type_str}")
+                if in_range or in_question:
+                    type_str = f" ({s.type})" if s.type else ""
+                    symbols_in_chunk.append(f"{s.name}{type_str}")
     except Exception as e:
         logger.warning("Error populating chunk symbols: %s", e)
 

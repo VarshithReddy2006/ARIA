@@ -43,6 +43,7 @@ class GraphService:
         self.graphs_dir = graphs_dir
         os.makedirs(self.graphs_dir, exist_ok=True)
         self._lock = threading.Lock()
+        self._viz_cache: Dict[str, Dict[str, Any]] = {}
 
     # ------------------------------------------------------------------
     # Public API
@@ -180,6 +181,12 @@ class GraphService:
         with self._lock:
             with open(path, "w", encoding="utf-8") as fh:
                 json.dump(payload, fh, indent=2)
+            # Invalidate visualization caches for this repo
+            keys_to_remove = [
+                k for k in self._viz_cache if k.startswith(f"{repo_name}:")
+            ]
+            for k in keys_to_remove:
+                self._viz_cache.pop(k, None)
         logger.info("Graph saved to %s", path)
         return path
 
@@ -261,6 +268,11 @@ class GraphService:
         Returns:
             A dictionary with nodes and edges formatted for React Flow.
         """
+        cache_key = f"{repo_name}:{search_query}:{max_nodes}:{max_edges}"
+        with self._lock:
+            if cache_key in self._viz_cache:
+                return self._viz_cache[cache_key]
+
         # 1. Load graph
         graph = self.load_graph(repo_name)
         if graph is None or graph.number_of_nodes() == 0:
@@ -405,9 +417,13 @@ class GraphService:
                     "relationship": edge_attrs.get("relationship", "imports"),
                 }
             )
-            edge_count += 1
+        out_data = {"nodes": res_nodes, "edges": res_edges}
+        with self._lock:
+            if len(self._viz_cache) >= 64:
+                self._viz_cache.clear()
+            self._viz_cache[cache_key] = out_data
 
-        return {"nodes": res_nodes, "edges": res_edges}
+        return out_data
 
     # ------------------------------------------------------------------
     # Internal helpers

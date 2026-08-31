@@ -79,3 +79,29 @@ class SymbolIndex(BaseModel):
         default_factory=list,
         description="All symbols extracted from all supported source files.",
     )
+
+    @property
+    def file_symbol_map(self) -> dict[str, List[Symbol]]:
+        """Return cached O(1) mapping from normalized file path to symbols."""
+        if not hasattr(self, "_file_symbol_map_cache"):
+            mapping: dict[str, List[Symbol]] = {}
+            for s in self.symbols:
+                norm_p = s.file_path.replace("\\", "/").lower()
+                if norm_p not in mapping:
+                    mapping[norm_p] = []
+                mapping[norm_p].append(s)
+            object.__setattr__(self, "_file_symbol_map_cache", mapping)
+        return getattr(self, "_file_symbol_map_cache")
+
+    @property
+    def name_symbol_map(self) -> dict[str, List[Symbol]]:
+        """Return cached O(1) mapping from lowercase symbol name to symbols."""
+        if not hasattr(self, "_name_symbol_map_cache"):
+            mapping: dict[str, List[Symbol]] = {}
+            for s in self.symbols:
+                name_key = s.name.lower()
+                if name_key not in mapping:
+                    mapping[name_key] = []
+                mapping[name_key].append(s)
+            object.__setattr__(self, "_name_symbol_map_cache", mapping)
+        return getattr(self, "_name_symbol_map_cache")

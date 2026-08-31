@@ -8,6 +8,7 @@ import os
 import re
 import shutil
 import stat
+import time
 import urllib.parse
 import logging
 from typing import Dict, List, Any, Optional
@@ -295,21 +296,75 @@ class GitHubService:
 
         return {"owner": owner, "repo": repo}
 
-    def get_local_repo_path(self, repo_fullName: str) -> str:
+    def get_local_repo_path(
+        self, repo_fullName: str, branch: Optional[str] = None
+    ) -> str:
         """Returns the local path where a repository is or should be cloned.
 
         Args:
             repo_fullName: GitHub owner/repo identifier.
+            branch: Optional branch or ref name to isolate working trees.
 
         Returns:
             The local directory path.
         """
-        # Store clones OUTSIDE the project tree so uvicorn --reload (WatchFiles)
-        # does not treat clone activity as source-code changes. Configurable via
-        # CLONED_REPOS_PATH; defaults to ~/.repo_intelligence/cloned_repos.
+        from core.repository_target import AnalysisTarget
+
         base_dir = str(get_cloned_repos_dir())
-        safe_name = repo_fullName.replace("/", "_").replace("\\", "_")
-        return os.path.abspath(os.path.join(base_dir, safe_name))
+        target = AnalysisTarget.from_url_and_branch(repo_fullName, branch)
+        repo_dir = os.path.join(base_dir, target.safe_repo_dir)
+
+        if branch:
+            return os.path.abspath(os.path.join(repo_dir, target.safe_ref_dir))
+
+        # Backward compatibility: if no branch specified, check legacy or default directory
+        legacy_git = os.path.join(repo_dir, ".git")
+        if os.path.exists(legacy_git):
+            return os.path.abspath(repo_dir)
+
+        # If subdirectories exist (e.g. main), check if any contain .git
+        if os.path.isdir(repo_dir):
+            try:
+                subdirs = [
+                    d
+                    for d in os.listdir(repo_dir)
+                    if os.path.isdir(os.path.join(repo_dir, d, ".git"))
+                ]
+                if subdirs:
+                    # Prefer 'main' or the first valid checkout
+                    chosen = "main" if "main" in subdirs else subdirs[0]
+                    return os.path.abspath(os.path.join(repo_dir, chosen))
+            except Exception:
+                pass
+
+        return os.path.abspath(os.path.join(repo_dir, target.safe_ref_dir))
+
+    def _validate_checkout(
+        self,
+        dest_dir: str,
+        repo_fullName: str,
+        expected_ref: Optional[str] = None,
+    ) -> str:
+        """Validate git checkout integrity and return current commit SHA."""
+        if not os.path.isdir(dest_dir) or not os.path.isdir(
+            os.path.join(dest_dir, ".git")
+        ):
+            raise GitOperationError(
+                f"Checkout validation failed: '{dest_dir}' is not a valid git repository."
+            )
+
+        res_rev = self._run_git(
+            ["git", "rev-parse", "HEAD"],
+            cwd=dest_dir,
+            repo_fullName=repo_fullName,
+            timeout=SHORT_GIT_TIMEOUT,
+        )
+        if res_rev.returncode != 0 or not res_rev.stdout.strip():
+            raise GitOperationError(
+                f"Checkout validation failed: could not resolve HEAD commit in {dest_dir}"
+            )
+        commit_sha = res_rev.stdout.strip().splitlines()[0].strip()
+        return commit_sha
 
     def clone_repository(self, repo_url: str, branch: Optional[str] = None) -> str:
         """Clones a GitHub repository to a local directory using Git CLI with fallback reliability.
@@ -321,6 +376,7 @@ class GitHubService:
         Returns:
             The local path to the cloned repository.
         """
+        acq_start = time.perf_counter()
 
         try:
             parsed = self.parse_repo_url(repo_url)
@@ -328,7 +384,6 @@ class GitHubService:
             raise InvalidGitHubRepoURLError(str(e))
 
         repo_fullName = f"{parsed['owner']}/{parsed['repo']}"
-        dest_dir = self.get_local_repo_path(repo_fullName)
 
         # Always use the canonical approved host. Credentials are never attached
         # to a caller-provided remote URL.
@@ -453,6 +508,9 @@ class GitHubService:
                         f"Branch '{branch}' does not exist for repository {repo_fullName}."
                     )
 
+        # Resolve branch-isolated destination directory
+        dest_dir = self.get_local_repo_path(repo_fullName, branch=actual_branch)
+
         # 6. Check if target directory already exists with a valid git repository
         if os.path.exists(dest_dir) and os.path.exists(os.path.join(dest_dir, ".git")):
             target_branch = actual_branch or "main"
@@ -491,6 +549,17 @@ class GitHubService:
                         cwd=dest_dir,
                     )
                     if res_reset.returncode == 0:
+                        commit_sha = self._validate_checkout(
+                            dest_dir, repo_fullName, expected_ref=actual_branch
+                        )
+                        dur_ms = (time.perf_counter() - acq_start) * 1000.0
+                        logger.info(
+                            "[REPOSITORY_ACQUIRE] target=%s ref=%s cloned=false commit=%s duration_ms=%.2f valid=true",
+                            repo_fullName,
+                            actual_branch or "main",
+                            commit_sha[:8],
+                            dur_ms,
+                        )
                         logger.info(f"Successfully updated repository at {dest_dir}")
                         return dest_dir
             except Exception as exc:
@@ -549,6 +618,18 @@ class GitHubService:
                 stderr=result.stderr,
                 returncode=result.returncode,
             )
+
+        commit_sha = self._validate_checkout(
+            dest_dir, repo_fullName, expected_ref=actual_branch
+        )
+        dur_ms = (time.perf_counter() - acq_start) * 1000.0
+        logger.info(
+            "[REPOSITORY_ACQUIRE] target=%s ref=%s cloned=true commit=%s duration_ms=%.2f valid=true",
+            repo_fullName,
+            actual_branch or "main",
+            commit_sha[:8],
+            dur_ms,
+        )
 
         return dest_dir
 
@@ -710,13 +791,13 @@ class GitHubService:
         Returns:
             A list of dictionary records containing file paths, types, sizes, and URLs.
         """
-        dest_dir = self.get_local_repo_path(repo_fullName)
+        dest_dir = self.get_local_repo_path(repo_fullName, branch=branch)
 
         # If not cloned, clone it
         if not os.path.exists(dest_dir):
             repo_url = f"https://github.com/{repo_fullName}.git"
             try:
-                self.clone_repository(repo_url)
+                self.clone_repository(repo_url, branch=branch)
             except Exception as e:
                 logger.error(f"Clone failed inside fetch_repository_files: {e}")
                 raise
@@ -773,7 +854,7 @@ class GitHubService:
         Returns:
             The raw text content of the file.
         """
-        dest_dir = self.get_local_repo_path(repo_fullName)
+        dest_dir = self.get_local_repo_path(repo_fullName, branch=ref)
         local_file = os.path.join(dest_dir, file_path.replace("/", os.sep))
 
         if os.path.exists(local_file):

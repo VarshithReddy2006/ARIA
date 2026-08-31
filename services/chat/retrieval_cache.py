@@ -18,12 +18,27 @@ import copy
 import hashlib
 import json
 import logging
+import re
 import threading
 import time
 from collections import OrderedDict
 from typing import Any, Dict, List, Optional, Tuple
 
 logger = logging.getLogger(__name__)
+
+
+def normalize_retrieval_query(query: str) -> str:
+    """Normalize user retrieval query by stripping markdown formatting, backticks, excess whitespace, and trailing punctuation."""
+    if not query or not isinstance(query, str):
+        return ""
+    q = query.strip()
+    # Strip enclosing backticks / markdown formatting
+    q = re.sub(r"[`*_~]", "", q)
+    # Collapse multiple whitespace characters
+    q = re.sub(r"\s+", " ", q).strip()
+    # Strip trailing punctuation noise while preserving syntax like () or []
+    q = re.sub(r"[?!.,;]+$", "", q).strip()
+    return q.lower()
 
 
 class RetrievalLRUCache:
@@ -64,11 +79,7 @@ class RetrievalLRUCache:
         norm_version = (
             index_version.strip() if isinstance(index_version, str) else "none"
         )
-        norm_question = (
-            question.strip().lower()
-            if isinstance(question, str)
-            else (str(question).strip().lower() if question is not None else "")
-        )
+        norm_question = normalize_retrieval_query(question)
 
         key_payload = {
             "r": norm_repo,

@@ -1,0 +1,108 @@
+# Azure Container App Template for ARIA Web Service (FastAPI + Astro Frontend)
+apiVersion: 2023-05-01
+type: Microsoft.App/containerApps
+properties:
+  managedEnvironmentId: /subscriptions/{subscriptionId}/resourceGroups/{resourceGroup}/providers/Microsoft.App/managedEnvironments/aria-env
+  configuration:
+    ingress:
+      external: true
+      targetPort: 8001
+      transport: auto
+      allowInsecure: false
+    secrets:
+      - name: gemini-key
+        value: "{GEMINI_API_KEY}"
+      - name: github-token
+        value: "{GITHUB_TOKEN}"
+      - name: deepseek-key
+        value: "{DEEPSEEK_API_KEY}"
+      - name: qdrant-key
+        value: "{QDRANT_API_KEY}"
+      - name: api-key
+        value: "{API_KEY}"
+      - name: storage-conn
+        value: "{AZURE_STORAGE_CONNECTION_STRING}"
+      - name: acr-pass
+        value: "{ACR_PASSWORD}"
+  template:
+    containers:
+      - name: aria-api
+        image: ariacr3ab8.azurecr.io/aria-api:fde7820
+        resources:
+          cpu: 0.5
+          memory: 1.0Gi
+        env:
+          - name: APP_ENV
+            value: production
+          - name: LOG_FORMAT
+            value: json
+          - name: PORT
+            value: "8001"
+          - name: JOB_EXECUTOR
+            value: azure
+          - name: AZURE_STORAGE_QUEUE_NAME
+            value: aria-analysis-jobs
+          - name: AZURE_STORAGE_CONNECTION_STRING
+            secretRef: storage-conn
+          - name: GEMINI_API_KEY
+            secretRef: gemini-key
+          - name: DEEPSEEK_API_KEY
+            secretRef: deepseek-key
+          - name: GITHUB_TOKEN
+            secretRef: github-token
+          - name: API_KEY
+            secretRef: api-key
+          - name: QDRANT_URL
+            value: "{QDRANT_URL}"
+          - name: QDRANT_API_KEY
+            secretRef: qdrant-key
+          - name: SQLITE_DB_PATH
+            value: /tmp/repo_understanding.db
+          - name: ANALYSIS_STORE_PATH
+            value: /app/data/analysis_store.json
+          - name: JOB_STATE_DIR
+            value: /app/data/jobs
+          - name: VECTOR_STORE_BACKEND
+            value: qdrant
+          - name: ALLOWED_HOSTS
+            value: '["aria-api.lemonriver-308dc42a.eastasia.azurecontainerapps.io","*.lemonriver-308dc42a.eastasia.azurecontainerapps.io","aria-orpin-five.vercel.app","localhost","127.0.0.1"]'
+          probes:
+            - type: Startup
+              httpGet:
+                path: /health
+                port: 8001
+              initialDelaySeconds: 5
+              periodSeconds: 5
+              timeoutSeconds: 5
+              failureThreshold: 20
+            - type: Liveness
+              httpGet:
+                path: /health
+                port: 8001
+              initialDelaySeconds: 15
+              periodSeconds: 30
+              timeoutSeconds: 5
+              failureThreshold: 5
+            - type: Readiness
+              httpGet:
+                path: /ready
+                port: 8001
+              initialDelaySeconds: 15
+              periodSeconds: 30
+              timeoutSeconds: 5
+              failureThreshold: 5
+        volumeMounts:
+          - volumeName: aria-data-volume
+            mountPath: /app/data
+    scale:
+      minReplicas: 1
+      maxReplicas: 1
+      rules:
+        - name: http-scaling
+          http:
+            metadata:
+              concurrentRequests: "50"
+    volumes:
+      - name: aria-data-volume
+        storageType: AzureFile
+        storageName: ariadata

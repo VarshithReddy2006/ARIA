@@ -274,9 +274,8 @@ class SymbolService:
         index = self.load(repo_name)
         if index is None:
             return None
-        # Normalise separators before comparing
-        norm = file_path.replace("\\", "/")
-        return [s for s in index.symbols if s.file_path.replace("\\", "/") == norm]
+        norm = file_path.replace("\\", "/").lower()
+        return index.file_symbol_map.get(norm, [])
 
     def get_definition(self, repo_name: str, symbol_name: str) -> Optional[Symbol]:
         """Return the first symbol matching *symbol_name*.
@@ -295,18 +294,18 @@ class SymbolService:
             "enum": 4,
             "variable": 5,
         }
-        matches = [s for s in index.symbols if s.name == symbol_name]
+        matches = index.name_symbol_map.get(symbol_name.lower(), [])
         if not matches:
             return None
-        return sorted(matches, key=lambda s: _priority.get(s.type, 99))[0]
+        # Prioritize exact case match if present
+        exact_case = [s for s in matches if s.name == symbol_name]
+        candidates = exact_case if exact_case else matches
+        return sorted(candidates, key=lambda s: _priority.get(s.type, 99))[0]
 
     def get_references(
         self, repo_name: str, symbol_name: str
     ) -> Optional[List[Symbol]]:
         """Return all symbols whose name matches *symbol_name*.
-
-        MVP implementation: name-based matching across the entire index.
-        Full cross-file call-graph analysis is planned for PH2-003.
 
         Returns:
             List of Symbol objects (may be empty), or None if no index exists.
@@ -314,7 +313,8 @@ class SymbolService:
         index = self.load(repo_name)
         if index is None:
             return None
-        return [s for s in index.symbols if s.name == symbol_name]
+        matches = index.name_symbol_map.get(symbol_name.lower(), [])
+        return [s for s in matches if s.name == symbol_name] or matches
 
     # ------------------------------------------------------------------
     # Symbol Extraction — per-file entry point

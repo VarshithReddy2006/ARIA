@@ -88,6 +88,9 @@ class CodeChunker:
             return []
 
         # Very short file: single chunk
+        lines = content.splitlines()
+        total_line_count = len(lines) if lines else 1
+
         if len(content) <= self.chunk_size:
             return self._format_chunks(
                 [
@@ -99,18 +102,19 @@ class CodeChunker:
                         "category": category,
                         "source_priority": source_priority,
                         "is_entry_point": is_entry,
+                        "start_line": 1,
+                        "end_line": total_line_count,
                     }
                 ]
             )
 
         chunks = []
-        lines = content.splitlines()
-
-        current_chunk_lines = []
+        current_chunk_lines: List[str] = []
+        current_chunk_line_nums: List[int] = []
         current_chunk_size = 0
         chunk_id = 1
 
-        for line in lines:
+        for line_num, line in enumerate(lines, start=1):
             line_len = len(line) + 1  # +1 for newline character
 
             # If a single line exceeds chunk size, chunk it separately or add it
@@ -126,10 +130,13 @@ class CodeChunker:
                             "category": category,
                             "source_priority": source_priority,
                             "is_entry_point": is_entry,
+                            "start_line": current_chunk_line_nums[0],
+                            "end_line": current_chunk_line_nums[-1],
                         }
                     )
                     chunk_id += 1
                     current_chunk_lines = []
+                    current_chunk_line_nums = []
                     current_chunk_size = 0
 
                 # Add this long line as its own chunk
@@ -142,6 +149,8 @@ class CodeChunker:
                         "category": category,
                         "source_priority": source_priority,
                         "is_entry_point": is_entry,
+                        "start_line": line_num,
+                        "end_line": line_num,
                     }
                 )
                 chunk_id += 1
@@ -150,34 +159,59 @@ class CodeChunker:
             # Check if adding this line exceeds the target chunk size
             if current_chunk_size + line_len > self.chunk_size:
                 # Flush current chunk
-                chunks.append(
-                    {
-                        "path": file_path,
-                        "chunk_id": chunk_id,
-                        "content": "\n".join(current_chunk_lines),
-                        "language": language,
-                        "category": category,
-                        "source_priority": source_priority,
-                        "is_entry_point": is_entry,
-                    }
-                )
-                chunk_id += 1
+                if current_chunk_lines:
+                    chunks.append(
+                        {
+                            "path": file_path,
+                            "chunk_id": chunk_id,
+                            "content": "\n".join(current_chunk_lines),
+                            "language": language,
+                            "category": category,
+                            "source_priority": source_priority,
+                            "is_entry_point": is_entry,
+                            "start_line": current_chunk_line_nums[0],
+                            "end_line": current_chunk_line_nums[-1],
+                        }
+                    )
+                    chunk_id += 1
 
                 # Compute overlap: keep last few lines that fit in the overlap window
-                overlap_lines = []
+                overlap_lines: List[str] = []
+                overlap_line_nums: List[int] = []
                 overlap_size = 0
-                for old_line in reversed(current_chunk_lines):
+                for old_line, old_ln in zip(
+                    reversed(current_chunk_lines), reversed(current_chunk_line_nums)
+                ):
                     old_line_len = len(old_line) + 1
                     if overlap_size + old_line_len > self.chunk_overlap:
                         break
                     overlap_lines.insert(0, old_line)
+                    overlap_line_nums.insert(0, old_ln)
                     overlap_size += old_line_len
 
                 current_chunk_lines = overlap_lines
+                current_chunk_line_nums = overlap_line_nums
                 current_chunk_size = overlap_size
 
             current_chunk_lines.append(line)
+            current_chunk_line_nums.append(line_num)
             current_chunk_size += line_len
+
+        # Flush final remaining chunk
+        if current_chunk_lines:
+            chunks.append(
+                {
+                    "path": file_path,
+                    "chunk_id": chunk_id,
+                    "content": "\n".join(current_chunk_lines),
+                    "language": language,
+                    "category": category,
+                    "source_priority": source_priority,
+                    "is_entry_point": is_entry,
+                    "start_line": current_chunk_line_nums[0],
+                    "end_line": current_chunk_line_nums[-1],
+                }
+            )
 
         # Filter empty chunks and re-index chunk_id
         valid_chunks = []

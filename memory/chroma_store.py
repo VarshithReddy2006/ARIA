@@ -65,6 +65,7 @@ class ChromaStore:
         os.makedirs(self.persist_directory, exist_ok=True)
         self.client = chromadb.PersistentClient(path=self.persist_directory)
         self._publication_lock = threading.RLock()
+        self._active_versions_cache: Dict[str, str] = {}
         self._init_collections()
 
     def _init_collections(self) -> None:
@@ -153,15 +154,19 @@ class ChromaStore:
                             shutil.rmtree(item_path, ignore_errors=True)
                         else:
                             os.remove(item_path)
-                    except Exception:
-                        pass
+                    except Exception as clean_exc:
+                        logger.warning(
+                            "Could not remove corrupted file %s: %s",
+                            item_path,
+                            clean_exc,
+                        )
 
         os.makedirs(self.persist_directory, exist_ok=True)
         self.client = chromadb.PersistentClient(path=self.persist_directory)
-        self.collection = self.client.get_or_create_collection(name="repository_chunks")
         self._versions = self.client.get_or_create_collection(
             name="repository_index_versions"
         )
+        self.collection = self.client.get_or_create_collection(name="repository_chunks")
         return (
             self.collection
             if target_collection == "repository_chunks"
@@ -175,7 +180,7 @@ class ChromaStore:
         fn: Callable[[], T],
         max_retries: int = 1,
     ) -> T:
-        """Execute a collection operation with bounded corruption recovery."""
+        """Executes a ChromaDB operation with localized corruption detection and recovery."""
         attempts = 0
         while True:
             try:
@@ -197,15 +202,21 @@ class ChromaStore:
                 raise
 
     def _active_version(self, repo_name: str) -> Optional[str]:
+        if repo_name in self._active_versions_cache:
+            return self._active_versions_cache[repo_name]
+
         def _get():
             record = self._versions.get(ids=[repo_name], include=["documents"])
             documents = record.get("documents", []) if record else []
             return documents[0] if documents else None
 
         try:
-            return self._execute_with_recovery(
+            ver = self._execute_with_recovery(
                 "repository_index_versions", "active_version", _get
             )
+            if ver is not None:
+                self._active_versions_cache[repo_name] = ver
+            return ver
         except Exception as exc:
             logger.warning(
                 "Failed to resolve active version for %s: %s", repo_name, exc
@@ -226,6 +237,8 @@ class ChromaStore:
         return filters[0] if len(filters) == 1 else {"$and": filters}
 
     def _publish_version(self, repo_name: str, version: str) -> None:
+        self._active_versions_cache[repo_name] = version
+
         def _upsert():
             self._versions.upsert(
                 ids=[repo_name],
@@ -406,6 +419,7 @@ class ChromaStore:
             pass
 
         with self._publication_lock:
+            self._active_versions_cache.clear()
             for name in ("repository_chunks", "repository_index_versions"):
                 try:
                     self.client.delete_collection(name=name)

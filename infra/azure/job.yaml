@@ -1,0 +1,41 @@
+# Azure Container Apps Job Template for Background Repository Analysis Worker
+apiVersion: 2023-05-01
+type: Microsoft.App/jobs
+properties:
+  environmentId: /subscriptions/{subscriptionId}/resourceGroups/{resourceGroup}/providers/Microsoft.App/managedEnvironments/aria-env
+  configuration:
+    triggerType: Manual
+    replicaTimeout: 1800
+    replicaRetryLimit: 1
+    secrets:
+      - name: gemini-api-key
+        value: "{GEMINI_API_KEY}"
+      - name: github-token
+        value: "{GITHUB_TOKEN}"
+  template:
+    containers:
+      - name: aria-worker
+        image: {ACR_NAME}.azurecr.io/repo-intelligence-agent:latest
+        resources:
+          cpu: 1.0
+          memory: 2.0Gi
+        env:
+          - name: APP_ENV
+            value: production
+          - name: LOG_FORMAT
+            value: json
+          - name: GEMINI_API_KEY
+            secretRef: gemini-api-key
+          - name: GITHUB_TOKEN
+            secretRef: github-token
+          - name: SQLITE_DB_PATH
+            value: /tmp/repo_understanding.db
+          - name: VECTOR_STORE_BACKEND
+            value: qdrant
+        volumeMounts:
+          - volumeName: data-volume
+            mountPath: /app/data
+    volumes:
+      - name: data-volume
+        storageType: AzureFile
+        storageName: ariadata

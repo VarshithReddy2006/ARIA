@@ -105,8 +105,19 @@ class Settings(BaseSettings):
     worker_count: Optional[int] = Field(None, alias="WORKER_COUNT")
     aria_workers: Optional[int] = Field(None, alias="ARIA_WORKERS")
     web_concurrency: Optional[int] = Field(None, alias="WEB_CONCURRENCY")
+    aria_max_concurrent_analyses: Optional[int] = Field(
+        None, alias="ARIA_MAX_CONCURRENT_ANALYSES"
+    )
     build_timeout: int = Field(1800, alias="BUILD_TIMEOUT")  # 30 minutes
     cache_size_limit: int = Field(1000, alias="CACHE_SIZE_LIMIT")
+
+    @property
+    def max_concurrent_analyses(self) -> int:
+        """Maximum concurrent background repository analysis tasks."""
+        if self.aria_max_concurrent_analyses and self.aria_max_concurrent_analyses > 0:
+            return self.aria_max_concurrent_analyses
+        cpu_cnt = os.cpu_count() or 2
+        return min(4, max(2, cpu_cnt // 2))
 
     @property
     def effective_workers(self) -> int:

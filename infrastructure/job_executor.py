@@ -10,6 +10,7 @@ import abc
 import json
 import logging
 import os
+import threading
 import time
 from typing import Any, Dict, Optional, Protocol
 
@@ -105,7 +106,56 @@ class ModalJobExecutor(JobExecutor):
 
 
 class LocalJobExecutor(JobExecutor):
-    """Local threaded background job executor for development and testing."""
+    """Bounded local thread-pool background job executor for development and testing."""
+
+    _executor: Optional[Any] = None
+    _lock = threading.Lock()
+    _active_jobs: set[str] = set()
+    _queued_jobs: set[str] = set()
+
+    def __init__(self, max_workers: Optional[int] = None) -> None:
+        self._custom_max_workers = max_workers
+
+    @classmethod
+    def get_pool(cls, max_workers: Optional[int] = None) -> Any:
+        from concurrent.futures import ThreadPoolExecutor
+        from core.config import settings
+
+        with cls._lock:
+            effective = (
+                max_workers
+                if max_workers and max_workers > 0
+                else settings.max_concurrent_analyses
+            )
+            if cls._executor is None:
+                cls._executor = ThreadPoolExecutor(
+                    max_workers=effective, thread_name_prefix="aria-analysis"
+                )
+                cls._max_workers_count = effective
+            return cls._executor
+
+    @classmethod
+    def reset_pool(cls) -> None:
+        """Helper for testing to cleanly shutdown and recreate thread pool."""
+        with cls._lock:
+            if cls._executor is not None:
+                try:
+                    cls._executor.shutdown(wait=False, cancel_futures=True)
+                except Exception:
+                    pass
+                cls._executor = None
+            cls._active_jobs.clear()
+            cls._queued_jobs.clear()
+
+    @classmethod
+    def active_job_count(cls) -> int:
+        with cls._lock:
+            return len(cls._active_jobs)
+
+    @classmethod
+    def queued_job_count(cls) -> int:
+        with cls._lock:
+            return len(cls._queued_jobs)
 
     def spawn_analysis(
         self,
@@ -115,15 +165,54 @@ class LocalJobExecutor(JobExecutor):
         force_rebuild: bool = False,
         request_id: Optional[str] = None,
     ) -> bool:
-        import threading
         from backend.routers.repositories import (
             execute_repository_analysis,
+            format_analysis_error,
             get_job_state,
             set_job_state,
-            format_analysis_error,
+        )
+        from core.config import settings
+        from core.repository_target import get_analysis_target_key
+
+        target_key = get_analysis_target_key(repo_url, branch)
+        max_w = (
+            self._custom_max_workers
+            or getattr(self.__class__, "_max_workers_count", None)
+            or settings.max_concurrent_analyses
+        )
+        pool = self.get_pool(self._custom_max_workers)
+
+        enqueued_time = time.perf_counter()
+        with self._lock:
+            self._queued_jobs.add(job_id)
+            q_len = len(self._queued_jobs)
+            act_len = len(self._active_jobs)
+
+        logger.info(
+            "[ANALYSIS_QUEUE] job=%s target=%s event=queued active=%d queued=%d max_workers=%d",
+            job_id,
+            target_key,
+            act_len,
+            q_len,
+            max_w,
         )
 
         def _run():
+            q_wait_ms = (time.perf_counter() - enqueued_time) * 1000.0
+            with self._lock:
+                self._queued_jobs.discard(job_id)
+                self._active_jobs.add(job_id)
+                act_count = len(self._active_jobs)
+
+            logger.info(
+                "[ANALYSIS_QUEUE] job=%s target=%s event=started queue_wait_ms=%.2f active=%d max_workers=%d",
+                job_id,
+                target_key,
+                q_wait_ms,
+                act_count,
+                max_w,
+            )
+
             initial_state = get_job_state(job_id) or {"job_id": job_id}
 
             def _progress(update: Dict[str, Any]):
@@ -158,18 +247,50 @@ class LocalJobExecutor(JobExecutor):
                     curr["skipped_phases"] = result.get("skipped_phases", [])
                     curr["phase_errors"] = result.get("phase_errors", {})
                 set_job_state(job_id, curr)
+
+                with self._lock:
+                    self._active_jobs.discard(job_id)
+                    act_count = len(self._active_jobs)
+                logger.info(
+                    "[ANALYSIS_QUEUE] job=%s target=%s event=completed status=%s active=%d max_workers=%d",
+                    job_id,
+                    target_key,
+                    final_status,
+                    act_count,
+                    max_w,
+                )
             except Exception as exc:
+                with self._lock:
+                    self._active_jobs.discard(job_id)
+                    act_count = len(self._active_jobs)
                 logger.error(
-                    "LocalJobExecutor failed for job=%s: %s", job_id, exc, exc_info=True
+                    "[ANALYSIS_QUEUE] job=%s target=%s event=failed error=%s active=%d max_workers=%d",
+                    job_id,
+                    target_key,
+                    exc,
+                    act_count,
+                    max_w,
+                    exc_info=True,
                 )
                 curr = get_job_state(job_id) or initial_state
                 curr["status"] = "failed"
                 curr["error"] = format_analysis_error(exc)
                 set_job_state(job_id, curr)
 
-        threading.Thread(target=_run, daemon=True).start()
-        logger.info("LocalJobExecutor: started background thread for job=%s", job_id)
-        return True
+        try:
+            pool.submit(_run)
+            return True
+        except Exception as exc:
+            with self._lock:
+                self._queued_jobs.discard(job_id)
+                self._active_jobs.discard(job_id)
+            logger.error(
+                "LocalJobExecutor failed to submit job=%s: %s",
+                job_id,
+                exc,
+                exc_info=True,
+            )
+            return False
 
 
 class AzureJobExecutor(JobExecutor):

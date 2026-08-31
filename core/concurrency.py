@@ -65,35 +65,93 @@ def interprocess_file_lock(
                     pass
 
 
-# In-process per-repository lock registry
+# In-process per-target lock registry
 _REPO_LOCKS: Dict[str, threading.Lock] = {}
 _REGISTRY_LOCK = threading.Lock()
 
 
-def get_repository_lock(repo_name: str) -> threading.Lock:
-    """Get or create an in-process lock for a specific repository."""
-    raw = repo_name.strip()
-    if "github.com/" in raw:
-        raw = raw.split("github.com/")[-1].rstrip("/").removesuffix(".git")
-    canonical_repo = raw.strip().lower()
+def get_repository_lock(repo_name: str, branch: Optional[str] = None) -> threading.Lock:
+    """Get or create an in-process lock for a specific repository target."""
+    from core.repository_target import get_analysis_target_key
+
+    target_key = get_analysis_target_key(repo_name, branch)
     with _REGISTRY_LOCK:
-        if canonical_repo not in _REPO_LOCKS:
-            _REPO_LOCKS[canonical_repo] = threading.Lock()
-        return _REPO_LOCKS[canonical_repo]
+        if target_key not in _REPO_LOCKS:
+            _REPO_LOCKS[target_key] = threading.Lock()
+        return _REPO_LOCKS[target_key]
 
 
 @contextlib.contextmanager
 def repository_lock(
-    repo_name: str, timeout: Optional[float] = None
+    repo_name: str,
+    branch: Optional[str] = None,
+    timeout: Optional[float] = 120.0,
 ) -> Generator[bool, None, None]:
-    """Context manager acquiring exclusive write access for a given repository."""
-    lock = get_repository_lock(repo_name)
-    acquired = lock.acquire(timeout=timeout if timeout is not None else -1)
+    """Acquire cross-thread and cross-process exclusive access for a repository target."""
+    from core.repository_target import (
+        get_analysis_target_key,
+        get_repository_lock_path,
+    )
+
+    target_key = get_analysis_target_key(repo_name, branch)
+    lock_path = get_repository_lock_path(repo_name, branch)
+    thread_lock = get_repository_lock(repo_name, branch)
+
+    t0 = time.perf_counter()
+    effective_timeout = 120.0 if timeout is None else timeout
+    acquired_thread = thread_lock.acquire(timeout=effective_timeout)
+    if not acquired_thread:
+        wait_ms = (time.perf_counter() - t0) * 1000.0
+        logger.warning(
+            "[ANALYSIS_LOCK] target=%s event=timeout_thread lock_path=%s wait_ms=%.2f",
+            target_key,
+            lock_path,
+            wait_ms,
+        )
+        raise TimeoutError(
+            f"Timed out acquiring in-process lock for {target_key} after {effective_timeout}s"
+        )
+
     try:
-        yield acquired
+        remaining_timeout = max(1.0, effective_timeout - (time.perf_counter() - t0))
+        with interprocess_file_lock(lock_path, timeout=remaining_timeout):
+            wait_ms = (time.perf_counter() - t0) * 1000.0
+            logger.info(
+                "[ANALYSIS_LOCK] target=%s event=acquired lock_path=%s wait_ms=%.2f",
+                target_key,
+                lock_path,
+                wait_ms,
+            )
+            try:
+                yield True
+            finally:
+                logger.info(
+                    "[ANALYSIS_LOCK] target=%s event=released lock_path=%s",
+                    target_key,
+                    lock_path,
+                )
     finally:
-        if acquired:
-            lock.release()
+        thread_lock.release()
+
+
+@contextlib.contextmanager
+def analysis_target_lock(
+    target: Any,
+    timeout: float = 120.0,
+) -> Generator[bool, None, None]:
+    """Acquire exclusive lock using an AnalysisTarget instance."""
+    from core.repository_target import AnalysisTarget
+
+    if isinstance(target, AnalysisTarget):
+        with repository_lock(
+            f"{target.owner}/{target.repo}",
+            branch=target.ref,
+            timeout=timeout,
+        ) as acquired:
+            yield acquired
+    else:
+        with repository_lock(str(target), timeout=timeout) as acquired:
+            yield acquired
 
 
 def write_json_atomic(file_path: str, data: Any, indent: int = 2) -> None:
