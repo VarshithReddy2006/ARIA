@@ -1,6 +1,7 @@
 """Analysis MCP Tools.
 
 Exposes dead code detection, impact analysis, and API surface classification.
+All requests are delegated to the canonical ARIA HTTP API.
 """
 
 import json
@@ -8,7 +9,6 @@ import logging
 from typing import Any, Optional
 
 from mcp.errors import (
-    ToolFailure,
     ToolInputError,
     require_repo,
     require_text,
@@ -64,17 +64,18 @@ def register(server: Any) -> None:
             repo: Repository name.
         """
         from mcp.observability import mcp_request_context
-        from mcp.dependencies import get_dead_code_service
+        from mcp.dependencies import get_aria_client
 
         with mcp_request_context("get_dead_code", {"owner": owner, "repo": repo}):
             with tool_boundary("get_dead_code"):
                 repo_name = require_repo(owner, repo)
-                service = get_dead_code_service()
-                result = service.analyze(repo_name)
-                serialized = (
-                    result.model_dump() if hasattr(result, "model_dump") else result
+                owner_clean, repo_clean = repo_name.split("/", 1)
+                client = get_aria_client()
+                data = client.post(
+                    "/api/v1/dead-code/analyze",
+                    json={"owner": owner_clean, "repo": repo_clean},
                 )
-                return json.dumps(serialized, indent=2, default=str)
+                return json.dumps(data, indent=2, default=str)
 
     @server.tool()
     def get_impact_analysis(
@@ -90,16 +91,10 @@ def register(server: Any) -> None:
             repo: Repository name.
             change_description: Natural-language description of the intended
                 change, e.g. an issue body or "rename the auth middleware".
-                A bare file path is accepted but yields a weaker prediction.
-            file_path: Deprecated alias for change_description, kept so existing
-                clients keep working. Ignored when change_description is given.
-
-        Exactly one of change_description or file_path is required. Both are
-        declared optional so that either spelling satisfies the schema; the
-        requirement is enforced below.
+            file_path: Deprecated alias for change_description.
         """
         from mcp.observability import mcp_request_context
-        from mcp.dependencies import get_impact_analysis_service
+        from mcp.dependencies import get_aria_client
 
         with mcp_request_context(
             "get_impact_analysis",
@@ -107,20 +102,6 @@ def register(server: Any) -> None:
         ):
             with tool_boundary("get_impact_analysis"):
                 repo_name = require_repo(owner, repo)
-
-                # Backward compatibility: file_path was this tool's original
-                # parameter name. change_description wins when both arrive; the
-                # deprecation notice goes to the log only, never to the client.
-                if change_description is not None and file_path is not None:
-                    logger.warning(
-                        "get_impact_analysis received both 'change_description' and "
-                        "the deprecated 'file_path'; using 'change_description'."
-                    )
-                elif file_path is not None:
-                    logger.warning(
-                        "get_impact_analysis parameter 'file_path' is deprecated; "
-                        "use 'change_description'."
-                    )
                 effective = (
                     change_description if change_description is not None else file_path
                 )
@@ -129,18 +110,19 @@ def register(server: Any) -> None:
                         "Invalid params: Missing required argument(s): "
                         "change_description."
                     )
-                effective = require_text("change_description", effective)
+                if file_path is not None and change_description is None:
+                    logger.warning(
+                        "get_impact_analysis received deprecated alias 'file_path'; "
+                        "use 'change_description' instead."
+                    )
+                effective_text = require_text("change_description", effective)
 
-                service = get_impact_analysis_service()
-                # ImpactAnalysisService.analyze_change(repo_name, issue_text) is the
-                # current public API and the one the REST layer uses
-                # (backend/routers/architecture.py). analyze_impact() never existed,
-                # and it took a file path, hence the parameter rename.
-                result = service.analyze_change(repo_name, effective)
-                serialized = (
-                    result.model_dump() if hasattr(result, "model_dump") else result
+                client = get_aria_client()
+                data = client.post(
+                    "/api/v1/impact-analysis",
+                    json={"repo": repo_name, "issue": effective_text},
                 )
-                return json.dumps(serialized, indent=2, default=str)
+                return json.dumps(data, indent=2, default=str)
 
     @server.tool()
     def get_api_surface(owner: str, repo: str) -> str:
@@ -151,18 +133,12 @@ def register(server: Any) -> None:
             repo: Repository name.
         """
         from mcp.observability import mcp_request_context
-        from mcp.dependencies import get_api_surface_service
+        from mcp.dependencies import get_aria_client
 
         with mcp_request_context("get_api_surface", {"owner": owner, "repo": repo}):
             with tool_boundary("get_api_surface"):
                 repo_name = require_repo(owner, repo)
-                service = get_api_surface_service()
-                # APISurfaceService persists the classified surface; load() is the
-                # read API. classify() no longer exists.
-                result = service.load(repo_name)
-                if result is None:
-                    raise ToolFailure(f"No API surface indexed for '{repo_name}'.")
-                serialized = (
-                    result.model_dump() if hasattr(result, "model_dump") else result
-                )
-                return json.dumps(serialized, indent=2, default=str)
+                owner_clean, repo_clean = repo_name.split("/", 1)
+                client = get_aria_client()
+                data = client.get(f"/api/v1/api-surface/{owner_clean}/{repo_clean}")
+                return json.dumps(data, indent=2, default=str)

@@ -1,6 +1,7 @@
 """Report MCP Tools.
 
 Exposes comprehensive report generation and export capabilities.
+All requests are delegated to the canonical ARIA HTTP API.
 """
 
 import json
@@ -46,17 +47,15 @@ def register(server: Any) -> None:
             repo: Repository name.
         """
         from mcp.observability import mcp_request_context
-        from mcp.dependencies import get_report_composer
+        from mcp.dependencies import get_aria_client
 
         with mcp_request_context("generate_report", {"owner": owner, "repo": repo}):
             with tool_boundary("generate_report"):
                 repo_name = require_repo(owner, repo)
-                composer = get_report_composer()
-                report = composer.compose_report(repo_name)
-                serialized = (
-                    report.model_dump() if hasattr(report, "model_dump") else report
-                )
-                return json.dumps(serialized, indent=2, default=str)
+                owner_clean, repo_clean = repo_name.split("/", 1)
+                client = get_aria_client()
+                data = client.post(f"/api/v1/report/{owner_clean}/{repo_clean}/build")
+                return json.dumps(data, indent=2, default=str)
 
     @server.tool()
     def export_report(owner: str, repo: str, format: str = "markdown") -> str:
@@ -68,31 +67,27 @@ def register(server: Any) -> None:
             format: Output format ('markdown' or 'html').
         """
         from mcp.observability import mcp_request_context
-        from mcp.dependencies import (
-            get_report_composer,
-            get_markdown_renderer,
-            get_html_renderer,
-        )
+        from mcp.dependencies import get_aria_client
 
         with mcp_request_context(
             "export_report", {"owner": owner, "repo": repo, "format": format}
         ):
             with tool_boundary("export_report"):
                 repo_name = require_repo(owner, repo)
+                owner_clean, repo_clean = repo_name.split("/", 1)
                 fmt = require_text("format", format).lower()
                 if fmt not in {"markdown", "html"}:
                     raise ToolInputError(
                         "Invalid params: Argument 'format' must be one of: "
                         "html, markdown."
                     )
-                composer = get_report_composer()
-                report = composer.compose_report(repo_name)
-
-                renderer = (
-                    get_html_renderer() if fmt == "html" else get_markdown_renderer()
+                client = get_aria_client()
+                content = client.get(
+                    f"/api/v1/report/{owner_clean}/{repo_clean}/download",
+                    params={"format": fmt},
                 )
-
-                exported = renderer.render(report)
                 return json.dumps(
-                    {"format": fmt, "content": exported}, indent=2, default=str
+                    {"format": fmt, "content": str(content)},
+                    indent=2,
+                    default=str,
                 )

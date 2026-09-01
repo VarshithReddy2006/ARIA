@@ -16,6 +16,7 @@ Two defects were found this way and are locked in here:
 
 from __future__ import annotations
 
+import http.server
 import json
 import os
 import queue
@@ -44,6 +45,54 @@ HANDSHAKE_TIMEOUT = 120.0
 CALL_TIMEOUT = 60.0
 
 
+class _MockARIAHandler(http.server.BaseHTTPRequestHandler):
+    def do_GET(self):
+        if "/repos/recent" in self.path:
+            repos = []
+            if STORE.exists():
+                try:
+                    data = json.loads(STORE.read_text(encoding="utf-8"))
+                    repos = [{"name": k} for k in data.keys()]
+                except Exception:
+                    pass
+            if not repos:
+                repos = [{"name": "owner/repo"}]
+            self.send_response(200)
+            self.send_header("Content-Type", "application/json")
+            self.end_headers()
+            self.wfile.write(json.dumps(repos).encode("utf-8"))
+        elif "call-graph" in self.path:
+            self.send_response(404)
+            self.send_header("Content-Type", "application/json")
+            self.end_headers()
+            self.wfile.write(
+                json.dumps({"detail": "No call graph indexed for 'zz/zz'."}).encode(
+                    "utf-8"
+                )
+            )
+        else:
+            self.send_response(200)
+            self.send_header("Content-Type", "application/json")
+            self.end_headers()
+            self.wfile.write(b"{}")
+
+    def log_message(self, format, *args):
+        pass
+
+
+@pytest.fixture(scope="module")
+def mock_aria_server() -> Iterator[str]:
+    server = http.server.HTTPServer(("127.0.0.1", 0), _MockARIAHandler)
+    port = server.server_port
+    thread = threading.Thread(target=server.serve_forever, daemon=True)
+    thread.start()
+    try:
+        yield f"http://127.0.0.1:{port}"
+    finally:
+        server.shutdown()
+        server.server_close()
+
+
 class StdioPeer:
     """Newline-delimited JSON-RPC client over a subprocess' pipes.
 
@@ -52,7 +101,7 @@ class StdioPeer:
     deadlock in the *test*, easily mistaken for a server fault.
     """
 
-    def __init__(self, cmd: list[str]) -> None:
+    def __init__(self, cmd: list[str], extra_env: dict[str, str] | None = None) -> None:
         env = dict(
             os.environ,
             PYTHONUNBUFFERED="1",
@@ -63,6 +112,8 @@ class StdioPeer:
             MKL_NUM_THREADS="1",
             NUMEXPR_NUM_THREADS="1",
         )
+        if extra_env:
+            env.update(extra_env)
         self.spawned_at = time.perf_counter()
         self.proc = subprocess.Popen(
             cmd,
@@ -172,8 +223,10 @@ class StdioPeer:
         return code, (time.perf_counter() - started) * 1000
 
 
-def peer(cmd: list[str]) -> Iterator[StdioPeer]:
-    client = StdioPeer(cmd)
+def peer(
+    cmd: list[str], extra_env: dict[str, str] | None = None
+) -> Iterator[StdioPeer]:
+    client = StdioPeer(cmd, extra_env=extra_env)
     try:
         yield client
     finally:
@@ -183,18 +236,18 @@ def peer(cmd: list[str]) -> Iterator[StdioPeer]:
 
 
 @pytest.fixture(scope="module")
-def legacy() -> Iterator[StdioPeer]:
-    yield from peer(LEGACY_CMD)
+def legacy(mock_aria_server: str) -> Iterator[StdioPeer]:
+    yield from peer(LEGACY_CMD, extra_env={"ARIA_API_URL": mock_aria_server})
 
 
 @pytest.fixture(scope="module")
-def fastmcp() -> Iterator[StdioPeer]:
+def fastmcp(mock_aria_server: str) -> Iterator[StdioPeer]:
     pytest.importorskip("anyio")
     from mcp.server import FastMCP
 
     if FastMCP is None:
         pytest.skip("mcp SDK not installed; FastMCP transport cannot start")
-    yield from peer(FASTMCP_CMD)
+    yield from peer(FASTMCP_CMD, extra_env={"ARIA_API_URL": mock_aria_server})
 
 
 # ---------------------------------------------------------------------------

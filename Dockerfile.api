@@ -1,6 +1,5 @@
 # ============================================================
 # Dockerfile.api — ARIA FastAPI Backend + Astro Frontend
-# Target: Azure Container Apps (API)
 # ============================================================
 
 # Stage 1: Build Astro Frontend
@@ -83,7 +82,7 @@ RUN mkdir -p \
 EXPOSE 8001
 
 ENV APP_ENV=production \
-    LOG_FORMAT=json
+    LOG_FORMAT=json \
+    PORT=8001
 
-# Run as root for Azure Files CIFS mount write permissions
-CMD ["python", "-u", "-m", "uvicorn", "backend.api:app", "--host", "0.0.0.0", "--port", "8001"]
+CMD ["sh", "-c", "exec python -u -m uvicorn backend.api:app --host 0.0.0.0 --port ${PORT:-8001}"]

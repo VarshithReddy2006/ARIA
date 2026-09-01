@@ -1,7 +1,7 @@
 """MCP Server Test Suite (R-020).
 
 Tests the MCP server layer independently of the mcp SDK by verifying
-that tools, resources, and prompts correctly delegate to existing services.
+that tools, resources, and prompts correctly delegate to the ARIA HTTP client.
 
 All service dependencies are mocked to ensure tests are fast and hermetic.
 """
@@ -10,6 +10,9 @@ import json
 import pytest
 from unittest.mock import MagicMock, patch
 from typing import Any, Dict
+
+from mcp.aria_client import AriaAPIClient
+from mcp.errors import ToolFailure
 
 
 # ---------------------------------------------------------------------------
@@ -54,20 +57,10 @@ def mock_server():
 
 
 @pytest.fixture
-def mock_analysis_store():
-    mock_analysis = MagicMock()
-    mock_analysis.model_dump.return_value = {
-        "metadata": {"local_path": "/path"},
-        "files": [],
-    }
-    mock_arch = MagicMock()
-    mock_arch.model_dump.return_value = {"summary": "Test arch", "relationships": []}
-    return {
-        "owner/repo": {
-            "analysis": mock_analysis,
-            "architecture": mock_arch,
-        }
-    }
+def mock_client():
+    client = MagicMock(spec=AriaAPIClient)
+    client.base_url = "http://127.0.0.1:8001"
+    return client
 
 
 # ---------------------------------------------------------------------------
@@ -167,257 +160,224 @@ class TestPromptRegistration:
 # Tool Execution Tests
 # ---------------------------------------------------------------------------
 class TestRepositoryToolExecution:
-    """Verify repository tools delegate to correct services."""
+    """Verify repository tools delegate to correct API endpoints."""
 
-    def test_list_repositories(self, mock_server, mock_analysis_store):
+    def test_list_repositories(self, mock_server, mock_client):
         from mcp.tools.repository_tools import register
 
         register(mock_server)
+        mock_client.get.return_value = [{"name": "owner/repo"}]
 
-        with patch("mcp.dependencies.ANALYSIS_STORE", mock_analysis_store):
+        with patch("mcp.dependencies.get_aria_client", return_value=mock_client):
             result = mock_server.tools["list_repositories"]()
             repos = json.loads(result)
             assert "owner/repo" in repos
+            mock_client.get.assert_called_once_with("/api/v1/repos/recent")
 
-    def test_get_repository_summary_found(self, mock_server, mock_analysis_store):
+    def test_get_repository_summary_found(self, mock_server, mock_client):
         from mcp.tools.repository_tools import register
 
         register(mock_server)
+        mock_client.get.return_value = {
+            "analysis": {"tech_stack": ["python"]},
+            "architecture": {"summary": "test"},
+        }
 
-        with patch("mcp.dependencies.ANALYSIS_STORE", mock_analysis_store):
+        with patch("mcp.dependencies.get_aria_client", return_value=mock_client):
             result = mock_server.tools["get_repository_summary"]("owner", "repo")
             data = json.loads(result)
             assert "analysis" in data
             assert "architecture" in data
+            mock_client.get.assert_called_once_with("/api/v1/analysis/owner/repo")
 
-    def test_get_repository_summary_not_found(self, mock_server):
-        """A missing repository is an MCP tool error, i.e. a raised exception.
-
-        FastMCP converts it to a CallToolResult with isError=True. Returning
-        {"error": ...} would instead be a *successful* result, which no
-        compliant client can tell apart from real data.
-        """
+    def test_get_repository_summary_not_found(self, mock_server, mock_client):
         from mcp.tools.repository_tools import register
-        from mcp.errors import ToolFailure
 
         register(mock_server)
+        mock_client.get.side_effect = ToolFailure(
+            "Repository 'owner/missing' is not indexed."
+        )
 
-        with patch("mcp.dependencies.ANALYSIS_STORE", {}):
+        with patch("mcp.dependencies.get_aria_client", return_value=mock_client):
             with pytest.raises(ToolFailure, match="is not indexed"):
                 mock_server.tools["get_repository_summary"]("owner", "missing")
 
 
 class TestSymbolToolExecution:
-    """Verify symbol tools delegate to SymbolService."""
+    """Verify symbol tools delegate to ARIA symbols API."""
 
-    def test_get_file_symbols(self, mock_server):
+    def test_get_file_symbols(self, mock_server, mock_client):
         from mcp.tools.symbol_tools import register
 
         register(mock_server)
+        mock_client.get.return_value = [{"name": "my_func", "kind": "function"}]
 
-        from services.symbol_service import SymbolService
-
-        mock_sym = MagicMock()
-        mock_sym.model_dump.return_value = {"name": "my_func", "kind": "function"}
-        mock_service = MagicMock(spec=SymbolService)
-        mock_service.get_file_symbols.return_value = [mock_sym]
-
-        with patch("mcp.dependencies.get_symbol_service", return_value=mock_service):
+        with patch("mcp.dependencies.get_aria_client", return_value=mock_client):
             result = mock_server.tools["get_file_symbols"]("owner", "repo", "main.py")
             data = json.loads(result)
             assert isinstance(data, list)
             assert data[0]["name"] == "my_func"
-            mock_service.get_file_symbols.assert_called_once_with(
-                "owner/repo", "main.py"
+            mock_client.get.assert_called_once_with(
+                "/api/v1/symbols/owner/repo/file/main.py"
             )
 
-    def test_get_symbol_definition(self, mock_server):
+    def test_get_symbol_definition(self, mock_server, mock_client):
         from mcp.tools.symbol_tools import register
 
         register(mock_server)
+        mock_client.get.return_value = {"name": "my_func", "line": 42}
 
-        from services.symbol_service import SymbolService
-
-        mock_def = MagicMock()
-        mock_def.model_dump.return_value = {"name": "my_func", "line": 42}
-        mock_service = MagicMock(spec=SymbolService)
-        mock_service.get_definition.return_value = mock_def
-
-        with patch("mcp.dependencies.get_symbol_service", return_value=mock_service):
+        with patch("mcp.dependencies.get_aria_client", return_value=mock_client):
             result = mock_server.tools["get_symbol_definition"](
                 "owner", "repo", "my_func"
             )
             data = json.loads(result)
             assert data["name"] == "my_func"
             assert data["line"] == 42
+            mock_client.get.assert_called_once_with(
+                "/api/v1/symbols/owner/repo/definition/my_func"
+            )
 
-    def test_get_symbol_references(self, mock_server):
+    def test_get_symbol_references(self, mock_server, mock_client):
         from mcp.tools.symbol_tools import register
 
         register(mock_server)
+        mock_client.get.return_value = [{"file": "other.py", "line": 10}]
 
-        from services.symbol_service import SymbolService
-
-        mock_ref = MagicMock()
-        mock_ref.model_dump.return_value = {"file": "other.py", "line": 10}
-        mock_service = MagicMock(spec=SymbolService)
-        mock_service.get_references.return_value = [mock_ref]
-
-        with patch("mcp.dependencies.get_symbol_service", return_value=mock_service):
+        with patch("mcp.dependencies.get_aria_client", return_value=mock_client):
             result = mock_server.tools["get_symbol_references"](
                 "owner", "repo", "my_func"
             )
             data = json.loads(result)
             assert len(data) == 1
             assert data[0]["file"] == "other.py"
+            mock_client.get.assert_called_once_with(
+                "/api/v1/symbols/owner/repo/references/my_func"
+            )
 
 
 class TestArchitectureToolExecution:
-    """Verify architecture tools delegate correctly."""
+    """Verify architecture tools delegate correctly to ARIA REST endpoints."""
 
-    def test_get_call_graph(self, mock_server):
+    def test_get_call_graph(self, mock_server, mock_client):
         from mcp.tools.architecture_tools import register
-        from services.call_graph_service import CallGraphService
 
         register(mock_server)
+        mock_client.get.return_value = {"nodes": [], "edges": []}
 
-        mock_summary = MagicMock()
-        mock_summary.model_dump.return_value = {"nodes": [], "edges": []}
-        # spec= binds the double to the real class, so a call to a method that
-        # does not exist raises AttributeError instead of silently passing.
-        mock_service = MagicMock(spec=CallGraphService)
-        mock_service.load_summary.return_value = mock_summary
-
-        with patch(
-            "mcp.dependencies.get_call_graph_service", return_value=mock_service
-        ):
+        with patch("mcp.dependencies.get_aria_client", return_value=mock_client):
             result = mock_server.tools["get_call_graph"]("owner", "repo")
             data = json.loads(result)
             assert "nodes" in data
-            mock_service.load_summary.assert_called_once_with("owner/repo")
+            mock_client.get.assert_called_once_with("/api/v1/call-graph/owner/repo")
 
-    def test_get_call_graph_not_indexed(self, mock_server):
+    def test_get_call_graph_not_indexed(self, mock_server, mock_client):
         from mcp.tools.architecture_tools import register
-        from services.call_graph_service import CallGraphService
 
         register(mock_server)
+        mock_client.get.side_effect = ToolFailure(
+            "No call graph indexed for 'owner/repo'."
+        )
 
-        from mcp.errors import ToolFailure
-
-        mock_service = MagicMock(spec=CallGraphService)
-        mock_service.load_summary.return_value = None
-
-        with patch(
-            "mcp.dependencies.get_call_graph_service", return_value=mock_service
-        ):
+        with patch("mcp.dependencies.get_aria_client", return_value=mock_client):
             with pytest.raises(ToolFailure, match="No call graph indexed"):
                 mock_server.tools["get_call_graph"]("owner", "repo")
 
 
 class TestSearchToolExecution:
-    """Verify search tools delegate correctly."""
+    """Verify search tools delegate correctly to ARIA retrieval API."""
 
-    def test_query_codebase(self, mock_server):
+    def test_query_codebase(self, mock_server, mock_client):
         from mcp.tools.search_tools import register
 
         register(mock_server)
-
-        from services.retrieval_service import RetrievalService
-
-        mock_source = MagicMock()
-        mock_source.model_dump.return_value = {"file": "a.py", "score": 0.9}
-        mock_service = MagicMock(spec=RetrievalService)
-        mock_service.retrieve_and_answer.return_value = {
+        mock_client.post.return_value = {
             "answer": "Test answer",
-            "sources": [mock_source],
+            "sources": [{"file": "a.py", "score": 0.9}],
             "confidence": 0.85,
             "verified": True,
         }
 
-        with patch("mcp.dependencies.get_retrieval_service", return_value=mock_service):
+        with patch("mcp.dependencies.get_aria_client", return_value=mock_client):
             result = mock_server.tools["query_codebase"](
                 "owner", "repo", "what does this do?"
             )
             data = json.loads(result)
             assert data["answer"] == "Test answer"
             assert data["confidence"] == 0.85
-            mock_service.retrieve_and_answer.assert_called_once_with(
-                "owner/repo", "what does this do?"
+            mock_client.post.assert_called_once_with(
+                "/api/v1/retrieve",
+                json={"repo": "owner/repo", "question": "what does this do?"},
             )
 
 
 class TestAnalysisToolExecution:
     """Verify analysis tools delegate correctly."""
 
-    def test_get_dead_code(self, mock_server):
+    def test_get_dead_code(self, mock_server, mock_client):
         from mcp.tools.analysis_tools import register
 
         register(mock_server)
+        mock_client.post.return_value = {"dead_functions": ["unused_func"]}
 
-        from services.dead_code_service import DeadCodeService
-
-        mock_result = MagicMock()
-        mock_result.model_dump.return_value = {"dead_functions": ["unused_func"]}
-        mock_service = MagicMock(spec=DeadCodeService)
-        mock_service.analyze.return_value = mock_result
-
-        with patch("mcp.dependencies.get_dead_code_service", return_value=mock_service):
+        with patch("mcp.dependencies.get_aria_client", return_value=mock_client):
             result = mock_server.tools["get_dead_code"]("owner", "repo")
             data = json.loads(result)
             assert "dead_functions" in data
+            mock_client.post.assert_called_once_with(
+                "/api/v1/dead-code/analyze",
+                json={"owner": "owner", "repo": "repo"},
+            )
 
 
 class TestReportToolExecution:
     """Verify report tools delegate correctly."""
 
-    def test_generate_report(self, mock_server):
+    def test_generate_report(self, mock_server, mock_client):
         from mcp.tools.report_tools import register
 
         register(mock_server)
-
-        mock_report = MagicMock()
-        mock_report.model_dump.return_value = {
+        mock_client.post.return_value = {
             "scores": {"overall": 85, "grade": "B+"},
             "metadata": {"generated_at": "2026-01-01"},
         }
-        from services.report.composer import ReportComposer
 
-        mock_composer = MagicMock(spec=ReportComposer)
-        mock_composer.compose_report.return_value = mock_report
-
-        with patch("mcp.dependencies.get_report_composer", return_value=mock_composer):
+        with patch("mcp.dependencies.get_aria_client", return_value=mock_client):
             result = mock_server.tools["generate_report"]("owner", "repo")
             data = json.loads(result)
             assert data["scores"]["overall"] == 85
+            mock_client.post.assert_called_once_with("/api/v1/report/owner/repo/build")
 
 
 # ---------------------------------------------------------------------------
 # Resource Execution Tests
 # ---------------------------------------------------------------------------
 class TestResourceExecution:
-    """Verify resources expose platform state correctly."""
+    """Verify resources expose platform state correctly via API client."""
 
-    def test_list_repositories_resource(self, mock_server, mock_analysis_store):
+    def test_list_repositories_resource(self, mock_server, mock_client):
         from mcp.resources.resource_providers import register
 
         register(mock_server)
+        mock_client.get.return_value = [{"name": "owner/repo"}]
 
-        with patch("mcp.dependencies.ANALYSIS_STORE", mock_analysis_store):
+        with patch("mcp.dependencies.get_aria_client", return_value=mock_client):
             result = mock_server.resources["repo://repositories"]()
             data = json.loads(result)
             assert "owner/repo" in data
 
-    def test_repository_metadata_resource(self, mock_server, mock_analysis_store):
+    def test_repository_metadata_resource(self, mock_server, mock_client):
         from mcp.resources.resource_providers import register
 
         register(mock_server)
+        mock_client.get.return_value = {"analysis": {"tech_stack": ["python"]}}
 
-        with patch("mcp.dependencies.ANALYSIS_STORE", mock_analysis_store):
+        with patch("mcp.dependencies.get_aria_client", return_value=mock_client):
             result = mock_server.resources["repo://{owner}/{repo}/metadata"](
                 "owner", "repo"
             )
             data = json.loads(result)
-            assert "metadata" in data
+            assert "tech_stack" in data
 
 
 # ---------------------------------------------------------------------------
@@ -527,26 +487,17 @@ class TestObservabilityIntegration:
 
 
 # ---------------------------------------------------------------------------
-# DI Integration Tests
+# Client DI Integration Tests
 # ---------------------------------------------------------------------------
-class TestDIIntegration:
-    """Verify MCP dependencies bridge reuses existing getters."""
+class TestClientDIIntegration:
+    """Verify MCP dependencies module exports AriaAPIClient."""
 
-    def test_dependencies_module_exports_analysis_store(self):
-        from mcp.dependencies import ANALYSIS_STORE
+    def test_dependencies_module_exports_client(self):
+        from mcp.dependencies import AriaAPIClient, get_aria_client
 
-        assert isinstance(ANALYSIS_STORE, dict)
-
-    def test_dependencies_module_exports_getters(self):
-        from mcp import dependencies as deps
-
-        assert callable(deps.get_symbol_service)
-        assert callable(deps.get_call_graph_service)
-        assert callable(deps.get_dead_code_service)
-        assert callable(deps.get_retrieval_service)
-        assert callable(deps.get_architecture_service)
-        assert callable(deps.get_workspace_service)
-        assert callable(deps.get_report_composer)
+        assert callable(get_aria_client)
+        client = get_aria_client()
+        assert isinstance(client, AriaAPIClient)
 
 
 # ---------------------------------------------------------------------------
@@ -574,7 +525,6 @@ class TestLegacyBackwardCompatibility:
         from backend.mcp_server import TOOLS
 
         tool_names = [t["name"] for t in TOOLS]
-        # Original 7 tools must still be present
         assert "list_repositories" in tool_names
         assert "get_repository_summary" in tool_names
         assert "get_file_symbols" in tool_names

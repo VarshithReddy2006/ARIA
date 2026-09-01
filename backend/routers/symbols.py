@@ -1,4 +1,4 @@
-"""Symbols router — AST Symbol Intelligence (PH2-002).
+"""Symbols router â€” AST Symbol Intelligence (PH2-002).
 
 Endpoints:
   GET /api/symbols/{owner}/{repo}/file/{file_path}
@@ -153,6 +153,35 @@ async def get_symbol_references(
             "get_symbol_references failed for %s/%s: %s",
             repo_name,
             symbol_name,
+            exc,
+            exc_info=True,
+        )
+        raise HTTPException(status_code=500, detail=str(exc))
+
+
+@router.get("/{owner}/{repo}")
+async def get_all_repository_symbols(
+    owner: str,
+    repo: str,
+    service: SymbolService = Depends(get_symbol_service),
+):
+    """Return all indexed symbols (classes, functions, methods) for a repository."""
+    repo_name = f"{owner}/{repo}"
+    try:
+        index = await asyncio.to_thread(service.load, repo_name)
+        if index is None:
+            raise HTTPException(
+                status_code=404,
+                detail=f"No symbols indexed for '{repo_name}'.",
+            )
+        symbols = getattr(index, "symbols", []) or []
+        return [s.model_dump() if hasattr(s, "model_dump") else s for s in symbols]
+    except HTTPException:
+        raise
+    except Exception as exc:
+        logger.error(
+            "get_all_repository_symbols failed for %s: %s",
+            repo_name,
             exc,
             exc_info=True,
         )

@@ -14,6 +14,7 @@ def test_github_service_credentials_not_in_url() -> None:
     with (
         patch("services.github_service.run_safe_command") as mock_run,
         patch("os.path.exists", return_value=False),
+        patch("os.path.isdir", return_value=True),
         patch("os.makedirs"),
     ):
         mock_run.side_effect = [
@@ -21,6 +22,9 @@ def test_github_service_credentials_not_in_url() -> None:
             MagicMock(returncode=0, stdout="HEAD"),  # diagnostics check
             MagicMock(returncode=0, stdout="refs/heads/main"),  # branch check
             MagicMock(returncode=0, stdout=""),  # clone
+            MagicMock(
+                returncode=0, stdout="0123456789abcdef0123456789abcdef01234567"
+            ),  # rev-parse HEAD
         ]
 
         service.clone_repository(repo_url, branch="main")
@@ -80,6 +84,7 @@ def test_github_service_uses_operation_timeouts() -> None:
     with (
         patch("services.github_service.run_safe_command") as mock_run,
         patch("os.path.exists", return_value=False),
+        patch("os.path.isdir", return_value=True),
         patch("os.makedirs"),
     ):
         mock_run.side_effect = [
@@ -87,6 +92,9 @@ def test_github_service_uses_operation_timeouts() -> None:
             MagicMock(returncode=0, stdout="HEAD"),  # diagnostics check
             MagicMock(returncode=0, stdout="refs/heads/main"),  # branch check
             MagicMock(returncode=0, stdout=""),  # clone
+            MagicMock(
+                returncode=0, stdout="0123456789abcdef0123456789abcdef01234567"
+            ),  # rev-parse HEAD
         ]
 
         service.clone_repository(repo_url, branch="main")
@@ -96,6 +104,7 @@ def test_github_service_uses_operation_timeouts() -> None:
         assert mock_run.call_args_list[1][1]["timeout"] == SHORT_GIT_TIMEOUT
         assert mock_run.call_args_list[2][1]["timeout"] == INSPECTION_TIMEOUT
         assert mock_run.call_args_list[3][1]["timeout"] == CLONE_TIMEOUT
+        assert mock_run.call_args_list[4][1]["timeout"] == SHORT_GIT_TIMEOUT
 
 
 @pytest.mark.parametrize(
@@ -179,6 +188,7 @@ def test_clone_repository_includes_low_speed_protection() -> None:
     with (
         patch("services.github_service.run_safe_command") as mock_run,
         patch("os.path.exists", return_value=False),
+        patch("os.path.isdir", return_value=True),
         patch("os.makedirs"),
     ):
         mock_run.side_effect = [
@@ -186,6 +196,7 @@ def test_clone_repository_includes_low_speed_protection() -> None:
             MagicMock(returncode=0, stdout="HEAD"),
             MagicMock(returncode=0, stdout="refs/heads/main"),
             MagicMock(returncode=0, stdout=""),
+            MagicMock(returncode=0, stdout="0123456789abcdef0123456789abcdef01234567"),
         ]
         service.clone_repository("https://github.com/owner/repo.git", branch="main")
 

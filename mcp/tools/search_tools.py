@@ -1,6 +1,7 @@
 """Search MCP Tools.
 
-Exposes codebase querying and semantic search.
+Exposes codebase querying and semantic search via ARIA retrieval API.
+All requests are delegated to the canonical ARIA HTTP API.
 """
 
 import json
@@ -47,41 +48,33 @@ def register(server: Any) -> None:
             query: The question or query to ask about the codebase.
         """
         from mcp.observability import mcp_request_context
-        from mcp.dependencies import get_retrieval_service
+        from mcp.dependencies import get_aria_client
 
         with mcp_request_context(
             "query_codebase", {"owner": owner, "repo": repo, "query": query}
         ):
             with tool_boundary("query_codebase"):
                 repo_name = require_repo(owner, repo)
-                query = require_text("query", query)
-                service = get_retrieval_service()
-                # RetrievalService's public entry point is retrieve_and_answer();
-                # this matches the validated legacy stdio server exactly.
-                result = service.retrieve_and_answer(repo_name, query)
+                query_text = require_text("query", query)
+                client = get_aria_client()
+                result = client.post(
+                    "/api/v1/retrieve",
+                    json={"repo": repo_name, "question": query_text},
+                )
                 if isinstance(result, dict):
-                    answer = result.get("answer", "")
-                    confidence = result.get("confidence", 0.0)
-                    sources = [
-                        s.model_dump() if hasattr(s, "model_dump") else s
-                        for s in result.get("sources", [])
-                    ]
-                    verified = result.get("verified", False)
+                    response = {
+                        "answer": result.get("answer", ""),
+                        "confidence": result.get("confidence", 0.0),
+                        "sources": result.get("sources", []),
+                        "verified": result.get("verified", False),
+                    }
                 else:
-                    answer = getattr(result, "answer", "")
-                    confidence = getattr(result, "confidence", 0.0)
-                    sources = [
-                        s.model_dump() if hasattr(s, "model_dump") else s
-                        for s in getattr(result, "sources", [])
-                    ]
-                    verified = getattr(result, "verified", False)
-
-                response = {
-                    "answer": answer,
-                    "confidence": confidence,
-                    "sources": sources,
-                    "verified": verified,
-                }
+                    response = {
+                        "answer": str(result),
+                        "confidence": 0.0,
+                        "sources": [],
+                        "verified": False,
+                    }
                 return json.dumps(response, indent=2, default=str)
 
     @server.tool()
@@ -95,7 +88,7 @@ def register(server: Any) -> None:
             top_k: Number of results to return (default: 10).
         """
         from mcp.observability import mcp_request_context
-        from mcp.dependencies import get_chroma_store, get_embedding_service
+        from mcp.dependencies import get_aria_client
 
         with mcp_request_context(
             "semantic_search",
@@ -103,22 +96,18 @@ def register(server: Any) -> None:
         ):
             with tool_boundary("semantic_search"):
                 repo_name = require_repo(owner, repo)
-                query = require_text("query", query)
+                query_text = require_text("query", query)
                 if not isinstance(top_k, int) or isinstance(top_k, bool) or top_k < 1:
                     raise ToolInputError(
                         "Invalid params: Argument 'top_k' must be a positive integer."
                     )
-                # StructuralRetrievalEngine.search() never existed, and its
-                # retrieve() replacement takes a policy rather than a top_k and
-                # returns an assembled context. Embedding the query and hitting
-                # the vector store directly is the same two-step the chat
-                # retrieval path uses (services/chat/retrieval.py) and is the only
-                # route that honours this tool's advertised top_k contract.
-                query_embedding = get_embedding_service().generate_embedding(query)
-                results = get_chroma_store().search_repository(
-                    repo_name, query_embedding, limit=top_k
+                client = get_aria_client()
+                # Query retrieval endpoint and return the retrieved sources
+                result = client.post(
+                    "/api/v1/retrieve",
+                    json={"repo": repo_name, "question": query_text},
                 )
-                serialized = [
-                    r.model_dump() if hasattr(r, "model_dump") else r for r in results
-                ]
-                return json.dumps(serialized, indent=2, default=str)
+                sources = []
+                if isinstance(result, dict):
+                    sources = result.get("sources", [])[:top_k]
+                return json.dumps(sources, indent=2, default=str)

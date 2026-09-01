@@ -67,6 +67,7 @@ def test_clone_branch_auto_discovery():
         # 3. branch check: returncode=0, stdout="" (branch does not exist)
         # 4. branch auto-discovery: returncode=0, stdout="ref: refs/heads/master  HEAD"
         # 5. clone master branch: returncode=0 (cloned)
+        # 6. rev-parse HEAD (validate checkout)
         mock_run.side_effect = [
             MagicMock(returncode=0, stdout="HEAD"),  # public check
             MagicMock(returncode=0, stdout="HEAD"),  # diagnostics
@@ -75,16 +76,23 @@ def test_clone_branch_auto_discovery():
                 returncode=0, stdout="ref: refs/heads/master\tHEAD\n"
             ),  # branch discovery
             MagicMock(returncode=0, stdout=""),  # clone
+            MagicMock(
+                returncode=0, stdout="0123456789abcdef0123456789abcdef01234567"
+            ),  # rev-parse HEAD
         ]
 
-        with patch("os.path.exists", return_value=False), patch("os.makedirs"):
+        with (
+            patch("os.path.exists", return_value=False),
+            patch("os.path.isdir", return_value=True),
+            patch("os.makedirs"),
+        ):
             dest = service.clone_repository(
                 "https://github.com/owner/repo.git", branch="main"
             )
             assert "owner_repo" in dest.replace("\\", "/")
 
         # Verify clone command used Master branch
-        clone_call_args = mock_run.call_args_list[-1][0][0]
+        clone_call_args = mock_run.call_args_list[4][0][0]
         assert "--branch" in clone_call_args
         assert "master" in clone_call_args
 

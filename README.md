@@ -1,831 +1,651 @@
 <div align="center">
 
-<br/>
+<img src="frontend/public/favicon.svg" width="72" alt="ARIA">
 
-# 🧠 ARIA
+<h1>ARIA</h1>
 
-### AI-Powered Repository Intelligence Agent
+<h3>AI-Powered Repository Intelligence</h3>
 
 <p>
-ARIA is an AI-powered repository intelligence platform built on the <strong>Repository Intelligence Architecture (RIA)</strong> — a modular, layered architecture designed for AI-native repository understanding. ARIA combines AST analysis, dependency graphs, call graphs, semantic search, AI repository chat, PR intelligence, and a VS Code extension to help developers understand unfamiliar repositories faster. v1.5.0 introduces production-ready <strong>Model Context Protocol (MCP)</strong> servers, enabling AI coding assistants such as Cursor, Claude Desktop, VS Code MCP clients, and MCP Inspector to interact with repository intelligence directly over JSON-RPC 2.0.
+Understand unfamiliar codebases before you change them.
 </p>
 
-<br/>
+<p>
+Architecture · Execution · Contracts · Retrieval · Impact
+</p>
 
-<!-- Status -->
-[![CI](https://img.shields.io/github/actions/workflow/status/VarshithReddy2006/Repo-Intelligence-Agent/ci.yml?branch=main&style=for-the-badge&label=CI)](https://github.com/VarshithReddy2006/Repo-Intelligence-Agent/actions/workflows/ci.yml)
-[![GitHub Stars](https://img.shields.io/github/stars/VarshithReddy2006/Repo-Intelligence-Agent?style=for-the-badge)](https://github.com/VarshithReddy2006/Repo-Intelligence-Agent/stargazers)
-[![GitHub Forks](https://img.shields.io/github/forks/VarshithReddy2006/Repo-Intelligence-Agent?style=for-the-badge)](https://github.com/VarshithReddy2006/Repo-Intelligence-Agent/network/members)
-[![Release](https://img.shields.io/github/v/release/VarshithReddy2006/Repo-Intelligence-Agent?style=for-the-badge)](https://github.com/VarshithReddy2006/Repo-Intelligence-Agent/releases)
+[![CI](https://img.shields.io/github/actions/workflow/status/VarshithReddy2006/ARIA/ci.yml?branch=main&style=for-the-badge&label=CI)](https://github.com/VarshithReddy2006/ARIA/actions/workflows/ci.yml)
+[![GitHub Stars](https://img.shields.io/github/stars/VarshithReddy2006/ARIA?style=for-the-badge)](https://github.com/VarshithReddy2006/ARIA/stargazers)
+[![GitHub Forks](https://img.shields.io/github/forks/VarshithReddy2006/ARIA?style=for-the-badge)](https://github.com/VarshithReddy2006/ARIA/network/members)
+[![Release](https://img.shields.io/github/v/release/VarshithReddy2006/ARIA?style=for-the-badge)](https://github.com/VarshithReddy2006/ARIA/releases)
 ![License](https://img.shields.io/badge/license-MIT-blue?style=for-the-badge)
-![Tests](https://img.shields.io/badge/tests-2780+%20passing-brightgreen?style=for-the-badge)
-![Version](https://img.shields.io/badge/release-v1.5.0-blue?style=for-the-badge)
-![RIA](https://img.shields.io/badge/Architecture-RIA-purple?style=for-the-badge)
+![Version](https://img.shields.io/badge/version-1.5.0-blue?style=for-the-badge)
+![Architecture](https://img.shields.io/badge/Architecture-RIA-purple?style=for-the-badge)
 
-<!-- Stack -->
 <br/>
 
 ![Python](https://img.shields.io/badge/Python-3.11%20|%203.12-3776AB?style=for-the-badge&logo=python&logoColor=white)
-![Node.js](https://img.shields.io/badge/Node.js-%E2%89%A518-339933?style=for-the-badge&logo=nodedotjs&logoColor=white)
-![FastAPI](https://img.shields.io/badge/FastAPI-009688?style=for-the-badge&logo=fastapi&logoColor=white)
-![Astro](https://img.shields.io/badge/Astro%204%20+%20React-FF5D01?style=for-the-badge&logo=astro&logoColor=white)
+![Node.js](https://img.shields.io/badge/Node.js-%E2%89%A520-339933?style=for-the-badge&logo=nodedotjs&logoColor=white)
+![FastAPI](https://img.shields.io/badge/FastAPI-0.110+-009688?style=for-the-badge&logo=fastapi&logoColor=white)
+![Astro](https://img.shields.io/badge/Astro%205%20+%20React%2018-FF5D01?style=for-the-badge&logo=astro&logoColor=white)
 ![Tree-sitter](https://img.shields.io/badge/Tree--sitter-AST-black?style=for-the-badge)
-![ChromaDB](https://img.shields.io/badge/ChromaDB-vector%20store-1C7ED6?style=for-the-badge)
-![Gemini](https://img.shields.io/badge/Gemini%202.5%20Flash-4285F4?style=for-the-badge&logo=google&logoColor=white)
+![Vector Store](https://img.shields.io/badge/Qdrant-Primary%20Vector%20Store-DC2626?style=for-the-badge&logo=qdrant&logoColor=white)
+![Gemini](https://img.shields.io/badge/Gemini%203.1%20Flash%20Lite-4285F4?style=for-the-badge&logo=google&logoColor=white)
 ![DeepSeek](https://img.shields.io/badge/DeepSeek%20V4%20Flash-6C5CE7?style=for-the-badge)
 ![MCP](https://img.shields.io/badge/Model%20Context%20Protocol-MCP-00B4D8?style=for-the-badge)
 ![JSON-RPC](https://img.shields.io/badge/JSON--RPC%202.0-Transport-FF6B6B?style=for-the-badge)
 
 <br/>
 
-[**🎥 Live Demo**](#-live-demo) ·
-[**⚡ Quick Start**](#-quick-start) ·
-[**🚀 Capabilities**](#-capabilities) ·
-[**🏗️ Architecture**](#️-architecture) ·
-[**📡 API Reference**](#-api-reference) ·
-[**🗺️ Roadmap**](#️-roadmap)
+[Overview](#why-aria) · [Mental Model](#the-aria-mental-model) · [Capabilities](#what-aria-provides) · [Architecture](#architecture) · [Foundations](#engineering-foundations) · [Quick Start](#quick-start) · [API](#api-reference) · [MCP](#mcp) · [Performance](#performance--benchmarks) · [Deployment](#deployment) · [Roadmap](#roadmap) · [FAQ](#faq)
 
 <br/>
 
 </div>
----
-
-## 🚀 What's New in v1.5.0
-
-Version **v1.5.0** represents the largest architectural evolution of the project to date.
-
-### Highlights
-
-- 🏗️ Repository Intelligence Architecture (RIA v1)
-- 🌌 Interactive Repository Topology & Scene-Based Product Experience
-- 🤖 Production Model Context Protocol (MCP) Integration Layer
-- ⚡ Dual MCP Server Architecture (Legacy JSON-RPC + FastMCP)
-- 🔍 Graph-Based Repository Intelligence (Directed Dependency Graph, AST Call Graph, Impact Analysis)
-- 🧠 AI Repository Chat v2 & Grounded Semantic Retrieval
-- 📊 Intelligence Reports & Multi-Axis Health Scorecards
-- 🗺️ Centrality-Ranked Onboarding Reading Paths & Executive Insights
-- 🛡️ Resilient Dual LLM Provider Architecture with Deterministic Error Classification
-- 💻 Enhanced VS Code Extension Integration
-- 🧪 Comprehensive Test Suite (2,780+ Passing Automated Tests across Python and Frontend)
-- 🌐 Cross-Platform Production Validation (Windows, Linux, macOS)
 
 ---
 
-## 🎥 Live Demo
+## At a Glance
 
-<p align="center">
-  <a href="https://www.youtube.com/watch?v=evpdcO4QxzI">
-    <img src="docs/assets/demo.gif" width="100%" alt="ARIA Demo">
-  </a>
-</p>
+ARIA is an AI-powered repository intelligence platform built on the **Repository Intelligence Architecture (RIA)** — a modular, layered architecture designed for AI-native repository understanding. ARIA combines Abstract Syntax Tree (AST) parsing, directed dependency graphs, static call graphs, symbol indexing, API surface classification, vector retrieval, and conversational AI to help developers understand unfamiliar repositories before changing them.
 
-<p align="center">
-<strong>▶ Click the GIF to watch the complete demo on YouTube</strong>
-</p>
+ARIA introduces a stateless **Model Context Protocol (MCP)** adapter server over HTTP, enabling AI coding assistants such as Cursor, Claude Desktop, VS Code MCP clients, and MCP Inspector to interact directly with structured repository intelligence.
 
----
+```text
+Traditional RAG
+Repository ──► Chunks ──► Embeddings ──► LLM (Structurally Blind)
 
-# 🚀 Why ARIA?
+─────────────────────────────────────────────────────────────────────────────
 
-Most AI code assistants treat repositories as collections of text chunks. They retrieve similar snippets using embeddings but lack an understanding of the repository's structure.
-
-ARIA takes a different approach.
-
-Before any AI reasoning happens, it builds a structural understanding of the repository using AST parsing, dependency graphs, call graphs, and symbol indexing. This enables the AI to reason about relationships between modules, identify architectural patterns, estimate change impact, and answer questions with structural context rather than semantic similarity alone.
-
-The result is more reliable repository understanding, better developer workflows, and insights that traditional RAG-based systems cannot provide.
-
-As of v1.5.0, the platform is organized around the **Repository Intelligence Architecture (RIA v1)** — a layered architecture that separates the Agent Layer, Application Layer, Domain Layer, Infrastructure Layer, Repository Intelligence Services, Production MCP Integration Layer, API Layer, VS Code Extension, and Dashboard into well-defined boundaries. Every capability — from graph intelligence and semantic search to MCP tool serving and intelligence reports — operates within RIA.
-
-Repository Intelligence Architecture (RIA v1) serves as the architectural foundation of the platform. Every subsystem—including repository analysis, graph intelligence, semantic search, AI reasoning, the Production MCP Integration Layer, REST APIs, the VS Code extension, and future multi-agent workflows—operates within RIA, providing clear boundaries, maintainability, extensibility, and production scalability.
-
-## 🏛️ Architecture Principles
-
-ARIA is built around five engineering principles:
-
-- **Structure Before Semantics** — structural understanding precedes AI reasoning.
-- **Graph-First Intelligence** — dependency graphs and call graphs are first-class knowledge sources.
-- **AI-Native Architecture** — every subsystem is designed for intelligent developer tooling.
-- **Incremental Computation** — recompute only what changes via content-hash detection.
-- **Production-Ready Interfaces** — every capability is exposed consistently through APIs, MCP, and IDE integrations.
+Repository Intelligence Architecture (RIA)
+Repository ──► AST ──► File Graph ──► Call Graph ──► API Surface ──► Symbol Index ──► Qdrant ──► LLM
+```
 
 ---
 
-# 🎯 Who Is This For?
+## Why ARIA?
 
-ARIA is designed for developers and teams who need to understand complex codebases quickly.
+### The Problem
 
-| User | How It Helps |
-|------|--------------|
-| 👨‍💻 **Software Engineers** | Understand unfamiliar repositories without reading hundreds of files. |
-| 🔓 **Open Source Contributors** | Navigate large projects, trace dependencies, and estimate change impact before submitting pull requests. |
-| 🏗️ **Tech Leads & Architects** | Analyze architecture, module coupling, dependency graphs, and code quality. |
-| 🤖 **AI Engineering Teams** | Build AI-powered developer tools on top of structured repository intelligence instead of plain vector search. |
-| 🛠️ **Maintainers** | Detect dead code, architectural drift, hotspot files, and repository health issues. |
+Most codebase AI assistants run the same playbook: split source files into arbitrary text chunks, embed them into vectors, and retrieve snippets by cosine similarity. For prose, that works well. For code, **it is structurally blind.**
 
----
+Code is not a collection of text fragments. It is a directed graph of modules, symbols, interfaces, and call sites. What matters — and what vector similarity cannot surface — is:
 
-## 🖼️ Preview Images
-
-<div align="center">
-  <table>
-    <tr>
-      <td align="center">
-        <div><strong>Codebase Dashboard</strong></div>
-        <img src="docs/assets/dashboard.png" alt="Codebase Dashboard" />
-      </td>
-      <td align="center">
-        <div><strong>Interactive Dependency Graph</strong></div>
-        <img src="docs/assets/graph.png" alt="Interactive Dependency Graph" />
-      </td>
-    </tr>
-    <tr>
-      <td align="center">
-        <div><strong>Streaming Repository Chat</strong></div>
-        <img src="docs/assets/chat.png" alt="Streaming Repository Chat" />
-      </td>
-      <td align="center">
-        <div><strong>Intelligence Report</strong></div>
-        <img src="docs/assets/report.png" alt="Intelligence Report" />
-      </td>
-    </tr>
-  </table>
-</div>
-
-## 🔴 The Problem
-
-Most codebase AI assistants run the same playbook: split source files into chunks, embed them, and retrieve by similarity. For prose, that works well. For code, **it is structurally blind.**
-
-Code is not a collection of text fragments. It is a directed graph of modules, symbols, and call sites. What matters — and what vector similarity cannot surface — is:
-
-| Structural Dimension | What's Missing |
+| Structural Dimension | What's Missing in Text-Only RAG |
 |---|---|
-| 📦 **Import topology** | Which modules depend on which, and in what direction |
-| 🔗 **Call hierarchies** | What a function transitively invokes across files |
-| 🎯 **Reachability** | Which files are actually reached from any entry point |
-| 💥 **Coupling** | Which files will be affected by a given change |
+| **Import topology** | Which modules depend on which, and in what direction |
+| **Call hierarchies** | What a function transitively invokes across files |
+| **Reachability** | Which files are actually reached from any entry point |
+| **Coupling & Blast Radius** | Which files and tests will break if a given interface changes |
+| **API Contracts** | Which routes/symbols are public vs internal vs uncalled |
 
 ```
 Traditional RAG pipeline:
 
-  Repository  →  chunk  →  embed  →  similarity search  →  LLM  →  answer
-                                             ↑
-                              ┌──────────────────────────┐
-                              │   no import graph        │
-                              │   no call graph          │
-                              │   no symbol index        │
-                              │   no reachability        │
-                              │   no change impact       │
-                              └──────────────────────────┘
+  Repository  ──►  chunk  ──►  embed  ──►  similarity search  ──►  LLM  ──►  answer
+                                                  ▲
+                                   ┌──────────────┴─────────────┐
+                                   │   no import graph          │
+                                   │   no call graph            │
+                                   │   no symbol index          │
+                                   │   no API surface contracts │
+                                   │   no reachability traces   │
+                                   │   no blast-radius estimate │
+                                   └────────────────────────────┘
 ```
 
 > [!CAUTION]
 > The result: hallucinated import paths, missed transitive side effects, and zero blast-radius awareness. **Semantic similarity is not a substitute for structural knowledge.**
 
----
+### The Solution
 
-## ✅ The Solution
-
-ARIA runs a **structural analysis pass before any retrieval**. The dependency graph, call graph, and symbol index are built first — from the AST. Retrieval is grounded in that structure, not in raw text similarity.
+ARIA runs a **structural analysis pass before any retrieval**. The dependency graph, call graph, API surface classification, and symbol index are built first — directly from ASTs and Git history. Retrieval is grounded in that structure, not in raw text similarity.
 
 ```
 Repository
- ├── Tree-sitter AST ──────────→  imports · exports · symbols · call sites
+ ├── Tree-sitter AST ──────────►  imports · exports · symbols · call sites · route handlers
  │                                               │
- │                                    NetworkX DiGraph
+ │                                    NetworkX DiGraph & Graph Index
  │                                     ├── BFS reachability traces
- │                                     ├── centrality-ordered reading
- │                                     ├── blast-radius estimation
- │                                     └── architecture drift delta
+ │                                     ├── centrality-ordered reading paths
+ │                                     ├── call graph caller/callee trees
+ │                                     ├── blast-radius propagation
+ │                                     └── API contract exposure & breaking change analysis
  │
- ├── BGE-small-en-v1.5 ────────→  ChromaDB (semantic search)
- └── Git history mining ───────→  churn scores · hotspot files
+ ├── BGE-small-en-v1.5 ────────►  Qdrant Primary Vector Store (ChromaDB Fallback)
+ └── Git history mining ───────►  churn scores · coupling · hotspot files
                                                │
-                                Gemini 2.5 Flash / DeepSeek V4 Flash
+                        Google Gemini 3.1 Flash Lite / DeepSeek V4 Flash
                                                │
                                    Structurally grounded answers
 ```
 
 > [!IMPORTANT]
-> Every LLM call receives retrieved chunks **plus** the structural context that makes those chunks meaningful: which modules import the file, which functions call the symbol, and which other files would be affected by a change.
+> Every LLM call receives retrieved chunks **plus** the structural context that makes those chunks meaningful: which modules import the file, which functions call the symbol, what contracts are exposed, and which downstream files are affected by a change.
 
----
+### Comparison
 
-## ⚡ How We Compare
-
-Traditional RAG tools index text. This tool indexes **your codebase's structure.**
+Traditional RAG tools index text. ARIA indexes **your codebase's architecture, execution, and contracts.**
 
 | Capability | Traditional RAG | ARIA |
 |---|:---:|:---:|
-| 🔍 Semantic code search | ✅ | ✅ |
-| 📦 Dependency graph (import topology) | ❌ | ✅ |
-| 🔗 Call graph (function-level) | ❌ | ✅ |
-| 🏷️ AST symbol index | ❌ | ✅ |
-| 🎯 Reachability traces (BFS) | ❌ | ✅ |
-| 💀 Dead code detection | ❌ | ✅ |
-| 🏗️ Architecture drift detection | ❌ | ✅ |
-| 💥 PR blast-radius scoring | ❌ | ✅ |
-| 🔥 Churn × coupling hotspot analysis | ❌ | ✅ |
-| 🔌 API surface with stability coefficients | ❌ | ✅ |
-| ⚡ Incremental analysis (hash-based) | ❌ | ✅ |
-| 📚 Onboarding reading order | ❌ | ✅ |
-| 🐛 Issue → implementation plan mapping | ❌ | ✅ |
-| 📊 Intelligence Report (HTML / PDF / MD) | ❌ | ✅ |
-| 🧠 Rule-based intent routing (zero LLM overhead) | ❌ | ✅ |
-| 🔄 Circuit-breaker LLM failover | ❌ | ✅ |
-| 📈 Prometheus observability | ❌ | ✅ |
-| 🧠 Model Context Protocol (MCP) | ❌ | ✅ |
-| 🔌 JSON-RPC 2.0 Tool Server | ❌ | ✅ |
-| 🤖 AI Agent Integration (Cursor, Claude Desktop) | ❌ | ✅ |
-| 🖥️ VS Code MCP Client Compatibility | ❌ | ✅ |
+| Semantic code search | Yes | **Yes (Qdrant + BGE-small)** |
+| Dependency graph (import topology) | No | **Yes (NetworkX DiGraph)** |
+| Call graph (function-level hierarchy) | No | **Yes (AST Caller/Callee)** |
+| AST symbol index (classes, functions, methods) | No | **Yes (Tree-sitter)** |
+| API surface & exposure classification | No | **Yes (Public / Internal / Routes)** |
+| Breaking change & contract simulation | No | **Yes** |
+| Reachability traces (BFS graph walks) | No | **Yes** |
+| Dead code & orphan detection | No | **Yes (Cleanup Score 0–100)** |
+| Architecture drift detection | No | **Yes (PR Delta-Patching)** |
+| PR blast-radius scoring | No | **Yes (XS → XL, Low → Extreme)** |
+| Churn × coupling hotspot analysis | No | **Yes (Git Churn Matrix)** |
+| Incremental analysis (hash-based) | No | **Yes (< 2s on small diffs)** |
+| Onboarding reading order | No | **Yes (Centrality-Ranked)** |
+| Grounded Repository Chat | Partial | **Yes (20 Intent Detectors)** |
+| Rule-based intent routing (zero LLM overhead) | No | **Yes** |
+| Circuit-breaker LLM failover | No | **Yes (Gemini ➔ DeepSeek)** |
+| Model Context Protocol (MCP) | No | **Yes (17 Tools via HTTP Adapter)** |
+| IDE Integration (VS Code Extension) | No | **Yes (CodeLens, Hovers, Webviews)** |
+| Prometheus observability | No | **Yes (/metrics)** |
 
 ---
 
-## 🚀 Capabilities
+## The Developer Questions ARIA Answers
 
-<details open>
-<summary><strong>🔬 Repository Analysis</strong></summary>
+Traditional developer tools often answer: *"Where is this code?"*
 
-<br/>
+ARIA is built to answer the questions engineers ask when working in complex or unfamiliar codebases:
 
-**Full structural pipeline** — Clone any public GitHub repository and run AST parsing, embedding, graph construction, and analysis in one command. Pipeline stages run as a DAG — tasks are parallelized where dependencies allow.
-
-**Incremental rebuilds** — Changed files are detected by content hash. On subsequent runs, only modified files are re-parsed, re-embedded, and re-indexed. Small change sets rebuild in **under 2 seconds** (typical development-machine measurements).
-
-**Tech stack detection** — Automatically identifies languages, frameworks, and build tooling from file extensions and configuration files before analysis begins.
-
-</details>
-
-<details open>
-<summary><strong>🧠 Code Intelligence</strong></summary>
-
-<br/>
-
-| Feature | What It Does |
-|---|---|
-| **Symbol Index** | AST-extracted index of every class, function, and method across the repository. Definition lookup and cross-file reference search — no language server required. |
-| **Dead Code Detection** | Reachability sweep from detected entry points across the full dependency graph. Identifies unused files, orphaned modules, and dead dependency chains. Each finding carries a **cleanup score (0–100)** to prioritize remediation. |
-| **API Surface Intelligence** | Classifies every exported symbol as public, internal, or deprecated. Computes Martin's instability coefficients per module. Detects breaking changes between repository versions. |
-| **Churn Analysis** | Mines git commit history to produce per-file churn scores. Identifies **hotspot files** — those with high churn combined with high coupling — with weekly activity timelines. |
-
-</details>
-
-<details open>
-<summary><strong>🌐 Graph Intelligence</strong></summary>
-
-<br/>
-
-**Architecture Graph** — Interactive React Flow dependency graph with search filtering, node neighborhood inspection, forward/backward BFS reachability traces, and DAG/hierarchical layout options. Visualizes the full import topology of the repository.
-
-**Call Graph** — Function-level call graph built from AST analysis. Distinguishes callers from callees with explicit edge directionality, supports call hierarchy walks, and computes blast-radius estimation per function.
-
-**Impact Analysis Graph** — Change-propagation graph tracing how modifications in a specific file or symbol ripple outward to downstream components and automated test suites.
-
-**Shared Edge Semantics** — Cohesive visual and directional edge language distinguishing composition, imports, dependencies, function invocations, and change propagation.
-
-</details>
-
-<details open>
-<summary><strong>💬 Developer Workflows</strong></summary>
-
-<br/>
-
-| Workflow | What It Does |
-|---|---|
-| **Repository Chat** | Streaming chat over any indexed repository via Server-Sent Events. Nine intent types are detected by a rule-based classifier — **no LLM call is made for routing.** Each response includes source citations and a confidence score. |
-| **PR Intelligence** | Risk-scores pull requests by size (XS → XL) and blast radius (LOW → EXTREME). Detects architectural drift by delta-patching the dependency graph against the PR's changed files. |
-| **Issue Mapper** | Maps GitHub issues to source files using embedding retrieval and two targeted LLM calls — one to rank candidate files, one to generate an implementation plan. Results are cached to avoid redundant API calls. |
-| **Executive Insights** | Derives plain-language architectural findings directly from repository metrics — highlighting circular dependencies, density, onboarding effort, test presence, and documentation depth. |
-| **Reading Order Timeline** | Generates a centrality-ranked, step-by-step reading sequence optimized for rapid onboarding to an unfamiliar codebase. |
-
-</details>
-
-<details open>
-<summary><strong>📊 Intelligence Report — The Flagship Output</strong></summary>
-
-<br/>
-
-Aggregates every analysis dimension into a unified health report scored across five axes:
-
-| Dimension | What Is Measured |
-|---|---|
-| 🏗️ **Architecture Stability** | Module coupling · circular dependency depth · instability coefficients |
-| 🔌 **API Quality** | Public / internal / deprecated symbol ratios · breaking change count |
-| 🧹 **Code Hygiene** | Dead code ratio · orphaned module count |
-| 🔥 **Hotspot Risk** | Churn × coupling composite score per file |
-| 📚 **Onboarding Clarity** | Reading-order quality · entry-point coverage |
-
-**Export formats:** Interactive HTML · Print-optimized PDF · Collapsible Markdown *(suitable for GitHub PR comments)*
-
-</details>
-
-<details open>
-<summary><strong>🔌 VS Code Extension Integration</strong></summary>
-
-<br/>
-
-Brings the full power of codebase intelligence directly into your editor:
-
-| Capability | What It Provides |
-|---|---|
-| **Engineering Findings** | Inline list of code smells, coupling issues, and quality recommendations. |
-| **Advisor Dashboard** | Phased refactoring roadmaps and priority recommendations visible inside VS Code. |
-| **Execution Planner** | Interactively trace the generated execution batches, critical paths, and safety checkpoints. |
-| **Hover Intelligence** | Hover over functions, classes, or imports to see AST symbols, definitions, and docstrings. |
-| **CodeLens Triggers** | Actions directly above functions to "Show Callers", "Show Blast Radius", or "Ask Agent". |
-| **Code Actions** | Highlight code and press `Ctrl+.` / `Cmd+.` to request refactoring suggestions. |
-| **Interactive Graph Navigation**| Open Dependency or Call Graphs on a visual canvas within the editor. |
-| **Repository Search & Switching**| Set active repository, search symbols, and switch between codebases instantly. |
-| **Diagnostics & Settings** | Built-in diagnostics view monitoring backend connection status, LLM health, and configurations. |
-| **Recommendation Persistence**| Persistently ignore specific recommendations, which will be cached across indexing cycles. |
-
-</details>
+- **Architecture**: *"How is this repository organized, and where are the architectural boundaries?"*
+- **Execution**: *"What happens when this function executes, and who calls it transitively?"*
+- **Exposure**: *"What does this system expose to external consumers, and what is strictly internal?"*
+- **Impact**: *"Who depends on this module, and what breaks if I modify this signature?"*
+- **Failure Boundaries**: *"Where can this execution flow fail, and which callers handle the error?"*
+- **Hygiene**: *"Is this code still reachable, or is it an orphaned dependency?"*
+- **Onboarding**: *"What is the optimal reading sequence to understand this codebase quickly?"*
 
 ---
 
-## 🧠 Model Context Protocol (MCP)
+## The ARIA Mental Model
 
-The Production MCP Integration Layer is a first-class subsystem within the Repository Intelligence Architecture (RIA v1), exposing repository intelligence capabilities to AI coding assistants through the Model Context Protocol (MCP). Any MCP-compatible client can connect over stdio and invoke tools, query resources, and use prompt templates — without needing the REST API or dashboard.
+ARIA organizes repository intelligence across three primary dimensions:
 
-### Dual MCP Architecture
-
-The project ships two complementary MCP server implementations:
-
-| Server | Entry Point | Transport | Purpose |
-|---|---|---|---|
-| **Legacy MCP Server** | `backend/mcp_server.py` | stdio (JSON-RPC 2.0) | Production stdio server — lightweight, zero SDK dependencies, direct JSON-RPC over stdin/stdout |
-| **FastMCP Server** | `mcp/server.py` | stdio · SSE | FastMCP SDK integration — automatic tool discovery, resource templates, prompt templates, and Server-Sent Events support |
-
-### Supported MCP Clients
-
-| Client | Status |
-|---|:---:|
-| 🖱️ **Cursor** | ✅ Verified |
-| 🤖 **Claude Desktop** | ✅ Verified |
-| 🔌 **VS Code MCP** | ✅ Verified |
-| 🔍 **MCP Inspector** | ✅ Verified |
-| 🛠️ **Custom JSON-RPC Clients** | ✅ Compatible |
-
-> **Production Validation Status (v1.5.0):** JSON-RPC 2.0 compliant · Legacy stdio server verified · FastMCP server verified · Cursor verified · Claude Desktop verified · VS Code MCP verified · MCP Inspector verified · Cross-platform transport validated (Windows, Linux, macOS)
-
-### Transport Support
-
-| Transport | Server | Status |
-|---|---|:---:|
-| **stdio** | Legacy MCP + FastMCP | ✅ |
-| **Server-Sent Events (SSE)** | FastMCP | ✅ |
-
-### Production Features
-
-- **JSON-RPC 2.0 compliant** — full protocol conformance with proper error codes
-- **Automatic Tool Discovery** — tools are registered from decorated handler functions
-- **Resource Templates** — repository-scoped resources for structured data access
-- **Prompt Templates** — pre-built prompts for common analysis workflows
-- **Structured Error Responses** — client-safe error messages with traceback sanitization
-- **Windows / Linux / macOS validated** — cross-platform stdio transport verified
-- **Production-ready transport** — unbuffered I/O, graceful shutdown, pipe safety guards
-- **Manual MCP Inspector verification** — every tool validated through interactive Inspector sessions
-
-### 🔧 MCP Tool Inventory
-
-<details open>
-<summary><strong>Repository Tools</strong></summary>
-
-<br/>
-
-| Tool | Description |
-|---|---|
-| `list_repositories` | List all indexed repositories |
-| `get_repository_summary` | Full structural summary for a repository |
-| `query_codebase` | Natural language query over indexed code |
-
-</details>
-
-<details open>
-<summary><strong>Navigation Tools</strong></summary>
-
-<br/>
-
-| Tool | Description |
-|---|---|
-| `get_file_symbols` | AST-extracted symbols for a file |
-| `get_symbol_definition` | Definition lookup across the repository |
-| `get_symbol_references` | Cross-file reference search |
-
-</details>
-
-<details open>
-<summary><strong>Architecture Tools</strong></summary>
-
-<br/>
-
-| Tool | Description |
-|---|---|
-| `get_call_graph` | Function-level call graph |
-| `get_dead_code` | Reachability sweep for unused code |
-| `get_impact_analysis` | Change impact prediction |
-
-</details>
-
-<details>
-<summary><strong>Extended FastMCP Tools</strong></summary>
-
-<br/>
-
-| Tool | Description |
-|---|---|
-| `semantic_search` | Embedding-based code search |
-| `architecture_overview` | High-level architecture summary |
-| `dependency_analysis` | Module dependency analysis |
-| `api_surface` | Public/internal API classification |
-| `workspace_snapshot` | Consolidated workspace metrics |
-| `health_report` | Repository health scorecard |
-| `execution_trace` | Execution plan trace |
-| `report_generation` | Intelligence report generation |
-
-</details>
-
-### 🚀 MCP Quick Start
-
-```bash
-# Start the MCP server (communicates over stdio using JSON-RPC 2.0)
-python -m backend.cli mcp
+```
+┌─────────────────────────────────────────────────────────────────────────┐
+│                        ARIA INTELLIGENCE MODELS                         │
+├─────────────────────────┬─────────────────────────┬─────────────────────┤
+│       FILE GRAPH        │       CALL GRAPH        │     API SURFACE     │
+│   Architecture / Spatial│   Execution / Temporal  │  Contract / Exposure│
+│                         │                         │                     │
+│  "How is this           │  "What happens when     │  "What does this    │
+│   repository            │   the software runs?"   │   system expose, who│
+│   organized?"           │                         │   depends on it, and│
+│                         │                         │   what happens if I │
+│                         │                         │   change it?"       │
+└─────────────────────────┴─────────────────────────┴─────────────────────┘
 ```
 
-The server reads JSON-RPC requests from stdin and writes responses to stdout. Connect directly from any MCP-compatible client:
+### File Graph — Architecture / Spatial
+- **Question Answered**: *"How is this codebase structured, what are the module boundaries, and where are circular dependencies?"*
+- **Mechanism**: Tree-sitter AST extraction builds a directed import graph. NetworkX calculates modularity clusters, in-degree/out-degree centralities, dependency cycles, and topological layers.
 
-- **Cursor** — Add to your MCP configuration
-- **Claude Desktop** — Register in `claude_desktop_config.json`
-- **VS Code MCP** — Configure as an MCP server in settings
-- **MCP Inspector** — Connect via `npx @modelcontextprotocol/inspector`
+### Call Graph — Execution / Temporal
+- **Question Answered**: *"What executes when a function is invoked, who calls it, and what is the blast radius of changing it?"*
+- **Mechanism**: Static AST traversal maps function invocations across files, linking caller/callee hierarchies, tracing transitive execution chains, and identifying hotspot functions.
 
-### MCP Architecture
+### API Surface — Contract / Exposure
+- **Question Answered**: *"What endpoints and symbols does this system expose, who depends on them internally, and what happens if I alter a contract?"*
+- **Mechanism**: Discovers HTTP route decorators (FastAPI, Express, Flask, etc.), public/internal exported symbols, detects uncalled routes, extracts schema contracts, and evaluates breaking change risk.
+
+---
+
+## What ARIA Provides
+
+### Repository Analysis
+- **End-to-End Pipeline**: Clones public or private GitHub repositories, runs AST parsing, vector embedding, graph construction, and metric scoring in one workflow.
+- **Incremental Builds**: Detects changed files using SHA-256 content hashes. Only modified files are re-parsed, re-embedded, and re-indexed. Small change sets rebuild in **under 2 seconds**.
+- **Tech Stack Detection**: Automatically identifies languages, frameworks, package managers, and configuration files before pipeline execution.
+
+### Structural Code Intelligence
+- **Symbol Indexing**: AST-extracted index of every class, function, method, and variable across the repository with file-slice metadata (`start_line`, `end_line`).
+- **Definition & Reference Resolution**: Fast O(1) definition lookup and cross-file reference search without requiring external language server daemons.
+- **Churn & Coupling Matrix**: Mines git commit history to calculate per-file churn rates, identifying hotspot files that combine high change frequency with heavy coupling.
+
+### File Graph
+- **Interactive Topology**: React Flow canvas with Dagre hierarchical layout, node search filtering, and neighborhood exploration.
+- **Architecture Clustering**: Groups files into cohesive architectural domains based on import density.
+- **Reachability Tracing**: Forward and backward BFS traces showing exact dependency paths from any file.
+
+### Call Graph
+- **Function-Level Execution**: Traces exact caller and callee trees across files.
+- **Blast Radius Computation**: Calculates the percentage and list of downstream files and functions affected if a given function changes.
+- **Critical Path Identification**: Highlights deeply nested or highly connected execution paths.
+
+### API Surface Intelligence
+- **Route & Interface Discovery**: Discovers HTTP routes (path, HTTP method, handler function) and public interface boundaries.
+- **No-Internal-Caller Analysis**: Identifies public API routes and exports that have no internal callers within the repository.
+- **Contract Inspection & Schemas**: Extracts request and response schema structures from signatures and models.
+- **Change Impact Simulation**: Evaluates proposed modifications against API contracts, assigning evidence levels and risk scores.
+
+### Retrieval
+- **Hybrid Retrieval Architecture**: Blends semantic vector search with structural graph context.
+- **Zero Per-Chunk Filesystem Reads**: Line slices and metadata are pre-indexed in memory.
+- **Memoized Symbol Access**: Resolves symbols directly from in-memory lookup tables.
+- **Active-Version Caching**: Normalized queries are cached against active snapshot versions.
+
+### Repository Chat
+- **20 Intent Enum Values (19 Specialized Domain Intents + UNKNOWN)**: Classifies questions across 20 intent enum values (19 specialized domain categories: `API_SURFACE`, `CALL_GRAPH`, `ARCHITECTURE`, `FILE_EXPLANATION`, `SYMBOL`, `SYMBOL_EXPLANATION`, `DEPENDENCY`, `CIRCULAR_DEPENDENCY`, `IMPACT_ANALYSIS`, `CHANGE_PLANNING`, `DEBUGGING`, `READING_ORDER`, `HEALTH`, `DEAD_CODE`, `SECURITY`, `GIT_HISTORY`, `PR_RISK`, `API_FLOW`, `GENERAL_QA`, plus `UNKNOWN`) with zero LLM overhead using deterministic regex and keyword matching.
+- **Context Construction**: Assembles AST snippets, call paths, dependency chains, and retrieved code chunks within strict token budgets.
+- **Streaming Responses**: Server-Sent Events (SSE) stream token deltas in real-time, concluding with verified file citations and confidence scores.
+
+### Impact Analysis
+- **Natural Language Impact Prediction**: Accepts a description of an intended change (e.g. *"Refactor auth middleware to JWT"*) and predicts impacted files, callers, and test suites.
+- **Transitive Dependency Walks**: Propagates changes across import graphs and call hierarchies.
+
+### Dead Code
+- **Reachability Sweep**: Traverses the dependency graph from detected entry points to uncover orphaned files and unreachable functions.
+- **Cleanup Score (0–100)**: Prioritizes remediation based on file size, isolation, and dead dependency chain depth.
+
+### Git History / Churn
+- **Commit History Mining**: Calculates change frequency, author ownership, and churn trends over time.
+- **Hotspot Detection**: Correlates high churn with architectural centrality to identify maintenance risks.
+
+### PR Intelligence
+- **Risk Scoring**: Evaluates pull requests by size (XS → XL) and blast radius (LOW → EXTREME).
+- **Architecture Drift Detection**: Delta-patches the dependency graph against changed files to detect newly introduced dependency cycles or architectural violations.
+
+### Reading Path
+- **Centrality-Ranked Onboarding**: Generates a step-by-step reading sequence based on graph centrality, guiding new engineers through entry points, core abstractions, and leaf modules.
+
+### Health Reports
+- **Multi-Axis Health Scorecard**: Scores repositories across Architecture Stability, API Quality, Code Hygiene, Hotspot Risk, and Onboarding Clarity.
+- **Multi-Format Export**: Generates Interactive HTML, Print-Optimized PDF, and Markdown suitable for GitHub PR comments.
+
+### Advisor
+- **AI Engineering Advisor**: Analyzes architectural debt, circular imports, and dead code to produce prioritized, actionable engineering recommendations.
+
+### Execution Planner
+- **Phased Implementation Plans**: Converts refactoring recommendations into concrete, dependency-ordered task batches with rollback safety checkpoints.
+
+### MCP
+- **Model Context Protocol Server**: Exposes 17 repository intelligence tools to AI coding assistants (Claude Desktop, Cursor, VS Code MCP) via a stateless protocol adapter over HTTP.
+
+### VS Code
+- **ARIA VS Code Extension**: In-editor CodeLens (*"Show Callers"*, *"Show Blast Radius"*, *"Ask Agent"*), symbol hover cards, sidebar panels (Findings, Advisor, Execution Plan), and embedded interactive graph webviews.
+
+---
+
+## Architecture
+
+### System Architecture
 
 ```mermaid
 flowchart TD
-    A["AI Client\nCursor · Claude Desktop · VS Code MCP · Inspector"] -->|"JSON-RPC 2.0\nstdio"| B["Legacy MCP Server\nbackend/mcp_server.py"]
-    A -->|"JSON-RPC 2.0\nstdio · SSE"| C["FastMCP Server\nmcp/server.py"]
-
-    B --> D["Repository Intelligence Services"]
-    C --> D
-
-    subgraph services["Intelligence Layer"]
-        D --> D1["Symbol Service"]
-        D --> D2["Call Graph Service"]
-        D --> D3["Dead Code Service"]
-        D --> D4["Retrieval Engine"]
-        D --> D5["Architecture Service"]
+    subgraph clients["Client Interfaces"]
+        W["Web Dashboard\nAstro 5 + React 18\n:4321"]
+        V["VS Code Extension\nTypeScript"]
+        M["MCP Clients\nCursor · Claude Desktop"]
     end
 
-    subgraph data["Data Layer"]
-        D1 --> S1[("Analysis Store")]
-        D2 --> S1
-        D3 --> S1
-        D4 --> S2[("ChromaDB")]
-        D5 --> S3[("NetworkX DiGraph")]
+    subgraph adapter["Protocol Adapters"]
+        MA["Stateless MCP Adapter\nmcp/server.py · FastMCP 1.x"]
     end
+
+    subgraph api["Canonical ARIA API Gateway (:8001)"]
+        GW["FastAPI Core\n/api/v1 REST & SSE"]
+        MW["Security Middleware\nAPI Key · TrustedHost · RateLimit · RequestId"]
+        CONC["Concurrency Layer\nAnalysisTarget · Inter-Process Locks · Bounded Workers"]
+    end
+
+    subgraph services["Repository Intelligence Services"]
+        ING["Ingestion & Parsing\nTree-sitter AST · Symbols"]
+        GRP["Graph Intelligence\nNetworkX DiGraph · Call Graph"]
+        API_SRV["API Surface Service\nRoute Discovery · Contracts"]
+        RET["Hybrid Retrieval\n20 Intent Detectors · Context Builder"]
+        REP["Report Service\nScorecards · HTML/PDF/MD"]
+    end
+
+    subgraph storage["Storage & Vectors"]
+        QD[("Qdrant (Primary)\nVector Store")]
+        CH[("ChromaDB (Fallback)\nLocal Store")]
+        SQL[("SQLite Fact Store\nReports & Caches")]
+    end
+
+    subgraph llm["LLM Failover Engine"]
+        PM["Provider Manager\nCircuit Breaker"]
+        GEM["Google Gemini\ngemini-3.1-flash-lite (Primary)"]
+        DS["DeepSeek V4 Flash\nNVIDIA NIM (Fallback)"]
+        FB["Deterministic Fallback\nNo-LLM Renderer"]
+    end
+
+    W -->|"HTTP / SSE"| GW
+    V -->|"HTTP / SSE"| GW
+    M -->|"JSON-RPC (stdio/SSE)"| MA
+    MA -->|"HTTP (/api/v1)"| GW
+
+    GW --> MW --> CONC
+    CONC --> ING
+    CONC --> GRP
+    CONC --> API_SRV
+    CONC --> RET
+    CONC --> REP
+
+    ING --> QD
+    ING --> CH
+    ING --> SQL
+    GRP --> SQL
+    API_SRV --> SQL
+
+    RET --> QD
+    RET --> CH
+    RET --> PM
+
+    PM -->|"Primary"| GEM
+    PM -->|"Failover"| DS
+    PM -->|"Offline"| FB
 ```
 
-## 💡 Why RIA?
+### Analysis Pipeline
 
+ARIA processes repository structures through two complementary lenses:
+
+#### Canonical 13-Phase Build Pipeline
+1. **Target Acquisition**: Validates and checks out `AnalysisTarget` (`owner/repo@branch`).
+2. **Tech Stack Detection**: Inspects manifest files, package configs, and language markers.
+3. **AST Parsing**: Multi-language Tree-sitter parsing extracting classes, functions, and imports.
+4. **Symbol Indexing**: Pre-indexes symbol names, signatures, and line boundary metadata.
+5. **Dependency Graphing**: Constructs directed import topology with cycle detection.
+6. **Call Graph Synthesis**: Maps static function invocations and caller/callee trees.
+7. **API Surface Classification**: Discovers HTTP routes, public symbols, and uncalled endpoints.
+8. **Token-Aware Chunking**: Slices files along syntax boundaries with line-range preservation.
+9. **Vector Embedding**: Encodes chunk semantics via `bge-small-en-v1.5`.
+10. **Vector Store Ingestion**: Stages and publishes indexed vectors atomically into Qdrant.
+11. **Inspection & Dead Code**: Sweeps reachability from entry points and flags code smells.
+12. **Git History Mining**: Extracts commit churn matrices and correlates hotspot files.
+13. **Scorecard & Report Generation**: Compiles multi-axis metrics, snapshots, and export artifacts.
+
+#### Simplified Conceptual Pipeline
 ```text
-Traditional RAG
-
-Repository
-      │
-      ▼
-Chunks
-      │
-      ▼
-Embeddings
-      │
-      ▼
-LLM
-
-────────────────────────────
-
-Repository Intelligence Architecture (RIA)
-
-Repository
-      │
-      ▼
-AST
-      │
-      ▼
-Knowledge Graph
-      │
-      ▼
-Dependency Graph
-      │
-      ▼
-Call Graph
-      │
-      ▼
-Symbol Index
-      │
-      ▼
-Semantic Search
-      │
-      ▼
-LLM
+Clone ──► Parse ──► Embed ──► Index ──► Graph ──► Analyze ──► Reason ──► Deliver
 ```
 
----
+### Client/API Boundary
 
-## 🏗️ Architecture — Repository Intelligence Architecture (RIA)
+All clients communicate exclusively through the canonical ARIA REST API (`/api/v1`):
 
-```mermaid
-flowchart TD
-    A["Astro 4 + React\n:4321"] -->|"HTTP · SSE"| B["FastAPI Gateway\n:8001\n\nRateLimit · GZip · CORS\nRequestId · Prometheus"]
-
-    B --> C["Analysis Pipeline"]
-    B --> D["Chat Pipeline v2"]
-
-    subgraph ingestion["Ingestion & Indexing"]
-        C --> C1["GitHub Clone"]
-        C1 --> C2["Tree-sitter AST\nimports · exports · symbols"]
-        C2 --> C3["BGE Embeddings\nbge-small-en-v1.5"]
-        C3 --> C4[("ChromaDB\nvector store")]
-        C2 --> C5[("NetworkX DiGraph\ndependency + call graph")]
-        C2 --> C6["Symbol Index\ncross-file references"]
-    end
-
-    subgraph chat["Chat Pipeline"]
-        D --> D1["Intent Detector\n9 types · rule-based\nzero LLM overhead"]
-        D1 --> D2["Intent Router"]
-        D2 --> D3["Retrieval + Rerank\ntop-15 → top-5"]
-        D3 --> D4["Context Builder\ntoken budget management"]
-        D4 --> D5["ProviderManager\ncircuit breaker · failover"]
-    end
-
-    subgraph llm["LLM Layer"]
-        D5 -->|"primary"| L1["Gemini 2.5 Flash"]
-        D5 -->|"fallback"| L2["DeepSeek V4 Flash\nNVIDIA NIM"]
-        D5 -->|"no-LLM mode"| L3["Fallback Renderer\nstructured response"]
-    end
-
-    subgraph storage["Data Layer"]
-        C4
-        C5
-        DB1[("SQLite\nreports · state")]
-        DB2["JSON Snapshots\nanalysis cache"]
-        CA["In-memory Cache\nschema-versioned"]
-    end
-
-    C4 --> D3
-    C5 --> D3
+```
+Web Dashboard ──────┐
+VS Code Extension ──┼──►  Canonical ARIA API (/api/v1)  ──►  Internal Services & Storage
+MCP Protocol Adapter┘
 ```
 
-The platform is organized around the **Repository Intelligence Architecture (RIA)**, which separates concerns across well-defined layers: the **API Layer** (FastAPI gateway), the **Application Layer** (analysis and chat pipelines), the **Domain Layer** (graph, symbol, and retrieval services), the **Infrastructure Layer** (ChromaDB, NetworkX, SQLite), and the **MCP Integration Layer** (Legacy + FastMCP servers). The Dashboard (Astro 4 + React) and VS Code Extension consume these layers through REST APIs and Workspace snapshots.
+- **Zero Direct Storage Access**: Clients and adapters never query Qdrant, SQLite, or internal files directly.
+- **Consistent Security & Observability**: All operations traverse rate limiting, API key authentication, request tracing, and Prometheus metrics.
 
-> 🗂️ Full component diagrams, sequence diagrams, and mathematical models are documented in [ARCHITECTURE.md](ARCHITECTURE.md).
+### MCP Boundary
 
-### 🧬 Codebase Intelligence Pipeline
+The MCP integration operates as a stateless HTTP adapter:
 
-The Repository Intelligence Architecture processes repository structures through an end-to-end multi-tier pipeline:
-1. **Repository Ingestion**: Clones files and identifies program stacks.
-2. **Digital Twin**: Generates a local AST representation of all code symbols, imports, and exports.
-3. **Knowledge Graph**: Builds a directed import graph and function call graph via NetworkX.
-4. **Inspection Pipeline**: Automatically sweeps the graph to detect circular dependencies, code smells, and dead code.
-5. **AI Advisor**: Evaluates findings and generates prioritized recommendations and phased engineering roadmaps.
-6. **Execution Planner**: Formulates concrete, conflict-free execution plans with rollback safety checkpoints.
-7. **Workspace APIs**: Consolidates all metrics, findings, and plan states into a unified snapshot endpoint.
-8. **VS Code Extension**: Consumes the Workspace APIs to power hovers, tree views, and graph webviews.
+```
+┌────────────────────────┐
+│  AI Coding Assistant   │ (Cursor / Claude Desktop / VS Code MCP)
+└───────────┬────────────┘
+            │ stdio / SSE (JSON-RPC 2.0)
+┌───────────▼────────────┐
+│   ARIA FastMCP Server  │ (mcp/server.py)
+└───────────┬────────────┘
+            │ HTTP /api/v1 (AriaAPIClient)
+┌───────────▼────────────┐
+│   Canonical ARIA API   │ (backend/api.py)
+└────────────────────────┘
+```
 
----
-
-## ⚙️ How It Works
-
-Each repository analysis runs through **eight sequential stages.** Incremental mode re-runs only stages 2–6 for files that have changed since the last run.
-
-<details>
-<summary><strong>View the 8-stage analysis pipeline</strong></summary>
-
-<br/>
-
-| Stage | Name | Input → Output | Why It Matters |
-|:---:|---|---|---|
-| **1** | **Clone** | GitHub URL → local working copy | Provides the file tree and git history for all downstream stages |
-| **2** | **Parse** | Source files → AST nodes | Extracts structural information that text chunking cannot recover |
-| **3** | **Embed** | Code chunks → BGE-small-en-v1.5 vectors | Enables semantic search over code semantics |
-| **4** | **Index** | Vectors + metadata → ChromaDB | Persists embeddings for retrieval without re-encoding on each query |
-| **5** | **Graph** | AST import/call nodes → NetworkX DiGraph | Enables reachability traces, centrality ranking, and blast-radius estimation |
-| **6** | **Analyze** | Graph + git history → scores + findings | Produces the structural intelligence that grounds LLM responses |
-| **7** | **Reason** | Query + chunks + structural context → answer | LLM operates on structurally filtered context, not raw similarity results |
-| **8** | **Deliver** | All outputs → Dashboard · Chat · Report · REST API | Multiple consumption surfaces for different developer workflows |
-
-</details>
-
-> [!TIP]
-> **Why incremental is fast:** Subsequent runs skip re-embedding and re-indexing for unchanged files. Only files whose content hash has changed are re-processed through the pipeline. Graph nodes for unchanged files are read from the schema-versioned in-memory cache rather than recomputed (typical development-machine measurements).
-
-## 📈 Repository Statistics
-
-| Category | Details |
-|-----------|----------|
-| Architecture | Repository Intelligence Architecture (RIA v1) |
-| Languages | Python, TypeScript, JavaScript |
-| AI Providers | Google Gemini, DeepSeek (via NVIDIA NIM) |
-| Knowledge Layer | AST + Dependency Graph + Call Graph + Symbol Index |
-| Retrieval | ChromaDB + Local Semantic Search (BGE-small) |
-| AI Interfaces | REST API + Production MCP Integration Layer |
-| IDE Integration | VS Code Extension |
-| Dashboard | Astro 4 + React 18 (with Interactive Software Topology) |
-| Automated Tests | 2,780+ Passing Tests (2,531 Python + 248 Frontend) |
+- **Decoupled Lifecycle**: The MCP server runs independently and can connect to a local or remote ARIA backend.
+- **Error Normalization**: HTTP error codes (404, 429, 500) are mapped to standard JSON-RPC 2.0 tool errors with sanitized messages.
 
 ---
 
-## 🛠️ Technology Stack
+## Engineering Foundations
+
+### Concurrency
+- **Canonical `AnalysisTarget`**: Deterministic identity model (`owner/repo@branch`) prevents working tree collisions across threads and processes.
+- **Inter-Process Locking**: Cross-process lockfiles (`interprocess_file_lock`) serialize concurrent analyses of the same repository/branch while allowing parallel analysis of different repositories.
+- **Bounded Worker Pool**: Background analysis concurrency is capped by `ARIA_MAX_CONCURRENT_ANALYSES` (defaulting safely based on CPU cores).
+- **Job Deduplication**: Redundant analysis requests for in-flight repositories automatically attach to the running task without spawning duplicate jobs.
+
+### Repository Isolation
+- **Sandboxed Clones**: Target repositories are cloned into isolated directories with strict path validation preventing directory traversal.
+- **Clean State Routines**: Switching repositories cleans active graph memory and cache entries.
+
+### Retrieval Performance
+- **Pre-Indexed Line Slices**: Chunk boundaries (`start_line`, `end_line`) are stored during indexing, eliminating per-chunk disk reads during retrieval.
+- **O(1) Symbol Lookups**: File symbols and symbol definitions resolve from in-memory hash maps.
+- **Parallel Fan-Out**: Vector search and graph traversals execute concurrently during retrieval assembly.
+
+### Caching
+- **Schema-Versioned In-Memory Cache**: Stores parsed ASTs, graph nodes, and metrics with automatic invalidation on schema changes.
+- **Active-Version Query Cache**: Normalized user queries are cached against the active repository snapshot hash.
+
+### LLM Failover
+- **Dual-Provider Architecture**: Google Gemini (`gemini-3.1-flash-lite`) serves as primary; DeepSeek (`deepseek-ai/deepseek-v4-flash-0731` via NVIDIA NIM) serves as fallback.
+- **Circuit Breaker**: Tracks consecutive errors (threshold: 3) and opens a 60-second cooldown window, routing traffic to DeepSeek.
+- **Deterministic Error Classification**: Categorizes provider exceptions into actionable types (`MISSING_CREDENTIALS`, `AUTHENTICATION_ERROR`, `RATE_LIMIT_ERROR`, `TIMEOUT_ERROR`, `SERVER_ERROR`).
+- **No-LLM Fallback Renderer**: If all external providers are unavailable, ARIA renders structured responses directly from graph facts.
+
+### Reliability
+- **Fail-Fast Startup**: In `APP_ENV=production`, missing API keys or invalid host configurations halt startup with actionable logs.
+- **Safe Exception Handlers**: Internal stack traces and secrets are stripped from API responses.
+
+### Observability
+- **Prometheus Metrics**: Exposes HTTP request counts, active request gauges, build duration histograms, and cache hit/miss counters at `/metrics`.
+- **Structured JSON Logging**: Request IDs (`X-Request-ID`) trace every request across middleware and background workers.
+
+### Security
+- **API Key Enforcement**: `APIKeyMiddleware` validates incoming keys against `API_KEY`.
+- **Host Validation**: `HealthExemptTrustedHostMiddleware` enforces `ALLOWED_HOSTS` while exempting `/health` and `/ready` probes.
+- **Rate Limiting**: Sliding-window limiter restricts request rates per IP.
+
+---
+
+## Technology Stack
 
 | Layer | Technology | Purpose |
 |---|---|---|
-| Frontend | Astro 4 + React 18 | Dashboard, interactive topology, chat UI, report viewer |
-| Graph UI | React Flow + Dagre | Architecture, call graph, and impact graph visualization |
-| Backend | FastAPI | Async API gateway, middleware stack, Server-Sent Events |
-| AST Parsing | Tree-sitter | Language-agnostic symbol, import, and call site extraction |
-| Embeddings | BAAI/bge-small-en-v1.5 | Local code chunk vector encoding — **no external API cost** |
-| Vector Store | ChromaDB | Persistent local vector search and similarity retrieval |
-| Graph Engine | NetworkX | Directed graphs, BFS traversal, centrality ranking, cycle detection |
-| Primary LLM | Gemini 2.5 Flash | Structured reasoning, explanation, and grounded answers |
-| Fallback LLM | DeepSeek V4 Flash (NVIDIA NIM) | Secondary provider managed via circuit-breaker failover |
-| Error Classification | Deterministic ProviderErrorType | Classifies SDK errors into 9 actionable categories with remediation guidance |
-| Persistence | SQLite + JSON snapshots | Reports, workspace caches, and analysis snapshots |
-| Metrics | Prometheus | HTTP request metrics and build pipeline histograms |
-| MCP | Model Context Protocol | JSON-RPC 2.0 tool server for AI coding assistants (Cursor, Claude Desktop, VS Code) |
-| Testing & Quality | pytest + Node Test Runner | 2,780+ automated tests across backend, frontend, and MCP suites |
-
-<details>
-<summary><strong>View directory layout</strong></summary>
-
-```
-Repo-Intelligence-Agent/
-├── backend/
-│   ├── api.py                     # App factory, middleware stack, router registration
-│   ├── main.py                    # Uvicorn entry point with watch-dir filtering
-│   ├── settings.py                # Pydantic Settings — all configuration via env vars
-│   ├── dependencies.py            # Service singletons and analysis store
-│   ├── security_middleware.py     # Sliding-window rate limiter (per IP)
-│   ├── metrics_middleware.py      # Prometheus HTTP metrics
-│   └── routers/                   # One router module per feature domain
-│
-├── services/
-│   ├── chat/                      # Chat v2 pipeline
-│   │   ├── retrieval_pipeline.py  # Authoritative pipeline entry point
-│   │   ├── intent_detector.py     # Rule-based classifier, 9 intent types
-│   │   ├── intent_router.py       # Routes intents to structured services
-│   │   ├── conversation_memory.py # Session memory and pronoun resolution
-│   │   ├── retrieval.py           # Tier-weighted chunk reranking
-│   │   ├── context_builder.py     # Token budget management
-│   │   ├── provider_manager.py    # Circuit breaker and provider failover
-│   │   └── fallback_renderer.py   # Structured response without LLM
-│   ├── llm/
-│   │   ├── gemini_provider.py     # Gemini 2.5 Flash integration
-│   │   ├── deepseek_provider.py   # DeepSeek V4 Flash via NVIDIA NIM
-│   │   ├── provider_errors.py     # Deterministic ProviderError classification
-│   │   └── provider_factory.py    # Singleton, hot-reload, startup validation
-│   ├── report/
-│   │   ├── composer.py            # Assembles ReportDataModel from all services
-│   │   └── renderer.py            # HTML, Markdown, and PDF renderers
-│   └── *.py                       # Architecture, graph, symbol, PR, drift, churn services
-│
-├── agents/                        # IssueMapper, EvaluationAgent
-├── core/
-│   ├── cache.py                   # Schema-versioned in-memory cache
-│   ├── change_detector.py         # File hash-based incremental detection
-│   ├── analysis_registry.py       # DAG task registry
-│   └── build_pipeline.py          # DAG orchestration
-├── ria/                           # Repository Intelligence Architecture (RIA) — v1.5.0
-│   ├── agent/                     # Agent Layer
-│   ├── application/               # Application Layer
-│   ├── domain/                    # Domain Layer
-│   ├── infrastructure/            # Infrastructure Layer
-│   ├── plugins/                   # Language plugins and extensions
-│   ├── search/                    # Semantic search services
-│   ├── query/                     # Query engine and ports
-│   ├── knowledge/                 # Knowledge graph services
-│   ├── ports/                     # Hexagonal port interfaces
-│   └── container.py               # Dependency injection container
-├── mcp/
-│   ├── server.py                  # FastMCP server — automatic tool discovery, resources, prompts
-│   ├── tools/                     # MCP tool handlers (repository, symbol, architecture, search, analysis, report, workspace)
-│   └── resources/                 # MCP resource providers
-│
-├── memory/                        # ChromaStore adapter
-├── models/                        # Pydantic domain models
-├── storage/                       # JsonSnapshotStore, SQLite migrations
-├── frontend/                      # Astro 4 + React dashboard & interactive topology
-├── tests/                         # 2,780+ passing tests (backend + frontend + extension + MCP)
-└── docs/                          # Extended documentation
-```
-
-</details>
+| **Backend Framework** | Python 3.11+ / FastAPI | Asynchronous REST gateway, middleware, and Server-Sent Events |
+| **AST Parsing** | Tree-sitter (Python, JS, TS) | Multi-language syntactic analysis and symbol extraction |
+| **Graph Engine** | NetworkX 3.x | Directed dependency graphs, BFS reachability, cycle detection |
+| **Primary Vector Store** | Qdrant (Cloud / Local) | High-dimensional embedding storage and similarity search |
+| **Fallback Vector Store**| ChromaDB | Zero-dependency local development vector store |
+| **Embedding Model** | `BAAI/bge-small-en-v1.5` | Dense code representation embeddings |
+| **Primary LLM** | Google Gemini (`gemini-3.1-flash-lite`) | Code reasoning, chat synthesis, and impact analysis |
+| **Fallback LLM** | DeepSeek (`deepseek-ai/deepseek-v4-flash-0731`) | Failover reasoning via NVIDIA NIM |
+| **Frontend Framework** | Astro 5 + React 18 + TypeScript | Server-rendered pages with interactive client islands |
+| **Graph UI** | React Flow 11 + Dagre | Interactive graph rendering with automatic DAG layouts |
+| **Styling** | Tailwind CSS 3 + Lucide React | Developer UI with dark-mode first design |
+| **Protocol Integration**| Model Context Protocol (FastMCP 1.x) | Standardized tool server for AI assistants |
+| **IDE Extension** | VS Code Extension API | CodeLens, symbol hover cards, and sidebar views |
+| **Observability** | Prometheus Client | Metrics scraping target at `/metrics` |
+| **Containers** | Docker & Docker Compose | Multi-stage production and development containerization |
 
 ---
 
-## ⚡ Quick Start
+## Repository Structure
+
+```
+ARIA/
+├── backend/                      # FastAPI application & entry points
+│   ├── api.py                    # App factory, middleware stack, router mounting
+│   ├── dependencies.py           # Service singletons & dependency injection
+│   ├── security_middleware.py    # RateLimit, APIKey, TrustedHost middlewares
+│   ├── logging_middleware.py     # Request ID logging middleware
+│   ├── metrics_middleware.py     # Prometheus HTTP metrics collector
+│   ├── exception_handlers.py     # Global sanitized exception handlers
+│   └── routers/                  # Endpoint handlers grouped by domain
+│       ├── health.py             # /health, /ready endpoints
+│       ├── repositories.py       # /api/v1/analyze, /repositories endpoints
+│       ├── chat.py               # /api/v1/chat, /stream, /graph-rag endpoints
+│       ├── architecture.py       # /api/v1/architecture endpoints
+│       ├── graph.py              # /api/v1/graph endpoints
+│       ├── call_graph.py         # /api/v1/call-graph endpoints
+│       ├── api_surface.py        # /api/v1/api-surface endpoints
+│       ├── symbols.py            # /api/v1/symbols endpoints
+│       ├── report.py             # /api/v1/report endpoints
+│       ├── workspace.py          # /api/v1/workspace endpoints
+│       ├── advisor.py            # /api/v1/advisor endpoints
+│       ├── execution.py          # /api/v1/execution endpoints
+│       ├── pr.py                 # /api/v1/pr endpoints
+│       └── git_history.py        # /api/v1/git-history endpoints
+│
+├── core/                         # Core models, configuration & concurrency
+│   ├── config.py                 # Pydantic Settings (.env configuration)
+│   ├── concurrency.py            # Cross-process file locking & atomic writes
+│   ├── repository_target.py      # Canonical AnalysisTarget identity model
+│   ├── cache.py                  # Schema-versioned in-memory cache
+│   └── build_pipeline.py         # DAG task orchestration
+│
+├── services/                     # Business logic & intelligence engines
+│   ├── chat/                     # Grounded chat, intent detection, retrieval
+│   │   ├── intent_detector.py    # 20 rule-based intent detectors
+│   │   ├── intent_router.py      # Routes intents to domain services
+│   │   ├── retrieval.py          # Pre-indexed chunk retrieval & reranking
+│   │   ├── retrieval_pipeline.py # Authoritative retrieval orchestrator
+│   │   ├── context_builder.py    # Token budget management
+│   │   └── provider_manager.py   # Circuit breaker & provider failover
+│   ├── llm/                      # Gemini & DeepSeek provider integrations
+│   ├── symbol_service.py         # Symbol definition and reference indexing
+│   ├── tree_sitter_service.py    # AST extraction
+│   ├── call_graph_service.py     # Static call graph synthesis
+│   ├── api_surface_service.py    # Route discovery & contract classification
+│   └── report/                   # Health scorecards & export renderers
+│
+├── memory/                       # Vector store abstractions
+│   ├── vector_store.py           # Production VectorStore interface & router
+│   ├── qdrant_store.py           # Qdrant client implementation
+│   └── chroma_store.py           # ChromaDB fallback client
+│
+├── mcp/                          # Model Context Protocol adapter layer
+│   ├── server.py                 # FastMCP server registration
+│   ├── aria_client.py            # HTTP client to canonical ARIA API
+│   ├── resources/                # 5 MCP resource providers
+│   └── tools/                    # 17 registered MCP tools
+│
+├── frontend/                     # Web Dashboard (Astro 5 + React 18)
+│   ├── src/pages/                # Astro page routes
+│   ├── src/components/           # Interactive React components & graph canvases
+│   ├── public/favicon.svg        # Official brand icon
+│   └── package.json              # Frontend dependencies
+│
+├── vscode-extension/             # ARIA VS Code Extension (TypeScript)
+│   ├── src/                      # Extension commands, CodeLens, webviews
+│   └── package.json              # Extension manifests and commands
+│
+├── infrastructure/               # Job execution & system adapters
+├── storage/                      # SQLite migrations & snapshot stores
+├── tests/                        # Backend test suites (unit, integration, arch)
+├── docs/                         # Extended documentation
+├── Dockerfile.api                # Production API container
+├── Dockerfile.worker             # Production background worker container
+└── docker-compose.prod.yml       # Production multi-container compose
+```
+
+---
+
+## Quick Start
 
 ### Prerequisites
 
 | Requirement | Version / Notes |
 |---|---|
-| Python | ≥ 3.11 (Docker 3.11, CI 3.12) |
-| Node.js | ≥ 18 |
-| Git | Any recent version |
-| LLM API key | Google Gemini **or** NVIDIA NIM |
-| Disk space | ~2 GB (BGE model cache on first run) |
+| **Python** | `3.11` or `3.12` |
+| **Node.js** | `>= 20.0.0` |
+| **Git** | Any recent version available in PATH |
+| **LLM Key** | Google Gemini (`GEMINI_API_KEY`) or DeepSeek (`DEEPSEEK_API_KEY`) |
+| **Disk Space** | ~2 GB (local BGE model cache on first run) |
 
-### 1 — Backend
+---
+
+### Step 1: Clone & Configure
 
 ```bash
-git clone https://github.com/VarshithReddy2006/Repo-Intelligence-Agent.git
-cd Repo-Intelligence-Agent
-
-python -m venv .venv
-source .venv/bin/activate        # Windows: .venv\Scripts\activate
-
-pip install -e .
+git clone https://github.com/VarshithReddy2006/ARIA.git
+cd ARIA
 
 cp .env.example .env
-# Open .env and set GEMINI_API_KEY or DEEPSEEK_API_KEY
-
-python backend/main.py           # API starts at http://localhost:8001
 ```
 
-### 2 — Frontend
+Edit `.env` with your API keys:
+
+```ini
+APP_ENV=development
+API_SERVER_PORT=8001
+API_KEY=local-dev-key
+
+# LLM Providers
+LLM_PROVIDER=gemini
+GEMINI_API_KEY=your-gemini-api-key
+GEMINI_MODEL=gemini-3.1-flash-lite
+
+# Fallback LLM (Optional)
+DEEPSEEK_API_KEY=your-deepseek-api-key
+
+# Vector Store
+VECTOR_STORE_BACKEND=qdrant
+QDRANT_URL=http://127.0.0.1:6333
+VECTOR_STORE_ENABLE_FALLBACK=true
+```
+
+---
+
+### Step 2: Run Backend
+
+```bash
+# Set up Python virtual environment
+python -m venv .venv
+source .venv/bin/activate  # Windows: .venv\Scripts\activate
+
+# Install dependencies
+pip install -r requirements.txt
+
+# Start API server
+uvicorn backend.api:app --host 0.0.0.0 --port 8001 --reload
+```
+
+---
+
+### Step 3: Run Frontend
 
 ```bash
 cd frontend
 npm install
-npm run dev                      # Dashboard at http://localhost:4321
+npm run dev
 ```
 
-### 3 — Docker *(recommended for production)*
-
-```bash
-# Production
-docker compose -f docker-compose.prod.yml up -d --build
-
-# Development with hot reload
-docker compose -f docker-compose.dev.yml up -d --build
-```
-
-> [!NOTE]
-> Named volumes mount data/ (ChromaDB, graphs, SQLite) and the cloned repository cache independently of the container lifecycle. Data persists across container restarts.
-
-### 4 — VS Code Extension
-
-```bash
-cd vscode-extension
-npm install
-npm run compile
-npx @vscode/vsce package --allow-missing-repository
-```
-
-Brief Setup:
-1. In VS Code, install the generated `repo-intelligence-agent-0.1.0.vsix` file using the **Install from VSIX...** command.
-2. Start the local backend server (running on port `8001`).
-3. Open your target codebase repository folder in VS Code.
-4. Open the Command Palette (`Ctrl+Shift+P`), select **Set Active Repository**, and enter the `owner/repo` details.
-5. Click **Analyze Repository** in the sidebar.
-6. Verify your findings, advisor recommendations, and execution planner routes inside the custom views.
-
-### 5 — Verify
-
-```bash
-curl http://localhost:8001/health
-```
-
-```json
-{
-  "backend": "online",
-  "llm_provider": "gemini",
-  "llm_model": "gemini-2.5-flash",
-  "embedding_provider": "BAAI/bge-small-en-v1.5",
-  "vector_db": "chromadb",
-  "status": "healthy"
-}
-```
-
-### 6 — Start MCP Server
-
-```bash
-python -m backend.cli mcp
-```
-
-The MCP server communicates over JSON-RPC 2.0 using stdio. It is compatible with Cursor, Claude Desktop, VS Code MCP, and MCP Inspector. No additional configuration is required beyond the standard `.env` setup.
+Visit **`http://localhost:4321`** in your browser.
 
 ---
 
-## 🎯 Usage
+### Step 4: Run MCP Server
+
+```bash
+# Start MCP stdio server
+python -m mcp.server
+```
+
+Connect directly from Cursor, Claude Desktop, or VS Code MCP.
+
+---
+
+## Usage
 
 ### Analyze a Repository
 
 ```bash
-# CLI
+# Via CLI
 repo-intel analyze https://github.com/fastapi/fastapi
 
-# API — streams SSE progress events, one per pipeline stage
-curl -N -X POST http://localhost:8001/api/analyze \
+# Via REST API (streams Server-Sent Events progress)
+curl -N -X POST http://localhost:8001/api/v1/analyze \
   -H "Content-Type: application/json" \
   -d '{"url": "https://github.com/fastapi/fastapi", "branch": "master"}'
 ```
@@ -833,7 +653,7 @@ curl -N -X POST http://localhost:8001/api/analyze \
 ### Chat with a Repository
 
 ```bash
-curl -N -X POST http://localhost:8001/api/chat \
+curl -N -X POST http://localhost:8001/api/v1/chat \
   -H "Content-Type: application/json" \
   -d '{
     "repo": "fastapi/fastapi",
@@ -842,24 +662,19 @@ curl -N -X POST http://localhost:8001/api/chat \
   }'
 ```
 
-> [!NOTE]
-> Responses stream as text/event-stream. Each SSE event carries a token delta. The final event carries "status": "done" along with a sources array and a confidence score.
+### Inspect API Surface
 
 ```bash
-curl http://localhost:8001/api/chat/health    # Check active provider and circuit breaker state
-curl -X POST http://localhost:8001/api/chat/reload  # Hot-reload provider config — no restart required
+curl http://localhost:8001/api/v1/api-surface/fastapi/fastapi
 ```
 
 ### Generate an Intelligence Report
 
 ```bash
-# CLI
-repo-intel report fastapi/fastapi
-repo-intel report fastapi/fastapi --markdown
-repo-intel report fastapi/fastapi --pdf -o report.html
-
-# API
+# Build report
 curl -X POST http://localhost:8001/api/v1/report/fastapi/fastapi/build
+
+# Download as HTML or Markdown
 curl -o report.html "http://localhost:8001/api/v1/report/fastapi/fastapi/download?format=html"
 curl -o report.md   "http://localhost:8001/api/v1/report/fastapi/fastapi/download?format=markdown"
 ```
@@ -867,636 +682,450 @@ curl -o report.md   "http://localhost:8001/api/v1/report/fastapi/fastapi/downloa
 ### PR Risk Analysis
 
 ```bash
-curl -X POST http://localhost:8001/api/pr/analyze \
+curl -X POST http://localhost:8001/api/v1/pr/analyze \
   -H "Content-Type: application/json" \
   -d '{"owner": "fastapi", "repo": "fastapi", "pr_number": 1234}'
 ```
 
-Returns size classification (XS → XL), blast radius (LOW → EXTREME), symbol diffs, and an architecture drift report.
-
-### Dead Code Detection
-
-```bash
-curl -X POST http://localhost:8001/api/dead-code/analyze \
-  -H "Content-Type: application/json" \
-  -d '{"owner": "fastapi", "repo": "fastapi"}'
-```
-
-### Issue Mapping
-
-```bash
-curl -X POST http://localhost:8001/api/issues/map \
-  -H "Content-Type: application/json" \
-  -d '{"owner": "fastapi", "repo": "fastapi", "issue_number": 42}'
-```
-
 ---
 
-## 🔧 Configuration
+## Configuration
 
-```bash
-cp .env.example .env
-```
+All configuration is managed via environment variables and validated through Pydantic Settings in `core/config.py`.
 
-### Required
+### Required Settings
 
 | Variable | Default | Description |
 |---|---|---|
-| LLM_PROVIDER | gemini | Active provider: gemini or deepseek |
-| GEMINI_API_KEY | — | Google AI Studio key — required when LLM_PROVIDER=gemini |
-| DEEPSEEK_API_KEY | — | NVIDIA NIM key — required when LLM_PROVIDER=deepseek |
+| `LLM_PROVIDER` | `gemini` | Primary provider: `gemini` or `deepseek` |
+| `GEMINI_API_KEY` | — | Google AI Studio key (required when `LLM_PROVIDER=gemini`) |
+| `DEEPSEEK_API_KEY` | — | NVIDIA NIM key (required when `LLM_PROVIDER=deepseek`) |
 
-### Optional
+### Optional Settings
 
 <details>
-<summary><strong>View all optional environment variables</strong></summary>
+<summary><strong>View all optional configuration parameters</strong></summary>
 
 <br/>
 
 | Variable | Default | Description |
 |---|---|---|
-| GEMINI_MODEL | gemini-2.5-flash | Gemini model variant |
-| DEEPSEEK_BASE_URL | https://integrate.api.nvidia.com/v1 | NIM API endpoint |
-| DEEPSEEK_MODEL | deepseek-ai/deepseek-v4-flash | DeepSeek model variant |
-| GITHUB_TOKEN | — | PAT for private repositories or higher rate limits |
-| API_SERVER_HOST | 0.0.0.0 | Uvicorn bind host |
-| API_SERVER_PORT | 8001 | Uvicorn bind port |
-| FRONTEND_URL | http://localhost:4321 | Allowed CORS origin — **set to your production domain before deploying** |
-| API_KEY | — | Optional API key authentication to secure resource-intensive endpoints |
-| SQLITE_DB_PATH | data/repo_understanding.db | SQLite database path |
-| CHROMA_DB_PATH | data/chroma_db | ChromaDB persistence directory |
-| CLONED_REPOS_PATH | data/cloned_repos | Clone destination — must be **outside** the project tree to avoid triggering uvicorn reload loops (defaults to `~/.repo_intelligence/cloned_repos` if empty in `.env`) |
-| APP_ENV | development | development or production — controls fail-fast behavior at startup |
-| LOG_LEVEL | INFO | Logging verbosity |
-| LOG_FORMAT | human | human or json — use json in production |
-| RATE_LIMIT_PER_MINUTE | 60 | Max requests per IP per minute |
-| ALLOWED_HOSTS | ["*"] | TrustedHost middleware allowed hostnames |
+| `APP_ENV` | `development` | `development`, `test`, or `production` (enforces strict startup validation) |
+| `API_SERVER_HOST` | `0.0.0.0` | Uvicorn bind host |
+| `API_SERVER_PORT` | `8001` | Uvicorn bind port |
+| `API_KEY` | — | API key required for secured endpoints |
+| `ALLOWED_HOSTS` | `["*"]` | TrustedHost allowed hostnames (wildcard prohibited in production) |
+| `RATE_LIMIT_PER_MINUTE`| `60` | Max requests per IP per minute |
+| `GEMINI_MODEL` | `gemini-3.1-flash-lite` | Gemini model variant |
+| `GEMINI_FALLBACK_MODELS`| `gemini-3.5-flash,gemini-3-flash-preview,gemini-flash-lite-latest,gemini-2.5-flash` | Comma-separated Gemini fallbacks |
+| `DEEPSEEK_BASE_URL` | `https://integrate.api.nvidia.com/v1` | NVIDIA NIM endpoint |
+| `DEEPSEEK_MODEL` | `deepseek-ai/deepseek-v4-flash-0731` | DeepSeek model variant |
+| `VECTOR_STORE_BACKEND` | `qdrant` | Vector store backend (`qdrant` or `chroma`) |
+| `VECTOR_STORE_ENABLE_FALLBACK`| `true` | Fallback to ChromaDB if Qdrant is unreachable |
+| `QDRANT_URL` | `http://127.0.0.1:6333` | Qdrant HTTP/REST URL |
+| `QDRANT_API_KEY` | — | API key for Qdrant Cloud cluster |
+| `QDRANT_PREFER_GRPC` | `true` | Prefer gRPC transport for high-throughput vector queries |
+| `EMBEDDING_MODEL` | `BAAI/bge-small-en-v1.5` | Dense embedding model |
+| `ARIA_MAX_CONCURRENT_ANALYSES`| `min(4, max(2, cpus // 2))` | Maximum concurrent background repository analysis tasks |
+| `FRONTEND_URL` | `http://localhost:4321` | Allowed CORS origin |
+| `LOG_FORMAT` | `human` | `human` or `json` (use `json` in production) |
+| `LOG_LEVEL` | `INFO` | Logging verbosity (`DEBUG`, `INFO`, `WARNING`, `ERROR`) |
 
 </details>
-
-> [!IMPORTANT]
-> **Production checklist:** Set FRONTEND_URL to your domain, APP_ENV=production, and LOG_FORMAT=json. In production mode, invalid LLM credentials fail fast at startup with an actionable error message rather than silently degrading at request time.
 
 ---
 
-## 📡 API Reference
+## API Reference
 
-Base URL: http://localhost:8001 · All routes also available under /api/v1/ 
+The canonical API is versioned under `/api/v1`. Full schema documentation is available in [API.md](API.md).
 
-<details>
-<summary><strong>Core &amp; Repository</strong></summary>
-
-<br/>
-
-| Method | Path | Description |
-|---|---|---|
-| GET | /health | System health and active LLM provider |
-| GET | /metrics | Prometheus metrics |
-| POST | /api/analyze | Full analysis pipeline (SSE) |
-| POST | /api/index | Vector-only indexing |
-| GET | /api/analysis/{owner}/{repo_name} | Fetch analysis result |
-| POST | /api/repos/repair | Rebuild missing symbol or graph indexes |
-| GET | /api/repos/recent | Recently analyzed repositories |
-| GET | /api/repos/examples | Pre-configured example repositories |
-
-</details>
-
-<details>
-<summary><strong>Chat</strong></summary>
-
-<br/>
-
-| Method | Path | Description |
-|---|---|---|
-| POST | /api/chat | Streaming repository chat (SSE) |
-| POST | /api/retrieve | Vector search with LLM-generated answer |
-| GET | /api/chat/health | Live provider health diagnostic |
-| POST | /api/chat/reload | Hot-reload LLM provider configuration |
-
-</details>
-
-<details>
-<summary><strong>Graphs — Dependency &amp; Call</strong></summary>
-
-<br/>
-
-| Method | Path | Description |
-|---|---|---|
-| POST | /api/architecture/build | Build dependency graph |
-| GET | /api/architecture/{owner}/{repo_name}/graph | React Flow graph payload |
-| GET | /api/graph/{owner}/{repo}/full | Full file-level dependency graph |
-| GET | /api/graph/{owner}/{repo}/neighbors/{node_path} | Node neighborhood |
-| GET | /api/graph/{owner}/{repo}/trace/{node_path} | BFS reachability trace |
-| GET | /api/graph/{owner}/{repo}/search | Graph node search |
-| POST | /api/call-graph/build | Build call graph (SSE) |
-| GET | /api/call-graph/{owner}/{repo_name} | React Flow call graph payload |
-| GET | /api/call-graph/{owner}/{repo_name}/callers/{function_id} | Callers of a function |
-| GET | /api/call-graph/{owner}/{repo_name}/callees/{function_id} | Callees of a function |
-| GET | /api/call-graph/{owner}/{repo_name}/blast-radius/{function_id} | Function blast radius |
-
-</details>
-
-<details>
-<summary><strong>Analysis — Symbols, API Surface, Churn, PR</strong></summary>
-
-<br/>
-
-| Method | Path | Description |
-|---|---|---|
-| GET | /api/symbols/{owner}/{repo}/file/{file_path} | Symbols in a file |
-| GET | /api/symbols/{owner}/{repo}/definition/{symbol_name} | Symbol definition lookup |
-| GET | /api/symbols/{owner}/{repo}/references/{symbol_name} | Symbol cross-references |
-| POST | /api/api-surface/build | Build API surface index (SSE) |
-| GET | /api/api-surface/{owner}/{repo_name} | Full API surface report |
-| GET | /api/api-surface/{owner}/{repo_name}/public | Public symbols only |
-| GET | /api/api-surface/{owner}/{repo_name}/breaking | Breaking change detection |
-| POST | /api/churn/analyze | Mine git history for churn scores (SSE) |
-| GET | /api/churn/{owner}/{repo_name}/hotspots | Top hotspot files |
-| POST | /api/pr/analyze | PR risk scoring and blast radius |
-| POST | /api/architecture/drift | Architecture drift detection |
-| POST | /api/dead-code/analyze | Dead code reachability sweep |
-| POST | /api/issues/map | Map GitHub issue to implementation plan |
-| POST | /api/reading-order | Onboarding-optimized reading order |
-| POST | /api/impact-analysis | Change impact prediction |
-
-</details>
-
-<details>
-<summary><strong>Reports</strong></summary>
-
-<br/>
-
-| Method | Path | Description |
-|---|---|---|
-| POST | /api/v1/report/{owner}/{repo}/build | Build intelligence report |
-| GET | /api/v1/report/{owner}/{repo}/summary | Health summary |
-| GET | /api/v1/report/{owner}/{repo}/download | Download HTML · PDF · Markdown |
-
-</details>
-
-<details>
-<summary><strong>Workspace</strong></summary>
-
-<br/>
-
-| Method | Path | Description |
-|---|---|---|
-| GET | /api/repositories/{username}/{repository}/workspace | Fetch full consolidated workspace snapshot |
-| GET | /api/repositories/{username}/{repository}/workspace/overview | Overview metrics only |
-| GET | /api/repositories/{username}/{repository}/workspace/findings | Workspace findings panel data |
-| GET | /api/repositories/{username}/{repository}/workspace/advisor | Workspace advisor panel recommendations |
-| GET | /api/repositories/{username}/{repository}/workspace/execution | Workspace execution plan panel batches |
-
-</details>
-
-<details>
-<summary><strong>Advisor</strong></summary>
-
-<br/>
-
-| Method | Path | Description |
-|---|---|---|
-| POST | /api/repositories/{username}/{repository}/advisor | Compile AI Advisor recommendations |
-| GET | /api/repositories/{username}/{repository}/advisor/latest | Fetch latest generated Advisor report |
-| GET | /api/repositories/{username}/{repository}/advisor/recommendations | List Advisor recommendations |
-| GET | /api/repositories/{username}/{repository}/advisor/roadmap | Fetch phased engineering roadmap |
-
-</details>
-
-<details>
-<summary><strong>Execution Planner</strong></summary>
-
-<br/>
-
-| Method | Path | Description |
-|---|---|---|
-| POST | /api/repositories/{username}/{repository}/execution-plan | Formulate AEA² implementation plan |
-| GET | /api/repositories/{username}/{repository}/execution-plan/latest | Fetch latest generated execution plan |
-| GET | /api/repositories/{username}/{repository}/execution-plan/batches | Get planned execution batches |
-| GET | /api/repositories/{username}/{repository}/execution-plan/critical-path | Get critical path of tasks |
-
-</details>
-
-> 📄 Full request/response schemas are documented in [docs/API_REFERENCE.md](docs/API_REFERENCE.md).
+| Domain | Method | Path | Description |
+|---|---|---|---|
+| **System** | `GET` | `/health` | Liveness health check |
+| | `GET` | `/ready` | Readiness check (validates database & vector store) |
+| | `GET` | `/metrics` | Prometheus metrics scrape target |
+| **Analysis** | `POST` | `/api/v1/analyze` | Trigger background repository analysis (SSE stream) |
+| | `GET` | `/api/v1/analyze/{job_id}` | Check status and progress of an analysis job |
+| | `GET` | `/api/v1/analysis/{owner}/{repo}` | Fetch completed analysis result payload |
+| | `GET` | `/api/v1/repos/recent` | List recently indexed repositories |
+| | `GET` | `/api/v1/repos/examples` | List pre-configured example repositories |
+| **Chat & Retrieval** | `POST` | `/api/v1/chat` | Submit repository query with intent classification & streaming |
+| | `POST` | `/api/v1/retrieve` | Vector search with structural context retrieval |
+| | `GET` | `/api/v1/chat/health` | Live LLM provider health diagnostic |
+| | `POST` | `/api/v1/chat/reload` | Hot-reload LLM provider configuration |
+| | `POST` | `/api/v1/issues/map` | Map GitHub issue to implementation plan |
+| **Graphs** | `POST` | `/api/v1/architecture/build` | Build and index dependency graph |
+| | `GET` | `/api/v1/architecture/{owner}/{repo}/graph` | React Flow architecture graph payload |
+| | `GET` | `/api/v1/graph/{owner}/{repo}/full` | Full file-level dependency graph |
+| | `GET` | `/api/v1/graph/{owner}/{repo}/neighbors/{node_path}` | Neighborhood nodes and edges for a file |
+| | `GET` | `/api/v1/graph/{owner}/{repo}/trace/{node_path}` | BFS reachability trace from a node |
+| | `POST` | `/api/v1/call-graph/build` | Build function-level call graph |
+| | `GET` | `/api/v1/call-graph/{owner}/{repo}` | React Flow call graph payload |
+| | `GET` | `/api/v1/call-graph/{owner}/{repo}/callers/{function_id}` | Callers of a function |
+| | `GET` | `/api/v1/call-graph/{owner}/{repo}/callees/{function_id}` | Callees of a function |
+| | `GET` | `/api/v1/call-graph/{owner}/{repo}/blast-radius/{function_id}` | Downstream blast radius computation |
+| | `GET` | `/api/v1/call-graph/{owner}/{repo}/hierarchy/{function_id}` | Call hierarchy tree for a function |
+| **API Surface** | `POST` | `/api/v1/api-surface/build` | Build API surface index |
+| | `GET` | `/api/v1/api-surface/{owner}/{repo}` | Full API surface classification report |
+| | `GET` | `/api/v1/api-surface/{owner}/{repo}/public` | Public API symbols and routes |
+| | `GET` | `/api/v1/api-surface/{owner}/{repo}/breaking` | Breaking change detection across revisions |
+| | `GET` | `/api/v1/api-surface/{owner}/{repo}/deprecated` | Deprecated symbols and interfaces |
+| **Symbols** | `GET` | `/api/v1/symbols/{owner}/{repo}/file/{file_path}` | AST symbols extracted for a given file |
+| | `GET` | `/api/v1/symbols/{owner}/{repo}/definition/{symbol_name}` | Look up definition site for a symbol |
+| | `GET` | `/api/v1/symbols/{owner}/{repo}/references/{symbol_name}` | Cross-file references to a symbol |
+| **Hygiene & Risk** | `POST` | `/api/v1/dead-code/analyze` | Sweep for dead files and uncalled functions |
+| | `POST` | `/api/v1/pr/analyze` | PR risk classification (XS → XL) and blast radius |
+| | `POST` | `/api/v1/architecture/drift` | Architecture drift delta-patching |
+| | `POST` | `/api/v1/churn/analyze` | Mine git commit history for churn metrics |
+| | `GET` | `/api/v1/churn/{owner}/{repo}/hotspots` | Top hotspot files (high churn × high coupling) |
+| | `GET` | `/api/v1/churn/{owner}/{repo}/timeline` | Weekly commit activity timeline |
+| **Workspace & Plan** | `GET` | `/api/v1/repositories/{username}/{repo}/workspace` | Consolidated IDE workspace snapshot |
+| | `GET` | `/api/v1/repositories/{username}/{repo}/workspace/overview` | Overview metrics and health summary |
+| | `GET` | `/api/v1/repositories/{username}/{repo}/workspace/findings` | Engineering findings panel data |
+| | `GET` | `/api/v1/repositories/{username}/{repo}/workspace/advisor` | AI Advisor recommendations panel |
+| | `GET` | `/api/v1/repositories/{username}/{repo}/workspace/execution` | Execution plan task batches panel |
+| | `POST` | `/api/v1/repositories/{username}/{repo}/advisor` | Compile AI Advisor recommendations |
+| | `GET` | `/api/v1/repositories/{username}/{repo}/advisor/recommendations` | List Advisor recommendations |
+| | `GET` | `/api/v1/repositories/{username}/{repo}/advisor/roadmap` | Phased engineering refactoring roadmap |
+| | `POST` | `/api/v1/repositories/{username}/{repo}/execution-plan` | Formulate autonomous execution plan |
+| | `GET` | `/api/v1/repositories/{username}/{repo}/execution-plan/batches` | Planned execution task batches |
+| | `GET` | `/api/v1/repositories/{username}/{repo}/execution-plan/critical-path` | Critical path of tasks |
+| **Reports** | `POST` | `/api/v1/report/{owner}/{repo}/build` | Generate multi-axis health report |
+| | `GET` | `/api/v1/report/{owner}/{repo}/summary` | Summarized health scores and grade |
+| | `GET` | `/api/v1/report/{owner}/{repo}/download` | Download report (HTML, PDF, Markdown) |
 
 ---
 
-## 📈 Performance
+## Model Context Protocol (MCP)
 
-Typical development-machine measurements (Intel i7 / 16 GB RAM). Repository size, file count, and I/O characteristics will affect results.
+ARIA exposes a stateless MCP adapter server compliant with the Model Context Protocol specification.
 
-| Operation | Latency / Duration |
-|---|---|
-| Fresh analysis — small repository (~300 files) | 25–45 s |
-| **Incremental rebuild (small change set)** | **< 2 s** |
-| Backend Health `/health` latency | ~10–15 ms |
-| Overview endpoint `/workspace/overview` latency | ~40–60 ms |
-| Findings `/workspace/findings` latency | ~80–120 ms |
-| Advisor `/advisor` generation latency | ~1.2–2.0 s |
-| Execution Planner `/execution-plan` latency | ~1.5–2.5 s |
-| Chat — first token latency | < 3 s |
-| Chat — streaming throughput | ~50–90 ms / token |
+### Architecture & Protocol Boundary
 
-> [!TIP]
-> **Why incremental is fast:** Subsequent runs skip re-embedding and re-indexing for unchanged files. Only files whose content hash has changed are re-processed. Graph nodes for unchanged files are served from the schema-versioned in-memory cache — not recomputed (typical development-machine measurements).
+The MCP integration cleanly separates the assistant transport layer from the repository backend:
 
-### Prometheus Metrics
+1. **Client Transport Layer (stdio / SSE)**:
+   AI assistants (such as Cursor, Claude Desktop, VS Code MCP clients, and MCP Inspector) connect to the ARIA FastMCP server (`mcp/server.py`) using standard **stdio** or **Server-Sent Events (SSE)** JSON-RPC 2.0 transports.
+2. **Backend API Boundary (HTTP REST)**:
+   The FastMCP server operates as a strictly **stateless protocol adapter**. Rather than holding direct database connections or internal service singletons, it delegates all tool and resource operations over **HTTP** via `AriaAPIClient` directly to the canonical ARIA API (`/api/v1`).
 
-Exposed at /metrics:
+```
+┌────────────────────────┐
+│   Claude / Cursor      │
+│   (MCP Client)         │
+└───────────┬────────────┘
+            │ stdio / SSE (JSON-RPC 2.0)
+┌───────────▼────────────┐
+│   ARIA FastMCP Server  │
+│   (mcp/server.py)      │
+└───────────┬────────────┘
+            │ HTTP (AriaAPIClient)
+┌───────────▼────────────┐
+│   ARIA REST API        │
+│   (/api/v1)            │
+└────────────────────────┘
+```
 
-| Metric | Type | Description |
-|---|---|---|
-| http_requests_total | Counter | Requests by method, path, and status |
-| active_requests_count | Gauge | In-flight requests |
-| build_duration_seconds | Histogram | Per-repository build durations |
-| analysis_task_duration_seconds | Histogram | Per-task durations |
-| cache_hits_total | Counter | Cache hit count |
-| cache_misses_total | Counter | Cache miss count |
+### Available MCP Tools (17 Tools)
 
----
+- **Repository & Workspace**: `list_repositories`, `get_repository_summary`, `analyze_repository`, `get_workspace`
+- **Search & Retrieval**: `query_codebase`, `semantic_search`
+- **Symbols**: `get_file_symbols`, `get_symbol_definition`, `get_symbol_references`
+- **Architecture & Calls**: `get_dependency_graph`, `get_call_graph`, `get_architecture_summary`
+- **Analysis & Contracts**: `get_api_surface`, `get_impact_analysis`, `get_dead_code`
+- **Reports**: `generate_report`, `export_report`
 
-## 🛡️ Production Readiness
+### Available MCP Resources (5 Resource Templates)
 
-Built to be operated, not just installed. Released in v1.5.0 — production certified.
+- `repositories://list` — List of all indexed repositories.
+- `repository://{owner}/{repo}/metadata` — Repository analysis metadata (tech stack, dependencies).
+- `repository://{owner}/{repo}/architecture` — Component relationships and reading order.
+- `repository://{owner}/{repo}/call-graph` — Function call hierarchy.
+- `repository://{owner}/{repo}/symbols` — All indexed symbols across the repository.
 
-| Concern | Implementation |
-|---|---|
-| | **Infrastructure** |
-| **Docker** | Production and development Compose files with named volumes for data persistence |
-| **Health endpoint** | /health reports backend status, active LLM provider, and vector store state |
-| **Fail-fast startup** | In APP_ENV=production, misconfiguration halts startup with an actionable error |
-| **Incremental analysis** | Hash-based change detection helps prevent redundant work on re-runs |
-| **In-memory cache** | Schema-versioned cache helps prevent stale data from surviving configuration changes |
-| **Repository Switching** | State-clean routines clear active graphs and caches when changing active repos |
-| | **Security** |
-| **Rate limiting** | Sliding-window per-IP limiter — configurable via RATE_LIMIT_PER_MINUTE |
-| **CORS** | Restricted to FRONTEND_URL — set to your production domain before deploying |
-| **TrustedHost** | ALLOWED_HOSTS middleware for hostname validation |
-| **Input validation** | Pydantic model validation on every request body |
-| **Secret handling** | API keys loaded from environment variables only — helps prevent logging or exposure |
-| **Traceback Sanitization** | Server errors return client-safe messages — internal tracebacks never leak to MCP clients |
-| | **Reliability** |
-| **LLM circuit breaker** | ProviderManager tracks LLM health and fails over to DeepSeek on provider errors |
-| **Error Classification** | ProviderError system with deterministic error categories (Missing, Auth, Rate Limit, Timeout) |
-| **Fallback renderer** | If both LLM providers are unavailable, structured responses render without LLM |
-| **Race-condition Safety** | Asynchronous operations are wrapped in thread executors to help prevent ASGI loop blockage |
-| **Memory Isolation** | Capacity limits and TTL-based evictions protect caches from memory bloat |
-| **Self Diagnostics** | Startup configuration checks automatically report provider availability and key validations |
-| | **Observability** |
-| **Prometheus metrics** | Prometheus metrics at /metrics with histograms for build and task durations |
-| **Structured logging** | JSON log format via LOG_FORMAT=json, with request IDs on every log line |
-| **Structured Logs** | OutputChannel logging traces backend connections and workspace states |
-| **API Compliance** | Built-in Workspace API schema compliance checks help prevent UI rendering crashes |
-| | **MCP** |
-| **MCP Inspector Validation** | Every MCP tool manually validated through interactive MCP Inspector sessions |
-| **MCP Transport Verification** | Cross-platform stdio transport verified with unbuffered I/O and graceful shutdown |
-| **FastMCP SDK Compatibility** | FastMCP server construction and tool registration validated across pydantic versions |
-| **MCP Behavioral Parity** | Legacy and FastMCP servers produce equivalent results for all shared tools |
-| **JSON-RPC Compliance** | Full protocol conformance including error codes, notifications, and method dispatch |
-| | **Testing** |
-| **Quality Gate** | **2,780+ automated tests** (2,531 Python + 248 Frontend + extension + MCP) |
-| **Packaging Validation** | Automated VSIX packaging validations help prevent publishing failures |
-| **Clean Profile Testing** | Extension validated against isolated clean VS Code profiles to help prevent activation leaks |
-| **Regression Protection** | Automated tests help protect against regressions in Digital Twin mapping and AST processing |
+### Claude Desktop Configuration
 
-> [!WARNING]
-> **No built-in user/session management.** The application supports optional API key access control but does not include multi-user session/credential management. For multi-tenant or public deployments, place a reverse proxy with user authentication in front of the backend.
+Add the following to your `claude_desktop_config.json`:
+
+```json
+{
+  "mcpServers": {
+    "aria": {
+      "command": "python",
+      "args": ["-m", "mcp.server"],
+      "env": {
+        "ARIA_API_URL": "http://127.0.0.1:8001",
+        "ARIA_API_KEY": "your-api-key"
+      }
+    }
+  }
+}
+```
 
 ---
 
-## 🧪 Testing
+## Performance & Benchmarks
+
+> [!NOTE]
+> Benchmark results are environment-dependent (measured on AMD / Intel multi-core developer workstation with local NVMe/SSD storage) and are not universal production SLAs. Production latency depends on repository size, storage throughput, network bandwidth, and upstream LLM provider responsiveness.
+
+### Retrieval Microbenchmarks (Isolated In-Memory & Non-LLM Execution)
+
+Microbenchmarks measure isolated in-memory retrieval, graph traversal, and symbol lookup execution times on pre-indexed repository snapshots without LLM generation overhead:
+
+| Query Category | Deterministic Path (p50) | Non-LLM Retrieval (p50) | Description |
+|---|---|---|---|
+| **Exact File Query** | 0.01 ms | 1.05 ms | In-memory line slice and file metadata lookup |
+| **Symbol Definition Query** | 0.80 ms | 11.42 ms | O(1) symbol index hash map resolution |
+| **Architecture / Graph Query**| — | 9.02 ms | NetworkX dependency traversal and cluster resolution |
+| **Semantic Code Query** | — | 5.77 ms | Vector similarity search in Qdrant (local/in-memory) |
+| **General Codebase QA** | — | 6.06 ms | Hybrid graph + vector context assembly |
+
+### Concurrent End-to-End Load Benchmarks (HTTP Multi-Client In-Flight Workload)
+
+Concurrent load benchmarks evaluate end-to-end API throughput and latency under concurrent HTTP client workloads:
+
+| Concurrent Clients | Success Rate | Throughput (req/s) | p50 Latency | p95 Latency | Errors |
+|:---:|:---:|:---:|:---:|:---:|:---:|
+| **1** | 100% | ~83 req/s | 1.2 ms | 3.1 ms | 0 |
+| **10** | 100% | ~220 req/s | 2.8 ms | 6.4 ms | 0 |
+| **25** | 100% | ~390 req/s | 5.1 ms | 12.8 ms | 0 |
+| **50** | 100% | ~471 req/s | 96.6 ms | 113.5 ms | 0 |
+| **100** | 100% | ~465 req/s | 142.0 ms | 185.0 ms | 0 |
+
+### Pipeline Timings
+
+- **Fresh Ingestion (~300 files)**: 25–40 seconds (AST parsing, graph building, BGE embeddings, and Qdrant indexing).
+- **Incremental Rebuild (small diff)**: **< 2 seconds** (SHA-256 hash-based change detection skips unmodified files).
+
+---
+
+## Deployment
+
+### Current Status
+
+- **Qdrant Vector Store**: Active support for Qdrant Cloud Free cluster and local Docker Qdrant.
+- **Local Docker Containers**: Verified production images via `Dockerfile.api` and `Dockerfile.worker`.
+- **Hugging Face Cloud Deployment**: Community Hardware Grant application currently pursued for public hosted demo.
+- **Hosted ARIA Demo**: Hosted cloud demonstration environment coming soon.
+
+### Previous Azure Deployment (Historical)
+
+Azure Container Apps was previously utilized for production validation and live demo hosting. It has been retired due to student subscription limits and replaced by the containerized Docker workflow. Self-hosting via Docker is the authoritative deployment path.
+
+### Product Walkthrough
+
+<p align="center">
+  <a href="https://www.youtube.com/watch?v=evpdcO4QxzI">
+    <img src="docs/assets/demo.gif" width="100%" alt="ARIA Demo">
+  </a>
+</p>
+
+<p align="center">
+<strong>Click the image to watch the full walkthrough on YouTube</strong>
+</p>
+
+---
+
+## Self-Hosting
+
+### Production Docker Compose
+
+Run the production API, worker, and frontend services in containers:
 
 ```bash
-# Python backend & RIA tests
+docker compose -f docker-compose.prod.yml up -d --build
+```
+
+### Verifying Container Health
+
+```bash
+curl http://localhost:8001/health
+# {"backend": "online", "llm_provider": "gemini", "status": "healthy"}
+
+curl http://localhost:8001/ready
+# {"status": "ready", "database": "connected", "vector_store": "ready"}
+```
+
+---
+
+## Testing & Validation
+
+ARIA maintains extensive automated test suites across all subsystems:
+
+```bash
+# Run backend test suite
 pytest tests/ -v
-pytest tests/ --cov=. --cov-report=term-missing
 
-# Frontend tests
-cd frontend
-npm test
+# Run frontend test suite
+cd frontend && npm test
 ```
 
-- **2,780+ passing automated tests** across Python backend/RIA suites (2,531 tests) and Frontend suites (248 tests across 46 suites)
-- LLM and GitHub API boundaries are **isolated with mock adapters** — the full suite runs without consuming any API quota
-- GitHub Actions runs the full test suite, lint check (`ruff check`, `tsc --noEmit`), and format check (`ruff format --check`) on every pull request
-- **MCP transport tests** — stdio subprocess integration tests validating full JSON-RPC round-trips
-- **Behavioral parity tests** — verify Legacy MCP and FastMCP produce identical results for all shared tools
-- **SDK compatibility tests** — validate FastMCP server construction and tool registration across pydantic versions
-- **Protocol conformance tests** — verify JSON-RPC 2.0 compliance including error codes, notifications, and edge cases
-- **Manual MCP Inspector validation** — every tool verified through interactive Inspector sessions
+### Test Suite Breakdown
 
-> [!CAUTION]
-> Always run pytest tests/ with the explicit path. Running bare pytest from the repository root will traverse data/ and encounter import errors from cloned repositories.
+- **Backend & Services**: 114+ test modules covering AST parsing, graph algorithms, concurrency locking, retrieval pipelines, provider failover, and security middlewares.
+- **Frontend**: 23 test suites validating scene layouts, dagre framing, graph deep-linking, chat intelligence, and API surface interfaces.
+- **MCP Adapter**: FastMCP parity, JSON-RPC 2.0 protocol conformance, transport safety, and HTTP API boundary suites.
+- **VS Code Extension**: 12 test suites verifying command registration, webview message routing, CodeLens triggers, and mock backend integration.
+- **Total**: Multi-layer automated regression validation covering all functional surfaces.
 
 ---
 
-## 🗺️ Roadmap
+## Limitations
+
+- **Static Call Resolution**: Call graphs are generated via static AST analysis; dynamic runtime dispatch, `eval()`, and runtime reflection cannot be fully resolved.
+- **Internal vs External Consumers**: API surface intelligence evaluates callers within the repository; it cannot detect callers in closed third-party private codebases without external telemetry.
+- **Memory Scaling on Huge Repositories**: Codebases exceeding 500,000 lines of code require proportional memory allocations for in-memory graph topologies and embeddings.
+- **LLM Provider Quotas**: Chat synthesis quality and throughput depend on upstream API rate limits and quotas.
+
+---
+
+## Roadmap
 
 ### Completed (v1.5.0)
+- [x] Repository Intelligence Architecture (RIA) layered system design.
+- [x] Qdrant primary vector store integration with dual-write versioning.
+- [x] Stateless FastMCP adapter over canonical HTTP API.
+- [x] Interactive API Surface Analyzer and Call Graph UI.
+- [x] Grounded Repository Chat with 20 deterministic intent types.
+- [x] Resilient LLM failover engine (Gemini 3.1 Flash Lite ➔ DeepSeek V4 Flash).
+- [x] Canonical `AnalysisTarget` concurrency and inter-process locking.
+- [x] VS Code Extension (CodeLens, symbol hovers, webviews).
 
-- [x] Repository Intelligence Architecture (RIA) — layered, modular production architecture
-- [x] Full structural analysis pipeline with incremental hash-based rebuilds
-- [x] Digital Twin (AST parser) & Knowledge Graph (import topology) representation
-- [x] Interactive Repository Topology with scene-based cinematic storytelling
-- [x] Repository Chat v2 with 9 intent types and rule-based routing
-- [x] Interactive Graph Navigation (React Flow canvas graphs for Dependencies, Call Graphs, and Impact Analysis)
-- [x] Engineering Findings (dead code sweeps, circular dependencies, smells)
-- [x] Health Scorecards & Intelligence Reports (HTML, PDF, Markdown)
-- [x] AI Advisor Dashboard (prioritized roadmaps & recommendations)
-- [x] Execution Planner (AEA² task batches & rollback checkpoints)
-- [x] Workspace APIs (consolidated snapshot endpoints)
-- [x] VS Code Extension Integration (symbol hovers, CodeLenses, sidebar panels)
-- [x] LLM Failover Management (Gemini 2.5 Flash to DeepSeek V4 Flash circuit breakers)
-- [x] Deterministic Provider Error Classification (`ProviderErrorType`)
-- [x] Self Diagnostics & Startup Health Verifications
-- [x] Repository Review Command Actions
-- [x] AI Repository Intelligence (graph-based code understanding)
-- [x] Production MCP Server (Legacy stdio JSON-RPC)
-- [x] FastMCP SDK Integration (automatic tool discovery, resources, prompts)
-- [x] MCP Inspector Validation (manual verification of all tools)
-- [x] JSON-RPC 2.0 Transport (stdio + SSE)
-- [x] Cursor Compatibility
-- [x] Claude Desktop Compatibility
-- [x] Cross-platform support (Windows, Linux, macOS)
-- [x] Production validation (2,780+ passing automated tests)
+### In Progress
+- [ ] Hosted public cloud demonstration deployment.
+- [ ] Enhanced TypeScript/JSX type-directed call resolution.
+- [ ] Autonomous repository drift monitoring agents.
 
-### Planned (v1.6.0)
-
-- [ ] Module Stability endpoints router (`backend/routers/stability.py`)
-- [ ] Dependency Smells endpoints router (`backend/routers/dependency_smells.py`)
-- [ ] Treemap visualizers sizing dead code modules on dashboard canvas
-- [ ] Persistent cross-session conversation memory
-- [ ] Webhook-triggered incremental analysis on push events
-
-### Planned (v1.7.0)
-
-- [ ] Multi-repository workspaces (cross-service link resolution)
-- [ ] PR Review Assistant (GitHub App webhook integration)
-- [ ] Incremental indexing (parse only modified files on branch updates)
-
-### Future (v2.0)
-
-- [ ] Team-scoped SaaS deployments with user access control
-- [ ] Collaborative multi-user dashboards
-- [ ] Plugin ecosystem for custom Tree-sitter query modules
+### Planned
+- [ ] Multi-repository cross-service dependency graphs.
+- [ ] GitHub App integration for automated PR review comments.
+- [ ] Custom Tree-sitter query plugin architecture.
 
 ---
 
-## 🤝 Contributing
+## Contributing
 
-Contributions are welcome. This project follows the Contributor Covenant. See [CONTRIBUTING.md](CONTRIBUTING.md) for the development workflow, coding standards, and pull request guidelines.
-
-Good first issues are tagged [good-first-issue](https://github.com/VarshithReddy2006/Repo-Intelligence-Agent/issues?q=label%3Agood-first-issue). Questions and ideas welcome in [Discussions](https://github.com/VarshithReddy2006/Repo-Intelligence-Agent/discussions).
+Contributions are welcome! Please review [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines on code style, testing, and pull requests.
 
 ```bash
-pip install -e ".[dev]"                                      # Install dev dependencies
-ruff check .                                                  # Lint
-ruff format --check .                                         # Format check
-pytest tests/ -v                                             # Run tests
-pytest tests/ --cov=. --cov-report=term-missing             # With coverage
+pip install -e ".[dev]"
+ruff check .
+pytest tests/ -v
+cd frontend && npm test
 ```
-
-### Pull Request Checklist
-
-- [ ] ruff check . passes
-- [ ] ruff format --check . passes
-- [ ] pytest tests/ -v passes with no new failures
-- [ ] cd frontend && npm test passes
-- [ ] New behavior is covered by at least one test
-- [ ] Public API changes are reflected in docs/API_REFERENCE.md 
-- [ ] Breaking changes are noted in the PR description
 
 ---
 
-## ❓ FAQ
+## FAQ
 
 <details>
 <summary><strong>Which programming languages are supported?</strong></summary>
 
-The current implementation targets Python repositories. Multi-language AST support is on the roadmap. Tree-sitter grammars exist for most major languages — adding a new language requires implementing an AST visitor for that grammar.
+Python, JavaScript, and TypeScript are supported via Tree-sitter AST parsers. Adding support for additional languages involves implementing a Tree-sitter grammar visitor.
 
 </details>
 
 <details>
-<summary><strong>Can it analyze private repositories?</strong></summary>
+<summary><strong>Can ARIA analyze private repositories?</strong></summary>
 
-Public repositories work out of the box. For private repositories, set GITHUB_TOKEN to a personal access token with repo scope. Full private repository support via GitHub App is on the roadmap.
+Yes. For private GitHub repositories, supply a personal access token via the `GITHUB_TOKEN` environment variable.
 
 </details>
 
 <details>
-<summary><strong>Does it require a GPU?</strong></summary>
+<summary><strong>Does ARIA require a GPU?</strong></summary>
 
-No. BGE-small-en-v1.5 runs on CPU and is fast enough for interactive use on most developer machines. Embedding large repositories (~300 files) takes roughly 20–30 seconds on CPU (typical development-machine measurements).
+No. The embedding model (`BAAI/bge-small-en-v1.5`) runs efficiently on CPU across Linux, macOS, and Windows.
 
 </details>
 
 <details>
 <summary><strong>Does it work on Windows?</strong></summary>
 
-Yes. The platform is supported and validated on native Windows (via PowerShell and Command Prompt), Linux, macOS, and WSL2.
+Yes. ARIA is fully tested and supported on Windows (PowerShell/CMD), macOS, Linux, and WSL2.
 
 </details>
 
 <details>
-<summary><strong>Can it run without internet access?</strong></summary>
+<summary><strong>Can it run without external internet access?</strong></summary>
 
-Embedding runs locally with no API calls. Cloning public repositories and LLM calls (Gemini or DeepSeek) require internet access. The fallback renderer can produce structured responses without any LLM call.
-
-</details>
-
-<details>
-<summary><strong>Which LLM providers are supported?</strong></summary>
-
-Gemini 2.5 Flash (Google AI Studio) and DeepSeek V4 Flash via NVIDIA NIM. The LLM_PROVIDER environment variable selects the active provider. The circuit-breaker fails over to the secondary provider automatically on errors.
+AST parsing, graph generation, dead code detection, and vector embeddings run completely offline. An internet connection is only needed for cloning remote repositories and communicating with external LLM APIs (Gemini/DeepSeek). When offline, ARIA's fallback renderer provides structured facts without an LLM.
 
 </details>
 
 <details>
-<summary><strong>How large a repository can it handle?</strong></summary>
+<summary><strong>How does MCP connect to ARIA?</strong></summary>
 
-The system has been tested on repositories up to several hundred files. Larger repositories will work but take longer on the initial analysis run. Incremental rebuilds remain fast regardless of total repository size, as only changed files are reprocessed.
-
-</details>
-
-<details>
-<summary><strong>How does incremental analysis work?</strong></summary>
-
-Each file's content is hashed after cloning. On subsequent runs, only files whose hash has changed are re-parsed, re-embedded, and re-indexed. Graph nodes and embeddings for unchanged files are read from the schema-versioned in-memory cache. Incremental rebuilds for small change sets complete in under 2 seconds (typical development-machine measurements).
+The MCP server is a stateless protocol adapter (`mcp/server.py`). It receives JSON-RPC 2.0 requests from Cursor or Claude Desktop and forwards them via HTTP to ARIA's canonical REST API (`/api/v1`).
 
 </details>
 
 <details>
-<summary><strong>Does the chat have memory across sessions?</strong></summary>
+<summary><strong>What is the difference between Qdrant and ChromaDB in ARIA?</strong></summary>
 
-Conversation memory is maintained within a session. Persistent cross-session memory is on the roadmap.
-
-</details>
-
-<details>
-<summary><strong>Is there built-in authentication?</strong></summary>
-
-The platform includes optional API key authentication middleware (via `API_KEY` configuration), rate limiting, and CORS restrictions. For multi-user credentials or session management, place a reverse proxy (e.g. nginx + OAuth2 proxy, Cloudflare Access) in front of the backend.
-
-</details>
-
-<details>
-<summary><strong>How do I install the VS Code Extension?</strong></summary>
-
-Compile the code inside the `vscode-extension` directory and run `vsce package` to generate a `.vsix` file. You can then install it directly in VS Code using the **Install from VSIX...** option.
-
-</details>
-
-<details>
-<summary><strong>How do I generate an execution plan?</strong></summary>
-
-Once a repository has been indexed and an Advisor report has been generated, trigger `POST /api/v1/repositories/{username}/{repository}/execution-plan` or expand the **Execution Planner** sidebar view in VS Code to automatically formulate a phased implementation roadmap.
-
-</details>
-
-<details>
-<summary><strong>What does Advisor do?</strong></summary>
-
-The AI Engineering Advisor analyzes codebase design smells, circular imports, and dead code, producing prioritized recommendations and structured refactoring roadmaps divided into phased segments.
-
-</details>
-
-<details>
-<summary><strong>What is Self Diagnostics?</strong></summary>
-
-At startup, the server automatically validates API configurations and validates connection health for the configured LLM providers (Gemini and DeepSeek) using non-quota-consuming API checks, flagging any authentication issues before requests are processed.
-
-</details>
-
-<details>
-<summary><strong>Can the extension work without the dashboard?</strong></summary>
-
-Yes. The VS Code extension connects directly to the FastAPI backend server (port `8001`) via Workspace API snapshots. The Astro dashboard (port `4321`) is optional for extension users.
-
-</details>
-
-<details>
-<summary><strong>How are ignored recommendations stored?</strong></summary>
-
-Ignored recommendations are saved persistently in the VS Code extension's `workspaceState` (via `IgnoredRecommendationService`). They survive reloads and panel refreshes, but are automatically reset when a fresh repository analysis is performed (detected via changed analysis timestamps).
-
-</details>
-
-<details>
-<summary><strong>What is MCP?</strong></summary>
-
-The Model Context Protocol (MCP) is an open standard for connecting AI coding assistants to external tools and data sources. ARIA implements MCP so that clients like Cursor, Claude Desktop, and VS Code MCP extensions can directly invoke repository intelligence tools over JSON-RPC 2.0.
-
-</details>
-
-<details>
-<summary><strong>Which AI clients are supported via MCP?</strong></summary>
-
-Cursor, Claude Desktop, VS Code MCP clients, MCP Inspector, and any custom JSON-RPC 2.0 client that speaks the MCP protocol. The server communicates over stdio — any client that can spawn a subprocess and read/write JSON-RPC messages is compatible.
-
-</details>
-
-<details>
-<summary><strong>How do I start the MCP server?</strong></summary>
-
-Run `python -m backend.cli mcp` from the project root. The server reads JSON-RPC requests from stdin and writes responses to stdout. No additional configuration is required beyond the standard `.env` setup.
-
-</details>
-
-<details>
-<summary><strong>What is the difference between Legacy MCP and FastMCP?</strong></summary>
-
-The Legacy MCP server (`backend/mcp_server.py`) is a lightweight, zero-SDK-dependency JSON-RPC server that runs over stdio. The FastMCP server (`mcp/server.py`) uses the FastMCP SDK and provides automatic tool discovery, resource templates, prompt templates, and SSE transport support. Both servers expose the same core repository intelligence tools and produce equivalent results.
-
-</details>
-
-<details>
-<summary><strong>Why does ARIA use RIA instead of a traditional RAG architecture?</strong></summary>
-
-Traditional RAG architectures retrieve text chunks based on embedding similarity, which works well for general knowledge but lacks structural understanding of codebases. The Repository Intelligence Architecture (RIA), introduced in v1.5.0, goes beyond semantic retrieval by building AST-level structural understanding, dependency graphs, call graphs, and symbol indexes before any AI reasoning occurs. This means the LLM reasons over verified structural relationships — not just similar-looking text — enabling accurate dependency tracing, change impact estimation, dead code detection, and architectural analysis that pure embedding-based systems cannot provide.
+Qdrant is the primary production vector database, supporting both local instances and Qdrant Cloud. ChromaDB is maintained as an automatic fallback for zero-configuration local development.
 
 </details>
 
 ---
 
-## 🔧 Troubleshooting
+## Troubleshooting
 
 <details>
-<summary><strong>Backend fails to start in production mode</strong></summary>
+<summary><strong>Backend fails to start in production mode (APP_ENV=production)</strong></summary>
 
-Check that GEMINI_API_KEY or DEEPSEEK_API_KEY is set correctly. In APP_ENV=production, invalid credentials fail fast with an actionable error message.
+In production mode, ARIA validates that `API_KEY` is set and `ALLOWED_HOSTS` contains explicit domains (wildcard `*` is prohibited). Set these in `.env` or container environment variables.
 
 </details>
 
 <details>
-<summary><strong>Uvicorn reload loops when cloning repositories</strong></summary>
+<summary><strong>Uvicorn reload loop when cloning repositories</strong></summary>
 
-Set CLONED_REPOS_PATH to a directory outside the project root. The file watcher triggers reloads when it detects new files inside the project tree.
-
-</details>
-
-<details>
-<summary><strong><code>pytest</code> fails with import errors</strong></summary>
-
-Always run pytest tests/ with the explicit path. Running bare pytest from the project root traverses data/ and encounters import errors from cloned repositories.
+Ensure `CLONED_REPOS_PATH` points to a path outside the backend directory tree (e.g. `data/cloned_repos` or `~/.repo_intelligence/cloned_repos`) so file changes do not trigger the auto-reloader.
 
 </details>
 
 <details>
-<summary><strong>ChromaDB collection not found after restart</strong></summary>
+<summary><strong>pytest fails with import errors from data directory</strong></summary>
 
-Check that CHROMA_DB_PATH points to a persistent directory and that the path is correctly mounted if running in Docker.
+Always run `pytest tests/ -v` with the explicit `tests/` directory to prevent pytest from traversing cloned repositories in `data/`.
 
 </details>
 
 ---
 
-## 📚 Documentation
+## Documentation
 
-| Document | Description |
-|---|---|
-| [ARCHITECTURE.md](ARCHITECTURE.md) | Repository Intelligence Architecture (RIA) — component diagrams, sequence diagrams, and mathematical models |
-| [docs/API_REFERENCE.md](docs/API_REFERENCE.md) | Request/response schemas for all endpoints |
-| [docs/MCP_RELEASE_READINESS.md](docs/MCP_RELEASE_READINESS.md) | MCP subsystem production release readiness and validation results |
-| [docs/MCP_FINAL_AUDIT.md](docs/MCP_FINAL_AUDIT.md) | MCP final audit — production certified in v1.5.0 |
-| [docs/MCP_SDK_MIGRATION.md](docs/MCP_SDK_MIGRATION.md) | MCP SDK migration guide and pydantic compatibility notes |
-| [docs/EXECUTION_GUIDE.md](docs/EXECUTION_GUIDE.md) | Step-by-step setup, compilation, and validation sequences |
-| [CONTRIBUTING.md](CONTRIBUTING.md) | Development workflow, coding standards, and pull request checklist |
-| [SECURITY.md](SECURITY.md) | Responsible disclosure policy and security controls |
+- [Architecture Guide](ARCHITECTURE.md)
+- [API Reference](API.md)
+- [Installation Guide](INSTALLATION.md)
+- [Contributing Guidelines](CONTRIBUTING.md)
+- [Security Policy](SECURITY.md)
+- [Roadmap](ROADMAP.md)
+- [Frequently Asked Questions](FAQ.md)
+- [Troubleshooting](TROUBLESHOOTING.md)
 
 ---
 
-## 📄 License
+## License
 
-Distributed under the MIT License. See [LICENSE](LICENSE) for the full text.
+Distributed under the MIT License. See [LICENSE](LICENSE) for details.
 
 ---
 
-## 🙌 Acknowledgements
+## Acknowledgements
 
-Built on excellent open-source foundations:
+Built on top of excellent open-source foundations:
 
 [FastAPI](https://fastapi.tiangolo.com/) ·
 [Astro](https://astro.build/) ·
 [React Flow](https://reactflow.dev/) ·
-[ChromaDB](https://www.trychroma.com/) ·
-[sentence-transformers](https://www.sbert.net/) ·
+[Qdrant](https://qdrant.tech/) ·
 [Tree-sitter](https://tree-sitter.github.io/tree-sitter/) ·
 [NetworkX](https://networkx.org/) ·
+[sentence-transformers](https://www.sbert.net/) ·
 [Google Gemini](https://ai.google.dev/) ·
 [NVIDIA NIM](https://www.nvidia.com/en-us/ai/) ·
 [Model Context Protocol](https://modelcontextprotocol.io/) ·
 [FastMCP](https://github.com/jlowin/fastmcp)
-
----
-
-<div align="center">
-
-<br/>
-
-**If ARIA helps you understand a codebase faster, consider giving it a ⭐**<br/>
-*It helps other engineers find the project.*
-
-<br/>
-
-</div>

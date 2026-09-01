@@ -113,6 +113,7 @@ def test_valid_public_repository_clones_successfully(tmp_path) -> None:
     with (
         patch("services.github_service.run_safe_command") as mock_run,
         patch("os.path.exists", return_value=False),
+        patch("os.path.isdir", return_value=True),
         patch("os.makedirs"),
     ):
         mock_run.side_effect = [
@@ -120,6 +121,11 @@ def test_valid_public_repository_clones_successfully(tmp_path) -> None:
             MagicMock(returncode=0, stdout="HEAD", stderr=""),
             MagicMock(returncode=0, stdout="refs/heads/main", stderr=""),
             MagicMock(returncode=0, stdout="", stderr=""),
+            MagicMock(
+                returncode=0,
+                stdout="0123456789abcdef0123456789abcdef01234567",
+                stderr="",
+            ),
         ]
         dest = service.clone_repository(
             "https://github.com/owner/repo.git", branch="main"

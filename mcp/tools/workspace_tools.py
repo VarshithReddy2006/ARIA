@@ -1,6 +1,7 @@
 """Workspace MCP Tools.
 
 Exposes workspace context generation.
+All requests are delegated to the canonical ARIA HTTP API.
 """
 
 import json
@@ -46,8 +47,7 @@ def register(server: Any) -> None:
             symbol: Optional symbol name if viewing symbol panel.
         """
         from mcp.observability import mcp_request_context
-        from mcp.dependencies import get_workspace_service
-        from models.workspace import WorkspaceState
+        from mcp.dependencies import get_aria_client
 
         with mcp_request_context(
             "get_workspace",
@@ -61,21 +61,16 @@ def register(server: Any) -> None:
         ):
             with tool_boundary("get_workspace"):
                 repo_name = require_repo(owner, repo)
-                service = get_workspace_service()
-                # WorkspaceState's fields are repository/active_panel/selected_file/
-                # selected_symbol. The previous call passed panel/current_file/
-                # current_symbol, which pydantic silently discarded, and omitted the
-                # required repository field, so this tool could never succeed.
-                state = WorkspaceState(
-                    repository=repo_name,
-                    active_panel=panel,
-                    selected_file=file,
-                    selected_symbol=symbol,
+                owner_clean, repo_clean = repo_name.split("/", 1)
+                params: dict[str, Any] = {"panel": panel}
+                if file:
+                    params["file"] = file
+                if symbol:
+                    params["symbol"] = symbol
+
+                client = get_aria_client()
+                data = client.get(
+                    f"/api/v1/repositories/{owner_clean}/{repo_clean}/workspace",
+                    params=params,
                 )
-                workspace = service.get_workspace(repo_name, state=state)
-                serialized = (
-                    workspace.model_dump()
-                    if hasattr(workspace, "model_dump")
-                    else workspace
-                )
-                return json.dumps(serialized, indent=2, default=str)
+                return json.dumps(data, indent=2, default=str)

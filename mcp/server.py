@@ -19,7 +19,6 @@ import importlib
 import inspect
 import logging
 import sys
-import time
 from typing import Any, Dict
 
 
@@ -142,13 +141,7 @@ def create_server() -> Any:
 
     server = FastMCP(SERVER_NAME, **init_kwargs)
 
-    # Resolve the dependency bridge now, while we are still on ordinary
-    # synchronous startup. Tool bodies import it lazily, and that chain pulls in
-    # numpy/ChromaDB/tree-sitter. Because FastMCP invokes synchronous tools
-    # directly on the asyncio event loop, paying that cost inside the first
-    # tools/call blocks the loop for seconds, stalls the stdio reader, and looks
-    # like a transport hang to the client. The legacy stdio server imports its
-    # dependencies before entering its read loop for the same reason.
+    # Initialize API client bridge
     _warm_dependency_imports()
 
     # 1. Automate tool discovery and registration (Refinement 1 & 2)
@@ -163,56 +156,19 @@ def create_server() -> Any:
 
 
 def _warm_dependency_imports() -> None:
-    """Import the service bridge eagerly so no tool call pays for it.
+    """Pre-warm the API client bridge and verify configuration."""
+    _warm_api_client()
 
-    Failures are logged and swallowed: a server that starts and reports tool
-    errors is strictly better than one that refuses to start, and the tools
-    re-import the same module themselves.
-    """
-    started = time.perf_counter()
+
+def _warm_api_client() -> None:
+    """Verify the API client is initialized without blocking startup."""
     try:
-        import mcp.dependencies  # noqa: F401
-        from backend.dependencies import (
-            ANALYSIS_STORE,
-            _load_analysis_store,
-            get_symbol_service,
-            get_call_graph_service,
-            get_architecture_service,
-            get_dead_code_service,
-            get_git_history_service,
-            get_graph_service,
-        )
-    except Exception as exc:  # pragma: no cover - environment dependent
-        logger.warning(
-            "Dependency pre-import failed (%s); tools will retry lazily", exc
-        )
-        return
+        from mcp.dependencies import get_aria_client
 
-    # Hydrate persisted repositories, as the FastAPI startup path and the legacy
-    # stdio server both do. Without this, every repository-scoped tool reports
-    # "not indexed" and list_repositories returns []. Guarded on emptiness so the
-    # call stays idempotent across repeated server construction.
-    try:
-        if not ANALYSIS_STORE:
-            _load_analysis_store()
-    except Exception as exc:  # pragma: no cover - corrupt store on disk
-        logger.warning("Analysis store hydration failed: %s", exc)
-
-    try:
-        get_symbol_service()
-        get_call_graph_service()
-        get_architecture_service()
-        get_dead_code_service()
-        get_git_history_service()
-        get_graph_service()
-    except Exception as exc:
-        logger.warning("Dependency pre-warm failed (%s); tools will retry lazily", exc)
-
-    logger.info(
-        "Dependency bridge ready in %.2fs; %d repositories available",
-        time.perf_counter() - started,
-        len(ANALYSIS_STORE),
-    )
+        client = get_aria_client()
+        logger.info("MCP API client configured with target %s", client.base_url)
+    except Exception as exc:  # pragma: no cover
+        logger.warning("API client initialization warning: %s", exc)
 
 
 def _register_tools(server: Any) -> None:

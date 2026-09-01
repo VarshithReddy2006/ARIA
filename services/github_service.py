@@ -219,9 +219,12 @@ class GitHubService:
         cwd: Optional[str] = None,
     ) -> Any:
         """Run a git command, converting execution failures into client-safe errors."""
+        effective_secrets = list(secrets) if secrets else []
+        if getattr(self, "token", None) and self.token not in effective_secrets:
+            effective_secrets.append(self.token)
         try:
             return run_safe_command(
-                cmd, timeout=timeout, env=env, secrets=secrets or [], cwd=cwd
+                cmd, timeout=timeout, env=env, secrets=effective_secrets, cwd=cwd
             )
         except SafeSubprocessError as sub_exc:
             self._raise_safe_git_error(
