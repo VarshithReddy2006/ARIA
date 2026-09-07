@@ -102,7 +102,7 @@ export const ArchitectureDiagramModal: React.FC<DiagramModalProps> = ({
               <span className="text-xs">Generating architecture diagram...</span>
             </div>
           ) : (
-            <pre className="text-xs font-mono text-emerald-400 leading-relaxed whitespace-pre-wrap select-all bg-canvas border border-border/60 p-4 rounded-lg">
+            <pre className="text-xs font-mono text-text leading-relaxed whitespace-pre-wrap select-all bg-surface-1 border border-border p-4 rounded-lg">
               {code}
             </pre>
           )}

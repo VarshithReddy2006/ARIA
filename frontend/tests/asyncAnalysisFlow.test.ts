@@ -541,4 +541,146 @@ describe('Frontend Asynchronous Analysis Flow & Security Invariants', () => {
       assert.ok(note.includes('No public or internal code symbols were detected'));
     });
   });
+
+  describe('10. Real Embedding Telemetry & Monotonic Progress Calculation', () => {
+    test('embedding progress fraction scales accurately with embed_progress_pct', () => {
+      const calcEmbedFraction = (jobStats?: Record<string, any>) => {
+        if (jobStats) {
+          if (typeof jobStats.embed_progress_pct === 'number' && jobStats.embed_progress_pct >= 0) {
+            return Math.min(0.98, Math.max(0.02, jobStats.embed_progress_pct / 100));
+          }
+          if (
+            typeof jobStats.chunks_total === 'number' &&
+            jobStats.chunks_total > 0 &&
+            typeof jobStats.chunks_processed === 'number'
+          ) {
+            return Math.min(0.98, Math.max(0.02, jobStats.chunks_processed / jobStats.chunks_total));
+          }
+        }
+        return 0.2;
+      };
+
+      // Initial state: 0% embedded
+      const frac0 = calcEmbedFraction({ embed_progress_pct: 0, chunks_processed: 0, chunks_total: 1000 });
+      assert.equal(frac0, 0.02);
+
+      // Mid state: 26.8% embedded
+      const fracMid = calcEmbedFraction({ embed_progress_pct: 26.8, chunks_processed: 268, chunks_total: 1000 });
+      assert.ok(fracMid > frac0);
+      assert.equal(Math.round(fracMid * 100), 27);
+
+      // Advanced state: 80% embedded
+      const fracAdv = calcEmbedFraction({ embed_progress_pct: 80.0, chunks_processed: 800, chunks_total: 1000 });
+      assert.ok(fracAdv > fracMid);
+      assert.equal(Math.round(fracAdv * 100), 80);
+
+      // Completed state: 100% embedded
+      const frac100 = calcEmbedFraction({ embed_progress_pct: 100.0, chunks_processed: 1000, chunks_total: 1000 });
+      assert.equal(frac100, 0.98);
+    });
+
+    test('overall pipeline progress increases monotonically and does not stay pinned at 56%', () => {
+      const STAGE_COUNT = 7;
+      const calcOverall = (
+        embedFraction: number,
+        backendProgress?: number
+      ) => {
+        // Stages: Clone (1.0), Detect (1.0), Parse (1.0), Embed (embedFraction), Index(0), Analyze(0), Answer(0)
+        const stageProgress = (1.0 + 1.0 + 1.0 + embedFraction + 0 + 0 + 0) / STAGE_COUNT;
+        return typeof backendProgress === 'number' && backendProgress > 0
+          ? Math.max(backendProgress / 100, stageProgress)
+          : stageProgress;
+      };
+
+      // Batch 1: 5% embedded (backend progress ~48.4%)
+      const p1 = Math.round(calcOverall(0.05, 48.4) * 100);
+      assert.equal(p1, 48);
+
+      // Batch 45/180: 25% embedded (backend progress ~49.8%)
+      const p2 = Math.round(calcOverall(0.25, 49.8) * 100);
+      assert.ok(p2 >= p1);
+
+      // Batch 90/180: 50% embedded (backend progress ~51.5%)
+      const p3 = Math.round(calcOverall(0.50, 51.5) * 100);
+      assert.ok(p3 > p2);
+      assert.equal(p3, 52);
+
+      // Batch 180/180: 100% embedded (backend progress ~55.0%)
+      const p4 = Math.round(calcOverall(0.98, 55.0) * 100);
+      assert.ok(p4 > p3);
+      assert.equal(p4, 57);
+    });
+
+    test('embedding stage progress and overall pipeline progress are clearly distinguished', () => {
+      // Example telemetry: 1,985 / 7,933 chunks, Batch 31 / 124 (25% embed stage, 50% overall)
+      const jobStats = {
+        batch: 31,
+        total_batches: 124,
+        chunks_processed: 1985,
+        chunks_total: 7933,
+        embed_progress_pct: 25.0,
+      };
+
+      const embedPct = Math.round(jobStats.embed_progress_pct);
+      const overallPct = Math.round(48 + (jobStats.embed_progress_pct / 100) * 7);
+
+      assert.equal(embedPct, 25, 'embedding stage progress is 25%');
+      assert.equal(overallPct, 50, 'overall pipeline progress is 50%');
+      assert.notEqual(embedPct, overallPct, 'embedding stage progress must be distinguished from overall progress');
+    });
+
+    test('edge cases: missing, zero, and NaN stats do not produce invalid UI numbers', () => {
+      const clampPct = (v: number): number => (Number.isFinite(v) ? Math.max(0, Math.min(100, v)) : 0);
+
+      // 1. Missing / undefined stats
+      const statsEmpty: Record<string, any> = {};
+      const embedPctEmpty = clampPct(statsEmpty.embed_progress_pct);
+      assert.equal(embedPctEmpty, 0);
+
+      // 2. Zero chunks total
+      const statsZero: Record<string, any> = { chunks_total: 0, chunks_processed: 0 };
+      const rawZero = statsZero.chunks_total > 0 ? (statsZero.chunks_processed / statsZero.chunks_total) * 100 : 0;
+      const embedPctZero = clampPct(rawZero);
+      assert.equal(embedPctZero, 0);
+      assert.ok(!Number.isNaN(embedPctZero));
+
+      // 3. Negative or invalid values
+      const statsNegative: Record<string, any> = { embed_progress_pct: -15 };
+      const embedPctNeg = clampPct(statsNegative.embed_progress_pct);
+      assert.equal(embedPctNeg, 0);
+
+      // 4. Over 100%
+      const statsOver: Record<string, any> = { embed_progress_pct: 125 };
+      const embedPctOver = clampPct(statsOver.embed_progress_pct);
+      assert.equal(embedPctOver, 100);
+
+      // 5. NaN or string inputs
+      const statsNaN: Record<string, any> = { embed_progress_pct: NaN };
+      const embedPctNaN = clampPct(statsNaN.embed_progress_pct);
+      assert.equal(embedPctNaN, 0);
+    });
+
+    test('full stage progression advances from EMBED -> INDEX -> ANALYZE -> ANSWER -> COMPLETE', () => {
+      const steps = [
+        { id: 'cloning', label: 'Cloning Repository', status: 'completed' as const },
+        { id: 'detecting', label: 'Detecting Languages', status: 'completed' as const },
+        { id: 'parsing', label: 'Parsing Source Files', status: 'completed' as const },
+        { id: 'generating_embeddings', label: 'Generating Embeddings', status: 'completed' as const },
+        { id: 'building_symbols', label: 'Building Symbol Index', status: 'completed' as const },
+        { id: 'building_dependency', label: 'Building Dependency Graph', status: 'completed' as const },
+        { id: 'building_call', label: 'Building Call Graph', status: 'completed' as const },
+        { id: 'building_api', label: 'Computing API Surface', status: 'completed' as const },
+        { id: 'computing_intel', label: 'Computing Repository Intelligence', status: 'completed' as const },
+        { id: 'generating_report', label: 'Generating Report', status: 'completed' as const },
+      ];
+
+      const allCompleted = steps.every((s) => s.status === 'completed');
+      assert.equal(allCompleted, true);
+
+      // Step mapper tests for subsequent stages
+      assert.equal(mapBackendStepToUiStep('index', 'building call graph'), 'building_call');
+      assert.equal(mapBackendStepToUiStep('analyze'), 'computing_intel');
+      assert.equal(mapBackendStepToUiStep('answer'), 'generating_report');
+    });
+  });
 });

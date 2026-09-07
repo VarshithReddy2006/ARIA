@@ -22,6 +22,7 @@ import { computeGraphStats, computeGraphSignals } from './graphStats';
 import { buildAbstractedGraph, buildArchitectureClusters } from './architectureClustering';
 import { CATEGORY_COLORS, CATEGORY_LABELS } from './types';
 import type { GraphNode, GraphEdge, GraphMode, GraphResponse, AbstractionLevel, ArchitectureCluster } from './types';
+import { buildMutualPairSet } from './edgeSemantics';
 import { EmptyState } from '../../ui/EmptyState';
 import { Button } from '../../ui/Button';
 
@@ -241,6 +242,19 @@ const InteractiveDependencyGraphInner: React.FC<
         // Asynchronously resolve pending focus target against loaded nodes
         if (pendingTargetRef.current) {
           applyTargetSelection(pendingTargetRef.current, receivedNodes);
+        } else if (fetchMode === 'search' && receivedNodes.length > 0) {
+          // If search matched exactly 1 node or there's an exact match with the query, auto-center
+          const exactMatch = receivedNodes.find(
+            (n) => n.id.toLowerCase() === query.toLowerCase() || n.label.toLowerCase() === query.toLowerCase()
+          );
+          const targetToCenter = exactMatch || (receivedNodes.length === 1 ? receivedNodes[0] : null);
+
+          if (targetToCenter) {
+            handleNodeSelect(targetToCenter);
+            centerOnNode(targetToCenter.id);
+          } else {
+            setTimeout(() => fitView({ padding: 0.15, duration: 300, minZoom: 0.15, maxZoom: 1.5 }), 80);
+          }
         } else {
           setTimeout(() => fitView({ padding: 0.15, duration: 300, minZoom: 0.15, maxZoom: 1.5 }), 80);
         }
@@ -588,31 +602,61 @@ const InteractiveDependencyGraphInner: React.FC<
             </button>
           )}
 
-          <div className="flex items-center gap-1 text-zinc-400">
+          <button
+            onClick={() => {
+              if (mode === 'entry_points') {
+                setMode('full');
+                fetchGraph('full', null, '', 'both');
+              } else {
+                setMode('entry_points');
+                fetchGraph('entry_points', null, '', 'both');
+              }
+            }}
+            className={`flex items-center gap-1.5 transition-colors px-1.5 py-0.5 rounded ${
+              mode === 'entry_points' ? 'bg-emerald-950/40 text-emerald-300 border border-emerald-500/30' : 'text-zinc-400 hover:text-emerald-300'
+            }`}
+            title="Click to toggle entry points mode"
+          >
             <span className="text-zinc-500">Entry Points:</span>
             <span className="text-emerald-400 font-bold">{signals.entryPointCount}</span>
-          </div>
+          </button>
 
-          <div className="flex items-center gap-1 text-zinc-400">
-            <span className="text-zinc-500">Hotspots:</span>
-            <span className="text-rose-400 font-bold">{signals.hotspotCount}</span>
+          <div className="flex items-center gap-1">
+            <button
+              onClick={() => {
+                if (mode === 'hotspots') {
+                  setMode('full');
+                  fetchGraph('full', null, '', 'both');
+                } else {
+                  setMode('hotspots');
+                  fetchGraph('hotspots', null, '', 'both');
+                }
+              }}
+              className={`flex items-center gap-1.5 transition-colors px-1.5 py-0.5 rounded ${
+                mode === 'hotspots' ? 'bg-rose-950/40 text-rose-300 border border-rose-500/30' : 'text-zinc-400 hover:text-rose-300'
+              }`}
+              title="Click to toggle hotspots mode"
+            >
+              <span className="text-zinc-500">Hotspots:</span>
+              <span className="text-rose-400 font-bold">{signals.hotspotCount}</span>
+            </button>
             {mode === 'hotspots' && (
               <span className="inline-flex gap-1 ml-1 text-[9px]">
                 <button
                   onClick={() => setHotspotFilter('top5')}
-                  className={`px-1 rounded ${hotspotFilter === 'top5' ? 'bg-rose-950 text-rose-300 font-bold' : 'text-zinc-500'}`}
+                  className={`px-1 rounded ${hotspotFilter === 'top5' ? 'bg-rose-950 text-rose-300 font-bold' : 'text-zinc-500 hover:text-zinc-300'}`}
                 >
                   Top 5
                 </button>
                 <button
                   onClick={() => setHotspotFilter('top10')}
-                  className={`px-1 rounded ${hotspotFilter === 'top10' ? 'bg-rose-950 text-rose-300 font-bold' : 'text-zinc-500'}`}
+                  className={`px-1 rounded ${hotspotFilter === 'top10' ? 'bg-rose-950 text-rose-300 font-bold' : 'text-zinc-500 hover:text-zinc-300'}`}
                 >
                   Top 10
                 </button>
                 <button
                   onClick={() => setHotspotFilter('all')}
-                  className={`px-1 rounded ${hotspotFilter === 'all' ? 'bg-rose-950 text-rose-300 font-bold' : 'text-zinc-500'}`}
+                  className={`px-1 rounded ${hotspotFilter === 'all' ? 'bg-rose-950 text-rose-300 font-bold' : 'text-zinc-500 hover:text-zinc-300'}`}
                 >
                   All
                 </button>
@@ -620,10 +664,29 @@ const InteractiveDependencyGraphInner: React.FC<
             )}
           </div>
 
-          <div className="flex items-center gap-1 text-zinc-400">
+          <button
+            onClick={() => {
+              // Find first cyclic pair in edges if any, and focus it
+              const mutual = buildMutualPairSet(apiEdges);
+              if (mutual.size > 0) {
+                const firstPair = Array.from(mutual)[0];
+                const [sourceId] = firstPair.split('|');
+                const targetNode = apiNodes.find((n) => n.id === sourceId);
+                if (targetNode) {
+                  handleNodeSelect(targetNode);
+                  centerOnNode(targetNode.id);
+                }
+              }
+            }}
+            disabled={signals.cycleClusterCount === 0}
+            className={`flex items-center gap-1.5 transition-colors px-1.5 py-0.5 rounded ${
+              signals.cycleClusterCount > 0 ? 'text-zinc-400 hover:text-amber-300 cursor-pointer' : 'text-zinc-500 cursor-default'
+            }`}
+            title={signals.cycleClusterCount > 0 ? "Click to focus first detected cyclic dependency" : "No cycles detected"}
+          >
             <span className="text-zinc-500">Cycles:</span>
             <span className="text-amber-400 font-bold">{signals.cycleClusterCount}</span>
-          </div>
+          </button>
         </div>
 
         {/* Storytelling snippet */}

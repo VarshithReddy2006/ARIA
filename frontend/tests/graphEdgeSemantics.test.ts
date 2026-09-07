@@ -115,7 +115,11 @@ describe('File Graph edge semantics', () => {
   test('a cycle outside the current focus is not promoted', () => {
     const idleCycle = resolveDependencyEdgeStyle({ ...depBase, isCyclic: true, hasActive: true });
     assert.equal(idleCycle.bothEnds, false, 'only cycles touching the focus are emphasised');
-    assert.equal(idleCycle.opacity, 0.1);
+    // A cycle the focus does not touch must recede exactly like any other
+    // unrelated edge. Compared against that baseline rather than a hard-coded
+    // opacity so re-tuning the recede depth does not require editing this test.
+    const unrelated = resolveDependencyEdgeStyle({ ...depBase, hasActive: true });
+    assert.deepEqual(idleCycle, unrelated, 'an unfocused cycle is styled as unrelated topology');
   });
 
   test('a traced path outranks every other relationship', () => {

@@ -9,40 +9,118 @@
  * ------------------------------------------------------------------------- */
 
 :root {
+  /* ── ARIA Global Master Dark Engineering Glass Foundation ─────────────── */
+  --aria-bg:               #030407;
+  --aria-surface:          #080A0F;
+  --aria-surface-secondary:#0D1016;
+  --aria-surface-elevated: #11141B;
+  --aria-surface-inset:    #06070B;
+  --aria-surface-input:    #06070B;
+  --aria-surface-glass:    rgba(8, 10, 15, 0.88);
+
+  --aria-hairline:         #20242D;
+  --aria-border:           #20242D;
+  --aria-border-elevated:  #2A303C;
+  --aria-border-strong:    #2A303C;
+  --aria-border-interactive:#353C4B;
+  --aria-border-subtle:    #20242D;
+
+  --aria-text-primary:     #F4F5F7;
+  --aria-text-secondary:   #C3C7D0;
+  --aria-text-tertiary:    #818895;
+  --aria-text-muted:       #818895;
+  --aria-text-tech:        #818895;
+
+  /* Primary ARIA Indigo — Interaction & Intelligence */
+  --aria-primary:          #737DFF;
+  --aria-primary-hover:    #9199FF;
+  --aria-primary-active:   #5C67EF;
+  --aria-primary-deep:     #4852C7;
+  --aria-primary-fill:     rgba(115, 125, 255, 0.10);
+  --aria-primary-border:   rgba(115, 125, 255, 0.38);
+  --aria-primary-ring:     rgba(115, 125, 255, 0.25);
+  --aria-primary-glow:     0 0 24px rgba(115, 125, 255, 0.08);
+
+  /* Amber / Warning — Attention, Review & Cleanup */
+  --aria-warning:          #D8AE47;
+  --aria-amber:            #D8AE47;
+  --aria-amber-secondary:  #C49A32;
+  --aria-amber-deep:       #8A6B1A;
+  --aria-amber-glass-bg:   rgba(216, 174, 71, 0.10);
+  --aria-amber-glass-border:rgba(216, 174, 71, 0.38);
+  --aria-amber-glow:       0 0 22px rgba(216, 174, 71, 0.07);
+
+  /* Success / Verified Green — Healthy & Safe (Emerald) */
+  --aria-success:          #35D3A0;
+  --aria-mint:             #35D3A0;
+  --aria-mint-hover:       #4FE0B0;
+  --aria-mint-deep:        #188A66;
+  --aria-mint-glass-bg:    rgba(53, 211, 160, 0.09);
+  --aria-mint-glass-border:rgba(53, 211, 160, 0.34);
+  --aria-mint-glow:        0 0 20px rgba(53, 211, 160, 0.06);
+
+  /* Error / High Risk Red — Danger & High Risk (Rose) */
+  --aria-error:            #E87878;
+  --aria-coral:            #E87878;
+  --aria-coral-hover:      #F58F8F;
+  --aria-coral-deep:       #A14545;
+  --aria-coral-glass-bg:   rgba(232, 120, 120, 0.09);
+  --aria-coral-glass-border:rgba(232, 120, 120, 0.34);
+  --aria-coral-glow:       0 0 20px rgba(232, 120, 120, 0.05);
+
+  /* Purple / Architectural Signal — Violet */
+  --aria-violet:           #9A8CFF;
+  --aria-violet-hover:     #B2A6FF;
+  --aria-violet-deep:      #5E4FB5;
+  --aria-violet-glass-bg:  rgba(154, 140, 255, 0.09);
+  --aria-violet-glass-border:rgba(154, 140, 255, 0.30);
+
+  /* Cyan / Information — Technical Diagnostics & Metadata */
+  --aria-cyan:             #4CC9E8;
+  --aria-cyan-deep:        #287E94;
+  --aria-cyan-glass-bg:    rgba(76, 201, 232, 0.08);
+  --aria-cyan-glass-border:rgba(76, 201, 232, 0.28);
+  --aria-info:             #4CC9E8;
+  --aria-sky:              #4CC9E8;
+  --aria-teal:             #4CC9E8;
+
+  --aria-inferred:         #C3C7D0;
+  --aria-unknown:          #818895;
+
   /* surfaces — deep cinematic near-black canvas */
-  --canvas:        #020204;
-  --canvas-subtle: #050609;
-  --surface-1:     #08090d;
-  --surface-2:     #0d0e14;
-  --surface-3:     #13141c;
+  --canvas:        var(--aria-bg);
+  --canvas-subtle: #080A0F;
+  --surface-1:     var(--aria-surface);
+  --surface-2:     var(--aria-surface-secondary);
+  --surface-3:     var(--aria-surface-elevated);
 
   /* borders — ultra subtle hairlines */
-  --border:        rgba(255, 255, 255, 0.06);
-  --border-strong: rgba(255, 255, 255, 0.12);
-  --border-subtle: rgba(255, 255, 255, 0.035);
-  --border-dim:    rgba(255, 255, 255, 0.02);
+  --border:        var(--aria-border);
+  --border-strong: var(--aria-border-strong);
+  --border-subtle: var(--aria-border-subtle);
+  --border-dim:    rgba(255, 255, 255, 0.03);
 
   /* typography tokens — Space Grotesk (Primary UI) + JetBrains Mono (Technical) */
   --font-ui:       'Space Grotesk', 'Inter', ui-sans-serif, system-ui, -apple-system, sans-serif;
   --font-tech:     'JetBrains Mono', 'Fira Code', ui-monospace, SFMono-Regular, Menlo, monospace;
 
-  /* text — off-white, cool muted grays. */
-  --text:          #f5f5f5;
-  --text-muted:    #8e939e;
-  --text-subtle:   #525660;
+  /* text — crisp, high-contrast typography hierarchy */
+  --text:          var(--aria-text-primary);
+  --text-muted:    var(--aria-text-secondary);
+  --text-subtle:   var(--aria-text-tertiary);
 
-  /* brand — restrained electric indigo */
-  --primary:        #5e6ad2;
-  --primary-hover:  #4d5ac0;
-  --primary-soft:   rgba(94, 106, 210, 0.08);
-  --primary-ring:   rgba(94, 106, 210, 0.35);
+  /* brand — aria indigo */
+  --primary:        var(--aria-primary);
+  --primary-hover:  var(--aria-primary-hover);
+  --primary-soft:   var(--aria-primary-fill);
+  --primary-ring:   var(--aria-primary-ring);
 
   /* semantic */
-  --success: #10b981;
-  --warn:    #f59e0b;
-  --danger:  #ef4444;
-  --info:    #3b82f6;
-  --teal:    #14b8a6;
+  --success: var(--aria-success);
+  --warn:    var(--aria-warning);
+  --danger:  var(--aria-error);
+  --info:    var(--aria-info);
+  --teal:    var(--aria-cyan);
 
   /* motion */
   --duration-instant:   80ms;
@@ -59,25 +137,24 @@
   --shadow-float:  0 12px 40px rgba(0,0,0,0.7), 0 2px 8px rgba(0,0,0,0.6);
   --shadow-ring:   0 0 0 1px var(--primary), 0 0 0 4px var(--primary-ring);
 
-  /* shadcn-style vars kept for back-compat. 0 0% 96% is --text as HSL, so the
-   * two systems cannot drift apart. */
-  --background: 240 10% 2%;
-  --foreground: 0 0% 96%;
-  --card: 240 10% 4%;
-  --card-foreground: 0 0% 96%;
-  --popover: 240 10% 5%;
-  --popover-foreground: 0 0% 96%;
-  --primary-h: 234 59% 60%;
+  /* shadcn-style vars kept for back-compat. */
+  --background: 228 29% 3%;
+  --foreground: 220 18% 97%;
+  --card: 220 27% 4%;
+  --card-foreground: 220 18% 97%;
+  --popover: 220 26% 7%;
+  --popover-foreground: 220 18% 97%;
+  --primary-h: 237 100% 74%;
   --primary-foreground: 0 0% 100%;
-  --secondary: 240 5% 8%;
-  --secondary-foreground: 0 0% 96%;
-  --muted: 240 5% 10%;
-  --muted-foreground: 240 5% 60%;
-  --accent: 234 59% 60%;
-  --accent-foreground: 0 0% 96%;
-  --destructive: 0 62.8% 30.6%;
-  --destructive-foreground: 0 0% 96%;
-  --ring: 234 59% 60%;
+  --secondary: 220 17% 9%;
+  --secondary-foreground: 220 18% 97%;
+  --muted: 220 17% 9%;
+  --muted-foreground: 216 11% 70%;
+  --accent: 237 100% 74%;
+  --accent-foreground: 220 18% 97%;
+  --destructive: 354 100% 71%;
+  --destructive-foreground: 0 0% 100%;
+  --ring: 237 100% 74%;
   --radius: 0.375rem;
 }
 
@@ -431,13 +508,35 @@ html.dark, html { color-scheme: dark; }
 }
 
 .hero-enter-bg      { animation: heroFadeIn 0.8s cubic-bezier(0.16, 1, 0.3, 1) 0ms both; }
-.hero-enter-graph   { animation: heroGraphFade 1.2s cubic-bezier(0.16, 1, 0.3, 1) 120ms both; }
-.hero-enter-eyebrow { animation: heroEyebrowWake 1.0s cubic-bezier(0.16, 1, 0.3, 1) 180ms both; }
-.hero-enter-head1   { animation: heroFadeIn 0.8s cubic-bezier(0.16, 1, 0.3, 1) 380ms both; }
-.hero-enter-head2   { animation: heroFadeIn 0.8s cubic-bezier(0.16, 1, 0.3, 1) 520ms both; }
-.hero-enter-body    { animation: heroEnterBody 1.1s cubic-bezier(0.16, 1, 0.3, 1) 3200ms both; }
-.hero-enter-cta     { animation: heroFadeIn 0.8s cubic-bezier(0.16, 1, 0.3, 1) 780ms both; }
-.hero-enter-meta    { animation: heroEnterBody 1.1s cubic-bezier(0.16, 1, 0.3, 1) 3500ms both; }
+.hero-enter-graph   { animation: heroGraphFade 1.2s cubic-bezier(0.16, 1, 0.3, 1) 150ms both; }
+.hero-enter-eyebrow { animation: heroEyebrowWake 1.0s cubic-bezier(0.16, 1, 0.3, 1) 450ms both; }
+.hero-enter-head1   { animation: heroFadeIn 0.8s cubic-bezier(0.16, 1, 0.3, 1) 650ms both; }
+.hero-enter-head2   { animation: heroFadeIn 0.8s cubic-bezier(0.16, 1, 0.3, 1) 850ms both; }
+.hero-enter-body    { animation: heroEnterBody 1.1s cubic-bezier(0.16, 1, 0.3, 1) 1200ms both; }
+.hero-enter-cta     { animation: heroFadeIn 0.8s cubic-bezier(0.16, 1, 0.3, 1) 1400ms both; }
+.hero-enter-meta    { animation: heroEnterBody 1.1s cubic-bezier(0.16, 1, 0.3, 1) 1450ms both; }
+
+/* ── CTA Light Sweep & Tactical Button Depth ─────────────────────────────── */
+.cta-light-sweep {
+  position: relative;
+  overflow: hidden;
+}
+.cta-light-sweep::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: -120%;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(90deg, transparent, rgba(115, 125, 255, 0.22), transparent);
+  transform: skewX(-20deg);
+  pointer-events: none;
+  transition: none;
+}
+.cta-light-sweep:hover::after {
+  left: 200%;
+  transition: left 750ms cubic-bezier(0.16, 1, 0.3, 1);
+}
 
 /* Backwards compatibility aliases */
 .hero-fade-in       { animation: heroFadeIn 0.8s cubic-bezier(0.16, 1, 0.3, 1) 240ms both; }
@@ -771,19 +870,18 @@ html.dark, html { color-scheme: dark; }
 }
 
 /*
-  Secondary line of a two-line display headline. Lifted from #55585f, which sat
-  at roughly 3.1:1 on the near-black canvas and read as switched-off rather than
-  as deliberately quieter. #6f737c is ~4.4:1 — still clearly subordinate to the
-  white first line, but legible.
+  Secondary line of a two-line display headline.
+  Set to Level 2 Secondary Text (#C3C7D0) — intentional, high-contrast and readable,
+  never washed-out or looking disabled.
 */
-.display-dim { color: #6f737c; }
+.display-dim { color: #C3C7D0; }
 
 /* Lead paragraph beneath a display headline */
 .story-lead {
   font-size: clamp(0.95rem, 1.35vw, 1.2rem);
   line-height: 1.65;
   color: var(--text-muted);
-  max-width: 46ch;
+  max-width: 48ch;
 }
 
 /* Small uppercase mono metadata label */
@@ -793,7 +891,7 @@ html.dark, html { color-scheme: dark; }
   font-weight: 600;
   letter-spacing: 0.16em;
   text-transform: uppercase;
-  color: rgba(255, 255, 255, 0.55);
+  color: #818895;
 }
 .mono-label-accent { color: var(--primary); }
 
@@ -852,6 +950,71 @@ html.dark, html { color-scheme: dark; }
     radial-gradient(ellipse 60% 45% at 72% 8%, rgba(94, 106, 210, 0.055), transparent 70%),
     radial-gradient(ellipse 50% 40% at 12% 82%, rgba(94, 106, 210, 0.03), transparent 72%),
     linear-gradient(180deg, rgba(2, 2, 4, 0) 60%, rgba(2, 2, 4, 0.7) 100%);
+}
+
+/* ── Global Cinematic Atmosphere & Lighting Fields ───────────────────────── */
+.story-atmosphere {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background:
+    radial-gradient(ellipse 65% 50% at 15% 10%, rgba(115, 125, 255, 0.045) 0%, transparent 70%),
+    radial-gradient(ellipse 55% 45% at 85% 45%, rgba(94, 106, 210, 0.035) 0%, transparent 65%),
+    radial-gradient(ellipse 70% 40% at 50% 95%, rgba(140, 160, 255, 0.02) 0%, transparent 60%);
+}
+
+/* ── Subtle Observability Diagnostic Scanline ────────────────────────────── */
+@keyframes scanlineTravel {
+  0%   { transform: translate3d(0, -100px, 0); opacity: 0; }
+  10%  { opacity: 0.04; }
+  80%  { opacity: 0.04; }
+  95%  { transform: translate3d(0, calc(100vh + 100px), 0); opacity: 0; }
+  100% { transform: translate3d(0, calc(100vh + 100px), 0); opacity: 0; }
+}
+.story-scanline {
+  position: absolute;
+  left: 0;
+  right: 0;
+  height: 1px;
+  background: linear-gradient(90deg, transparent 5%, rgba(115, 125, 255, 0.35) 30%, rgba(244, 245, 247, 0.6) 50%, rgba(115, 125, 255, 0.35) 70%, transparent 95%);
+  box-shadow: 0 0 12px rgba(115, 125, 255, 0.25);
+  animation: scanlineTravel 14s cubic-bezier(0.4, 0, 0.2, 1) infinite;
+  pointer-events: none;
+}
+
+/* ── Cinematic Viewport Vignette (Edge Darkening) ────────────────────────── */
+.story-viewport-vignette {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: radial-gradient(ellipse 95% 85% at 50% 50%, transparent 60%, rgba(3, 4, 7, 0.45) 88%, rgba(3, 4, 7, 0.82) 100%);
+}
+
+/* ── Pointer Light & Cursor Spotlight ────────────────────────────────────── */
+.pointer-light {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 440px;
+  height: 440px;
+  margin-top: -220px;
+  margin-left: -220px;
+  border-radius: 9999px;
+  pointer-events: none;
+  z-index: 2;
+  opacity: 0;
+  background: radial-gradient(circle, rgba(115, 125, 255, 0.038) 0%, transparent 70%);
+  transition: opacity 300ms ease;
+  will-change: transform;
+}
+.pointer-light.is-visible {
+  opacity: 1;
+}
+.pointer-light.is-precision {
+  background: radial-gradient(circle, rgba(115, 125, 255, 0.055) 0%, rgba(94, 106, 210, 0.02) 40%, transparent 70%);
+}
+.pointer-light.is-command {
+  background: radial-gradient(circle, rgba(115, 125, 255, 0.07) 0%, transparent 60%);
 }
 
 /* Faint architectural graph lines drawn behind the whole page */
@@ -2366,63 +2529,165 @@ textarea.console-field {
  * scene resolves — the second half of a sentence being completed, not a second
  * element animating in.
  * ------------------------------------------------------------------------- */
+/* ── Cinematic Hero Entrance & Chromatic Gradients ────────────────────────
+ * Multi-stop crystalline text gradient with animated light bloom.
+ * ------------------------------------------------------------------------- */
+@keyframes textLightSweep {
+  0%   { background-position: 0% center; }
+  50%  { background-position: 100% center; }
+  100% { background-position: 0% center; }
+}
+
 @keyframes heroLead {
   from {
-    transform: translate3d(0, 104%, 0);
+    transform: translate3d(0, 28px, 0);
     opacity: 0;
-    filter: blur(9px);
+    filter: blur(14px);
   }
-  60% { filter: blur(1.5px); }
+  60% { filter: blur(2px); }
   to {
     transform: translate3d(0, 0, 0);
     opacity: 1;
     filter: blur(0);
   }
 }
+
 .hero-line--lead {
   display: block;
-  animation: heroLead 1.35s var(--ease-cine) both;
-  will-change: transform, opacity, filter;
+  background: linear-gradient(115deg, #FFFFFF 0%, #FFFFFF 35%, #C7D2FE 60%, #818CF8 85%, #6366F1 100%);
+  background-size: 200% auto;
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  animation:
+    heroLead 1.2s var(--ease-cine) both,
+    textLightSweep 12s ease-in-out infinite 1.5s;
+  will-change: transform, opacity, filter, background-position;
+  filter: drop-shadow(0 0 35px rgba(129, 140, 248, 0.22));
 }
 
 @keyframes heroResolve {
   from {
-    transform: translate3d(0, 96%, 0);
+    transform: translate3d(0, 28px, 0);
     opacity: 0;
-    color: #3a3d45;
-    filter: blur(6px);
+    filter: blur(14px);
   }
-  55% { filter: blur(1px); }
+  55% { filter: blur(2px); }
   to {
     transform: translate3d(0, 0, 0);
     opacity: 1;
-    color: #6f737c;
     filter: blur(0);
   }
 }
+
 .hero-line--resolve {
   display: block;
-  animation: heroResolve 1.5s var(--ease-cine) both;
-  will-change: transform, opacity, filter;
+  background: linear-gradient(115deg, #F1F5F9 0%, #CBD5E1 45%, #94A3B8 75%, #818CF8 100%);
+  background-size: 200% auto;
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  animation:
+    heroResolve 1.35s var(--ease-cine) both,
+    textLightSweep 16s ease-in-out infinite 2.2s;
+  will-change: transform, opacity, filter, background-position;
 }
 
-/* ── Hero telemetry ──────────────────────────────────────────────────────
- * The capability list reads as system output: each phrase arrives on its own
- * beat, tightly spaced, and then stops. No looping.
+/* ── Hero telemetry pills ──────────────────────────────────────────────────
+ * Floating glass capsules with micro-float and neon signal beads.
  * ------------------------------------------------------------------------- */
-.hero-telemetry {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: baseline;
-  /* Row gap matters: at 375px the five phrases wrap onto three lines, and
-   * without it they sit on top of each other. */
-  gap: 0.45rem 0.5rem;
+@keyframes pillFloat {
+  0%, 100% { transform: translateY(0); }
+  50%      { transform: translateY(-3px); }
 }
-.hero-telemetry > span {
+
+.telemetry-pill {
   opacity: 0;
-  animation: heroFadeIn 620ms var(--ease-cine) var(--tel-delay, 0ms) both;
+  animation:
+    heroFadeIn 700ms var(--ease-cine) var(--tel-delay, 0ms) both,
+    pillFloat 6s ease-in-out infinite calc(var(--tel-delay, 0ms) + 1000ms);
+  will-change: transform, opacity;
 }
-.hero-telemetry .tel-sep { color: rgba(94, 106, 210, 0.55); }
+
+/* ── CTA Light Sweep & Border Glow ───────────────────────────────────────── */
+@keyframes ctaSheen {
+  0%   { background-position: -200% 0; }
+  100% { background-position: 200% 0; }
+}
+
+.cta-light-sweep {
+  position: relative;
+  overflow: hidden;
+}
+
+.cta-light-sweep::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    90deg,
+    transparent 0%,
+    rgba(255, 255, 255, 0.08) 45%,
+    rgba(129, 140, 248, 0.25) 50%,
+    rgba(255, 255, 255, 0.08) 55%,
+    transparent 100%
+  );
+  background-size: 200% 100%;
+  animation: ctaSheen 5s linear infinite;
+  pointer-events: none;
+}
+
+/* ── Technical Instrument Crosshairs ─────────────────────────────────────── */
+.tech-cross {
+  position: absolute;
+  width: 12px;
+  height: 12px;
+  pointer-events: none;
+  opacity: 0.35;
+  transition: opacity 0.3s ease;
+}
+
+.tech-cross::before,
+.tech-cross::after {
+  content: '';
+  position: absolute;
+  background: #818CF8;
+  box-shadow: 0 0 6px rgba(129, 140, 248, 0.8);
+}
+
+.tech-cross::before {
+  top: 5px;
+  left: 0;
+  width: 12px;
+  height: 1px;
+}
+
+.tech-cross::after {
+  top: 0;
+  left: 5px;
+  width: 1px;
+  height: 12px;
+}
+
+/* ── Chapter Marker Glow Laser Rule ──────────────────────────────────────── */
+.chapter-rule {
+  display: flex;
+  align-items: center;
+  gap: 0.875rem;
+  position: relative;
+}
+
+.chapter-rule::after {
+  content: '';
+  flex: 1;
+  height: 1px;
+  background: linear-gradient(90deg, rgba(129, 140, 248, 0.5) 0%, rgba(255, 255, 255, 0.08) 35%, transparent 100%);
+  box-shadow: 0 0 8px rgba(129, 140, 248, 0.25);
+}
+
+.chapter-rule--right::after {
+  background: linear-gradient(270deg, rgba(129, 140, 248, 0.5) 0%, rgba(255, 255, 255, 0.08) 35%, transparent 100%);
+}
 
 @media (prefers-reduced-motion: reduce) {
   .hero-bloom,
@@ -2443,9 +2708,10 @@ textarea.console-field {
     filter: none;
     opacity: 1;
     transform: none;
+    background-size: 100%;
   }
-  .hero-line--resolve { color: #6f737c; }
-  .hero-telemetry > span { animation: none; opacity: 1; }
+  .telemetry-pill { animation: none; opacity: 1; transform: none; }
+  .cta-light-sweep::before { animation: none; }
 }
 
 /* ===========================================================================
@@ -2822,7 +3088,7 @@ textarea.console-field {
   transition: color 1300ms var(--ease-slow) var(--reveal-delay, 0ms);
 }
 [data-reveal='line-lumen'].is-revealed { color: var(--text); }
-[data-reveal='line-lumen'].is-dim.is-revealed { color: #6f737c; }
+[data-reveal='line-lumen'].is-dim.is-revealed { color: #C3C7D0; }
 
 @media (prefers-reduced-motion: reduce) {
   [data-reveal='line-blur'],
@@ -2836,7 +3102,7 @@ textarea.console-field {
     transition: none !important;
   }
   [data-reveal='line-lumen'] { color: var(--text); }
-  [data-reveal='line-lumen'].is-dim { color: #6f737c; }
+  [data-reveal='line-lumen'].is-dim { color: #C3C7D0; }
 }
 
 /* ===========================================================================
@@ -3249,69 +3515,43 @@ textarea.console-field {
  * subject holds longest, and the whole plane recedes very slightly — a camera
  * pulling back rather than a section ending.
  * ------------------------------------------------------------------------- */
-/*
-  Scenes are marked `data-stage`, deliberately not `data-scene`. The backdrop and
-  each rail tick also carry `data-scene` (they react to which scene is active), so
-  a bare `[data-scene] > *` rule would capture the backdrop's parallax layers and
-  the rail's own marks and overwrite their transforms. One attribute names the
-  active scene; another marks the elements that own the stage.
-*/
+/* ── Scene stage & content stability ──────────────────────────────────────
+ * Narrative content must have a stable, full-opacity resting state once entered.
+ * Decorative backdrop layers handle atmospheric depth, while text, cards, and UI
+ * remain crisp, sharp, and 100% readable at all scroll positions.
+ * ------------------------------------------------------------------------- */
 [data-stage] {
   --exit: 0;
 }
 
 [data-stage] > * {
-  /* Recedes and cools. Transform and opacity only. */
-  opacity: calc(1 - var(--exit, 0) * 0.85);
-  transform: translate3d(0, calc(var(--exit, 0) * -2.5vh), 0)
-    scale(calc(1 - var(--exit, 0) * 0.025));
-  transform-origin: center top;
+  opacity: 1;
+  transform: none;
 }
 
-/*
-  The subject outlasts its supporting material: headlines and chapter markers stay
-  legible while telemetry and figures have already gone. §10 — important elements
-  dissolve last.
-*/
 [data-stage] h1,
 [data-stage] h2,
 [data-stage] .display-1,
 [data-stage] .display-2,
 [data-stage] .product-thesis,
 [data-stage] .chapter-rule {
-  opacity: calc(1 - var(--exit, 0) * 0.45);
-}
-
-/* ── Scene-specific exits ─────────────────────────────────────────────────
- * Not every scene should leave the same way. Typography scenes dissolve
- * without spatial movement; the closing statement fades to absolute black.
- * ------------------------------------------------------------------------ */
-[data-stage="thesis"] > *,
-[data-stage="statement"] > * {
-  /* Pure dissolve: no spatial recession for type-only scenes */
+  opacity: 1;
   transform: none;
 }
 
+[data-stage="thesis"] > *,
 [data-stage="statement"] > * {
-  /* Faster fade to black */
-  opacity: calc(1 - var(--exit, 0) * 1.2);
+  transform: none;
+  opacity: 1;
 }
 
 /* ── Creation order ────────────────────────────────────────────────────────
- * `data-create` elements build in sequence as the scene's progress advances, so
- * the reader watches the scene come into existence. Pure CSS: the step's own
- * progress is derived from --scene-p, its index and the scene's step count, so no
- * element needs a script and nothing is written per frame per element.
+ * `data-create` elements are stable and fully visible once authored.
+ * Reveal effects are handled via IntersectionObserver on enter, never dimmed on scroll.
  * ------------------------------------------------------------------------- */
 [data-create] {
-  --step: clamp(
-    0,
-    calc(var(--scene-p, 1) / 0.7 * var(--create-total, 5) - var(--create-index, 0)),
-    1
-  );
-  opacity: var(--step);
-  transform: translate3d(0, calc((1 - var(--step)) * 14px), 0);
-  will-change: opacity, transform;
+  opacity: 1;
+  transform: none;
 }
 
 /* ── Glimpse layer ────────────────────────────────────────────────────────── */
@@ -4181,4 +4421,95 @@ html:not([data-scene='statement']) .statement-drift {
 
   .gh-scale-marker { animation: none; transform: translateX(-50%) scaleY(1); }
   .gh-own:hover .meter { transform: none; }
+}
+
+/* ── Interactive Edge Photons & Particle Beams ────────────────────────── */
+@keyframes edgePhotonFlow {
+  0% {
+    offset-distance: 0%;
+    opacity: 0;
+  }
+  20% {
+    opacity: 1;
+  }
+  80% {
+    opacity: 1;
+  }
+  100% {
+    offset-distance: 100%;
+    opacity: 0;
+  }
+}
+
+.edge-photon {
+  position: absolute;
+  width: 4px;
+  height: 4px;
+  border-radius: 50%;
+  background: #ffffff;
+  box-shadow: 0 0 10px 2px rgba(129, 140, 248, 0.9);
+  pointer-events: none;
+}
+
+/* ── 3D Card Tilt & Hologram Scanning Utilities ──────────────────────── */
+.perspective-1000 {
+  perspective: 1000px;
+}
+
+.perspective-2000 {
+  perspective: 2000px;
+}
+
+.tilt-card {
+  transform-style: preserve-3d;
+  transition: transform 0.25s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.25s cubic-bezier(0.16, 1, 0.3, 1), border-color 0.25s ease;
+  will-change: transform;
+}
+
+.tilt-card-inner {
+  transform: translateZ(20px);
+}
+
+@keyframes laserScanVertical {
+  0% {
+    top: 0%;
+    opacity: 0;
+  }
+  15% {
+    opacity: 1;
+  }
+  85% {
+    opacity: 1;
+  }
+  100% {
+    top: 100%;
+    opacity: 0;
+  }
+}
+
+.laser-scanner-beam {
+  position: absolute;
+  left: 0;
+  right: 0;
+  height: 2px;
+  background: linear-gradient(90deg, transparent 0%, rgba(129, 140, 248, 0.8) 20%, rgba(255, 255, 255, 1) 50%, rgba(129, 140, 248, 0.8) 80%, transparent 100%);
+  box-shadow: 0 0 14px 3px rgba(129, 140, 248, 0.7);
+  animation: laserScanVertical 2.4s ease-in-out infinite;
+  pointer-events: none;
+}
+
+@keyframes chaosBeacon {
+  0%, 100% {
+    opacity: 0.4;
+    transform: scale(0.98);
+  }
+  50% {
+    opacity: 1;
+    transform: scale(1.02);
+    box-shadow: 0 0 20px rgba(244, 63, 94, 0.35);
+  }
+}
+
+.chaos-active-beacon {
+  animation: chaosBeacon 1.8s ease-in-out infinite;
 }

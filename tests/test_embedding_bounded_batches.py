@@ -674,3 +674,107 @@ def test_granular_telemetry_fields():
         assert tel["hash_time_ms"] >= 0
         assert tel["l1_lookup_time_ms"] >= 0
         assert tel["total_embed_time_ms"] > 0
+
+
+def test_embedding_progress_callback_reports_increasing_progress():
+    """Verify progress callback is called per batch with increasing progress and reaches 100%."""
+    from services.embedding_service import _clear_l1_cache
+
+    _clear_l1_cache()
+    service = EmbeddingService(
+        model_name="test-progress", max_outer_batch_size=2, encode_batch_size=2
+    )
+
+    mock_model = MagicMock()
+    # 6 items across 3 batches of 2
+    mock_model.encode.side_effect = [
+        np.array([[0.1] * 384, [0.2] * 384]),
+        np.array([[0.3] * 384, [0.4] * 384]),
+        np.array([[0.5] * 384, [0.6] * 384]),
+    ]
+
+    events = []
+
+    def on_progress(p: dict):
+        events.append(dict(p))
+
+    with (
+        patch("services.embedding_service._get_model", return_value=mock_model),
+        patch(
+            "services.embedding_service._get_cached_embeddings_bulk", return_value={}
+        ),
+        patch("services.embedding_service._save_embeddings_to_cache_bulk"),
+    ):
+        texts = ["t1", "t2", "t3", "t4", "t5", "t6"]
+        embeddings = service.generate_embeddings_batch(
+            texts, progress_callback=on_progress
+        )
+
+        # Assert results are intact
+        assert len(embeddings) == 6
+        assert embeddings[0] == [0.1] * 384
+        assert embeddings[5] == [0.6] * 384
+
+        # Assert callback called 3 times
+        assert len(events) == 3
+
+        # First batch vs final batch
+        assert events[0]["batch"] == 1
+        assert events[0]["total_batches"] == 3
+        assert events[0]["completed_chunks"] == 2
+        assert events[0]["total_chunks"] == 6
+        assert events[0]["progress_pct"] < events[-1]["progress_pct"]
+
+        # Final progress reaches 100%
+        assert events[-1]["batch"] == 3
+        assert events[-1]["completed_chunks"] == 6
+        assert events[-1]["total_chunks"] == 6
+        assert events[-1]["progress_pct"] == 100.0
+
+
+def test_embedding_progress_callback_all_cached():
+    """Verify progress callback immediately reports 100% when all items hit cache."""
+    from services.embedding_service import _clear_l1_cache, compute_chunk_hash
+
+    _clear_l1_cache()
+    service = EmbeddingService(model_name="test-cached-progress")
+
+    texts = ["cached_1", "cached_2"]
+    prefixed = [f"Represent this sentence: {t}" for t in texts]
+    h1 = compute_chunk_hash(prefixed[0], "test-cached-progress", "1.5")
+    h2 = compute_chunk_hash(prefixed[1], "test-cached-progress", "1.5")
+    l2_map = {h1: [0.1] * 384, h2: [0.2] * 384}
+
+    events = []
+
+    def on_progress(p: dict):
+        events.append(dict(p))
+
+    mock_model = MagicMock()
+    with (
+        patch("services.embedding_service._get_model", return_value=mock_model),
+        patch(
+            "services.embedding_service._get_cached_embeddings_bulk",
+            return_value=l2_map,
+        ),
+        patch("services.embedding_service._save_embeddings_to_cache_bulk"),
+    ):
+        embeddings = service.generate_embeddings(texts, progress_callback=on_progress)
+        assert len(embeddings) == 2
+        assert len(events) == 1
+        assert events[0]["progress_pct"] == 100.0
+        assert events[0]["completed_chunks"] == 2
+        assert events[0]["cache_hits"] == 2
+
+
+def test_max_concurrent_analyses_configuration():
+    """Verify max_concurrent_analyses honours ARIA_MAX_CONCURRENT_ANALYSES environment variable."""
+    from core.config import Settings
+
+    # Explicit 1
+    s1 = Settings(ARIA_MAX_CONCURRENT_ANALYSES="1")
+    assert s1.max_concurrent_analyses == 1
+
+    # Explicit 4
+    s4 = Settings(ARIA_MAX_CONCURRENT_ANALYSES="4")
+    assert s4.max_concurrent_analyses == 4

@@ -55,6 +55,7 @@
     "onCommand:repoIntelligence.showCallees",
     "onCommand:repoIntelligence.showBlastRadius",
     "onCommand:repoIntelligence.showImpactAnalysis",
+    "onCommand:repoIntelligence.showApiExposure",
     "onCommand:repoIntelligence.showReadingPathForFile",
     "onCommand:repoIntelligence.connectBackend",
     "onCommand:repoIntelligence.explorerRefresh",
@@ -243,6 +244,10 @@
       {
         "command": "repoIntelligence.showImpactAnalysis",
         "title": "Show Impact Analysis"
+      },
+      {
+        "command": "repoIntelligence.showApiExposure",
+        "title": "Show API Exposure"
       },
       {
         "command": "repoIntelligence.showReadingPathForFile",

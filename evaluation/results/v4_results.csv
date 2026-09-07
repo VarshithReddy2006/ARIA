@@ -1,0 +1,11 @@
+task_id,repository,baseline_latency_ms,baseline_files_precision,baseline_files_recall,baseline_files_f1,baseline_callers_f1,baseline_tests_f1,baseline_fp_files,aria_latency_ms,aria_files_precision,aria_files_recall,aria_files_f1,aria_callers_f1,aria_tests_high_f1,aria_tests_high_prec,aria_tests_high_rec,aria_tests_high_med_f1,aria_tests_high_med_prec,aria_tests_high_med_rec,aria_valid_tests_hm_f1,aria_valid_tests_hm_prec,aria_valid_tests_hm_rec,aria_fp_files,aria_blast_radius,aria_evidence_count
+task-01-fastapi-oauth2,fastapi/fastapi,717.64,0.0047,1.0,0.0093,0.0,0.0124,853,1203.11,0.0667,0.25,0.1053,0.0,0.4444,0.3333,0.6667,0.1579,0.0857,1.0,0.0526,0.0286,0.3333,14,L,56
+task-02-fastapi-serialize-response,fastapi/fastapi,160.3,0.0035,1.0,0.0069,0.0,0.0041,865,658.56,0.0645,0.6667,0.1176,0.3333,0.3333,0.25,0.5,0.0082,0.0041,0.5,0.0,0.0,0.0,29,XL,300
+task-03-fastapi-status-codes,fastapi/fastapi,180.07,0.0011,0.5,0.0023,0.0,0.0,875,248.4,0.1429,0.5,0.2222,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,6,M,24
+task-04-requests-session-send,psf/requests,97.94,0.0938,1.0,0.1714,0.1333,0.1429,29,166.22,0.1429,0.6667,0.2353,0.0,0.6667,1.0,0.5,0.6667,1.0,0.5,1.0,1.0,1.0,12,L,11
+task-05-requests-adapters-ssl,psf/requests,26.95,0.0625,1.0,0.1176,0.0,0.2857,30,70.05,0.1818,1.0,0.3077,0.0,0.6667,1.0,0.5,1.0,1.0,1.0,0.5,0.5,0.5,9,M,9
+task-06-requests-models-response,psf/requests,21.9,0.0938,1.0,0.1714,0.0,0.1538,29,64.34,0.2143,1.0,0.3529,0.0,0.0,0.0,0.0,1.0,1.0,1.0,1.0,1.0,1.0,11,L,9
+task-07-aria-symbol-schema,VarshithReddy2006/ARIA,858.37,0.0053,1.0,0.0106,0.0,0.008,749,5099.28,0.0317,0.5,0.0597,0.0,0.093,0.0488,1.0,0.0889,0.0465,1.0,0.0455,0.0233,1.0,61,XL,59
+task-08-aria-call-graph-blast-radius,VarshithReddy2006/ARIA,251.26,0.0066,1.0,0.0131,0.0,0.0,451,1473.23,0.029,0.6667,0.0556,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,67,XL,38
+task-09-aria-api-surface-status,VarshithReddy2006/ARIA,213.13,0.0059,1.0,0.0118,0.0,0.0,671,1612.71,0.0625,0.75,0.1154,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,45,XL,54
+task-10-aria-impact-engine-bucketing,VarshithReddy2006/ARIA,189.36,0.0062,0.6667,0.0122,0.0,0.0172,323,1310.61,0.0164,0.3333,0.0312,0.0,0.3636,0.2222,1.0,0.1905,0.1053,1.0,0.1905,0.1053,1.0,60,XL,33

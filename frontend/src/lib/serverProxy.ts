@@ -126,7 +126,11 @@ export async function executeProxy(
     targetUrl.includes('/health?') ||
     targetUrl.includes('/ready?');
 
-  if (!backendBase || (!apiKey && !isHealthOrReady)) {
+  const isLocalDev =
+    backendBase.includes('127.0.0.1') ||
+    backendBase.includes('localhost');
+
+  if (!backendBase || (!apiKey && !isHealthOrReady && !isLocalDev)) {
     return {
       status: 500,
       statusText: 'Internal Server Error',
@@ -188,7 +192,7 @@ export async function executeProxy(
     }
   }
 
-  const timeoutMs = options.timeoutMs || 30000;
+  const timeoutMs = options.timeoutMs || 120000;
   const controller = new AbortController();
   const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
 
@@ -213,6 +217,19 @@ export async function executeProxy(
         resHeaders[key] = val;
       }
     });
+
+    const contentType = (upstreamRes.headers.get('content-type') || '').toLowerCase();
+    const isStreaming = contentType.includes('text/event-stream') || contentType.includes('application/x-ndjson');
+
+    if (isStreaming && upstreamRes.body) {
+      clearTimeout(timeoutId);
+      return {
+        status: upstreamRes.status,
+        statusText: upstreamRes.statusText,
+        headers: resHeaders,
+        body: upstreamRes.body as any,
+      };
+    }
 
     const responseBuffer = await upstreamRes.arrayBuffer();
     return {

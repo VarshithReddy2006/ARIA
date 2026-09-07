@@ -30,7 +30,7 @@ import json
 import logging
 import time
 from dataclasses import dataclass, field
-from typing import Any, Dict, List
+from typing import Any, Dict, List, Optional
 
 logger = logging.getLogger(__name__)
 
@@ -54,6 +54,15 @@ class PipelineTrace:
     embed_ms: float = 0.0
     search_ms: float = 0.0
     rerank_ms: float = 0.0
+
+    # Deterministic diagnostics
+    entity_requested: Optional[str] = None
+    resolved_file: Optional[str] = None
+    resolved_symbol: Optional[str] = None
+    symbol_start_line: Optional[int] = None
+    symbol_end_line: Optional[int] = None
+    coverage_percent: Optional[int] = None
+    chunks_selected: int = 0
 
     # Top-chunk scores for quality inspection
     top_similarity_scores: List[float] = field(default_factory=list)
@@ -85,6 +94,13 @@ class PipelineTrace:
         self.embed_ms = metrics.get("embed_ms", 0.0)
         self.search_ms = metrics.get("search_ms", 0.0)
         self.rerank_ms = metrics.get("rerank_ms", 0.0)
+        self.entity_requested = metrics.get("entity_requested")
+        self.resolved_file = metrics.get("matched_file")
+        self.resolved_symbol = metrics.get("matched_symbol")
+        self.symbol_start_line = metrics.get("symbol_start_line")
+        self.symbol_end_line = metrics.get("symbol_end_line")
+        self.coverage_percent = metrics.get("symbol_coverage")
+        self.chunks_selected = metrics.get("final_returned", 0)
         return self
 
     def from_chunks(self, chunks: List[Dict[str, Any]]) -> "PipelineTrace":
@@ -148,6 +164,13 @@ class ChatObservability:
             "tokens_streamed": trace.tokens_streamed,
             "fallback": trace.fallback_triggered,
             "fallback_reason": trace.fallback_reason,
+            # Deterministic
+            "deterministic_entity": trace.entity_requested,
+            "resolved_file": trace.resolved_file,
+            "resolved_symbol": trace.resolved_symbol,
+            "symbol_start_line": trace.symbol_start_line,
+            "symbol_end_line": trace.symbol_end_line,
+            "coverage_percent": trace.coverage_percent,
         }
 
         logger.info(

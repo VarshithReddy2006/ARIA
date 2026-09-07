@@ -93,7 +93,7 @@ class DeadCodeService:
     def _find_last_reachable_parent(
         self, graph: nx.DiGraph, orphan: str, reachable_nodes: Set[str]
     ) -> Optional[str]:
-        """Finds the closest reachable node connected to the orphan in the undirected graph."""
+        """Finds the closest reachable node connected to the orphan in the undirected graph in O(V+E)."""
         if not reachable_nodes:
             return None
 
@@ -101,21 +101,18 @@ class DeadCodeService:
         if orphan not in ug:
             return None
 
-        best_node = None
-        min_dist = float("inf")
-
-        for r_node in reachable_nodes:
-            if r_node in ug:
-                try:
-                    if nx.has_path(ug, orphan, r_node):
-                        dist = nx.shortest_path_length(ug, orphan, r_node)
-                        if dist < min_dist:
-                            min_dist = dist
-                            best_node = r_node
-                except Exception:
-                    pass
-
-        return best_node
+        try:
+            lengths = nx.single_source_shortest_path_length(ug, orphan)
+            best_node = None
+            min_dist = float("inf")
+            for r_node in reachable_nodes:
+                dist = lengths.get(r_node)
+                if dist is not None and dist < min_dist:
+                    min_dist = dist
+                    best_node = r_node
+            return best_node
+        except Exception:
+            return None
 
     def _find_dead_chains(
         self, unreachable_subgraph: nx.DiGraph, centrality: Dict[str, float]
@@ -139,7 +136,11 @@ class DeadCodeService:
             all_paths = []
             visited = set()
 
-            def dfs_paths(node, current_path):
+            def dfs_paths(node, current_path, depth=0):
+                if len(all_paths) >= 50 or depth >= 10:
+                    if len(current_path) >= 2:
+                        all_paths.append(list(current_path))
+                    return
                 visited.add(node)
                 current_path.append(node)
                 successors = [s for s in comp_sub.successors(node) if s not in visited]
@@ -148,11 +149,13 @@ class DeadCodeService:
                         all_paths.append(list(current_path))
                 else:
                     for s in successors:
-                        dfs_paths(s, list(current_path))
+                        dfs_paths(s, list(current_path), depth + 1)
                 visited.remove(node)
 
             for r in roots:
-                dfs_paths(r, [])
+                if len(all_paths) >= 50:
+                    break
+                dfs_paths(r, [], 0)
 
             if not all_paths:
                 continue

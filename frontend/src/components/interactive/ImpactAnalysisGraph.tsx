@@ -39,26 +39,40 @@ import { FilePath } from '../ui/FilePath';
 import { LeaderRow } from './pr/instrument';
 import 'reactflow/dist/style.css';
 
-interface DependencyPath {
-  path: string[];
-}
+// Impact-analysis contract types live in one place so this component and
+// ImpactAnalysisWorkspace cannot drift apart. See frontend/src/lib/impactTypes.ts.
+import type {
+  ApiExposureInfo,
+  CallerInfo,
+  DependencyPath,
+  EvidenceItem,
+  ImpactAnalysisData,
+  ImpactedFileDetail,
+  TestImpactItem,
+} from '../../lib/impactTypes';
 
-interface ImpactAnalysisData {
-  repo: string;
-  issue_text: string;
-  directly_affected_files: string[];
-  indirectly_affected_files: string[];
-  affected_components: string[];
-  risk_level: string;
-  estimated_file_count: number;
-  dependency_paths: DependencyPath[];
-  confidence: number;
-}
+export type {
+  ApiExposureInfo,
+  CallerInfo,
+  DependencyPath,
+  EvidenceItem,
+  ImpactAnalysisData,
+  ImpactedFileDetail,
+  TestImpactItem,
+};
 
 interface GraphProps {
   repoName: string;
   impactData: ImpactAnalysisData;
   onReset: () => void;
+  /**
+   * `full`     — legacy layout: risk sidebar + propagation graph.
+   * `graph-only` — canvas only; the surrounding workspace controls headers,
+   *                metrics, and evidence. Used by ImpactAnalysisWorkspace.
+   */
+  variant?: 'full' | 'graph-only';
+  /** Suppress the internal scenario line when the workspace already shows one. */
+  hideScenarioStrip?: boolean;
 }
 
 type NodeCategory = 'direct' | 'indirect' | 'component' | 'regular';
@@ -88,10 +102,10 @@ const NODE_BASE =
   'break-words cursor-pointer transition-[color,border-color,opacity] duration-200';
 
 const NODE_CLASS: Record<NodeCategory, string> = {
-  direct: `${NODE_BASE} bg-[#1b0f12] border border-danger/70 text-white font-medium hover:border-danger`,
-  indirect: `${NODE_BASE} bg-canvas border border-warn/55 text-warn hover:border-warn`,
-  component: `${NODE_BASE} bg-canvas border border-primary/60 text-primary hover:border-primary`,
-  regular: `${NODE_BASE} bg-canvas border border-white/[0.06] text-text-subtle hover:border-white/20 hover:text-text-muted`,
+  direct: `${NODE_BASE} bg-[rgba(242,119,129,0.09)] border border-[#F27781] text-[#F5F7FA] font-medium hover:border-[#FF8D96]`,
+  indirect: `${NODE_BASE} bg-[rgba(240,180,41,0.10)] border border-[#F0B429] text-[#F0B429] hover:border-[#D89A24]`,
+  component: `${NODE_BASE} bg-[rgba(165,140,255,0.09)] border border-[#A58CFF] text-[#A58CFF] hover:border-[#B9A6FF]`,
+  regular: `${NODE_BASE} bg-[#090B0F] border border-[#202631] text-[#B8BEC9] hover:border-[#2A313C] hover:text-[#F5F7FA]`,
 };
 
 /** Label length drives width, within bounds that keep the grid gutters intact. */
@@ -124,7 +138,13 @@ function categoryTone(category: NodeCategory): string {
 /** Only relayout when the canvas shape has moved enough to matter. */
 const ASPECT_EPSILON = 0.12;
 
-const ImpactAnalysisGraphInner: React.FC<GraphProps> = ({ repoName, impactData, onReset }) => {
+const ImpactAnalysisGraphInner: React.FC<GraphProps> = ({
+  repoName: _repoName,
+  impactData,
+  onReset,
+  variant = 'full',
+  hideScenarioStrip = false,
+}) => {
   const [nodes, setNodes, onNodesChange] = useNodesState([]);
   const [edges, setEdges, onEdgesChange] = useEdgesState([]);
   const [selectedNode, setSelectedNode] = useState<SelectedNodeData | null>(null);
@@ -135,6 +155,8 @@ const ImpactAnalysisGraphInner: React.FC<GraphProps> = ({ repoName, impactData, 
 
   /** Canvas aspect, bucketed so a resize drag cannot thrash the layout. */
   const [targetAspect, setTargetAspect] = useState(DEFAULT_TARGET_ASPECT);
+  const [evidenceFilter, setEvidenceFilter] = useState<'ALL' | 'FACT' | 'INFERENCE' | 'PREDICTION' | 'RECOMMENDATION'>('ALL');
+  const [confidenceFilter, setConfidenceFilter] = useState<'ALL' | 'HIGH' | 'MEDIUM' | 'LOW'>('ALL');
 
   useEffect(() => {
     const el = canvasRef.current;
@@ -249,22 +271,22 @@ const ImpactAnalysisGraphInner: React.FC<GraphProps> = ({ repoName, impactData, 
     */
     const flowEdges = tempEdges.map((e, idx) => {
       const targetCategory = categoryOf(e.target);
-      let stroke = '#ef4444';
+      let stroke = '#F27781';
       let width = 2;
       let opacity = 0.9;
 
       if (e.isDotted) {
-        stroke = '#5e6ad2';
+        stroke = '#7C83FF';
         width = 1.5;
         opacity = 0.68;
       } else if (targetCategory === 'indirect') {
-        stroke = '#f59e0b';
+        stroke = '#F0B429';
         width = 1.75;
         opacity = 0.7;
       } else if (targetCategory === 'regular') {
-        stroke = '#ffffff';
+        stroke = '#202631';
         width = 1;
-        opacity = 0.16;
+        opacity = 0.4;
       }
 
       return {
@@ -416,10 +438,12 @@ const ImpactAnalysisGraphInner: React.FC<GraphProps> = ({ repoName, impactData, 
 
   const scenario = (impactData.issue_text || '').trim();
 
+  const isGraphOnly = variant === 'graph-only';
+
   return (
     <div className="min-w-0">
       {/* ── Scenario context strip ────────────────────────────────────────── */}
-      {scenario && (
+      {scenario && !hideScenarioStrip && !isGraphOnly && (
         <div className="flex items-baseline gap-3 pb-3 mb-7 hair-b min-w-0">
           <span className="mono-label shrink-0">SCENARIO</span>
           <span
@@ -432,10 +456,14 @@ const ImpactAnalysisGraphInner: React.FC<GraphProps> = ({ repoName, impactData, 
       )}
 
       <div
-        className="grid grid-cols-1 gap-y-8 items-start min-w-0
-                   lg:grid-cols-[minmax(0,30fr)_minmax(0,70fr)] lg:gap-x-7"
+        className={
+          isGraphOnly
+            ? 'min-w-0'
+            : 'grid grid-cols-1 gap-y-8 items-start min-w-0 lg:grid-cols-[minmax(0,30fr)_minmax(0,70fr)] lg:gap-x-7'
+        }
       >
         {/* ── Risk intelligence ───────────────────────────────────────────── */}
+        {!isGraphOnly && (
         <div className="min-w-0">
           <div className="flex items-baseline justify-between gap-4 pb-2.5 hair-b">
             <h3 className="mono-label mono-label-accent">RISK INTELLIGENCE</h3>
@@ -464,8 +492,24 @@ const ImpactAnalysisGraphInner: React.FC<GraphProps> = ({ repoName, impactData, 
                 {impactData.risk_level} RISK
               </span>
             </div>
+            {/* Blast radius rating badge */}
+            <div className="mt-2 flex items-center gap-2">
+              <span
+                className={`px-2 py-0.5 rounded-[2px] font-mono text-[10px] uppercase tracking-wider font-semibold border ${
+                  (impactData.blast_radius_category === 'XL' || counts.direct + counts.indirect > 15)
+                    ? 'bg-danger/15 text-danger border-danger/40'
+                    : (impactData.blast_radius_category === 'L' || counts.direct + counts.indirect > 8)
+                    ? 'bg-warn/15 text-warn border-warn/40'
+                    : (impactData.blast_radius_category === 'M' || counts.direct + counts.indirect > 3)
+                    ? 'bg-amber-500/15 text-amber-400 border-amber-500/40'
+                    : 'bg-emerald-500/15 text-emerald-400 border-emerald-500/40'
+                }`}
+              >
+                BLAST RADIUS {impactData.blast_radius_category || (counts.direct + counts.indirect > 15 ? 'XL' : counts.direct + counts.indirect > 8 ? 'L' : counts.direct + counts.indirect > 3 ? 'M' : 'S')}
+              </span>
+            </div>
             <p className="text-[12px] text-text-muted leading-relaxed mt-1.5 max-w-sm">
-              Calculated risk of change propagation based on coupling and core components.
+              Deterministic impact radius based on call graph traversal and API exposure.
             </p>
           </div>
 
@@ -481,6 +525,21 @@ const ImpactAnalysisGraphInner: React.FC<GraphProps> = ({ repoName, impactData, 
               <span className="font-mono text-[13px] text-text tabular-nums">
                 {impactData.estimated_file_count}
                 <span className="text-text-subtle"> files</span>
+              </span>
+            </LeaderRow>
+            <LeaderRow label="DIRECT CALLERS">
+              <span className="font-mono text-[13px] text-text tabular-nums">
+                {impactData.direct_callers?.length ?? 0}
+              </span>
+            </LeaderRow>
+            <LeaderRow label="EXPOSED ROUTES">
+              <span className="font-mono text-[13px] text-primary tabular-nums">
+                {impactData.api_exposure?.public_routes?.length ?? 0}
+              </span>
+            </LeaderRow>
+            <LeaderRow label="AFFECTED TESTS">
+              <span className="font-mono text-[13px] text-warn tabular-nums">
+                {impactData.affected_tests?.length ?? 0}
               </span>
             </LeaderRow>
           </dl>
@@ -518,15 +577,243 @@ const ImpactAnalysisGraphInner: React.FC<GraphProps> = ({ repoName, impactData, 
               </LeaderRow>
             </dl>
           </div>
+
+          {/* Implementation Sequence */}
+          {impactData.implementation_order && impactData.implementation_order.length > 0 && (
+            <div className="mt-4 pt-3 border-t border-white/[0.055] min-w-0">
+              <span className="mono-label block mb-2 text-text">IMPLEMENTATION SEQUENCE</span>
+              <ol className="space-y-1.5 font-mono text-[11px] text-text-muted leading-relaxed">
+                {impactData.implementation_order.map((step, idx) => (
+                  <li key={idx} className="flex items-start gap-2 bg-white/[0.02] border border-white/[0.04] p-1.5 rounded-[2px]">
+                    <span className="text-primary font-semibold shrink-0">{idx + 1}.</span>
+                    <span className="break-words">{step}</span>
+                  </li>
+                ))}
+              </ol>
+            </div>
+          )}
+
+          {/* Developer Safety Operating Breakdown */}
+          <div className="mt-4 min-w-0 border-t border-white/[0.055] pt-3">
+            <span className="mono-label block mb-2 text-text">DEVELOPER SAFETY READOUT</span>
+            <dl className="min-w-0 border-t border-white/[0.055]">
+              <LeaderRow label="VERIFIED IMPACT" first>
+                <span className="font-mono text-[13px] text-danger font-semibold tabular-nums">
+                  {impactData.verified_impact_count ?? (impactData.high_confidence_files?.length ?? 0)}
+                </span>
+              </LeaderRow>
+              <LeaderRow label="LIKELY IMPACT">
+                <span className="font-mono text-[13px] text-warn tabular-nums">
+                  {impactData.likely_impact_count ?? (impactData.medium_confidence_files?.length ?? 0)}
+                </span>
+              </LeaderRow>
+              <LeaderRow label="CANDIDATES">
+                <span className="font-mono text-[13px] text-text-subtle tabular-nums">
+                  {impactData.candidate_count ?? (impactData.low_confidence_files?.length ?? 0)}
+                </span>
+              </LeaderRow>
+            </dl>
+          </div>
+
+          {/* Confidence-Aware Impact Details */}
+          {impactData.impacted_file_details && impactData.impacted_file_details.length > 0 && (() => {
+            const details = impactData.impacted_file_details;
+            const filteredDetails = confidenceFilter === 'ALL'
+              ? details
+              : details.filter((d) => d.confidence_tier === confidenceFilter);
+
+            return (
+              <div className="mt-4 pt-3 border-t border-white/[0.055] min-w-0">
+                <div className="flex items-center justify-between mb-2">
+                  <span className="mono-label text-text">CONFIDENCE TIERS</span>
+                  <span className="mono-detail text-[10px] tabular-nums">
+                    {filteredDetails.length} / {details.length}
+                  </span>
+                </div>
+                <div className="flex items-center gap-1 mb-2.5 overflow-x-auto pb-1 text-[9px] font-mono">
+                  {(['ALL', 'HIGH', 'MEDIUM', 'LOW'] as const).map((tier) => (
+                    <button
+                      key={tier}
+                      type="button"
+                      onClick={() => setConfidenceFilter(tier)}
+                      className={`px-1.5 py-0.5 rounded-[2px] transition-colors ${
+                        confidenceFilter === tier
+                          ? tier === 'HIGH'
+                            ? 'bg-danger/20 text-danger border border-danger/50'
+                            : tier === 'MEDIUM'
+                            ? 'bg-warn/20 text-warn border border-warn/50'
+                            : 'bg-white/10 text-text border border-white/30'
+                          : 'text-text-muted hover:text-text border border-transparent'
+                      }`}
+                    >
+                      {tier}
+                    </button>
+                  ))}
+                </div>
+                <div className="space-y-1.5 max-h-56 overflow-y-auto pr-1">
+                  {filteredDetails.slice(0, 15).map((detail, idx) => (
+                    <div
+                      key={idx}
+                      className="p-1.5 rounded-[2px] bg-white/[0.015] border border-white/[0.04] text-[10.5px] font-mono"
+                    >
+                      <div className="flex items-center justify-between gap-2 mb-1">
+                        <span
+                          className={`text-[9px] px-1 py-0.2 rounded font-semibold ${
+                            detail.confidence_tier === 'HIGH'
+                              ? 'bg-danger/20 text-danger'
+                              : detail.confidence_tier === 'MEDIUM'
+                              ? 'bg-warn/20 text-warn'
+                              : 'bg-white/10 text-text-subtle'
+                          }`}
+                        >
+                          {detail.confidence_tier}
+                        </span>
+                        <span className="text-[9px] text-text-subtle truncate max-w-[120px]">
+                          {detail.evidence_strength}
+                        </span>
+                      </div>
+                      <div className="text-text font-medium text-[11px] truncate mb-0.5">
+                        {detail.file_path}
+                      </div>
+                      <p className="text-text-muted leading-tight break-words text-[10px]">
+                        {detail.reason}
+                      </p>
+                      {detail.propagation_path && detail.propagation_path.length > 1 && (
+                        <div className="mt-1 text-[9px] text-text-subtle flex items-center gap-1 overflow-x-auto">
+                          <span>path:</span>
+                          <span className="text-primary font-mono">{detail.propagation_path.join(' → ')}</span>
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            );
+          })()}
+
+          {/* Ground-truth Evidence Audit */}
+          {impactData.evidence_items && impactData.evidence_items.length > 0 && (() => {
+            const evidenceItems = impactData.evidence_items;
+            const filteredEvidence = evidenceFilter === 'ALL'
+              ? evidenceItems
+              : evidenceItems.filter((e) => e.kind === evidenceFilter);
+
+            return (
+              <div className="mt-4 pt-3 border-t border-white/[0.055] min-w-0">
+                <div className="flex items-center justify-between mb-2">
+                  <span className="mono-label text-text">EVIDENCE AUDIT</span>
+                  <span className="mono-detail text-[10px] tabular-nums">
+                    {filteredEvidence.length} / {evidenceItems.length}
+                  </span>
+                </div>
+                <div className="flex items-center gap-1 mb-2.5 overflow-x-auto pb-1 text-[9px] font-mono">
+                  {(['ALL', 'FACT', 'INFERENCE', 'PREDICTION', 'RECOMMENDATION'] as const).map((kind) => (
+                    <button
+                      key={kind}
+                      type="button"
+                      onClick={() => setEvidenceFilter(kind)}
+                      className={`px-1.5 py-0.5 rounded-[2px] transition-colors ${
+                        evidenceFilter === kind
+                          ? 'bg-primary/20 text-primary border border-primary/50'
+                          : 'text-text-muted hover:text-text border border-transparent'
+                      }`}
+                    >
+                      {kind}
+                    </button>
+                  ))}
+                </div>
+                <div className="space-y-1.5 max-h-56 overflow-y-auto pr-1">
+                  {filteredEvidence.slice(0, 15).map((ev, idx) => (
+                    <div
+                      key={idx}
+                      className="p-1.5 rounded-[2px] bg-white/[0.015] border border-white/[0.04] text-[10.5px] font-mono"
+                    >
+                      <div className="flex items-center justify-between gap-2 mb-1">
+                        <span
+                          className={`text-[9px] px-1 py-0.2 rounded font-semibold ${
+                            ev.kind === 'FACT'
+                              ? 'bg-[rgba(53,214,163,0.09)] text-[#35D6A3] border border-[rgba(53,214,163,0.34)]'
+                              : ev.kind === 'INFERENCE'
+                              ? 'bg-[rgba(165,140,255,0.09)] text-[#A58CFF] border border-[rgba(165,140,255,0.30)]'
+                              : ev.kind === 'PREDICTION'
+                              ? 'bg-[rgba(240,180,41,0.10)] text-[#F0B429] border border-[rgba(240,180,41,0.38)]'
+                              : 'bg-[rgba(124,131,255,0.10)] text-[#7C83FF] border border-[rgba(124,131,255,0.38)]'
+                          }`}
+                        >
+                          {ev.kind}
+                        </span>
+                        {ev.source_reference && (
+                          <span className="text-[9px] text-text-subtle truncate max-w-[120px]">
+                            {ev.source_reference}
+                          </span>
+                        )}
+                      </div>
+                      <p className="text-text-muted leading-tight break-words">{ev.statement}</p>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            );
+          })()}
+
+          {/* Affected Tests Detail */}
+          {impactData.affected_tests && impactData.affected_tests.length > 0 && (
+            <div className="mt-4 pt-3 border-t border-white/[0.055] min-w-0">
+              <div className="flex items-center justify-between mb-2">
+                <span className="mono-label text-text">AFFECTED TESTS</span>
+                <span className="mono-detail text-[10px] tabular-nums">
+                  {impactData.affected_tests.length}
+                </span>
+              </div>
+              <div className="space-y-1.5 max-h-52 overflow-y-auto pr-1">
+                {impactData.affected_tests.slice(0, 15).map((test, idx) => (
+                  <div
+                    key={idx}
+                    className="p-1.5 rounded-[2px] bg-white/[0.015] border border-white/[0.04] text-[10.5px] font-mono"
+                  >
+                    <div className="flex items-center justify-between gap-2 mb-1">
+                      <span
+                        className={`text-[9px] px-1 py-0.2 rounded font-semibold ${
+                          test.confidence_tier === 'HIGH' || test.impact_type === 'DIRECT TEST IMPACT'
+                            ? 'bg-danger/20 text-danger'
+                            : test.confidence_tier === 'MEDIUM' || test.impact_type === 'LIKELY TEST IMPACT'
+                            ? 'bg-warn/20 text-warn'
+                            : 'bg-white/10 text-text-subtle'
+                        }`}
+                      >
+                        {test.confidence_tier || 'HIGH'}
+                      </span>
+                      <span className="text-[9px] text-text-subtle truncate max-w-[120px]">
+                        {test.evidence_strength || test.impact_type}
+                      </span>
+                    </div>
+                    <div className="text-text font-medium text-[11px] truncate mb-0.5">
+                      {test.test_file}
+                    </div>
+                    <p className="text-text-muted leading-tight break-words text-[10px]">
+                      {test.reason}
+                    </p>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
         </div>
+        )}
 
         {/* ── Impact propagation graph ────────────────────────────────────── */}
-        <div className="min-w-0 lg:pl-7 lg:border-l lg:border-white/[0.055]">
+        <div
+          className={
+            isGraphOnly
+              ? 'min-w-0'
+              : 'min-w-0 lg:pl-7 lg:border-l lg:border-white/[0.055]'
+          }
+        >
           <div className="flex flex-wrap items-baseline justify-between gap-x-6 gap-y-2 pb-2.5 hair-b">
             <h3 className="mono-label text-text">IMPACT PROPAGATION GRAPH</h3>
             <div className="flex items-center gap-x-4 gap-y-1 flex-wrap shrink-0">
               <LegendDot tone="bg-danger" label="DIRECT" />
-              <LegendDot tone="bg-warn" label="INDIRECT" />
+              <LegendDot tone="bg-warn" label="DOWNSTREAM" />
               <LegendDot tone="bg-primary" label="COMPONENT" />
               {/* Counts read brighter than the legend they sit beside. */}
               <span className="font-mono text-[10px] tracking-[0.14em] text-text-muted tabular-nums">
@@ -537,15 +824,17 @@ const ImpactAnalysisGraphInner: React.FC<GraphProps> = ({ repoName, impactData, 
 
           <div
             ref={canvasRef}
-            className="impact-canvas relative mt-3 min-w-0 border border-white/[0.055]
-                       h-[clamp(28rem,calc(100vh-15rem),50rem)] overflow-hidden"
+            className={`impact-canvas relative mt-3 min-w-0 border border-white/[0.055] overflow-hidden ${
+              nodes.length <= 3 ? 'h-[22rem]' : 'h-[clamp(26rem,calc(100vh-18rem),44rem)]'
+            }`}
+            style={{ backgroundColor: '#020304' }}
           >
             {nodes.length === 0 ? (
               <div className="absolute inset-0 flex items-center justify-center p-6 text-center font-mono">
                 <div className="max-w-md space-y-2">
-                  <span className="mono-label block text-text">NO IMPACT PROPAGATION DETECTED</span>
+                  <span className="mono-label block text-text">NO PROPAGATION GRAPH AVAILABLE</span>
                   <p className="text-[12px] text-text-muted leading-relaxed">
-                    Impact analysis is unavailable because no dependency relationships were detected in this repository.
+                    Static dependency and call graph analysis detected no propagation edges or import relationships for the identified modification targets.
                   </p>
                 </div>
               </div>
@@ -577,15 +866,15 @@ const ImpactAnalysisGraphInner: React.FC<GraphProps> = ({ repoName, impactData, 
                   nodeStrokeWidth={2}
                   nodeColor={(node) => {
                     const cat = node.data?.category;
-                    if (cat === 'direct') return '#ef4444';
-                    if (cat === 'indirect') return '#f59e0b';
-                    if (cat === 'component') return '#5e6ad2';
-                    return '#26262b';
+                    if (cat === 'direct') return '#F27781';
+                    if (cat === 'indirect') return '#F0B429';
+                    if (cat === 'component') return '#7C83FF';
+                    return '#090B0F';
                   }}
-                  maskColor="rgba(2, 2, 4, 0.74)"
+                  maskColor="rgba(5, 6, 8, 0.74)"
                   style={{
-                    backgroundColor: '#020204',
-                    border: '1px solid rgba(255,255,255,0.07)',
+                    backgroundColor: '#050608',
+                    border: '1px solid #202631',
                     width: 128,
                     height: 88,
                   }}
@@ -598,7 +887,7 @@ const ImpactAnalysisGraphInner: React.FC<GraphProps> = ({ repoName, impactData, 
             {hover && !selectedNode && (
               <div
                 className="pointer-events-none absolute left-3 bottom-3 z-20 max-w-[18rem]
-                           border border-white/10 bg-canvas/95 px-3 py-2"
+                           border border-white/10 bg-[#090B0E]/95 px-3 py-2 rounded-md"
                 role="status"
               >
                 <FilePath path={hover.id.replace(/^component-/, '')} tone="primary" size="sm" />
@@ -622,7 +911,7 @@ const ImpactAnalysisGraphInner: React.FC<GraphProps> = ({ repoName, impactData, 
             {selectedNode && (
               <div
                 className="absolute z-20 flex flex-col overflow-y-auto
-                           border-white/10 bg-canvas/92 backdrop-blur-[2px]
+                           border-white/10 bg-[#090B0E] backdrop-blur-[12px]
                            inset-x-0 bottom-0 max-h-[62%] border-t
                            sm:inset-y-0 sm:left-auto sm:right-0 sm:max-h-none
                            sm:w-[19rem] sm:border-t-0 sm:border-l"
@@ -682,48 +971,86 @@ const ImpactAnalysisGraphInner: React.FC<GraphProps> = ({ repoName, impactData, 
                     </LeaderRow>
                   </dl>
 
-                  {/* Smart actions — not yet wired, and labelled as such. */}
+                  {/* Smart actions — wired to ARIA navigation and chat */}
                   <div className="mt-4 pt-3 border-t border-white/[0.055] min-w-0">
                     <div className="flex items-baseline justify-between gap-3 mb-2.5">
                       <span className="mono-label" style={{ fontSize: 9 }}>
-                        SMART ACTIONS
+                        INVESTIGATION ACTIONS
                       </span>
-                      <span className="mono-detail shrink-0" style={{ fontSize: 9 }}>
-                        NOT AVAILABLE
+                      <span className="mono-detail shrink-0 text-emerald-400" style={{ fontSize: 9 }}>
+                        READY
                       </span>
                     </div>
 
                     <button
                       type="button"
-                      disabled
-                      className="w-full flex items-center justify-between gap-2 border border-white/[0.09]
-                                 px-2.5 py-1.5 rounded-[2px] font-mono text-[10px] uppercase
-                                 tracking-[0.14em] text-text-muted opacity-45 cursor-not-allowed"
+                      onClick={() => {
+                        const target = selectedNode.id.replace(/^component-/, '');
+                        window.dispatchEvent(
+                          new CustomEvent('aria-open-graph', {
+                            detail: { file: target, path: target, source: 'impact_analysis' },
+                          })
+                        );
+                        window.dispatchEvent(
+                          new CustomEvent('aria-navigate-tab', {
+                            detail: { tab: 'graph', file: target },
+                          })
+                        );
+                      }}
+                      className="w-full flex items-center justify-between gap-2 border border-white/[0.07] bg-[#0C0E12]
+                                 px-2.5 py-1.5 rounded-md font-mono text-[10px] uppercase
+                                 tracking-[0.14em] text-[#F4F4F5] hover:border-[#7C83FF]/50 hover:text-[#7C83FF] transition-colors cursor-pointer"
                     >
                       <span className="flex items-center gap-2">
                         <Layers className="h-3 w-3 shrink-0" aria-hidden="true" />
-                        View architecture
+                        View in File Graph
                       </span>
                       <ArrowRight className="h-2.5 w-2.5 shrink-0" aria-hidden="true" />
                     </button>
 
                     <ul className="mt-2 space-y-1.5 min-w-0">
-                      {[
-                        { icon: ExternalLink, label: 'Open file' },
-                        { icon: MessageSquare, label: 'Ask about impact' },
-                      ].map(({ icon: Icon, label }) => (
-                        <li key={label}>
-                          <button
-                            type="button"
-                            disabled
-                            className="w-full flex items-center gap-2 font-mono text-[10px] uppercase
-                                       tracking-[0.14em] text-text-subtle opacity-45 cursor-not-allowed"
-                          >
-                            <Icon className="h-3 w-3 shrink-0" aria-hidden="true" />
-                            <span>{label}</span>
-                          </button>
-                        </li>
-                      ))}
+                      <li>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            const target = selectedNode.id.replace(/^component-/, '');
+                            window.dispatchEvent(
+                              new CustomEvent('aria-navigate-tab', {
+                                detail: { tab: 'call_graph', file: target },
+                              })
+                            );
+                          }}
+                          className="w-full flex items-center gap-2 font-mono text-[10px] uppercase
+                                     tracking-[0.14em] text-text-muted hover:text-text transition-colors cursor-pointer"
+                        >
+                          <ExternalLink className="h-3 w-3 shrink-0" aria-hidden="true" />
+                          <span>Inspect in Call Graph</span>
+                        </button>
+                      </li>
+                      <li>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            const target = selectedNode.id.replace(/^component-/, '');
+                            const prompt = `What is the architectural and functional blast radius of modifying ${target} in ${impactData.repo}?`;
+                            window.dispatchEvent(
+                              new CustomEvent('aria-open-chat', {
+                                detail: { prompt, source: 'impact_analysis' },
+                              })
+                            );
+                            window.dispatchEvent(
+                              new CustomEvent('aria-navigate-tab', {
+                                detail: { tab: 'chat' },
+                              })
+                            );
+                          }}
+                          className="w-full flex items-center gap-2 font-mono text-[10px] uppercase
+                                     tracking-[0.14em] text-text-muted hover:text-text transition-colors cursor-pointer"
+                        >
+                          <MessageSquare className="h-3 w-3 shrink-0 text-primary" aria-hidden="true" />
+                          <span>Ask about impact in Chat</span>
+                        </button>
+                      </li>
                     </ul>
                   </div>
                 </div>

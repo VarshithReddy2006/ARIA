@@ -1,0 +1,160 @@
+# =============================================================================
+# ARIA — self-hosted deployment
+#
+#   cp .env.example .env      # then set GEMINI_API_KEY and API_KEY
+#   docker compose up -d --build
+#
+#   Frontend  http://localhost:4321
+#   API       http://localhost:8001
+#   Health    http://localhost:8001/health   and   /ready
+#
+# Three services:
+#   qdrant    primary vector store (README's documented primary backend)
+#   api       FastAPI gateway; runs analysis in-process (JOB_EXECUTOR=local)
+#   frontend  Astro standalone Node server
+#
+# Services address each other by compose service name on the internal network,
+# never via localhost, so nothing depends on host networking or developer paths.
+# =============================================================================
+
+services:
+  # ---------------------------------------------------------------------------
+  # Vector store
+  # ---------------------------------------------------------------------------
+  qdrant:
+    image: qdrant/qdrant:v1.12.4
+    restart: unless-stopped
+    # Not published to the host by default: only `api` needs to reach it.
+    # Uncomment to inspect the Qdrant dashboard from your machine.
+    # ports:
+    #   - "6333:6333"
+    volumes:
+      - qdrant-storage:/qdrant/storage
+    healthcheck:
+      # The image is distroless (no curl/wget), so probe with Qdrant's own binary.
+      test: [ "CMD", "/qdrant/qdrant", "--version" ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+
+  # ---------------------------------------------------------------------------
+  # Backend API
+  # ---------------------------------------------------------------------------
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile.api
+    image: aria-api:latest
+    restart: unless-stopped
+    depends_on:
+      qdrant:
+        condition: service_healthy
+    ports:
+      - "${API_SERVER_PORT:-8001}:8001"
+    environment:
+      # ── Application ──────────────────────────────────────────────────────
+      - APP_ENV=${APP_ENV:-production}
+      - API_SERVER_HOST=0.0.0.0
+      - API_SERVER_PORT=8001
+      - PORT=8001
+      - LOG_FORMAT=${LOG_FORMAT:-json}
+      - LOG_LEVEL=${LOG_LEVEL:-INFO}
+
+      # ── Authentication / security ────────────────────────────────────────
+      # Shared secret for API access.
+      - API_KEY=${API_KEY:-local-dev-key}
+      # Wildcard hosts are rejected in production; these cover local access.
+      - ALLOWED_HOSTS=${ALLOWED_HOSTS:-["localhost","127.0.0.1","api","frontend"]}
+      - RATE_LIMIT_PER_MINUTE=${RATE_LIMIT_PER_MINUTE:-60}
+
+      # ── LLM providers ────────────────────────────────────────────────────
+      - LLM_PROVIDER=${LLM_PROVIDER:-gemini}
+      - GEMINI_API_KEY=${GEMINI_API_KEY:-}
+      - GEMINI_MODEL=${GEMINI_MODEL:-gemini-3.1-flash-lite}
+      - DEEPSEEK_API_KEY=${DEEPSEEK_API_KEY:-}
+      - DEEPSEEK_BASE_URL=${DEEPSEEK_BASE_URL:-https://integrate.api.nvidia.com/v1}
+      - DEEPSEEK_MODEL=${DEEPSEEK_MODEL:-deepseek-ai/deepseek-v4-flash-0731}
+      - DEEPSEEK_FALLBACK_MODELS=${DEEPSEEK_FALLBACK_MODELS:-meta/llama-3.2-11b-vision-instruct,minimaxai/minimax-m3}
+      - LLM_CONNECT_TIMEOUT=${LLM_CONNECT_TIMEOUT:-10.0}
+      - LLM_READ_TIMEOUT=${LLM_READ_TIMEOUT:-60.0}
+      - LLM_TOTAL_TIMEOUT=${LLM_TOTAL_TIMEOUT:-60.0}
+
+      # ── GitHub ───────────────────────────────────────────────────────────
+      - GITHUB_TOKEN=${GITHUB_TOKEN:-}
+
+      # ── Storage & vector store ───────────────────────────────────────────
+      # Internal service name. The previous default (127.0.0.1:6333) resolved to
+      # the API container itself, so Qdrant was unreachable and ARIA silently
+      # degraded to the ChromaDB fallback while still reporting Qdrant as primary.
+      - QDRANT_URL=http://qdrant:6333
+      - QDRANT_API_KEY=${QDRANT_API_KEY:-}
+      - QDRANT_PREFER_GRPC=false
+      - VECTOR_STORE_BACKEND=${VECTOR_STORE_BACKEND:-qdrant}
+      - VECTOR_STORE_ENABLE_FALLBACK=${VECTOR_STORE_ENABLE_FALLBACK:-true}
+      - SQLITE_DB_PATH=/app/data/repo_understanding.db
+      - CHROMA_DB_PATH=/app/data/chroma_db
+      - CLONED_REPOS_PATH=/home/appuser/.repo_intelligence/cloned_repos
+
+      # ── Analysis execution ───────────────────────────────────────────────
+      # 'local' runs analysis in a background thread inside this container, so no
+      # separate worker service is required.
+      - JOB_EXECUTOR=local
+      - ARIA_MAX_CONCURRENT_ANALYSES=${ARIA_MAX_CONCURRENT_ANALYSES:-1}
+      - EMBEDDING_BACKEND=${EMBEDDING_BACKEND:-onnx}
+      - EMBEDDING_ONNX_QUANTIZATION=${EMBEDDING_ONNX_QUANTIZATION:-int8}
+      - EMBEDDING_ONNX_THREADS=${EMBEDDING_ONNX_THREADS:-}
+
+      # ── CORS ─────────────────────────────────────────────────────────────
+      # Browser-facing origin, so this is a host URL, not a service name.
+      - FRONTEND_URL=${FRONTEND_URL:-http://localhost:4321}
+    volumes:
+      - aria-data:/app/data
+      - aria-cloned-repos:/home/appuser/.repo_intelligence/cloned_repos
+      # Persists the ~400 MB BGE embedding model so restarts don't re-download it.
+      - aria-model-cache:/home/appuser/.cache
+    healthcheck:
+      test:
+        - CMD
+        - python
+        - -c
+        - |
+          import sys, urllib.request
+          sys.exit(0 if urllib.request.urlopen("http://127.0.0.1:8001/health", timeout=5).status == 200 else 1)
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      # Generous: the embedding model is downloaded on the very first boot.
+      start_period: 240s
+
+  # ---------------------------------------------------------------------------
+  # Frontend
+  # ---------------------------------------------------------------------------
+  frontend:
+    build:
+      context: .
+      dockerfile: Dockerfile.frontend
+      args:
+        # In self-hosted Docker, default to empty string so browser requests
+        # use same-origin relative URLs (/api/v1/...) that route through the
+        # Astro server-side proxy with X-API-Key injection.
+        PUBLIC_API_URL: ${PUBLIC_API_URL:-}
+    image: aria-frontend:latest
+    restart: unless-stopped
+    depends_on:
+      api:
+        condition: service_started
+    ports:
+      - "${FRONTEND_PORT:-4321}:4321"
+    environment:
+      - HOST=0.0.0.0
+      - PORT=4321
+      - PUBLIC_API_URL=${PUBLIC_API_URL:-}
+      - ARIA_API_URL=http://api:8001
+      - ARIA_API_KEY=${API_KEY:-local-dev-key}
+
+volumes:
+  qdrant-storage:
+  aria-data:
+  aria-cloned-repos:
+  aria-model-cache:

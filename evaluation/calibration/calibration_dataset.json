@@ -1,0 +1,502 @@
+[
+  {
+    "repository": "fastapi/fastapi",
+    "task_id": "task-01-fastapi-oauth2",
+    "file": "fastapi/security/oauth2.py",
+    "predicted_tier": "HIGH",
+    "predicted_score": 1.0,
+    "evidence_strength": "LEVEL_1_EXACT_SYMBOL",
+    "verified_label": "correct",
+    "notes": "Target file containing modified OAuth2PasswordBearer class."
+  },
+  {
+    "repository": "fastapi/fastapi",
+    "task_id": "task-01-fastapi-oauth2",
+    "file": "fastapi/security/__init__.py",
+    "predicted_tier": "HIGH",
+    "predicted_score": 0.95,
+    "evidence_strength": "LEVEL_2_EXACT_CALL",
+    "verified_label": "correct",
+    "notes": "Directly imports and re-exports OAuth2PasswordBearer."
+  },
+  {
+    "repository": "fastapi/fastapi",
+    "task_id": "task-01-fastapi-oauth2",
+    "file": "tests/test_security_oauth2_password_bearer_optional.py",
+    "predicted_tier": "HIGH",
+    "predicted_score": 1.0,
+    "evidence_strength": "LEVEL_1_EXACT_SYMBOL",
+    "verified_label": "correct",
+    "notes": "Directly imports and instantiates OAuth2PasswordBearer."
+  },
+  {
+    "repository": "fastapi/fastapi",
+    "task_id": "task-01-fastapi-oauth2",
+    "file": "tests/test_tutorial/test_security/test_tutorial002.py",
+    "predicted_tier": "HIGH",
+    "predicted_score": 0.85,
+    "evidence_strength": "LEVEL_4_API_CONTRACT",
+    "verified_label": "correct",
+    "notes": "Tests FastAPI OAuth2 token route via client.post('/token')."
+  },
+  {
+    "repository": "fastapi/fastapi",
+    "task_id": "task-01-fastapi-oauth2",
+    "file": "fastapi/applications.py",
+    "predicted_tier": "MEDIUM",
+    "predicted_score": 0.75,
+    "evidence_strength": "LEVEL_5_TEST_RELATIONSHIP",
+    "verified_label": "incorrect",
+    "notes": "Imports fastapi.security subpackage but unaffected by OAuth2 tokenUrl change."
+  },
+  {
+    "repository": "fastapi/fastapi",
+    "task_id": "task-01-fastapi-oauth2",
+    "file": "fastapi/routing.py",
+    "predicted_tier": "LOW",
+    "predicted_score": 0.5,
+    "evidence_strength": "LEVEL_6_MODULE_DEPENDENCY",
+    "verified_label": "incorrect",
+    "notes": "Downstream router module with no direct reference to tokenUrl."
+  },
+  {
+    "repository": "fastapi/fastapi",
+    "task_id": "task-02-fastapi-serialize-response",
+    "file": "fastapi/routing.py",
+    "predicted_tier": "HIGH",
+    "predicted_score": 1.0,
+    "evidence_strength": "LEVEL_1_EXACT_SYMBOL",
+    "verified_label": "correct",
+    "notes": "Direct definition of serialize_response function."
+  },
+  {
+    "repository": "fastapi/fastapi",
+    "task_id": "task-02-fastapi-serialize-response",
+    "file": "fastapi/applications.py",
+    "predicted_tier": "HIGH",
+    "predicted_score": 0.95,
+    "evidence_strength": "LEVEL_2_EXACT_CALL",
+    "verified_label": "correct",
+    "notes": "Directly invokes APIRoute handlers that call serialize_response."
+  },
+  {
+    "repository": "fastapi/fastapi",
+    "task_id": "task-02-fastapi-serialize-response",
+    "file": "tests/test_tutorial/test_response_model/test_tutorial001.py",
+    "predicted_tier": "HIGH",
+    "predicted_score": 0.85,
+    "evidence_strength": "LEVEL_4_API_CONTRACT",
+    "verified_label": "correct",
+    "notes": "Tests endpoint serialization contract against response_model."
+  },
+  {
+    "repository": "fastapi/fastapi",
+    "task_id": "task-02-fastapi-serialize-response",
+    "file": "docs_src/tutorial/tutorial001.py",
+    "predicted_tier": "LOW",
+    "predicted_score": 0.5,
+    "evidence_strength": "LEVEL_6_MODULE_DEPENDENCY",
+    "verified_label": "incorrect",
+    "notes": "Documentation example importing APIRouter without invoking custom serialization."
+  },
+  {
+    "repository": "fastapi/fastapi",
+    "task_id": "task-02-fastapi-serialize-response",
+    "file": "fastapi/dependencies/utils.py",
+    "predicted_tier": "MEDIUM",
+    "predicted_score": 0.8,
+    "evidence_strength": "LEVEL_3_SYMBOL_DEPENDENCY",
+    "verified_label": "correct",
+    "notes": "Helper for response model parameter preparation."
+  },
+  {
+    "repository": "fastapi/fastapi",
+    "task_id": "task-03-fastapi-status-codes",
+    "file": "fastapi/routing.py",
+    "predicted_tier": "HIGH",
+    "predicted_score": 1.0,
+    "evidence_strength": "LEVEL_1_EXACT_SYMBOL",
+    "verified_label": "correct",
+    "notes": "Handles status_code default assignment in route creation."
+  },
+  {
+    "repository": "fastapi/fastapi",
+    "task_id": "task-03-fastapi-status-codes",
+    "file": "fastapi/applications.py",
+    "predicted_tier": "HIGH",
+    "predicted_score": 0.95,
+    "evidence_strength": "LEVEL_2_EXACT_CALL",
+    "verified_label": "correct",
+    "notes": "Registers route status code defaults on app routing table."
+  },
+  {
+    "repository": "fastapi/fastapi",
+    "task_id": "task-03-fastapi-status-codes",
+    "file": "tests/test_response_change_status_code.py",
+    "predicted_tier": "HIGH",
+    "predicted_score": 1.0,
+    "evidence_strength": "LEVEL_1_EXACT_SYMBOL",
+    "verified_label": "correct",
+    "notes": "Directly asserts response status code behavior."
+  },
+  {
+    "repository": "fastapi/fastapi",
+    "task_id": "task-03-fastapi-status-codes",
+    "file": "fastapi/openapi/utils.py",
+    "predicted_tier": "MEDIUM",
+    "predicted_score": 0.8,
+    "evidence_strength": "LEVEL_3_SYMBOL_DEPENDENCY",
+    "verified_label": "correct",
+    "notes": "Extracts status codes for OpenAPI spec generation."
+  },
+  {
+    "repository": "fastapi/fastapi",
+    "task_id": "task-03-fastapi-status-codes",
+    "file": "fastapi/encoders.py",
+    "predicted_tier": "LOW",
+    "predicted_score": 0.5,
+    "evidence_strength": "LEVEL_6_MODULE_DEPENDENCY",
+    "verified_label": "incorrect",
+    "notes": "Encoders do not deal with HTTP status code mappings."
+  },
+  {
+    "repository": "psf/requests",
+    "task_id": "task-04-requests-session-send",
+    "file": "requests/sessions.py",
+    "predicted_tier": "HIGH",
+    "predicted_score": 1.0,
+    "evidence_strength": "LEVEL_1_EXACT_SYMBOL",
+    "verified_label": "correct",
+    "notes": "Defines Session.send method."
+  },
+  {
+    "repository": "psf/requests",
+    "task_id": "task-04-requests-session-send",
+    "file": "requests/api.py",
+    "predicted_tier": "HIGH",
+    "predicted_score": 0.95,
+    "evidence_strength": "LEVEL_2_EXACT_CALL",
+    "verified_label": "correct",
+    "notes": "requests.request() creates a Session and invokes send()."
+  },
+  {
+    "repository": "psf/requests",
+    "task_id": "task-04-requests-session-send",
+    "file": "tests/test_requests.py",
+    "predicted_tier": "HIGH",
+    "predicted_score": 1.0,
+    "evidence_strength": "LEVEL_1_EXACT_SYMBOL",
+    "verified_label": "correct",
+    "notes": "Contains extensive test suites for Session.send."
+  },
+  {
+    "repository": "psf/requests",
+    "task_id": "task-04-requests-session-send",
+    "file": "tests/test_lowlevel.py",
+    "predicted_tier": "LOW",
+    "predicted_score": 0.25,
+    "evidence_strength": "LEVEL_7_HEURISTIC",
+    "verified_label": "incorrect",
+    "notes": "Tests raw socket send without invoking Session.send."
+  },
+  {
+    "repository": "psf/requests",
+    "task_id": "task-04-requests-session-send",
+    "file": "requests/adapters.py",
+    "predicted_tier": "MEDIUM",
+    "predicted_score": 0.8,
+    "evidence_strength": "LEVEL_3_SYMBOL_DEPENDENCY",
+    "verified_label": "correct",
+    "notes": "HTTPAdapter is called by Session.send() to handle transmission."
+  },
+  {
+    "repository": "psf/requests",
+    "task_id": "task-04-requests-session-send",
+    "file": "requests/cookies.py",
+    "predicted_tier": "LOW",
+    "predicted_score": 0.5,
+    "evidence_strength": "LEVEL_6_MODULE_DEPENDENCY",
+    "verified_label": "incorrect",
+    "notes": "Cookie jar utility imported by sessions but unaffected by send retry logic."
+  },
+  {
+    "repository": "psf/requests",
+    "task_id": "task-05-requests-adapters-ssl",
+    "file": "requests/adapters.py",
+    "predicted_tier": "HIGH",
+    "predicted_score": 1.0,
+    "evidence_strength": "LEVEL_1_EXACT_SYMBOL",
+    "verified_label": "correct",
+    "notes": "Defines HTTPAdapter.init_poolmanager with SSL context configuration."
+  },
+  {
+    "repository": "psf/requests",
+    "task_id": "task-05-requests-adapters-ssl",
+    "file": "requests/sessions.py",
+    "predicted_tier": "HIGH",
+    "predicted_score": 0.95,
+    "evidence_strength": "LEVEL_2_EXACT_CALL",
+    "verified_label": "correct",
+    "notes": "Session mounts and initializes default HTTPAdapter instances."
+  },
+  {
+    "repository": "psf/requests",
+    "task_id": "task-05-requests-adapters-ssl",
+    "file": "tests/test_testserver.py",
+    "predicted_tier": "HIGH",
+    "predicted_score": 1.0,
+    "evidence_strength": "LEVEL_1_EXACT_SYMBOL",
+    "verified_label": "correct",
+    "notes": "Verifies SSL connections and adapter configuration against local test server."
+  },
+  {
+    "repository": "psf/requests",
+    "task_id": "task-05-requests-adapters-ssl",
+    "file": "requests/packages.py",
+    "predicted_tier": "LOW",
+    "predicted_score": 0.5,
+    "evidence_strength": "LEVEL_6_MODULE_DEPENDENCY",
+    "verified_label": "incorrect",
+    "notes": "Vendor package redirects; not directly impacted by adapter SSL changes."
+  },
+  {
+    "repository": "psf/requests",
+    "task_id": "task-06-requests-models-response",
+    "file": "requests/models.py",
+    "predicted_tier": "HIGH",
+    "predicted_score": 1.0,
+    "evidence_strength": "LEVEL_1_EXACT_SYMBOL",
+    "verified_label": "correct",
+    "notes": "Defines Response class and content/iter_content properties."
+  },
+  {
+    "repository": "psf/requests",
+    "task_id": "task-06-requests-models-response",
+    "file": "requests/sessions.py",
+    "predicted_tier": "HIGH",
+    "predicted_score": 0.95,
+    "evidence_strength": "LEVEL_2_EXACT_CALL",
+    "verified_label": "correct",
+    "notes": "Session processes and returns Response objects."
+  },
+  {
+    "repository": "psf/requests",
+    "task_id": "task-06-requests-models-response",
+    "file": "tests/test_requests.py",
+    "predicted_tier": "HIGH",
+    "predicted_score": 1.0,
+    "evidence_strength": "LEVEL_1_EXACT_SYMBOL",
+    "verified_label": "correct",
+    "notes": "Asserts Response.content decoding and streaming properties."
+  },
+  {
+    "repository": "psf/requests",
+    "task_id": "task-06-requests-models-response",
+    "file": "requests/structures.py",
+    "predicted_tier": "LOW",
+    "predicted_score": 0.5,
+    "evidence_strength": "LEVEL_6_MODULE_DEPENDENCY",
+    "verified_label": "incorrect",
+    "notes": "CaseInsensitiveDict definition; unchanged by Response.content modifications."
+  },
+  {
+    "repository": "VarshithReddy2006/ARIA",
+    "task_id": "task-07-aria-symbol-schema",
+    "file": "models/symbol.py",
+    "predicted_tier": "HIGH",
+    "predicted_score": 1.0,
+    "evidence_strength": "LEVEL_1_EXACT_SYMBOL",
+    "verified_label": "correct",
+    "notes": "Defines Symbol and SymbolIndex schema."
+  },
+  {
+    "repository": "VarshithReddy2006/ARIA",
+    "task_id": "task-07-aria-symbol-schema",
+    "file": "services/symbol_service.py",
+    "predicted_tier": "HIGH",
+    "predicted_score": 0.95,
+    "evidence_strength": "LEVEL_2_EXACT_CALL",
+    "verified_label": "correct",
+    "notes": "Instantiates and queries SymbolIndex."
+  },
+  {
+    "repository": "VarshithReddy2006/ARIA",
+    "task_id": "task-07-aria-symbol-schema",
+    "file": "tests/test_symbol_service.py",
+    "predicted_tier": "HIGH",
+    "predicted_score": 1.0,
+    "evidence_strength": "LEVEL_1_EXACT_SYMBOL",
+    "verified_label": "correct",
+    "notes": "Direct unit test for SymbolIndex schema validation."
+  },
+  {
+    "repository": "VarshithReddy2006/ARIA",
+    "task_id": "task-07-aria-symbol-schema",
+    "file": "services/impact_analysis_service.py",
+    "predicted_tier": "MEDIUM",
+    "predicted_score": 0.8,
+    "evidence_strength": "LEVEL_3_SYMBOL_DEPENDENCY",
+    "verified_label": "correct",
+    "notes": "Consumes Symbol and SymbolIndex for impact resolution."
+  },
+  {
+    "repository": "VarshithReddy2006/ARIA",
+    "task_id": "task-07-aria-symbol-schema",
+    "file": "services/cache_service.py",
+    "predicted_tier": "LOW",
+    "predicted_score": 0.5,
+    "evidence_strength": "LEVEL_6_MODULE_DEPENDENCY",
+    "verified_label": "incorrect",
+    "notes": "Generic cache storage unaffected by Symbol schema evolution."
+  },
+  {
+    "repository": "VarshithReddy2006/ARIA",
+    "task_id": "task-08-aria-call-graph-blast-radius",
+    "file": "services/call_graph_service.py",
+    "predicted_tier": "HIGH",
+    "predicted_score": 1.0,
+    "evidence_strength": "LEVEL_1_EXACT_SYMBOL",
+    "verified_label": "correct",
+    "notes": "Contains build_graph and predecessor traversal algorithms."
+  },
+  {
+    "repository": "VarshithReddy2006/ARIA",
+    "task_id": "task-08-aria-call-graph-blast-radius",
+    "file": "services/impact_analysis_service.py",
+    "predicted_tier": "HIGH",
+    "predicted_score": 0.95,
+    "evidence_strength": "LEVEL_2_EXACT_CALL",
+    "verified_label": "correct",
+    "notes": "Directly invokes call graph traversal to compute blast radius."
+  },
+  {
+    "repository": "VarshithReddy2006/ARIA",
+    "task_id": "task-08-aria-call-graph-blast-radius",
+    "file": "tests/test_call_graph_service.py",
+    "predicted_tier": "HIGH",
+    "predicted_score": 1.0,
+    "evidence_strength": "LEVEL_1_EXACT_SYMBOL",
+    "verified_label": "correct",
+    "notes": "Tests call graph extraction and cycle handling."
+  },
+  {
+    "repository": "VarshithReddy2006/ARIA",
+    "task_id": "task-08-aria-call-graph-blast-radius",
+    "file": "services/graph_service.py",
+    "predicted_tier": "MEDIUM",
+    "predicted_score": 0.8,
+    "evidence_strength": "LEVEL_3_SYMBOL_DEPENDENCY",
+    "verified_label": "correct",
+    "notes": "Coordinates dependency and call graph persistence."
+  },
+  {
+    "repository": "VarshithReddy2006/ARIA",
+    "task_id": "task-08-aria-call-graph-blast-radius",
+    "file": "services/github_service.py",
+    "predicted_tier": "LOW",
+    "predicted_score": 0.5,
+    "evidence_strength": "LEVEL_6_MODULE_DEPENDENCY",
+    "verified_label": "incorrect",
+    "notes": "GitHub API client; completely independent from call graph traversal."
+  },
+  {
+    "repository": "VarshithReddy2006/ARIA",
+    "task_id": "task-09-aria-api-surface-status",
+    "file": "services/api_surface_service.py",
+    "predicted_tier": "HIGH",
+    "predicted_score": 1.0,
+    "evidence_strength": "LEVEL_1_EXACT_SYMBOL",
+    "verified_label": "correct",
+    "notes": "Computes public vs internal routes and deprecated status."
+  },
+  {
+    "repository": "VarshithReddy2006/ARIA",
+    "task_id": "task-09-aria-api-surface-status",
+    "file": "services/impact_analysis_service.py",
+    "predicted_tier": "HIGH",
+    "predicted_score": 0.95,
+    "evidence_strength": "LEVEL_2_EXACT_CALL",
+    "verified_label": "correct",
+    "notes": "Cross-references api surface registry during impact analysis."
+  },
+  {
+    "repository": "VarshithReddy2006/ARIA",
+    "task_id": "task-09-aria-api-surface-status",
+    "file": "tests/test_api_surface_service.py",
+    "predicted_tier": "HIGH",
+    "predicted_score": 1.0,
+    "evidence_strength": "LEVEL_1_EXACT_SYMBOL",
+    "verified_label": "correct",
+    "notes": "Tests API surface route discovery and schema extraction."
+  },
+  {
+    "repository": "VarshithReddy2006/ARIA",
+    "task_id": "task-09-aria-api-surface-status",
+    "file": "backend/routers/api_surface.py",
+    "predicted_tier": "MEDIUM",
+    "predicted_score": 0.8,
+    "evidence_strength": "LEVEL_3_SYMBOL_DEPENDENCY",
+    "verified_label": "correct",
+    "notes": "FastAPI router exposing api surface endpoints."
+  },
+  {
+    "repository": "VarshithReddy2006/ARIA",
+    "task_id": "task-09-aria-api-surface-status",
+    "file": "services/token_service.py",
+    "predicted_tier": "LOW",
+    "predicted_score": 0.5,
+    "evidence_strength": "LEVEL_6_MODULE_DEPENDENCY",
+    "verified_label": "incorrect",
+    "notes": "Token counting utility; unaffected by route deprecation logic."
+  },
+  {
+    "repository": "VarshithReddy2006/ARIA",
+    "task_id": "task-10-aria-impact-engine-bucketing",
+    "file": "services/impact_analysis_service.py",
+    "predicted_tier": "HIGH",
+    "predicted_score": 1.0,
+    "evidence_strength": "LEVEL_1_EXACT_SYMBOL",
+    "verified_label": "correct",
+    "notes": "Defines blast radius bucketing logic (XS, S, M, L, XL)."
+  },
+  {
+    "repository": "VarshithReddy2006/ARIA",
+    "task_id": "task-10-aria-impact-engine-bucketing",
+    "file": "tests/test_impact_analysis.py",
+    "predicted_tier": "HIGH",
+    "predicted_score": 1.0,
+    "evidence_strength": "LEVEL_1_EXACT_SYMBOL",
+    "verified_label": "correct",
+    "notes": "Unit tests for blast radius categorization and thresholds."
+  },
+  {
+    "repository": "VarshithReddy2006/ARIA",
+    "task_id": "task-10-aria-impact-engine-bucketing",
+    "file": "tests/test_evidence_impact_analysis.py",
+    "predicted_tier": "HIGH",
+    "predicted_score": 1.0,
+    "evidence_strength": "LEVEL_1_EXACT_SYMBOL",
+    "verified_label": "correct",
+    "notes": "Tests evidence segregation and confidence bucketing."
+  },
+  {
+    "repository": "VarshithReddy2006/ARIA",
+    "task_id": "task-10-aria-impact-engine-bucketing",
+    "file": "backend/routers/impact_analysis.py",
+    "predicted_tier": "MEDIUM",
+    "predicted_score": 0.8,
+    "evidence_strength": "LEVEL_3_SYMBOL_DEPENDENCY",
+    "verified_label": "correct",
+    "notes": "FastAPI HTTP endpoint returning impact analysis responses."
+  },
+  {
+    "repository": "VarshithReddy2006/ARIA",
+    "task_id": "task-10-aria-impact-engine-bucketing",
+    "file": "services/architecture_service.py",
+    "predicted_tier": "LOW",
+    "predicted_score": 0.5,
+    "evidence_strength": "LEVEL_6_MODULE_DEPENDENCY",
+    "verified_label": "incorrect",
+    "notes": "Architectural boundaries helper; not modified by bucketing changes."
+  }
+]

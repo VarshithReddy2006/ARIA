@@ -17,20 +17,20 @@ interface ButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElement> {
 }
 
 const base =
-  'inline-flex items-center justify-center gap-2 rounded-md font-semibold transition-all ' +
-  'focus-visible:outline-none focus-visible:shadow-ring disabled:cursor-not-allowed select-none';
+  'inline-flex items-center justify-center gap-2 rounded-md font-semibold font-mono text-xs transition-all ' +
+  'focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-[#7C83FF] disabled:cursor-not-allowed select-none';
 
 const sizes: Record<Size, string> = {
-  sm: 'text-xs px-3 py-1.5',
-  md: 'text-sm px-4 py-2',
-  lg: 'text-sm px-5 py-2.5',
+  sm: 'text-[11px] px-2.5 py-1',
+  md: 'text-xs px-3.5 py-1.5',
+  lg: 'text-sm px-4.5 py-2',
 };
 
 const variants: Record<Variant, string> = {
-  primary:   'bg-primary text-text hover:bg-primary-hover disabled:bg-primary/40 shadow-card',
-  secondary: 'bg-surface-2 text-text border border-border hover:border-border-strong hover:bg-surface-3 disabled:opacity-50',
-  ghost:     'bg-transparent text-text-muted border border-border hover:text-text hover:border-primary/40 disabled:opacity-50',
-  danger:    'bg-danger/10 text-danger border border-danger/30 hover:bg-danger/20 disabled:opacity-50',
+  primary:   'bg-[#7C83FF] text-[#FFFFFF] hover:bg-[#9197FF] active:bg-[#636BEF] disabled:opacity-40 shadow-sm border border-[#7C83FF]/40',
+  secondary: 'bg-[#11141B] text-[#B8BEC9] border border-[#2A313C] hover:bg-[#161A22] hover:border-[#3A4350] hover:text-[#F5F7FA] active:bg-[#0D1015] disabled:opacity-40',
+  ghost:     'bg-transparent text-[#858D9A] border border-[#202631] hover:text-[#F5F7FA] hover:border-[#7C83FF]/40 hover:bg-[#11141B] disabled:opacity-40',
+  danger:    'bg-[rgba(242,119,129,0.09)] text-[#F27781] border border-[rgba(242,119,129,0.34)] hover:bg-[rgba(242,119,129,0.18)] active:bg-[rgba(242,119,129,0.25)] disabled:opacity-40',
 };
 
 export const Button = React.forwardRef<HTMLButtonElement, ButtonProps>((

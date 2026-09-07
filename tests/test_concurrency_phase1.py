@@ -267,11 +267,21 @@ def test_bounded_local_executor_respects_max_workers():
                 branch="main",
             )
 
-        # Wait for all jobs to complete
-        time.sleep(0.6)
+        # Wait for all jobs to drain.
+        #
+        # This was a fixed `time.sleep(0.6)`, which is a race: 8 jobs across 2
+        # workers need 4 sequential batches, so on a loaded machine the pool was
+        # still draining when the assertion ran and the test failed
+        # intermittently. Poll until idle with a generous ceiling instead — the
+        # bounded-concurrency invariant below is unchanged.
+        deadline = time.monotonic() + 30.0
+        while LocalJobExecutor.active_job_count() > 0 and time.monotonic() < deadline:
+            time.sleep(0.02)
 
+        # The invariant under test: the pool never ran more than max_workers jobs
+        # concurrently, even though 8 were submitted at once.
         assert max_observed_active <= 2
-        assert LocalJobExecutor.active_job_count() == 0
+        assert LocalJobExecutor.active_job_count() == 0, "jobs did not drain within 30s"
     LocalJobExecutor.reset_pool()
 
 

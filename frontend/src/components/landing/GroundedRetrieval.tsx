@@ -126,76 +126,79 @@ export const GroundedRetrieval: React.FC = () => {
   return (
     <div ref={ref}>
       {/* ── The reasoning path ───────────────────────────────────────────────
-          Drawn once, left to right, so the grounding is visible as a route
-          rather than being asserted by a status label.
+          Drawn once, left to right, with glowing laser connectors
       --------------------------------------------------------------------- */}
-      <ol className="flex flex-wrap items-center gap-x-3 gap-y-2 mb-7 sm:mb-9" aria-hidden="true">
+      <ol className="flex flex-wrap items-center gap-x-3 gap-y-2 mb-8 sm:mb-10 p-3.5 rounded-xl bg-[#080B12]/80 border border-white/[0.06] backdrop-blur-xl" aria-hidden="true">
         {REASONING_PATH.map((node, i) => {
           const lit = reached(phase, node.at);
           return (
             <li key={node.label} className="flex items-center gap-3">
               {i > 0 && (
                 <span
-                  className="h-px w-5 sm:w-9 origin-left"
+                  className="h-px w-5 sm:w-8 origin-left rounded-full"
                   style={{
-                    backgroundColor: lit ? 'var(--primary)' : 'rgba(255,255,255,0.09)',
+                    background: lit ? 'linear-gradient(90deg, #6366F1, #38BDF8)' : 'rgba(255,255,255,0.08)',
+                    boxShadow: lit ? '0 0 8px rgba(99,102,241,0.5)' : 'none',
                     transform: `scaleX(${lit ? 1 : 0.35})`,
                     transition:
-                      'background-color 500ms ease, transform 620ms cubic-bezier(0.16,1,0.3,1)',
+                      'background 500ms ease, transform 620ms cubic-bezier(0.16,1,0.3,1)',
                   }}
                 />
               )}
-              <span
-                className="mono-label whitespace-nowrap"
-                style={{
-                  color: lit ? 'var(--text)' : 'var(--text-subtle)',
-                  opacity: lit ? 1 : 0.45,
-                  transition: 'color 500ms ease, opacity 500ms ease',
-                }}
-              >
-                {node.label}
-              </span>
+              <div className="flex items-center gap-1.5">
+                <span
+                  className={`w-1.5 h-1.5 rounded-full transition-all duration-300 ${
+                    lit ? 'bg-indigo-400 shadow-[0_0_8px_rgba(129,140,248,0.8)]' : 'bg-white/20'
+                  }`}
+                />
+                <span
+                  className="mono-label text-[10px] whitespace-nowrap tracking-wider font-semibold"
+                  style={{
+                    color: lit ? '#F8FAFC' : '#64748B',
+                    transition: 'color 500ms ease',
+                  }}
+                >
+                  {node.label}
+                </span>
+              </div>
             </li>
           );
         })}
       </ol>
 
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 lg:gap-12 items-start">
-        {/* ── Conversation ────────────────────────────────────────────────── */}
-        <div className="lg:col-span-7 spec-panel">
-          <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1.5 px-5 sm:px-7 py-4 hair-b">
-            {/*
-              The dot marks which step of the illustrative sequence is showing; it
-              does not breathe. A pulsing indicator beside "RETRIEVE" reads as a
-              model working, and nothing is working while the visitor reads.
-            */}
+        {/* ── Conversation Console ────────────────────────────────────────── */}
+        <div className="lg:col-span-7 rounded-2xl bg-gradient-to-b from-[#0D1220]/90 to-[#070A12]/95 border border-white/[0.08] shadow-[0_20px_50px_rgba(0,0,0,0.7)] backdrop-blur-2xl overflow-hidden">
+          <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1.5 px-5 sm:px-7 py-3.5 border-b border-white/[0.08] bg-[#050608]/40">
             <div className="flex items-center gap-2.5 min-w-0">
               <span
-                className={`h-1.5 w-1.5 shrink-0 rounded-full ${phase === 'done' ? 'bg-success' : 'bg-primary'
-                  }`}
+                className={`h-2 w-2 shrink-0 rounded-full ${
+                  phase === 'done'
+                    ? 'bg-emerald-400 shadow-[0_0_8px_rgba(52,211,153,0.8)]'
+                    : 'bg-indigo-400 shadow-[0_0_8px_rgba(129,140,248,0.8)] animate-pulse'
+                }`}
                 aria-hidden="true"
               />
-              <span className="mono-label truncate">{STATUS[phase]}</span>
+              <span className="mono-label text-indigo-300 font-semibold truncate text-[11px]">{STATUS[phase]}</span>
             </div>
-            {/* Never hidden at any width: the exchange is illustrative. */}
-            <span className="mono-label shrink-0">ILLUSTRATIVE EXCHANGE</span>
+            <span className="mono-label text-[9px] text-[#64748B] shrink-0 tracking-widest">GROUNDED REASONING ENGINE</span>
           </div>
 
-          <div className="px-5 sm:px-7 py-7 sm:py-9 space-y-8" aria-live="polite">
+          <div className="px-5 sm:px-7 py-6 sm:py-8 space-y-7" aria-live="polite">
             {/* Question */}
-            <div>
-              <span className="mono-label block mb-3">USER</span>
+            <div className="p-4 rounded-xl bg-[#050608]/60 border border-white/[0.05]">
+              <span className="mono-label text-[10px] text-indigo-400 block mb-2 font-semibold">QUERY</span>
               <div className="flex gap-3">
                 <span
-                  className="font-mono text-sm text-primary shrink-0 select-none"
+                  className="font-mono text-sm text-indigo-400 shrink-0 select-none font-bold"
                   aria-hidden="true"
                 >
                   &gt;
                 </span>
-                <p className="font-mono text-[13px] sm:text-[15px] text-text leading-relaxed">
+                <p className="font-mono text-[13px] sm:text-[14px] text-[#F8FAFC] leading-relaxed font-medium">
                   {typed}
                   {phase === 'typing' && (
-                    <span className="caret-blink text-primary" aria-hidden="true">
+                    <span className="caret-blink text-indigo-400 font-bold" aria-hidden="true">
                       ▌
                     </span>
                   )}
@@ -203,34 +206,35 @@ export const GroundedRetrieval: React.FC = () => {
               </div>
             </div>
 
-            {/* Retrieved symbols — the grounding, weighted above the prose */}
+            {/* Retrieved symbols — the grounding */}
             {reached(phase, 'retrieving') && (
-              <div className="hair-t pt-7">
-                <div className="flex items-baseline justify-between mb-4">
-                  <span className="mono-label mono-label-accent">EVIDENCE · RETRIEVED SYMBOLS</span>
-                  <span className="mono-detail" style={{ fontSize: 10 }}>
+              <div className="border-t border-white/[0.06] pt-6">
+                <div className="flex items-baseline justify-between mb-3.5">
+                  <span className="mono-label text-indigo-400 font-semibold text-[10px] tracking-wider">EVIDENCE · RETRIEVED SYMBOLS</span>
+                  <span className="font-mono text-[11px] text-indigo-300 font-semibold">
                     {symbolCount} / {MEMORY_SYMBOLS.length}
                   </span>
                 </div>
-                {/*
-                  Each source is a compact reference — symbol, file, line span.
-                  Citable, not decorative: this is what "grounded" has to mean.
-                */}
-                <ul>
+
+                <ul className="space-y-2">
                   {MEMORY_SYMBOLS.slice(0, symbolCount).map((s, i) => (
-                    <li key={s.symbol} className="fade-up flex items-baseline gap-4 py-3 hair-t">
-                      <span
-                        className="mono-label mono-label-accent shrink-0 tabular-nums"
-                        style={{ letterSpacing: '0.14em' }}
-                      >
-                        [{String(i + 1).padStart(2, '0')}]
-                      </span>
-                      <div className="min-w-0">
-                        <p className="font-mono text-[13px] text-text break-all">{s.symbol}</p>
-                        <p className="mono-detail mt-1 break-all" style={{ fontSize: 10 }}>
-                          {s.path}:{s.lines.replace(/^L/, '').replace('–L', '–')}
-                        </p>
+                    <li key={s.symbol} className="fade-up flex items-center justify-between gap-4 p-2.5 rounded-lg bg-[#050608]/50 border border-white/[0.04] hover:border-indigo-500/30 transition-colors">
+                      <div className="flex items-center gap-3 min-w-0">
+                        <span
+                          className="font-mono text-[10px] text-indigo-400 font-bold shrink-0"
+                        >
+                          [{String(i + 1).padStart(2, '0')}]
+                        </span>
+                        <div className="min-w-0">
+                          <p className="font-mono text-[12px] text-[#F8FAFC] font-semibold truncate">{s.symbol}</p>
+                          <p className="font-mono text-[10px] text-[#64748B] mt-0.5 truncate">
+                            {s.path}:{s.lines.replace(/^L/, '').replace('–L', '–')}
+                          </p>
+                        </div>
                       </div>
+                      <span className="px-2 py-0.5 rounded text-[9px] font-mono bg-indigo-500/10 text-indigo-300 border border-indigo-500/20 shrink-0">
+                        RESOLVED
+                      </span>
                     </li>
                   ))}
                 </ul>
@@ -239,29 +243,23 @@ export const GroundedRetrieval: React.FC = () => {
 
             {/* Response */}
             {reached(phase, 'answering') && (
-              <div className="hair-t pt-7 relative">
-                {/*
-                  The grounding line. Evidence physically connects to the answer,
-                  so "grounded" is something the reader sees rather than a word in
-                  a label. Draws once, when the answer begins.
-                */}
+              <div className="border-t border-white/[0.06] pt-6 relative">
                 <span
-                  className={`absolute -top-7 left-0 h-7 w-px grounding-line ${reached(phase, 'answering') ? 'is-grounded' : ''
-                    }`}
-                  style={{ background: 'linear-gradient(180deg, var(--primary), rgba(94,106,210,0.15))' }}
+                  className="absolute -top-6 left-0 h-6 w-px bg-gradient-to-b from-indigo-500 to-indigo-500/20"
                   aria-hidden="true"
                 />
-                <span className="mono-label block mb-4">GROUNDED RESPONSE</span>
-                <div className="space-y-4">
+                <span className="mono-label text-emerald-400 block mb-3 font-semibold text-[10px] tracking-wider">GROUNDED RESPONSE</span>
+                <div className="space-y-3.5 p-4 rounded-xl bg-[#050608]/70 border border-emerald-500/20 shadow-[0_0_20px_rgba(52,211,153,0.05)]">
                   {MEMORY_ANSWER.slice(0, answerCount).map((paragraph, i) => (
                     <p
                       key={i}
-                      className={`text-[13px] sm:text-sm leading-relaxed fade-up ${i === 0 ? 'text-text' : 'text-text-muted'
-                        }`}
+                      className={`text-[13px] sm:text-[14px] leading-relaxed fade-up ${
+                        i === 0 ? 'text-[#F8FAFC] font-medium' : 'text-[#CBD5E1]'
+                      }`}
                     >
                       {paragraph}
                       {phase === 'answering' && i === answerCount - 1 && (
-                        <span className="caret-blink text-primary ml-1" aria-hidden="true">
+                        <span className="caret-blink text-emerald-400 font-bold ml-1" aria-hidden="true">
                           ▌
                         </span>
                       )}
@@ -275,32 +273,38 @@ export const GroundedRetrieval: React.FC = () => {
 
         {/* ── Graph context ───────────────────────────────────────────────── */}
         <div className="lg:col-span-5 lg:pt-2">
-          <span className="mono-label mono-label-accent block mb-6">GRAPH CONTEXT</span>
+          <div className="p-6 rounded-2xl bg-gradient-to-b from-[#0D1220]/80 to-[#070A12]/90 border border-white/[0.08] shadow-[0_16px_36px_rgba(0,0,0,0.6)] backdrop-blur-2xl">
+            <div className="flex items-center gap-2 mb-6">
+              <span className="w-2 h-2 rounded-full bg-sky-400 shadow-[0_0_8px_rgba(56,189,248,0.6)] animate-pulse" />
+              <span className="mono-label text-sky-400 font-bold text-[10px] tracking-[0.2em] uppercase">GRAPH TOPOLOGY CONTEXT</span>
+            </div>
 
-          <dl className="grid grid-cols-2 gap-x-6 gap-y-7">
-            {MEMORY_CONTEXT.map((row, i) => (
-              <div
-                key={row.label}
-                style={{
-                  opacity: reached(phase, 'context') ? 1 : 0.18,
-                  transform: reached(phase, 'context') || reduced ? 'none' : 'translateY(8px)',
-                  transition: reduced
-                    ? undefined
-                    : `opacity 700ms cubic-bezier(0.16,1,0.3,1) ${i * 110}ms, transform 700ms cubic-bezier(0.16,1,0.3,1) ${i * 110}ms`,
-                }}
-              >
-                <dt className="mono-label mb-2.5">{row.label}</dt>
-                <dd className="font-mono text-xl sm:text-2xl text-text tabular-nums leading-none">
-                  {row.value}
-                </dd>
-              </div>
-            ))}
-          </dl>
+            <dl className="grid grid-cols-2 gap-4">
+              {MEMORY_CONTEXT.map((row, i) => (
+                <div
+                  key={row.label}
+                  className="p-3.5 rounded-xl bg-[#050608]/60 border border-white/[0.04]"
+                  style={{
+                    opacity: reached(phase, 'context') ? 1 : 0.78,
+                    transform: reached(phase, 'context') || reduced ? 'none' : 'translateY(4px)',
+                    transition: reduced
+                      ? undefined
+                      : `opacity 700ms cubic-bezier(0.16,1,0.3,1) ${i * 110}ms, transform 700ms cubic-bezier(0.16,1,0.3,1) ${i * 110}ms`,
+                  }}
+                >
+                  <dt className="mono-label text-[10px] text-[#64748B] mb-2">{row.label}</dt>
+                  <dd className="font-mono text-xl sm:text-2xl text-[#F8FAFC] font-bold tabular-nums leading-none">
+                    {row.value}
+                  </dd>
+                </div>
+              ))}
+            </dl>
 
-          <p className="mt-10 pt-6 hair-t text-[13px] text-text-muted leading-relaxed max-w-sm">
-            ARIA does not retrieve text that resembles the question. It walks the symbol graph,
-            collects the modules that actually participate, and answers from those.
-          </p>
+            <p className="mt-6 pt-5 border-t border-white/[0.07] text-[13px] text-[#94A3B8] leading-relaxed">
+              ARIA does not retrieve text that resembles the question. It walks the symbol graph,
+              collects the modules that actually participate, and answers from those.
+            </p>
+          </div>
         </div>
       </div>
 

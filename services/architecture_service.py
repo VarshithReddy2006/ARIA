@@ -23,6 +23,7 @@ from services.entry_point_service import EntryPointService
 from models.architecture import ArchitectureSummary as ArchSummary
 from storage.snapshot_store import SnapshotStore
 from core.cache import AnalysisCache
+from core.file_classifier import CANONICAL_IGNORED_DIRS
 
 logger = logging.getLogger(__name__)
 
@@ -415,16 +416,7 @@ class ArchitectureService:
     # Misc helpers
     # ------------------------------------------------------------------
 
-    _IGNORED_DIRS = {
-        "node_modules",
-        ".git",
-        "dist",
-        "build",
-        ".next",
-        "venv",
-        "__pycache__",
-        ".venv",
-    }
+    _IGNORED_DIRS = CANONICAL_IGNORED_DIRS
 
     def _walk_repo_paths(self, repo_path: str) -> List[str]:
         """Walk repo on disk and return all relative file paths."""

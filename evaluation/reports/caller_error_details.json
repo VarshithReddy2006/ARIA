@@ -1,0 +1,412 @@
+[
+  {
+    "task_id": "task-01-fastapi-oauth2",
+    "repo": "fastapi/fastapi",
+    "gt_callers": [
+      "login_for_access_token",
+      "read_users_me"
+    ],
+    "direct_callers": [
+      "docs_src/security/tutorial001_an_py310.py::read_items",
+      "docs_src/security/tutorial001_py310.py::read_items",
+      "docs_src/security/tutorial002_an_py310.py::get_current_user",
+      "docs_src/security/tutorial002_py310.py::get_current_user",
+      "docs_src/security/tutorial003_an_py310.py::get_current_user",
+      "docs_src/security/tutorial003_py310.py::get_current_user",
+      "docs_src/security/tutorial004_an_py310.py::get_current_user",
+      "docs_src/security/tutorial004_py310.py::get_current_user",
+      "docs_src/security/tutorial005_an_py310.py::get_current_user",
+      "docs_src/security/tutorial005_py310.py::get_current_user",
+      "tests/test_dependency_paramless.py::process_auth",
+      "tests/test_security_oauth2_password_bearer_optional.py::read_items",
+      "tests/test_security_oauth2_password_bearer_optional_description.py::read_items"
+    ],
+    "predicted_caller_names": [
+      "get_current_active_user",
+      "get_current_user",
+      "read_items",
+      "read_own_items",
+      "read_system_status",
+      "read_users_me"
+    ],
+    "tp": [
+      "read_users_me"
+    ],
+    "fp": [
+      "get_current_active_user",
+      "get_current_user",
+      "read_items",
+      "read_own_items",
+      "read_system_status"
+    ],
+    "fn": [
+      "login_for_access_token"
+    ],
+    "resolved_symbols": [
+      "OAuth2PasswordBearer"
+    ]
+  },
+  {
+    "task_id": "task-02-fastapi-serialize-response",
+    "repo": "fastapi/fastapi",
+    "gt_callers": [
+      "APIRoute.get_route_handler",
+      "run_endpoint_function"
+    ],
+    "direct_callers": [
+      "fastapi/routing.py::get_request_handler"
+    ],
+    "predicted_caller_names": [
+      "APIRoute.__init__",
+      "APIRoute.get_route_handler",
+      "APIRoute.handle",
+      "APIRouter.app",
+      "_FrontendRouteGroup.handle",
+      "get_request_handler"
+    ],
+    "tp": [
+      "apiroute.get_route_handler"
+    ],
+    "fp": [
+      "_frontendroutegroup.handle",
+      "apiroute.__init__",
+      "apiroute.handle",
+      "apirouter.app",
+      "get_request_handler"
+    ],
+    "fn": [
+      "run_endpoint_function"
+    ],
+    "resolved_symbols": [
+      "serialize_response"
+    ]
+  },
+  {
+    "task_id": "task-03-fastapi-status-codes",
+    "repo": "fastapi/fastapi",
+    "gt_callers": [],
+    "direct_callers": [],
+    "predicted_caller_names": [],
+    "tp": [],
+    "fp": [],
+    "fn": [],
+    "resolved_symbols": []
+  },
+  {
+    "task_id": "task-04-requests-session-send",
+    "repo": "psf/requests",
+    "gt_callers": [
+      "Session.request",
+      "get",
+      "post",
+      "request"
+    ],
+    "direct_callers": [
+      "src/requests/sessions.py::SessionRedirectMixin.resolve_redirects",
+      "tests/test_requests.py::TestRequests.test_entry_points",
+      "tests/test_requests.py::TestRequests.test_HTTP_302_TOO_MANY_REDIRECTS_WITH_PARAMS",
+      "tests/test_requests.py::TestRequests.test_set_cookie_on_301",
+      "tests/test_requests.py::TestRequests.test_cookie_sent_on_redirect",
+      "tests/test_requests.py::TestRequests.test_cookie_removed_on_expire",
+      "tests/test_requests.py::TestRequests.test_cookie_quote_wrapped",
+      "tests/test_requests.py::TestRequests.test_cookie_persists_via_api",
+      "tests/test_requests.py::TestRequests.test_request_cookie_overrides_session_cookie",
+      "tests/test_requests.py::TestRequests.test_request_cookies_not_persisted",
+      "tests/test_requests.py::TestRequests.test_generic_cookiejar_works",
+      "tests/test_requests.py::TestRequests.test_param_cookiejar_works",
+      "tests/test_requests.py::TestRequests.test_BASICAUTH_TUPLE_HTTP_200_OK_GET",
+      "tests/test_requests.py::TestRequests.test_basicauth_with_netrc",
+      "tests/test_requests.py::TestRequests.test_DIGEST_HTTP_200_OK_GET",
+      "tests/test_requests.py::TestRequests.test_DIGESTAUTH_WRONG_HTTP_401_GET",
+      "tests/test_requests.py::TestRequests.test_unconsumed_session_response_closes_connection",
+      "tests/test_requests.py::TestRequests.test_mixed_case_scheme_acceptable",
+      "tests/test_requests.py::TestRequests.test_HTTP_200_OK_GET_ALTERNATIVE",
+      "tests/test_requests.py::TestRequests.test_header_and_body_removal_on_redirect",
+      "tests/test_requests.py::TestRequests.test_cookielib_cookiejar_on_redirect",
+      "tests/test_requests.py::TestRequests.test_respect_proxy_env_on_send_self_prepared_request",
+      "tests/test_requests.py::TestRequests.test_respect_proxy_env_on_send_session_prepared_request",
+      "tests/test_requests.py::TestRequests.test_respect_proxy_env_on_send_with_redirects",
+      "tests/test_requests.py::TestRequests.test_unicode_method_name_with_request_object",
+      "tests/test_requests.py::TestRequests.test_non_prepared_request_error",
+      "tests/test_requests.py::TestRequests.test_hook_receives_request_arguments",
+      "tests/test_requests.py::TestRequests.test_prepared_request_hook",
+      "tests/test_requests.py::TestRequests.test_prepared_from_session",
+      "tests/test_requests.py::TestRequests.test_prepared_request_is_pickleable",
+      "tests/test_requests.py::TestRequests.test_prepared_request_with_file_is_pickleable",
+      "tests/test_requests.py::TestRequests.test_prepared_request_with_hook_is_pickleable",
+      "src/requests/sessions.py::Session.request"
+    ],
+    "predicted_caller_names": [
+      "JSONDecodeError.__init__",
+      "RequestException.__init__",
+      "Response.__init__",
+      "Session.delete",
+      "Session.get",
+      "Session.head",
+      "Session.merge_environment_settings",
+      "Session.options",
+      "Session.patch",
+      "Session.post",
+      "Session.prepare_request",
+      "Session.put",
+      "Session.request",
+      "SessionRedirectMixin.rebuild_auth",
+      "SessionRedirectMixin.resolve_redirects",
+      "SessionRedirectMixin.should_strip_auth",
+      "delete",
+      "get",
+      "head",
+      "merge_hooks",
+      "options",
+      "patch",
+      "post",
+      "put",
+      "request"
+    ],
+    "tp": [
+      "get",
+      "post",
+      "request",
+      "session.request"
+    ],
+    "fp": [
+      "delete",
+      "head",
+      "jsondecodeerror.__init__",
+      "merge_hooks",
+      "options",
+      "patch",
+      "put",
+      "requestexception.__init__",
+      "response.__init__",
+      "session.delete",
+      "session.get",
+      "session.head",
+      "session.merge_environment_settings",
+      "session.options",
+      "session.patch",
+      "session.post",
+      "session.prepare_request",
+      "session.put",
+      "sessionredirectmixin.rebuild_auth",
+      "sessionredirectmixin.resolve_redirects",
+      "sessionredirectmixin.should_strip_auth"
+    ],
+    "fn": [],
+    "resolved_symbols": [
+      "send",
+      "Session",
+      "session"
+    ]
+  },
+  {
+    "task_id": "task-05-requests-adapters-ssl",
+    "repo": "psf/requests",
+    "gt_callers": [
+      "HTTPAdapter.get_connection",
+      "HTTPAdapter.send"
+    ],
+    "direct_callers": [
+      "src/requests/adapters.py::HTTPAdapter.send"
+    ],
+    "predicted_caller_names": [
+      "HTTPAdapter.send"
+    ],
+    "tp": [
+      "httpadapter.send"
+    ],
+    "fp": [],
+    "fn": [
+      "httpadapter.get_connection"
+    ],
+    "resolved_symbols": [
+      "cert_verify",
+      "HTTPAdapter"
+    ]
+  },
+  {
+    "task_id": "task-06-requests-models-response",
+    "repo": "psf/requests",
+    "gt_callers": [
+      "Response.json",
+      "Response.text"
+    ],
+    "direct_callers": [
+      "src/requests/models.py::Response.__getstate__",
+      "src/requests/models.py::Response.apparent_encoding",
+      "src/requests/models.py::Response.text",
+      "src/requests/models.py::Response.json"
+    ],
+    "predicted_caller_names": [
+      "Request.__init__",
+      "Request.prepare",
+      "Response.__getstate__",
+      "Response.apparent_encoding",
+      "Response.json",
+      "Response.text"
+    ],
+    "tp": [
+      "response.json",
+      "response.text"
+    ],
+    "fp": [
+      "request.__init__",
+      "request.prepare",
+      "response.__getstate__",
+      "response.apparent_encoding"
+    ],
+    "fn": [],
+    "resolved_symbols": [
+      "content",
+      "Response"
+    ]
+  },
+  {
+    "task_id": "task-07-aria-symbol-schema",
+    "repo": "VarshithReddy2006/ARIA",
+    "gt_callers": [
+      "SymbolService.build_full",
+      "SymbolService.get_definition"
+    ],
+    "direct_callers": [
+      "services/symbol_service.py::SymbolService._python_fn",
+      "services/symbol_service.py::SymbolService._python_class",
+      "services/symbol_service.py::SymbolService._js_fn",
+      "services/symbol_service.py::SymbolService._js_arrow",
+      "services/symbol_service.py::SymbolService._js_class",
+      "services/symbol_service.py::SymbolService._ts_interface",
+      "services/symbol_service.py::SymbolService._ts_enum",
+      "tests/test_api_surface_service.py::sym",
+      "tests/test_call_graph_decomposed.py::test_extractor_helpers",
+      "tests/test_call_graph_decomposed.py::test_extractor_parse",
+      "tests/test_call_graph_service.py::make_symbol",
+      "tests/test_pr_intelligence.py::TestPRIntelligence.test_analyze_pull_request_success",
+      "tests/test_retrieval_v2.py::TestFileAwareRetrievalRegression.test_intelligent_retrieve_priorities_and_confidence",
+      "tests/test_retrieval_v2.py::TestDeterministicFileRetrievalSpec.setup_method",
+      "tests/test_twin_architecture.py::test_twin_builder_and_navigator",
+      "ria/application/symbol_extractor.py::SymbolExtractorService.extract_symbols",
+      "ria/infrastructure/storage/sqlite/semantic_cache_store.py::_deserialize_resolution_result",
+      "tests/ria/unit/test_cross_file_resolver.py::test_cross_file_resolution",
+      "tests/ria/unit/test_domain_semantic_models.py::TestSymbol.test_symbol_invariants_and_immutability",
+      "tests/ria/unit/test_graph_node_builder.py::test_build_file_and_symbol_nodes",
+      "tests/ria/unit/test_graph_service.py::test_graph_builder_service",
+      "tests/ria/unit/test_import_resolver.py::test_resolve_imports",
+      "tests/ria/unit/test_inheritance_resolver.py::test_resolve_inheritance_and_overrides"
+    ],
+    "predicted_caller_names": [
+      "IngestionService._run",
+      "IngestionService.ingest_commit",
+      "SemanticResolutionService.resolve_unit",
+      "SqliteSemanticCacheStore.get",
+      "SymbolExtractorService.extract_symbols",
+      "SymbolService._extract_file_symbols",
+      "SymbolService._js_arrow",
+      "SymbolService._js_class",
+      "SymbolService._js_export",
+      "SymbolService._js_fn",
+      "SymbolService._python_class",
+      "SymbolService._python_fn",
+      "SymbolService._ts_enum",
+      "SymbolService._ts_interface",
+      "SymbolService._walk_js_ts",
+      "SymbolService._walk_python",
+      "SymbolService.build_full",
+      "SymbolService.build_partial",
+      "_deserialize_resolution_result"
+    ],
+    "tp": [
+      "symbolservice.build_full"
+    ],
+    "fp": [
+      "_deserialize_resolution_result",
+      "ingestionservice._run",
+      "ingestionservice.ingest_commit",
+      "semanticresolutionservice.resolve_unit",
+      "sqlitesemanticcachestore.get",
+      "symbolextractorservice.extract_symbols",
+      "symbolservice._extract_file_symbols",
+      "symbolservice._js_arrow",
+      "symbolservice._js_class",
+      "symbolservice._js_export",
+      "symbolservice._js_fn",
+      "symbolservice._python_class",
+      "symbolservice._python_fn",
+      "symbolservice._ts_enum",
+      "symbolservice._ts_interface",
+      "symbolservice._walk_js_ts",
+      "symbolservice._walk_python",
+      "symbolservice.build_partial"
+    ],
+    "fn": [
+      "symbolservice.get_definition"
+    ],
+    "resolved_symbols": [
+      "Symbol"
+    ]
+  },
+  {
+    "task_id": "task-08-aria-call-graph-blast-radius",
+    "repo": "VarshithReddy2006/ARIA",
+    "gt_callers": [
+      "ImpactAnalysisService._resolve_callers",
+      "get_blast_radius_endpoint"
+    ],
+    "direct_callers": [
+      "tests/test_call_graph_service.py::TestBlastRadius.test_blast_radius_finds_all_callers",
+      "tests/test_call_graph_service.py::TestBlastRadius.test_blast_radius_risk_high_for_many_callers",
+      "tests/test_call_graph_service.py::TestBlastRadius.test_blast_radius_risk_low_for_leaf",
+      "tests/test_call_graph_service.py::TestBlastRadius.test_blast_radius_depth_tracked",
+      "tests/test_call_graph_service.py::TestBlastRadius.test_blast_radius_unknown_function",
+      "tests/test_call_graph_service.py::TestBlastRadius.test_blast_radius_affected_files_deduplicated"
+    ],
+    "predicted_caller_names": [],
+    "tp": [],
+    "fp": [],
+    "fn": [
+      "get_blast_radius_endpoint",
+      "impactanalysisservice._resolve_callers"
+    ],
+    "resolved_symbols": [
+      "get_blast_radius",
+      "CallGraphService"
+    ]
+  },
+  {
+    "task_id": "task-09-aria-api-surface-status",
+    "repo": "VarshithReddy2006/ARIA",
+    "gt_callers": [
+      "APISurfaceService._classify_symbol",
+      "BreakingChangeAnalyzer.analyze"
+    ],
+    "direct_callers": [],
+    "predicted_caller_names": [],
+    "tp": [],
+    "fp": [],
+    "fn": [
+      "apisurfaceservice._classify_symbol",
+      "breakingchangeanalyzer.analyze"
+    ],
+    "resolved_symbols": [
+      "api_surface",
+      "api_surface",
+      "api_surface",
+      "api_surface",
+      "ApiStatus"
+    ]
+  },
+  {
+    "task_id": "task-10-aria-impact-engine-bucketing",
+    "repo": "VarshithReddy2006/ARIA",
+    "gt_callers": [
+      "get_impact_analysis"
+    ],
+    "direct_callers": [],
+    "predicted_caller_names": [],
+    "tp": [],
+    "fp": [],
+    "fn": [
+      "get_impact_analysis"
+    ],
+    "resolved_symbols": []
+  }
+]

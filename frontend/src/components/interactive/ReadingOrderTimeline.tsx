@@ -258,7 +258,7 @@ export const ReadingOrderTimeline: React.FC<TimelineProps> = ({
   const getImportanceLevel = (score: number) => {
     if (score > 100) return { label: 'Critical', color: 'text-success border-success/30 bg-success/10' };
     if (score > 50) return { label: 'Important', color: 'text-primary border-primary/30 bg-primary/10' };
-    return { label: 'Supporting', color: 'text-text-muted border-white/[0.08] bg-white/[0.02]' };
+    return { label: 'Supporting', color: 'text-text-muted border-white/[0.08] bg-surface-1/40' };
   };
 
   // First unread step calculation (Dynamic "Start Here" / "Continue Here" target)
@@ -582,7 +582,7 @@ export const ReadingOrderTimeline: React.FC<TimelineProps> = ({
               <button
                 type="button"
                 onClick={() => handleSelectStep(currentUnreadStep, true)}
-                className="action-chip text-xs px-4 py-2 inline-flex items-center gap-2 bg-primary/15 border-primary/40 text-primary hover:bg-primary/25 font-sans font-semibold"
+                className="px-4 py-2 rounded-lg inline-flex items-center gap-2 bg-primary hover:bg-primary-hover text-white text-xs font-sans font-semibold transition-all shadow-card focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-primary"
               >
                 <span>{completedCount === 0 ? 'Start Reading' : 'Continue Reading'}</span>
                 <ArrowRight className="h-3.5 w-3.5" />
@@ -701,45 +701,45 @@ export const ReadingOrderTimeline: React.FC<TimelineProps> = ({
                   {/* Step Item Card */}
                   <div
                     onClick={() => handleSelectStep(entry, true)}
-                    className={`p-4 rounded-xl border transition-all duration-150 cursor-pointer flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 ${
+                    className={`p-3.5 sm:p-4 rounded-xl border transition-all duration-150 cursor-pointer flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3.5 ${
                       isSelected
-                        ? 'border-primary/60 bg-surface-1/70 ring-1 ring-primary/40 shadow-lg'
+                        ? 'border-[rgba(124,134,232,0.42)] bg-[rgba(107,116,217,0.10)] border-l-2 border-l-[#6B74D9] shadow-[0_0_14px_rgba(107,116,217,0.10)] translate-x-0.5'
                         : isCompleted
-                          ? 'border-white/[0.05] bg-surface-0/40 opacity-85 hover:border-white/[0.12]'
+                          ? 'border-white/[0.055] bg-[rgba(14,14,18,0.72)] opacity-80 hover:opacity-100 hover:border-white/[0.1]'
                           : isCurrentUnread
-                            ? 'border-primary/30 bg-primary/[0.02] hover:border-primary/50'
-                            : 'border-white/[0.07] bg-surface-0/60 hover:border-primary/40 hover:bg-surface-1/40'
+                            ? 'border-[rgba(124,134,232,0.42)] bg-[rgba(107,116,217,0.10)] border-l-2 border-l-[#6B74D9]'
+                            : 'border-white/[0.055] bg-[rgba(14,14,18,0.65)] hover:border-white/[0.12] hover:bg-white/[0.02]'
                     }`}
                   >
                     <div className="space-y-1.5 min-w-0 flex-1">
                       <div className="flex items-center gap-2 flex-wrap">
-                        <span className={`font-mono text-xs font-bold ${isCompleted ? 'text-success' : isCurrentUnread ? 'text-primary' : 'text-text-muted'}`}>
+                        <span className={`font-mono text-xs font-bold ${
+                          isSelected ? 'text-[#6B74D9]' : isCompleted ? 'text-[#34D399]' : isCurrentUnread ? 'text-[#6B74D9]' : 'text-[#71717A]'
+                        }`}>
                           {isCompleted ? '✓' : String(idx + 1).padStart(2, '0')}
                         </span>
-                        <span className="text-xs font-mono font-semibold text-text truncate max-w-md" title={entry.file_path}>
+                        <span className={`text-xs font-mono font-semibold truncate max-w-md ${
+                          isSelected ? 'text-white' : isCompleted ? 'text-[#A1A1AA]' : 'text-[#F4F4F5]'
+                        }`} title={entry.file_path}>
                           {entry.file_path}
                         </span>
-                        <span className={`text-[9px] font-mono px-1.5 py-0.5 rounded border uppercase font-bold ${
-                          entry.tier === 'entry_point' ? 'bg-success/10 border-success/30 text-success' :
-                          entry.tier === 'core' ? 'bg-primary/10 border-primary/30 text-primary' :
-                          entry.tier === 'service' ? 'bg-indigo-500/10 border-indigo-500/30 text-indigo-400' :
-                          entry.tier === 'utility' ? 'bg-amber-500/10 border-amber-500/30 text-warn' :
-                          'bg-white/[0.04] border-white/[0.08] text-text-muted'
-                        }`}>
+                        <span className="text-[9px] font-mono px-1.5 py-0.5 rounded border border-white/[0.08] bg-white/[0.03] text-[#A1A1AA] uppercase font-medium">
                           {entry.tier.replace('_', ' ')}
                         </span>
-                        <span className={`text-[8px] font-mono px-1.5 py-0.5 rounded border uppercase font-bold ${importance.color}`}>
+                        <span className={`text-[8.5px] font-mono px-1.5 py-0.5 rounded border uppercase font-medium ${importance.color}`}>
                           {importance.label}
                         </span>
                       </div>
 
-                      <p className="text-xs text-text-muted font-sans leading-relaxed line-clamp-2">
+                      <p className={`text-xs font-sans leading-relaxed line-clamp-2 ${
+                        isCompleted ? 'text-text-subtle' : 'text-text-muted'
+                      }`}>
                         {entry.reason}
                       </p>
                     </div>
 
                     <div className="flex items-center gap-3 shrink-0 self-end sm:self-center font-mono text-[11px]">
-                      <div className="flex items-center gap-1 text-text-subtle px-2 py-0.5 rounded bg-white/[0.03] border border-white/[0.04]">
+                      <div className="flex items-center gap-1 text-text-subtle px-2 py-0.5 rounded bg-surface-1/60 border border-white/[0.04]">
                         <Clock className="h-3 w-3" />
                         <span>~{estMinutes}m</span>
                       </div>
@@ -747,13 +747,10 @@ export const ReadingOrderTimeline: React.FC<TimelineProps> = ({
                     </div>
                   </div>
 
-                  {/* Connecting Arrow between steps */}
+                  {/* Connecting line between steps (Subtle hairline, no text clutter) */}
                   {idx < totalFiles - 1 && (
-                    <div className="flex items-center gap-2 pl-4 py-1 text-[10px] font-mono text-text-subtle" aria-hidden="true">
-                      <ArrowDown className="h-3.5 w-3.5 text-white/[0.15]" />
-                      <span className="text-[9px] uppercase tracking-wider text-text-subtle">
-                        Next in sequence
-                      </span>
+                    <div className="h-2 pl-4 flex items-center" aria-hidden="true">
+                      <div className="h-full w-px bg-white/[0.06] ml-[-13px]" />
                     </div>
                   )}
                 </div>
@@ -807,13 +804,13 @@ export const ReadingOrderTimeline: React.FC<TimelineProps> = ({
             </div>
 
             {/* Step Navigation Controls (Prev / Next & Complete) */}
-            <div className="flex items-center justify-between gap-2 p-2 rounded-lg bg-surface-1/40 border border-white/[0.04]">
-              <div className="flex items-center gap-1">
+            <div className="flex items-center justify-between gap-2 p-2 rounded-lg bg-surface-1/50 border border-white/[0.05]">
+              <div className="flex items-center gap-1.5">
                 <button
                   type="button"
                   disabled={currentIndex <= 0}
                   onClick={() => handleNavigateStep(-1)}
-                  className="px-2.5 py-1 rounded bg-white/[0.04] border border-white/[0.06] text-xs font-sans font-medium text-text hover:bg-white/[0.08] disabled:opacity-30 disabled:cursor-not-allowed inline-flex items-center gap-1"
+                  className="px-2.5 py-1.5 rounded bg-surface-2 border border-white/[0.06] text-xs font-sans font-medium text-text-muted hover:text-text hover:bg-surface-3 disabled:opacity-30 disabled:cursor-not-allowed inline-flex items-center gap-1 transition-colors"
                 >
                   <ArrowLeft className="h-3 w-3" />
                   <span>Prev</span>
@@ -822,7 +819,7 @@ export const ReadingOrderTimeline: React.FC<TimelineProps> = ({
                   type="button"
                   disabled={currentIndex === -1 || currentIndex >= totalFiles - 1}
                   onClick={() => handleNavigateStep(1)}
-                  className="px-2.5 py-1 rounded bg-white/[0.04] border border-white/[0.06] text-xs font-sans font-medium text-text hover:bg-white/[0.08] disabled:opacity-30 disabled:cursor-not-allowed inline-flex items-center gap-1"
+                  className="px-2.5 py-1.5 rounded bg-surface-2 border border-white/[0.06] text-xs font-sans font-medium text-text-muted hover:text-text hover:bg-surface-3 disabled:opacity-30 disabled:cursor-not-allowed inline-flex items-center gap-1 transition-colors"
                 >
                   <span>Next</span>
                   <ArrowRight className="h-3 w-3" />
@@ -832,13 +829,13 @@ export const ReadingOrderTimeline: React.FC<TimelineProps> = ({
               <button
                 type="button"
                 onClick={() => handleToggleComplete(selectedFile.file_path)}
-                className={`px-3 py-1 rounded text-xs font-sans font-semibold inline-flex items-center gap-1.5 transition-colors ${
+                className={`px-3 py-1.5 rounded text-xs font-sans font-semibold inline-flex items-center gap-1.5 transition-all shadow-sm ${
                   completedFiles[selectedFile.file_path]
-                    ? 'bg-success/15 border border-success/40 text-success hover:bg-success/25'
-                    : 'bg-white/[0.05] border border-white/[0.08] text-text hover:border-primary/40'
+                    ? 'bg-success/15 border border-success/35 text-success hover:bg-success/25'
+                    : 'bg-primary hover:bg-primary-hover text-white border border-primary/40'
                 }`}
               >
-                <Check className="h-3.5 w-3.5" />
+                <Check className="h-3.5 w-3.5 stroke-[2.5]" />
                 <span>{completedFiles[selectedFile.file_path] ? 'Completed' : 'Mark as Read'}</span>
               </button>
             </div>
@@ -851,11 +848,11 @@ export const ReadingOrderTimeline: React.FC<TimelineProps> = ({
               </div>
 
               <div className="grid grid-cols-2 gap-3 pt-2">
-                <div className="p-2.5 rounded bg-surface-1/30 border border-white/[0.03]">
+                <div className="p-2.5 rounded bg-surface-1/40 border border-white/[0.04]">
                   <span className="mono-label text-[9.5px] text-text-subtle uppercase block mb-0.5 tracking-[0.16em]">CATEGORY</span>
                   <span className="text-text font-sans font-semibold uppercase text-[11px]">{selectedFile.tier.replace('_', ' ')}</span>
                 </div>
-                <div className="p-2.5 rounded bg-surface-1/30 border border-white/[0.03]">
+                <div className="p-2.5 rounded bg-surface-1/40 border border-white/[0.04]">
                   <span className="mono-label text-[9.5px] text-text-subtle uppercase block mb-0.5 tracking-[0.16em]">READ TIME</span>
                   <span className="text-text font-sans font-semibold text-[11px]">~{getFileReadingTime(selectedFile.score)} min</span>
                 </div>
@@ -863,7 +860,7 @@ export const ReadingOrderTimeline: React.FC<TimelineProps> = ({
 
               <div className="pt-2">
                 <span className="mono-label text-[9.5px] text-text-subtle uppercase block mb-1 tracking-[0.16em]">WHY READ THIS FILE</span>
-                <p className="text-xs sm:text-sm text-text font-sans leading-relaxed p-3 rounded bg-surface-1/30 border border-white/[0.04]">
+                <p className="text-xs sm:text-sm text-text font-sans leading-relaxed p-3 rounded bg-surface-1/40 border border-white/[0.04]">
                   {selectedFile.reason}
                 </p>
               </div>
@@ -892,12 +889,12 @@ export const ReadingOrderTimeline: React.FC<TimelineProps> = ({
               {symbolState === 'ready' && symbols.length > 0 && (
                 <ul className="max-h-36 overflow-y-auto space-y-1 pr-1 font-mono text-xs">
                   {symbols.slice(0, 30).map((sym) => (
-                    <li key={`${sym.type}-${sym.name}-${sym.line_number}`} className="flex items-baseline justify-between gap-2 p-1.5 rounded bg-surface-1/30 border border-white/[0.03]">
+                    <li key={`${sym.type}-${sym.name}-${sym.line_number}`} className="flex items-baseline justify-between gap-2 p-1.5 rounded bg-surface-1/40 border border-white/[0.035]">
                       <div className="flex items-baseline gap-2 min-w-0">
-                        <span className="text-[9px] uppercase px-1 py-0.2 rounded bg-white/[0.04] text-text-subtle shrink-0">
+                        <span className="text-[9px] uppercase px-1.5 py-0.2 rounded bg-surface-2 text-text-subtle border border-white/[0.04] shrink-0 font-medium">
                           {sym.type.slice(0, 3)}
                         </span>
-                        <span className="text-text truncate text-[11px]" title={sym.name}>
+                        <span className="text-text font-semibold truncate text-[11px]" title={sym.name}>
                           {sym.name}
                         </span>
                       </div>

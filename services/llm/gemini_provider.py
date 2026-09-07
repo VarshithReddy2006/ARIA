@@ -81,6 +81,7 @@ class GeminiProvider(BaseLLMProvider):
             self.fallback_models = list(_GEMINI_FALLBACK_MODELS)
 
         self.timeout = current_settings.llm_total_timeout or 30.0
+        self.thinking_budget = getattr(current_settings, "gemini_thinking_budget", 0)
 
         if not self.api_key:
             logger.warning("GEMINI_API_KEY is not set — requests to Gemini will fail.")
@@ -88,6 +89,41 @@ class GeminiProvider(BaseLLMProvider):
         self.client: Any = _GeminiClientProxy()
         self._client_lock = asyncio.Lock()
         self._sdk_client_created = False
+
+    @staticmethod
+    def classify_credential_format(
+        api_key: Optional[str],
+    ) -> tuple[bool, str, Optional[ProviderErrorType]]:
+        """Safely classify credential format without exposing secret values.
+
+        Returns:
+            (is_valid_format, safe_class_name, error_type_if_invalid)
+        """
+        if not api_key or not api_key.strip():
+            return False, "missing", ProviderErrorType.MISSING_CREDENTIAL
+
+        key = api_key.strip()
+        if len(key) < 10:
+            return (
+                False,
+                "malformed_gemini_api_key",
+                ProviderErrorType.INVALID_CREDENTIAL_TYPE,
+            )
+
+        if key.startswith("AIzaSy") or key.startswith("AIza"):
+            return True, "google_ai_studio_developer_api_key", None
+
+        if key.startswith("AQ."):
+            return True, "gemini_api_key", None
+
+        if key.startswith("ya29."):
+            return (
+                False,
+                "unsupported_oauth_access_token",
+                ProviderErrorType.INVALID_CREDENTIAL_TYPE,
+            )
+
+        return True, "standard_api_key", None
 
     async def _get_client(self) -> genai.Client:
         """Return cached google-genai client or lazily create it."""
@@ -147,6 +183,35 @@ class GeminiProvider(BaseLLMProvider):
                 latency_ms=0.0,
                 error_message=msg,
                 error_type=ProviderErrorType.MISSING_CREDENTIAL.value,
+                recommendation=rec,
+            )
+
+        is_valid_format, cred_class, err_type = self.classify_credential_format(
+            self.api_key
+        )
+        if (
+            not is_valid_format
+            and err_type == ProviderErrorType.INVALID_CREDENTIAL_TYPE
+        ):
+            from .provider_errors import _GEMINI_MESSAGES
+
+            msg, rec = _GEMINI_MESSAGES[ProviderErrorType.INVALID_CREDENTIAL_TYPE]
+            logger.error(
+                "PROVIDER_HEALTH provider=gemini model=%s authenticated=false "
+                "error_type=%s credential_class=%s recommendation=%s",
+                self.model,
+                ProviderErrorType.INVALID_CREDENTIAL_TYPE.value,
+                cred_class,
+                rec,
+            )
+            return ProviderHealth(
+                healthy=False,
+                provider="gemini",
+                model=self.model,
+                authenticated=False,
+                latency_ms=0.0,
+                error_message=msg,
+                error_type=ProviderErrorType.INVALID_CREDENTIAL_TYPE.value,
                 recommendation=rec,
             )
 
@@ -243,6 +308,13 @@ class GeminiProvider(BaseLLMProvider):
             config.system_instruction = system_instruction
         if response_mime_type == "application/json":
             config.response_mime_type = response_mime_type
+        if self.thinking_budget is not None:
+            try:
+                config.thinking_config = types.ThinkingConfig(
+                    thinking_budget=self.thinking_budget
+                )
+            except Exception:
+                pass
 
         timeout_seconds = self.timeout
         models_to_try = [self.model] + [
@@ -312,6 +384,13 @@ class GeminiProvider(BaseLLMProvider):
         config = types.GenerateContentConfig()
         if system_instruction:
             config.system_instruction = system_instruction
+        if self.thinking_budget is not None:
+            try:
+                config.thinking_config = types.ThinkingConfig(
+                    thinking_budget=self.thinking_budget
+                )
+            except Exception:
+                pass
 
         timeout_seconds = self.timeout
         models_to_try = [self.model] + [

@@ -240,10 +240,18 @@ class TestApiJobDispatch:
         monkeypatch.setenv("JOB_EXECUTOR", "azure")
         monkeypatch.setenv("AZURE_USE_MEMORY_QUEUE", "1")
 
+        import os
+
+        headers = {"X-API-Key": os.environ.get("API_KEY", "local-dev-key")}
         client = TestClient(app)
         res = client.post(
             "/api/v1/analyze",
-            json={"url": "https://github.com/test-org/test-dispatch", "branch": "main"},
+            json={
+                "url": "https://github.com/test-org/test-dispatch-configured",
+                "branch": "main",
+                "force_rebuild": True,
+            },
+            headers=headers,
         )
         assert res.status_code == 202
         body = res.json()
@@ -255,15 +263,20 @@ class TestApiJobDispatch:
         assert msg is not None
         payload = json.loads(msg)
         assert payload["job_id"] == body["job_id"]
-        assert payload["repo_url"] == "https://github.com/test-org/test-dispatch"
+        assert (
+            payload["repo_url"]
+            == "https://github.com/test-org/test-dispatch-configured"
+        )
 
     def test_api_returns_existing_job_when_active_and_no_force_rebuild(
         self, monkeypatch: pytest.MonkeyPatch
     ) -> None:
+        import os
         from fastapi.testclient import TestClient
         from backend.api import app
         from backend.routers.repositories import set_job_state
 
+        headers = {"X-API-Key": os.environ.get("API_KEY", "local-dev-key")}
         client = TestClient(app)
         job_id = "existing-active-job"
         set_job_state(
@@ -284,6 +297,7 @@ class TestApiJobDispatch:
         res = client.post(
             "/api/v1/analyze",
             json={"url": "https://github.com/active/project", "force_rebuild": False},
+            headers=headers,
         )
         assert res.status_code == 202
         body = res.json()
@@ -597,11 +611,11 @@ class TestOptionCProductionArchitecture:
         prod_settings = Settings()
         assert prod_settings.sqlite_db_path == "/tmp/repo_understanding.db"
 
-        # Explicit /app/data passed in is normalized to /tmp for safety
-        normalized_settings = Settings(
+        # Explicit persistent path configured for self-hosted Docker is preserved exactly
+        persistent_settings = Settings(
             SQLITE_DB_PATH="/app/data/repo_understanding.db",
         )
-        assert normalized_settings.sqlite_db_path == "/tmp/repo_understanding.db"
+        assert persistent_settings.sqlite_db_path == "/app/data/repo_understanding.db"
 
     def test_azure_manifests_declare_local_sqlite_and_shared_data_mount(
         self,

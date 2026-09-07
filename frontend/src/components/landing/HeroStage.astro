@@ -75,95 +75,104 @@ const telemetry = [
   */}
   <div class="hero-pointer z-0" aria-hidden="true"></div>
 
-  <!-- File paths surfacing in the background — scroll displacement -->
+  <!-- File paths surfacing in the background — scroll displacement with glass sheen -->
   <div class="absolute inset-0 z-0 hidden md:block pointer-events-none" aria-hidden="true">
     {paths.map((p) => (
       <span
-        class="hero-path absolute font-mono text-[11px] tracking-wide text-text-subtle whitespace-nowrap"
+        class="hero-path absolute font-mono text-[11px] tracking-wide text-slate-400/80 px-2.5 py-1 rounded-md bg-[#0A0D14]/60 border border-white/[0.05] backdrop-blur-md shadow-sm whitespace-nowrap"
         style={`top:${p.top};right:${p.right};`}
       >
+        <span class="text-[#818CF8]/80 mr-1.5 font-bold">λ</span>
         {p.text}
       </span>
     ))}
   </div>
 
-  <!-- Technical instrument corner marks -->
+  <!-- Technical instrument corner marks with luminous accents -->
   <span class="tech-cross top-6 left-6 hidden md:block" aria-hidden="true"></span>
   <span class="tech-cross top-6 right-6 hidden md:block" aria-hidden="true"></span>
   <span class="tech-cross bottom-6 left-6 hidden md:block" aria-hidden="true"></span>
   <span class="tech-cross bottom-6 right-6 hidden md:block" aria-hidden="true"></span>
 
   <!-- Content -->
-  {/*
-    The stage centres its content, so the asymmetric top padding this carried from
-    when the hero was bottom-aligned only pushed the scene past the frame it now
-    has to fit inside.
-  */}
-  <div class="story-shell relative z-10 py-4 sm:py-6">
+  <div class="story-shell relative z-10 py-2 sm:py-4">
     <!-- Eyebrow -->
-    <div class="hero-enter-eyebrow flex items-center gap-4 mb-4 sm:mb-6">
-      <span class="h-px w-8 bg-primary/60" aria-hidden="true"></span>
-      <span class="mono-label">REPOSITORY INTELLIGENCE</span>
-      <span class="mono-label text-[9px] text-text-subtle/40 hidden sm:inline-block ml-auto tracking-[0.25em]" aria-hidden="true">SYS.ID // ARIA-TOPO-01</span>
+    <div class="hero-enter-eyebrow flex items-center gap-4 mb-2 sm:mb-4">
+      <span class="h-px w-8 bg-gradient-to-r from-[#818CF8] to-[#818CF8]/20 shadow-[0_0_8px_rgba(129,140,248,0.6)]" aria-hidden="true"></span>
+      <span class="mono-label text-[#818CF8] font-bold tracking-[0.22em] text-[11px] flex items-center gap-2">
+        <span class="h-1.5 w-1.5 rounded-full bg-[#818CF8] shadow-[0_0_8px_rgba(129,140,248,0.8)] animate-pulse"></span>
+        REPOSITORY INTELLIGENCE
+      </span>
+      <span class="mono-label text-[9.5px] text-[#64748B] hidden sm:inline-block ml-auto tracking-[0.25em]" aria-hidden="true">SYS.ID // ARIA-TOPO-01</span>
     </div>
 
     {/*
-      Display headline. The two lines move differently on purpose: the first
-      arrives sharp and at full strength, the second is delayed and brightens out
-      of the dark as the scene resolves. Not bounce — one cinematic ease.
+      Display headline. Chromatic white-to-indigo gradient with animated specular shine.
     */}
-    <h1 id="hero-heading" class="display-hero text-text">
+    <h1 id="hero-heading" class="display-hero text-text select-none">
       <span class="reveal-mask">
-        <span class="hero-line--lead" style="animation-delay:1900ms">Understand</span>
+        <span class="hero-line--lead" style="animation-delay:650ms">Understand</span>
       </span>
       <span class="reveal-mask">
-        <span class="hero-line--resolve" style="animation-delay:2350ms">Any codebase.</span>
+        <span class="hero-line--resolve" style="animation-delay:850ms">Any codebase.</span>
       </span>
     </h1>
 
-    <!-- Capability telemetry — grouped inline-flex elements with subtle signal points -->
-    <p class="hero-telemetry mono-label mt-5 sm:mt-6 flex flex-wrap items-center gap-x-2.5 sm:gap-x-3 gap-y-1.5 max-w-4xl" style="letter-spacing:0.2em">
+    <!-- Capability telemetry — floating 3D glass capsules with vivid neon beacons -->
+    <div class="hero-telemetry mono-label mt-4 sm:mt-5 flex flex-wrap items-center gap-2 sm:gap-2.5 max-w-4xl" style="letter-spacing:0.16em">
       {telemetry.map((item, i) => (
-        <span class="inline-flex items-center gap-2.5 sm:gap-3 shrink-0">
-          {i > 0 && (
-            <span
-              class="tel-sep text-text-subtle/60"
-              style={`--tel-delay:${2800 + i * 130 - 60}ms`}
-              aria-hidden="true">·</span>
-          )}
-          <span class="telemetry-signal-item inline-flex items-center gap-2" style={`--tel-delay:${2800 + i * 130}ms`}>
-            <span class="h-1 w-1 rounded-full bg-primary/70 shrink-0" aria-hidden="true"></span>
-            <span>{item}</span>
+        <span
+          class="telemetry-pill group inline-flex items-center gap-2 px-2.5 py-1 rounded-lg border border-white/[0.08] bg-gradient-to-r from-[#0D1220]/90 to-[#0A0D14]/90 backdrop-blur-xl shadow-lg hover:border-[#818CF8]/40 hover:shadow-[0_0_20px_rgba(129,140,248,0.20)] hover:-translate-y-0.5 transition-all duration-300"
+          style={`--tel-delay:${1050 + i * 80}ms`}
+        >
+          <span
+            class="h-1.5 w-1.5 rounded-full shrink-0 group-hover:scale-125 transition-transform duration-300"
+            style={{
+              background: i === 0 ? '#34D399' : i === 1 ? '#818CF8' : i === 2 ? '#38BDF8' : i === 3 ? '#FCD34D' : '#FF758F',
+              boxShadow: `0 0 8px ${i === 0 ? 'rgba(52,211,153,0.8)' : i === 1 ? 'rgba(129,140,248,0.8)' : i === 2 ? 'rgba(56,189,248,0.8)' : i === 3 ? 'rgba(252,211,77,0.8)' : 'rgba(255,117,143,0.8)'}`,
+            }}
+            aria-hidden="true"
+          ></span>
+          <span class="text-[#E2E8F0] font-mono text-[9.5px] font-semibold tracking-wider uppercase group-hover:text-white transition-colors">
+            {item}
           </span>
         </span>
       ))}
-    </p>
+    </div>
 
-    <!-- Supporting text + status, held on one editorial baseline -->
-    <div class="mt-5 sm:mt-6 flex flex-col lg:flex-row lg:items-end lg:justify-between gap-5 sm:gap-7">
-      <p class="hero-enter-body story-lead">
-        ARIA transforms complex software repositories into structured,
-        searchable engineering intelligence.
+    <!-- Supporting text + CTAs -->
+    <div class="mt-5 sm:mt-8 max-w-2xl">
+      <p class="hero-enter-body story-lead text-[14px] sm:text-[16px] text-[#CBD5E1] leading-relaxed font-sans">
+        ARIA maps files, symbols, dependencies, call relationships, and change impact into evidence-backed engineering intelligence.
       </p>
 
-      <div class="hero-enter-meta flex items-center gap-8 shrink-0">
-        {/*
-          Names the technique rather than asserting live activity: nothing is
-          being analysed while the visitor reads the hero, so a breathing dot
-          labelled with a progressive verb claimed otherwise.
-        */}
-        <div class="flex items-center gap-2.5">
-          <span class="h-1.5 w-1.5 rounded-full bg-primary" aria-hidden="true"></span>
-          <span class="mono-label">DETERMINISTIC ANALYSIS</span>
-        </div>
+      <!-- Hero Actions with living border beams -->
+      <div class="hero-enter-cta mt-6 flex flex-wrap items-center gap-3.5">
+        <a
+          href="/analysis?owner=fastapi&repo=fastapi"
+          class="cta-light-sweep relative group inline-flex items-center gap-2.5 px-6 py-3 rounded-lg border border-[#818CF8]/50 bg-gradient-to-r from-[#131A2E] to-[#0A0D14] hover:border-[#A5B4FC] text-white font-mono text-xs font-bold tracking-wider transition-all duration-300 shadow-[0_0_24px_rgba(129,140,248,0.25)] hover:shadow-[0_0_36px_rgba(129,140,248,0.45)] hover:-translate-y-0.5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#818CF8]"
+        >
+          <span class="relative z-10 tracking-widest font-mono">EXPLORE ARIA</span>
+          <span class="relative z-10 text-[#818CF8] group-hover:text-white group-hover:translate-x-1 transition-all duration-300">→</span>
+        </a>
 
-        <!-- Scroll cue -->
-        <div class="hidden lg:flex flex-col items-center gap-3">
-          <span class="mono-label" style="letter-spacing:0.3em">SCROLL</span>
-          <span class="h-10 w-px bg-white/[0.08] relative overflow-hidden" aria-hidden="true">
-            <span class="scroll-cue absolute inset-0 bg-primary/70 block"></span>
-          </span>
+        <a
+          href="https://github.com/VarshithReddy2006/ARIA"
+          target="_blank"
+          rel="noopener noreferrer"
+          class="inline-flex items-center gap-2 px-5 py-3 rounded-lg border border-white/[0.08] bg-[#0A0D14]/80 hover:bg-[#0D1220] hover:border-white/[0.18] text-[#CBD5E1] hover:text-white font-mono text-xs tracking-wider transition-all duration-200 backdrop-blur-xl shadow-md hover:-translate-y-0.5 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-[#818CF8]"
+        >
+          <span>VIEW SOURCE</span>
+          <span class="text-[#94A3B8] group-hover:text-white transition-colors">↗</span>
+        </a>
+      </div>
+
+      <div class="mt-5 flex flex-wrap items-center gap-3">
+        <div class="flex items-center gap-2 px-3 py-1.5 rounded-md bg-[#0A0D14]/80 border border-white/[0.06] backdrop-blur-md">
+          <span class="h-1.5 w-1.5 rounded-full bg-[#34D399] shadow-[0_0_8px_rgba(52,211,153,0.8)] animate-pulse" aria-hidden="true"></span>
+          <span class="mono-label text-[10px] text-[#CBD5E1] font-semibold">DETERMINISTIC ANALYSIS</span>
         </div>
+        <span class="mono-label text-[9.5px] text-[#64748B]">PRESS ⌘K TO SEARCH</span>
       </div>
     </div>
   </div>

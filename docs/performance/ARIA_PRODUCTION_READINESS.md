@@ -15,7 +15,7 @@ ARIA (AI-Powered Repository Intelligence Agent) operates as an enterprise-grade 
 - **Primary Vector Engine:** Qdrant Vector Database (REST on port 6333, gRPC on port 6334) providing fast ANN search over dense code embeddings (384-d BAAI/bge-small-en-v1.5).
 - **Secondary / Fallback Vector Engine:** Embedded ChromaDB (`data/chroma_db`) maintaining continuous dual-write synchronization for instant zero-downtime rollback and failover resilience.
 - **Relational Metadata Store:** SQLite database (`data/repo_understanding.db`) with write-ahead logging (WAL) and automatic startup schema migrations.
-- **LLM Multi-Provider Gateway:** `ProviderManager` supporting primary Google Gemini (`gemini-2.5-flash`) with automatic circuit breaking and graceful fallback to DeepSeek V4 Flash (`deepseek-ai/deepseek-v4-flash-0731`) via NVIDIA NIM.
+- **LLM Multi-Provider Gateway:** `ProviderManager` supporting primary Google Gemini (`gemini-3.1-flash-lite`) with automatic circuit breaking, candidate failover to DeepSeek V4 Flash (`deepseek-ai/deepseek-v4-flash-0731`) via NVIDIA NIM, and secondary NVIDIA fallbacks (`meta/llama-3.2-11b-vision-instruct`, `minimaxai/minimax-m3`).
 - **Observability Stack:** Structured JSON logging (`LOG_FORMAT=json`), context-propagated `X-Request-ID`, bounded summary metrics (`/metrics`), live health probes (`/health`, `/ready`, `/api/v1/chat/health`), and automated credential redaction filters (`RedactionFilter`).
 
 ```
@@ -114,12 +114,15 @@ ChromaDB remains continuously active and fully synchronized with Qdrant:
 
 ## 7. LLM Provider Resilience
 
-- **Primary Provider:** Google Gemini (`gemini-2.5-flash`) via `GeminiProvider`.
+- **Primary Provider:** Google Gemini (`gemini-3.1-flash-lite`) via `GeminiProvider` (`google-genai==2.22.0`).
 - **Secondary Provider:** DeepSeek V4 Flash (`deepseek-ai/deepseek-v4-flash-0731`) via `DeepSeekProvider` hosted on NVIDIA NIM.
+- **Additional Fallbacks:** NVIDIA Llama 3.2 11B Vision (`meta/llama-3.2-11b-vision-instruct`), NVIDIA MiniMax M3 (`minimaxai/minimax-m3`).
+- **Timeout Configuration:** `LLM_CONNECT_TIMEOUT=10.0`, `LLM_READ_TIMEOUT=60.0` (resilience boundary against upstream NVIDIA load/latency), `LLM_TOTAL_TIMEOUT=60.0`.
 - **Circuit Breaker Mechanics:**
   - `failure_threshold`: 3 consecutive provider errors transitions state from `CLOSED` → `OPEN`.
   - `recovery_timeout`: 60.0s cooldown window before test transition to `HALF_OPEN`.
   - Automatic probe recovery to `CLOSED` upon single successful inference call.
+- **Token-Aware Failover:** Safe failover to next candidate if and only if 0 tokens emitted; stops failover once streaming output starts.
 - **Startup Provider Validation:** `validate_llm_providers()` validates credentials on application boot, aborting startup fast in production if no healthy LLM provider is available.
 
 ---
@@ -249,9 +252,9 @@ Based on empirically validated load benchmarks:
 ================================================================================
 
   Audit Scope:          13 Comprehensive Production Verification Gates
-  Regression Suite:     2,539 Tests Passing (0 Unexpected Failures)
+  Regression Suite:     2,960 Tests Passing (0 Unexpected Failures)
   Ruff Linter:          Clean (0 Errors, 0 Warnings)
-  Ruff Formatter:       Clean (1,113 Files Cleanly Formatted)
+  Ruff Formatter:       Clean (1,241 Files Cleanly Formatted)
   Active Blockers:      0
   High-Risk Issues:     0
   Medium-Risk Issues:   0

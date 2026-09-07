@@ -80,6 +80,8 @@ ipython_config.py
 .env
 .envrc
 .env.*
+!.env.example
+!frontend/.env.example
 .env.local
 .venv/
 .venv
@@ -115,7 +117,7 @@ frontend/public/favicon.png
 *.tsbuildinfo
 
 # VS Code Extension
-vscode-extension/
+vscode-extension/node_modules/
 vscode-extension/out/
 vscode-extension/.vscode-test/
 vscode-extension/*.vsix
@@ -128,6 +130,9 @@ scratch/
 testenv/
 temp-profile/
 bin/
+qa_*_results.json
+qa_http_results.json
+qa_live_results.json
 
 # RIA runtime storage
 .ria/

@@ -138,9 +138,61 @@ TOOLS: List[Dict[str, Any]] = [
     },
 ]
 
+EXTENDED_TOOLS: List[Dict[str, Any]] = [
+    {
+        "name": "get_impact_analysis",
+        "description": "Predicts directly and transitively affected files, symbols, callers, exposed API routes, affected tests, blast radius category (XS-XL), risk level, and evidence-backed implementation plan for a proposed change or issue.",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "owner": {"type": "string", "description": "Repository owner"},
+                "repo": {"type": "string", "description": "Repository name"},
+                "change_description": {
+                    "type": "string",
+                    "description": "Natural-language description of proposed change, refactor, or issue",
+                },
+                "file_path": {
+                    "type": "string",
+                    "description": "Deprecated alias for change_description",
+                },
+            },
+            "required": ["owner", "repo"],
+        },
+    },
+    {
+        "name": "get_blast_radius",
+        "description": "Computes function-level blast radius for a target function or node ID, returning affected callers, affected files, reachable routes, and risk score.",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "owner": {"type": "string", "description": "Repository owner"},
+                "repo": {"type": "string", "description": "Repository name"},
+                "function_id": {
+                    "type": "string",
+                    "description": "Target qualified function node ID ({file}::{name})",
+                },
+            },
+            "required": ["owner", "repo", "function_id"],
+        },
+    },
+    {
+        "name": "get_api_surface",
+        "description": "Retrieves the classified API surface (public routes, internal routes, exported symbols, and deprecated interfaces) for a repository.",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "owner": {"type": "string", "description": "Repository owner"},
+                "repo": {"type": "string", "description": "Repository name"},
+            },
+            "required": ["owner", "repo"],
+        },
+    },
+]
 
-# Schema lookup derived from TOOLS so validation and advertised contract cannot drift.
-_TOOL_SCHEMAS: Dict[str, Dict[str, Any]] = {t["name"]: t["inputSchema"] for t in TOOLS}
+# Schema lookup derived from TOOLS and EXTENDED_TOOLS so validation never drifts.
+_TOOL_SCHEMAS: Dict[str, Dict[str, Any]] = {
+    t["name"]: t["inputSchema"] for t in (TOOLS + EXTENDED_TOOLS)
+}
 
 
 class InvalidParams(Exception):
@@ -504,6 +556,30 @@ def execute_tool(
             "confidence": res.get("confidence", 0.0),
             "verified": res.get("verified", False),
         }
+
+    elif name == "get_impact_analysis":
+        issue_text = (
+            args.get("change_description")
+            or args.get("file_path")
+            or args.get("issue_text")
+            or ""
+        ).strip()
+        svc = deps.get_impact_analysis_service()
+        res = svc.analyze_change(repo_name, issue_text)
+        return res.model_dump()
+
+    elif name == "get_blast_radius":
+        function_id = args.get("function_id", "").strip()
+        cg_svc = call_graph if call_graph is not None else deps.get_call_graph_service()
+        res = cg_svc.get_blast_radius(repo_name, function_id)
+        return res.model_dump()
+
+    elif name == "get_api_surface":
+        api_svc = deps.get_api_surface_service()
+        surface = api_svc.load(repo_name)
+        if surface is None:
+            raise ValueError(f"No API surface indexed for '{repo_name}'.")
+        return surface.model_dump()
 
     else:
         raise ValueError(f"Tool {name} is not supported.")

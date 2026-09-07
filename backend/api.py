@@ -16,6 +16,7 @@ functions live in dedicated modules:
   services/architecture_summary_service.py — generate_architecture_summary
 """
 
+import logging
 import sys
 import os
 from typing import Any
@@ -132,6 +133,11 @@ if settings.app_env != "production" and "*" not in _allowed_hosts:
         if test_host not in _allowed_hosts:
             _allowed_hosts.append(test_host)
 
+# In containerized/Docker networks, ensure internal service hostnames and local addresses are permitted
+for internal_host in ("api", "frontend", "localhost", "127.0.0.1"):
+    if internal_host not in _allowed_hosts and "*" not in _allowed_hosts:
+        _allowed_hosts.append(internal_host)
+
 app.add_middleware(HealthExemptTrustedHostMiddleware, allowed_hosts=_allowed_hosts)
 
 app.add_middleware(
@@ -148,6 +154,25 @@ def _warmup_services() -> None:
 
     logger = logging.getLogger("backend.api")
     try:
+        # Embedding engine configuration & fallback diagnostics
+        threads_str = (
+            str(settings.embedding_onnx_threads)
+            if settings.embedding_onnx_threads
+            else "auto"
+        )
+        quant_str = (
+            settings.embedding_onnx_quantization
+            if settings.embedding_backend == "onnx"
+            else "none"
+        )
+        logger.info(
+            "EMBEDDING_CONFIG backend=%s model=%s quantization=%s threads=%s fallback_available=true (PyTorch FP32)",
+            settings.embedding_backend,
+            settings.embedding_model,
+            quant_str,
+            threads_str,
+        )
+
         if settings.app_env != "production":
             from services.embedding_service import _get_model
 
@@ -349,6 +374,8 @@ app.include_router(workspace_router, prefix="/api/v1")
 # ---------------------------------------------------------------------------
 from fastapi.staticfiles import StaticFiles  # noqa: E402
 
+_module_logger = logging.getLogger("backend.api")
+
 _frontend_dist = os.path.join(
     os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
     "frontend",
@@ -357,8 +384,28 @@ _frontend_dist = os.path.join(
 if not os.path.isdir(_frontend_dist) and os.path.isdir("/app/frontend/dist"):
     _frontend_dist = "/app/frontend/dist"
 
-if os.path.isdir(_frontend_dist):
+# Only mount when the directory is a genuinely servable *static* build, i.e. it
+# has an index.html to hand out.
+#
+# The frontend is configured with `output: 'server'` (see frontend/astro.config.mjs),
+# so `astro build` emits `dist/client/<hashed assets>` plus an adapter-specific
+# server bundle and NO top-level index.html. Mounting that directory with
+# html=True produced a route that 404'd every page request while still shadowing
+# unmatched paths — a silent failure that looked like a working frontend mount.
+#
+# In the supported Docker topology the frontend runs as its own service (see
+# docker-compose.yml) and this mount stays inactive. The branch is kept so a
+# genuinely static export can still be served from the API container.
+_frontend_index = os.path.join(_frontend_dist, "index.html")
+if os.path.isfile(_frontend_index):
     app.mount("/", StaticFiles(directory=_frontend_dist, html=True), name="frontend")
+    _module_logger.info("Serving static frontend build from %s", _frontend_dist)
+elif os.path.isdir(_frontend_dist):
+    _module_logger.info(
+        "Not serving a frontend from %s: no index.html (server-rendered build). "
+        "The frontend is expected to run as its own service.",
+        _frontend_dist,
+    )
 
 
 # ---------------------------------------------------------------------------

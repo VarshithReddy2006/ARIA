@@ -46,6 +46,9 @@ class ReadingOrderRequest(BaseModel):
 class ImpactAnalysisRequest(BaseModel):
     repo: str = Field(..., description="Repository identifier (owner/repo)")
     issue: str = Field(..., description="Change request or GitHub issue text")
+    operating_mode: Optional[str] = Field(
+        "BALANCED", description="Operating mode: SAFE, BALANCED, EXPLORATORY"
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -186,9 +189,13 @@ async def get_impact_analysis(request: ImpactAnalysisRequest):
     """Predict which files and components are affected by a proposed change."""
     repo_name = request.repo.strip()
     issue_text = request.issue.strip()
+    operating_mode = (request.operating_mode or "BALANCED").strip().upper()
     try:
         impact_analysis = await asyncio.to_thread(
-            get_impact_analysis_service().analyze_change, repo_name, issue_text
+            get_impact_analysis_service().analyze_change,
+            repo_name,
+            issue_text,
+            operating_mode,
         )
         return impact_analysis.model_dump()
     except ValueError as val_err:

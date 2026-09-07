@@ -89,10 +89,16 @@ class ContextBuilder:
         max_chars: int = _TARGET_MAX_CHARS,
         min_chars: int = _TARGET_MIN_CHARS,
         max_chunk_chars: int = _MAX_CHUNK_CHARS,
+        max_files: int = 8,
+        max_chunks: int = 10,
+        max_chunks_per_file: int = 3,
     ) -> None:
         self.max_chars = max_chars
         self.min_chars = min_chars
         self.max_chunk_chars = max_chunk_chars
+        self.max_files = max_files
+        self.max_chunks = max_chunks
+        self.max_chunks_per_file = max_chunks_per_file
 
     # ------------------------------------------------------------------
     # Public API
@@ -108,6 +114,11 @@ class ContextBuilder:
         conversation_history: Optional[List[Dict[str, Any]]] = None,
         intent_name: str = "GENERAL_QA",
         deterministic_file_path: Optional[str] = None,
+        matched_symbol: Optional[str] = None,
+        symbol_start_line: Optional[int] = None,
+        symbol_end_line: Optional[int] = None,
+        symbol_coverage: Optional[int] = None,
+        symbol_methods: Optional[List[str]] = None,
     ) -> BuiltContext:
         """Assemble the full context prompt.
 
@@ -120,11 +131,25 @@ class ContextBuilder:
             conversation_history:    Prior turns (for history-aware building).
             intent_name:             Detected intent for format tuning.
             deterministic_file_path: Optional path of matched deterministic file.
+            matched_symbol:          Optional name of matched symbol.
+            symbol_start_line:       Optional start line of symbol span.
+            symbol_end_line:         Optional end line of symbol span.
+            symbol_coverage:         Optional coverage percentage of symbol.
+            symbol_methods:          Optional list of verified declared method names.
 
         Returns:
             BuiltContext with assembled prompt and metadata.
         """
-        code_chunks = code_chunks or []
+        raw_chunks = code_chunks or []
+
+        # ── Step 0: Deduplicate and budget-constrain incoming code chunks
+        if deterministic_file_path:
+            code_chunks = self._filter_deterministic_chunks(raw_chunks)
+        else:
+            code_chunks = self._filter_and_budget_chunks(
+                raw_chunks, structured_intelligence
+            )
+
         slots: Dict[str, str] = {}
         breakdown: Dict[str, int] = {}
 
@@ -139,92 +164,97 @@ class ContextBuilder:
         # ── Slot 3: Code chunks (split by type/tier or formatted deterministically)
         if deterministic_file_path:
             # Deterministic Retrieval Active
-            # We retrieve symbols, imports, repository root, language, etc.
-            # 1. Repository Root
-            from services.github_service import GitHubService
-
-            repo_root = GitHubService().get_local_repo_path(repo_name)
-
-            # 2. File metadata
+            # Extract metadata directly from chunk metadata without disk reads or AST re-parsing
             language = "unknown"
-            imports = []
-            symbols = []
-
-            # Let's read file content from disk to get imports if possible
-            full_path = os.path.join(repo_root, deterministic_file_path)
-            file_content = ""
-            if os.path.exists(full_path):
-                try:
-                    with open(full_path, "r", encoding="utf-8", errors="ignore") as f:
-                        file_content = f.read()
-                except Exception as e:
-                    logger.warning("Failed to read file %s: %s", full_path, e)
-
-            # Use TreeSitterService to parse imports and language
-            from services.tree_sitter_service import TreeSitterService
-
-            try:
-                if file_content:
-                    ts_info = TreeSitterService().parse_file(
-                        deterministic_file_path, file_content
-                    )
-                    if ts_info:
-                        language = ts_info.get("language", "unknown")
-                        imports = ts_info.get("imports", [])
-            except Exception as e:
-                logger.warning("Failed to parse file imports with TreeSitter: %s", e)
-
-            # If language not detected, get it from chunks or ext
-            if language == "unknown" and code_chunks:
+            if code_chunks:
                 language = code_chunks[0].get("metadata", {}).get("language", "unknown")
             if language == "unknown":
                 ext = os.path.splitext(deterministic_file_path)[1].lower()
-                if ext in (".py",):
-                    language = "python"
-                elif ext in (".js",):
-                    language = "javascript"
-                elif ext in (".ts",):
-                    language = "typescript"
-                elif ext in (".tsx",):
-                    language = "tsx"
+                ext_map = {
+                    ".py": "python",
+                    ".ts": "typescript",
+                    ".tsx": "tsx",
+                    ".js": "javascript",
+                    ".jsx": "jsx",
+                    ".go": "go",
+                    ".rs": "rust",
+                    ".java": "java",
+                    ".cpp": "cpp",
+                    ".c": "c",
+                    ".cs": "csharp",
+                    ".rb": "ruby",
+                    ".php": "php",
+                    ".swift": "swift",
+                    ".kt": "kotlin",
+                    ".json": "json",
+                    ".yaml": "yaml",
+                    ".yml": "yaml",
+                    ".toml": "toml",
+                    ".md": "markdown",
+                }
+                language = ext_map.get(ext, "unknown")
 
-            # Get symbols from SymbolService
-            from services.symbol_service import SymbolService
+            # Extract symbols from chunk metadata already populated during retrieval
+            symbols: List[str] = []
+            seen_syms = set()
+            for ch in code_chunks:
+                ch_meta = ch.get("metadata", {})
+                sym_str = ch_meta.get("matched_symbols", "")
+                if sym_str:
+                    for s in sym_str.split(","):
+                        s_clean = s.strip()
+                        if s_clean and s_clean not in seen_syms:
+                            seen_syms.add(s_clean)
+                            symbols.append(s_clean)
+                for s in ch_meta.get("symbols", []):
+                    s_name = s.get("name") if isinstance(s, dict) else str(s)
+                    if s_name and s_name not in seen_syms:
+                        seen_syms.add(s_name)
+                        symbols.append(s_name)
 
-            try:
-                sym_svc = SymbolService()
-                file_symbols = (
-                    sym_svc.get_file_symbols(repo_name, deterministic_file_path) or []
-                )
-                symbols = [
-                    f"{s.name} ({s.type}) at line {s.line_number}" for s in file_symbols
-                ]
-            except Exception as e:
-                logger.warning("Failed to get symbols from SymbolService: %s", e)
+            # Extract imports from chunk metadata if available
+            imports: List[str] = []
+            if code_chunks:
+                imports = code_chunks[0].get("metadata", {}).get("imports", []) or []
 
-            # Now build the deterministic context block
+            # Build deterministic context block
             det_parts = [
                 "### Deterministic File Information",
                 f"- **File Path:** {deterministic_file_path}",
                 f"- **Language:** {language}",
-                f"- **Repository Root:** {repo_root}",
+                f"- **Repository Root:** {repo_name}",
             ]
 
-            # Format imports
+            if (
+                matched_symbol
+                and symbol_start_line is not None
+                and symbol_end_line is not None
+            ):
+                cov = symbol_coverage if symbol_coverage is not None else 100
+                total_sym_lines = max(1, symbol_end_line - symbol_start_line + 1)
+                if cov >= 100:
+                    det_parts.append(
+                        f"\n[FULL_SYMBOL]\nfile={deterministic_file_path}\nsymbol={matched_symbol}\nlines={symbol_start_line}-{symbol_end_line}\ncoverage=100%"
+                    )
+                else:
+                    det_parts.append(
+                        f"\n[PARTIAL_SYMBOL]\nfile={deterministic_file_path}\nsymbol={matched_symbol}\nlines={symbol_start_line}-{symbol_end_line}\ntotal_symbol_lines={total_sym_lines}\ncoverage={cov}%"
+                    )
+                if symbol_methods:
+                    det_parts.append(
+                        f"- **Verified Declared Methods:** {', '.join(symbol_methods)}"
+                    )
+            else:
+                det_parts.append(f"\n[FULL_FILE]\nfile={deterministic_file_path}")
+
             if imports:
                 det_parts.append("- **Imports:**")
                 det_parts.extend(f"  - `{imp}`" for imp in imports)
-            else:
-                det_parts.append("- **Imports:** None or unable to parse")
 
-            # Format symbol table
             if symbols:
                 det_parts.append("- **Symbol Table:**")
                 det_parts.extend(f"  - `{sym}`" for sym in symbols)
-            else:
-                det_parts.append("- **Symbol Table:** None or no symbols defined")
 
-            # Format chunk sequence
             det_parts.append("\n### Chunk Sequence")
             for chunk in code_chunks:
                 meta = chunk.get("metadata", {})
@@ -326,9 +356,109 @@ class ContextBuilder:
             slot_breakdown=breakdown,
         )
 
-    # ------------------------------------------------------------------
-    # Private helpers
-    # ------------------------------------------------------------------
+    def _filter_deterministic_chunks(
+        self,
+        chunks: List[Dict[str, Any]],
+    ) -> List[Dict[str, Any]]:
+        """Deduplicate and preserve sequence of deterministic chunks up to character budget."""
+        if not chunks:
+            return []
+        deduped: List[Dict[str, Any]] = []
+        seen_keys = set()
+        total_chars = 0
+        for ch in chunks:
+            meta = ch.get("metadata", {})
+            file_path = meta.get("file_path", "")
+            chunk_id = meta.get("chunk_id", "")
+            start_line = meta.get("start_line", 0)
+            end_line = meta.get("end_line", 0)
+            content = ch.get("content", "").strip()
+            if not content:
+                continue
+            dedup_key = (
+                (file_path, start_line, end_line)
+                if (file_path and start_line)
+                else (chunk_id or content[:100])
+            )
+            if dedup_key in seen_keys:
+                continue
+            seen_keys.add(dedup_key)
+            if total_chars + len(content) > self.max_chars:
+                break
+            total_chars += len(content)
+            deduped.append(ch)
+        return deduped
+
+    def _filter_and_budget_chunks(
+        self,
+        chunks: List[Dict[str, Any]],
+        structured_intelligence: str = "",
+    ) -> List[Dict[str, Any]]:
+        """Deduplicate and enforce file/chunk budgets on raw candidate chunks.
+
+        Rules:
+          1. Deduplicate identical chunks (by file_path + start_line + end_line or content hash).
+          2. Check for duplicate content already fully detailed in structured_intelligence.
+          3. Limit chunks per file to max_chunks_per_file (default 3).
+          4. Limit total unique files to max_files (default 8).
+          5. Limit total chunks to max_chunks (default 10).
+        """
+        if not chunks:
+            return []
+
+        deduped: List[Dict[str, Any]] = []
+        seen_keys = set()
+        file_chunk_counts: Dict[str, int] = {}
+        unique_files: set = set()
+
+        struct_lower = (
+            structured_intelligence.lower() if structured_intelligence else ""
+        )
+
+        for ch in chunks:
+            meta = ch.get("metadata", {})
+            file_path = meta.get("file_path", "")
+            chunk_id = meta.get("chunk_id", "")
+            start_line = meta.get("start_line", 0)
+            end_line = meta.get("end_line", 0)
+            content = ch.get("content", "").strip()
+
+            if not content:
+                continue
+
+            # Dedup key
+            dedup_key = (
+                (file_path, start_line, end_line)
+                if (file_path and start_line)
+                else (chunk_id or content[:100])
+            )
+            if dedup_key in seen_keys:
+                continue
+            seen_keys.add(dedup_key)
+
+            # Check if identical snippet is already in structured_intelligence
+            if struct_lower and len(content) < 300 and content.lower() in struct_lower:
+                continue
+
+            # Check file limits
+            if file_path not in unique_files:
+                if len(unique_files) >= self.max_files:
+                    continue
+                unique_files.add(file_path)
+
+            # Check per-file chunk limit
+            cur_file_chunks = file_chunk_counts.get(file_path, 0)
+            if cur_file_chunks >= self.max_chunks_per_file:
+                continue
+
+            # Check total chunk limit
+            if len(deduped) >= self.max_chunks:
+                break
+
+            file_chunk_counts[file_path] = cur_file_chunks + 1
+            deduped.append(ch)
+
+        return deduped
 
     def _get_response_format_for_intent(self, intent_name: str) -> str:
         """Derive intent-tailored dynamic answer schema."""

@@ -27,6 +27,7 @@ export const RepositoryAnalyzer: React.FC = () => {
     examples,
     canSubmit,
     jobProgress,
+    jobStats,
     jobStartedAt,
     jobElapsedSeconds,
     analyze,
@@ -101,14 +102,22 @@ export const RepositoryAnalyzer: React.FC = () => {
           */}
           <div
             data-pointer="command"
-            className={`command-surface data-brackets ${focused ? 'is-focused' : ''}
-                        flex items-center gap-4 sm:gap-5 border bg-canvas/70 backdrop-blur-sm
-                        px-4 sm:px-7 py-5 sm:py-7 ${frame}`}
+            className={`command-surface data-brackets relative overflow-hidden ${
+              focused
+                ? 'is-focused ring-1 ring-[#818CF8]/60 border-[#818CF8]/70 shadow-[0_0_35px_rgba(129,140,248,0.25)]'
+                : validation === 'valid'
+                ? 'ring-1 ring-[#34D399]/40 border-[#34D399]/50 shadow-[0_0_30px_rgba(52,211,153,0.15)]'
+                : 'border-white/[0.09] hover:border-white/[0.20]'
+            } flex items-center gap-4 sm:gap-5 border bg-gradient-to-r from-[#0D1220]/95 to-[#070A12]/98 backdrop-blur-2xl rounded-xl
+            px-4 sm:px-7 py-5 sm:py-6 shadow-2xl transition-all duration-300`}
           >
+            {isAnalyzing && <div className="laser-scanner-beam z-10" />}
+
             <span
-              className="shrink-0 font-mono text-base sm:text-xl text-primary select-none leading-none"
+              className="shrink-0 font-mono text-base sm:text-xl text-[#818CF8] font-bold select-none leading-none flex items-center gap-2"
               aria-hidden="true"
             >
+              <span className="w-1.5 h-1.5 rounded-full bg-[#818CF8] shadow-[0_0_8px_rgba(129,140,248,0.8)] animate-pulse" />
               $
             </span>
 
@@ -131,30 +140,30 @@ export const RepositoryAnalyzer: React.FC = () => {
               placeholder="github.com/owner/repository"
               aria-invalid={validation === 'invalid'}
               aria-describedby="repo-url-status"
-              style={{ caretColor: 'var(--primary)' }}
+              style={{ caretColor: '#818CF8' }}
               className="flex-1 min-w-0 bg-transparent border-0 outline-none font-mono
-                         text-[15px] sm:text-xl text-text placeholder:text-text-subtle/70
+                         text-[15px] sm:text-xl text-[#F8FAFC] placeholder:text-[#64748B]
                          disabled:opacity-60"
             />
 
             {/* Live validation glyph */}
             <span className="shrink-0 flex items-center" aria-hidden="true">
               {validation === 'checking' && (
-                <Loader2 className="h-4 w-4 text-text-subtle animate-spin" />
+                <Loader2 className="h-4 w-4 text-[#94A3B8] animate-spin" />
               )}
               {validation === 'valid' && (
-                <CheckCircle2 className="h-4 w-4 text-primary animate-pop-in" />
+                <CheckCircle2 className="h-4 w-4 text-[#34D399] animate-pop-in" />
               )}
               {validation === 'invalid' && (
-                <AlertCircle className="h-4 w-4 text-danger animate-pop-in" />
+                <AlertCircle className="h-4 w-4 text-[#FF4D6D] animate-pop-in" />
               )}
             </span>
 
             {/* Keyboard affordance, retired once the field is in use */}
             {!url && !focused && !isAnalyzing && (
               <kbd
-                className="hidden sm:inline-flex shrink-0 items-center justify-center h-6 w-6
-                           border border-white/[0.09] font-mono text-[11px] text-text-subtle select-none"
+                className="hidden sm:inline-flex shrink-0 items-center justify-center h-6 px-2 rounded
+                           border border-white/[0.09] bg-[#0A0D14] font-mono text-[11px] text-[#94A3B8] select-none"
               >
                 /
               </kbd>
@@ -164,19 +173,27 @@ export const RepositoryAnalyzer: React.FC = () => {
               id="analyze-submit-btn"
               type="submit"
               disabled={!canSubmit}
-              className="link-arrow lumen-button shrink-0 inline-flex items-center gap-2 sm:gap-2.5 px-4 sm:px-6 py-2.5 sm:py-3
-                         font-mono text-[11px] sm:text-xs font-bold uppercase tracking-[0.18em]
-                         border focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-primary
-                         enabled:border-primary/60 enabled:bg-primary/12 enabled:text-primary
-                         enabled:hover:bg-primary enabled:hover:text-white enabled:hover:border-primary
-                         disabled:border-white/[0.07] disabled:text-text-subtle disabled:cursor-not-allowed"
+              className="cta-light-sweep relative group shrink-0 inline-flex items-center gap-2 sm:gap-2.5 px-5 sm:px-7 py-3 sm:py-3.5 rounded-lg
+                         border border-[#818CF8]/50 bg-gradient-to-r from-[#131A2E] to-[#0A0D14] hover:border-[#A5B4FC] text-white
+                         font-mono text-xs font-bold tracking-wider transition-all duration-300
+                         shadow-[0_0_24px_rgba(129,140,248,0.25)] hover:shadow-[0_0_36px_rgba(129,140,248,0.45)] hover:-translate-y-0.5
+                         focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#818CF8]
+                         disabled:opacity-40 disabled:hover:translate-y-0 disabled:cursor-not-allowed"
             >
-              <span className="hidden sm:inline">{isAnalyzing ? 'Analyzing' : 'Analyze'}</span>
-              <span className="sm:hidden">{isAnalyzing ? '···' : 'Run'}</span>
-              {isAnalyzing ? (
-                <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden="true" />
-              ) : (
-                <ArrowRight className="h-3.5 w-3.5 arrow" aria-hidden="true" />
+              <span className="relative z-10 tracking-widest font-mono">
+                {isAnalyzing ? (
+                  <span className="flex items-center gap-2">
+                    <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                    <span>ANALYZING…</span>
+                  </span>
+                ) : (
+                  'ANALYZE'
+                )}
+              </span>
+              {!isAnalyzing && (
+                <span className="relative z-10 text-[#818CF8] group-hover:text-white group-hover:translate-x-1 transition-all duration-300 font-bold">
+                  →
+                </span>
               )}
             </button>
           </div>
@@ -241,6 +258,7 @@ export const RepositoryAnalyzer: React.FC = () => {
               progress={jobProgress}
               jobStartedAt={jobStartedAt}
               jobElapsedSeconds={jobElapsedSeconds}
+              jobStats={jobStats}
             />
           </div>
         )}

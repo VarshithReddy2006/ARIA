@@ -1,0 +1,30 @@
+[
+  {
+    "scenario": "fresh_full_index",
+    "changed_file_count": 0,
+    "reparsed_files": 37,
+    "latency_ms": 449.34,
+    "peak_memory_mb": 1.86
+  },
+  {
+    "scenario": "incremental_1_file",
+    "changed_file_count": 1,
+    "reparsed_files": 1,
+    "latency_ms": 277.21,
+    "peak_memory_mb": 0.87
+  },
+  {
+    "scenario": "incremental_3_files",
+    "changed_file_count": 3,
+    "reparsed_files": 3,
+    "latency_ms": 332.2,
+    "peak_memory_mb": 0.96
+  },
+  {
+    "scenario": "incremental_10_files",
+    "changed_file_count": 10,
+    "reparsed_files": 10,
+    "latency_ms": 310.3,
+    "peak_memory_mb": 1.12
+  }
+]

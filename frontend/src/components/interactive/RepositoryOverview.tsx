@@ -12,7 +12,7 @@ import { FilePath } from '../ui/FilePath';
 import { EmptyState } from '../ui/EmptyState';
 import { groupTech, TONE_DOT, TONE_CHIP } from '../../lib/techCategories';
 import type { Insight, InsightIcon, InsightSeverity } from '../../lib/repoInsights';
-import { formatDuration, type ComplexityResult } from '../../lib/repoMetrics';
+import { formatDuration, relativeTimeFrom, type ComplexityResult } from '../../lib/repoMetrics';
 import { healthTone, type RepoHealth } from './RepoHero';
 import { deriveRepoBrief, type RepoBrief } from '../../lib/repoBrief';
 
@@ -81,16 +81,16 @@ export interface RepositoryOverviewProps {
 
 const INSIGHT_ICONS: Record<InsightIcon, React.ComponentType<{ className?: string }>> = {
   architecture: ShieldCheck,
-  dependency:   Package,
-  entrypoint:   DoorOpen,
-  scale:        Layers3,
-  onboarding:   Clock,
-  monorepo:     Boxes,
-  language:     Code2,
-  cycle:        RefreshCcwDot,
-  docs:         FileText,
-  tests:        FlaskConical,
-  api:          Globe,
+  dependency: Package,
+  entrypoint: DoorOpen,
+  scale: Layers3,
+  onboarding: Clock,
+  monorepo: Boxes,
+  language: Code2,
+  cycle: RefreshCcwDot,
+  docs: FileText,
+  tests: FlaskConical,
+  api: Globe,
 };
 
 const SEVERITY_CONFIG: Record<InsightSeverity, {
@@ -102,33 +102,33 @@ const SEVERITY_CONFIG: Record<InsightSeverity, {
   badge: string;
 }> = {
   risk: {
-    accent: 'text-danger',
-    border: 'border-danger/40',
-    bg: 'bg-danger/5',
+    accent: 'text-[#F87171]',
+    border: 'border-white/[0.085]',
+    bg: 'bg-[rgba(14,14,18,0.72)] backdrop-blur-md',
     glyph: XCircle,
     srLabel: 'Critical Risk',
     badge: 'RISK',
   },
   warn: {
-    accent: 'text-warn',
-    border: 'border-warn/35',
-    bg: 'bg-warn/5',
+    accent: 'text-[#F4B942]',
+    border: 'border-white/[0.085]',
+    bg: 'bg-[rgba(14,14,18,0.72)] backdrop-blur-md',
     glyph: AlertTriangle,
     srLabel: 'Needs Attention',
     badge: 'ATTENTION',
   },
   good: {
-    accent: 'text-success',
-    border: 'border-white/[0.07]',
-    bg: 'bg-surface-1/30',
+    accent: 'text-[#34D399]',
+    border: 'border-white/[0.085]',
+    bg: 'bg-[rgba(14,14,18,0.72)] backdrop-blur-md',
     glyph: CheckCircle2,
     srLabel: 'Healthy Signal',
     badge: 'HEALTHY',
   },
   neutral: {
-    accent: 'text-text-muted',
-    border: 'border-white/[0.06]',
-    bg: 'bg-surface-1/20',
+    accent: 'text-[#A1A1AA]',
+    border: 'border-white/[0.055]',
+    bg: 'bg-[rgba(14,14,18,0.5)] backdrop-blur-md',
     glyph: Info,
     srLabel: 'Informational',
     badge: 'INFO',
@@ -173,6 +173,7 @@ export const RepositoryOverview: React.FC<RepositoryOverviewProps> = ({
   groupedEntryPoints,
   circularDependencies,
   insights,
+  indexedAt,
   onNavigateTab,
   onSelectFile,
 }) => {
@@ -266,13 +267,12 @@ export const RepositoryOverview: React.FC<RepositoryOverviewProps> = ({
               ABOUT THIS REPOSITORY
             </h2>
           </div>
-          <span className={`inline-flex items-center gap-1 text-[10px] font-mono font-bold px-2 py-0.5 rounded border uppercase tracking-wider ${
-            brief.confidenceState === 'VERIFIED'
+          <span className={`inline-flex items-center gap-1 text-[10px] font-mono font-bold px-2 py-0.5 rounded border uppercase tracking-wider ${brief.confidenceState === 'VERIFIED'
               ? 'bg-success/10 border-success/30 text-success'
               : brief.confidenceState === 'INFERRED'
                 ? 'bg-primary/10 border-primary/30 text-primary'
                 : 'bg-white/[0.05] border-white/[0.1] text-text-subtle'
-          }`}>
+            }`}>
             {brief.confidenceState === 'VERIFIED' ? 'VERIFIED EVIDENCE' : brief.confidenceState === 'INFERRED' ? 'INFERRED CONTEXT' : 'UNKNOWN PURPOSE'}
           </span>
         </div>
@@ -353,19 +353,23 @@ export const RepositoryOverview: React.FC<RepositoryOverviewProps> = ({
                 {brief.capabilities.map((cap, idx) => (
                   <div
                     key={cap.title}
-                    className="p-3.5 rounded-lg bg-surface-1/30 border border-white/[0.035] flex flex-col justify-between hover:border-white/[0.09] transition-colors"
+                    className="p-3.5 rounded-lg bg-surface-1/30 border border-white/[0.04] flex flex-col justify-between hover:border-primary/30 transition-colors group"
                   >
-                    <div>
-                      <div className="flex items-start justify-between gap-2 mb-1.5">
-                        <div className="flex items-baseline gap-1.5 min-w-0">
-                          <span className="font-mono text-[11px] font-bold text-primary">
+                    <div className="space-y-2">
+                      <div className="flex items-start justify-between gap-2">
+                        <div className="flex items-center gap-2 min-w-0">
+                          <span className="font-mono text-xs font-bold text-primary shrink-0">
                             {String(idx + 1).padStart(2, '0')}
                           </span>
-                          <span className="font-sans text-xs font-semibold text-text truncate" title={cap.title}>
+                          <span className="font-sans text-xs font-semibold text-text truncate group-hover:text-primary transition-colors" title={cap.title}>
                             {cap.title}
                           </span>
                         </div>
-                        <span className="text-[9px] font-mono uppercase px-1.5 py-0.2 rounded bg-white/[0.04] text-text-subtle shrink-0">
+                        <span className={`text-[9px] font-mono uppercase px-1.5 py-0.5 rounded border shrink-0 font-medium ${
+                          cap.confidence === 'strong'
+                            ? 'bg-success/10 border-success/25 text-success'
+                            : 'bg-white/[0.04] border-white/[0.08] text-text-subtle'
+                        }`}>
                           {cap.confidence === 'strong' ? 'Verified' : 'Inferred'}
                         </span>
                       </div>
@@ -373,9 +377,11 @@ export const RepositoryOverview: React.FC<RepositoryOverviewProps> = ({
                         {cap.detail}
                       </p>
                     </div>
-                    <span className="mono-detail text-[9.5px] text-text-subtle truncate mt-2.5 pt-1.5 border-t border-white/[0.03] block" title={cap.evidence}>
-                      {cap.evidence}
-                    </span>
+                    {cap.evidence && (
+                      <span className="mono-detail text-[9.5px] text-text-subtle truncate mt-3 pt-2 border-t border-white/[0.04] block" title={cap.evidence}>
+                        Source: {cap.evidence}
+                      </span>
+                    )}
                   </div>
                 ))}
               </div>
@@ -434,8 +440,11 @@ export const RepositoryOverview: React.FC<RepositoryOverviewProps> = ({
         <div className="p-5 sm:p-6 rounded-xl border border-white/[0.07] bg-surface-0/50 backdrop-blur-sm flex flex-col justify-between min-w-0">
           <div>
             <div className="flex items-baseline justify-between gap-3 pb-3 border-b border-white/[0.06] mb-4">
-              <span className="mono-label tracking-[0.16em]">TECHNOLOGY PROFILE</span>
-              <span className="mono-detail text-[10px] tabular-nums">
+              <div className="flex items-center gap-2 min-w-0">
+                <Code2 className="h-4 w-4 text-primary shrink-0" aria-hidden="true" />
+                <span className="mono-label tracking-[0.16em]">TECHNOLOGY PROFILE</span>
+              </div>
+              <span className="mono-detail text-[10px] tabular-nums shrink-0">
                 {totalTechDetected} DETECTED · {techGroups.length} {techGroups.length === 1 ? 'CATEGORY' : 'CATEGORIES'}
               </span>
             </div>
@@ -487,8 +496,11 @@ export const RepositoryOverview: React.FC<RepositoryOverviewProps> = ({
         <div className="p-5 sm:p-6 rounded-xl border border-white/[0.07] bg-surface-0/50 backdrop-blur-sm flex flex-col justify-between min-w-0">
           <div>
             <div className="flex items-baseline justify-between gap-3 pb-3 border-b border-white/[0.06] mb-4">
-              <span className="mono-label tracking-[0.16em]">DEPENDENCY PROFILE</span>
-              <span className="mono-detail text-[10px] tabular-nums">
+              <div className="flex items-center gap-2 min-w-0">
+                <Package className="h-4 w-4 text-primary shrink-0" aria-hidden="true" />
+                <span className="mono-label tracking-[0.16em]">DEPENDENCY PROFILE</span>
+              </div>
+              <span className="mono-detail text-[10px] tabular-nums shrink-0">
                 {totalDepsCount} {totalDepsCount === 1 ? 'PACKAGE' : 'PACKAGES'}
               </span>
             </div>
@@ -588,8 +600,11 @@ export const RepositoryOverview: React.FC<RepositoryOverviewProps> = ({
         <div className="p-5 sm:p-6 rounded-xl border border-white/[0.07] bg-surface-0/50 backdrop-blur-sm flex flex-col justify-between min-w-0">
           <div>
             <div className="flex items-baseline justify-between gap-3 pb-3 border-b border-white/[0.06] mb-4">
-              <span className="mono-label tracking-[0.16em]">ARCHITECTURE</span>
-              <span className="mono-detail text-[10px] tabular-nums">
+              <div className="flex items-center gap-2 min-w-0">
+                <NetworkIcon className="h-4 w-4 text-primary shrink-0" />
+                <span className="mono-label tracking-[0.16em]">ARCHITECTURE</span>
+              </div>
+              <span className="mono-detail text-[10px] tabular-nums shrink-0">
                 {componentCount} COMPONENTS · {architecture?.relationships?.length || 0} EDGES
               </span>
             </div>
@@ -676,8 +691,11 @@ export const RepositoryOverview: React.FC<RepositoryOverviewProps> = ({
         <div className="p-5 sm:p-6 rounded-xl border border-white/[0.07] bg-surface-0/50 backdrop-blur-sm flex flex-col justify-between min-w-0">
           <div>
             <div className="flex items-baseline justify-between gap-3 pb-3 border-b border-white/[0.06] mb-4">
-              <span className="mono-label tracking-[0.16em]">ENTRY POINTS</span>
-              <span className="mono-detail text-[10px] tabular-nums">
+              <div className="flex items-center gap-2 min-w-0">
+                <DoorOpen className="h-4 w-4 text-primary shrink-0" aria-hidden="true" />
+                <span className="mono-label tracking-[0.16em]">ENTRY POINTS</span>
+              </div>
+              <span className="mono-detail text-[10px] tabular-nums shrink-0">
                 {entryPoints.length} DETECTED
               </span>
             </div>
@@ -748,18 +766,14 @@ export const RepositoryOverview: React.FC<RepositoryOverviewProps> = ({
         <div className="grid grid-cols-1 lg:grid-cols-12 items-stretch divide-y lg:divide-y-0 lg:divide-x divide-white/[0.06]">
           {/* ── LEFT: Executive Health Panel (5 cols) ── */}
           <div className="lg:col-span-5 p-5 sm:p-6 flex flex-col justify-between relative overflow-hidden bg-canvas/30">
-            {/* Subtle tone ambient aura */}
-            <div
-              className={`absolute -top-12 -right-12 w-40 h-40 blur-3xl opacity-15 pointer-events-none rounded-full ${
-                health && health.score >= 80 ? 'bg-success' : health && health.score >= 60 ? 'bg-warn' : 'bg-primary'
-              }`}
-              aria-hidden="true"
-            />
 
             <div>
               <div className="flex items-baseline justify-between gap-3 pb-3 border-b border-white/[0.06]">
-                <span className="mono-label mono-label-accent tracking-[0.16em]">REPOSITORY HEALTH</span>
-                <span className="mono-detail text-[10px] uppercase text-text-subtle">
+                <div className="flex items-center gap-2 min-w-0">
+                  <ShieldCheck className="h-4 w-4 text-primary shrink-0" aria-hidden="true" />
+                  <span className="mono-label mono-label-accent tracking-[0.16em]">REPOSITORY HEALTH</span>
+                </div>
+                <span className="mono-detail text-[10px] uppercase text-text-subtle shrink-0">
                   {healthState === 'loading' ? 'Evaluating…' : 'DETERMINISTIC SCORE'}
                 </span>
               </div>
@@ -796,15 +810,13 @@ export const RepositoryOverview: React.FC<RepositoryOverviewProps> = ({
               <div className="mt-5 space-y-1.5">
                 <div className="flex items-center gap-2">
                   <span
-                    className={`h-2 w-2 rounded-full shrink-0 ${
-                      circularDependencies.length > 0 ? 'bg-warn' : 'bg-success'
-                    }`}
+                    className={`h-2 w-2 rounded-full shrink-0 ${circularDependencies.length > 0 ? 'bg-warn' : 'bg-success'
+                      }`}
                     aria-hidden="true"
                   />
                   <span
-                    className={`font-mono text-xs font-semibold uppercase tracking-wider ${
-                      circularDependencies.length > 0 ? 'text-warn' : 'text-success'
-                    }`}
+                    className={`font-mono text-xs font-semibold uppercase tracking-wider ${circularDependencies.length > 0 ? 'text-warn' : 'text-success'
+                      }`}
                   >
                     {circularDependencies.length > 0
                       ? `${circularDependencies.length} cycle${circularDependencies.length === 1 ? '' : 's'} detected`
@@ -847,8 +859,11 @@ export const RepositoryOverview: React.FC<RepositoryOverviewProps> = ({
           <div className="lg:col-span-7 p-5 sm:p-6 flex flex-col justify-between bg-canvas/15">
             <div>
               <div className="flex items-baseline justify-between gap-3 pb-3 border-b border-white/[0.06]">
-                <span className="mono-label tracking-[0.16em]">KEY ENGINEERING METRICS</span>
-                <span className="mono-detail text-[10px] uppercase text-text-subtle">
+                <div className="flex items-center gap-2 min-w-0">
+                  <Layers3 className="h-4 w-4 text-primary shrink-0" aria-hidden="true" />
+                  <span className="mono-label tracking-[0.16em]">KEY ENGINEERING METRICS</span>
+                </div>
+                <span className="mono-detail text-[10px] uppercase text-text-subtle shrink-0">
                   INDEXED VALUES
                 </span>
               </div>
@@ -1050,7 +1065,7 @@ export const RepositoryOverview: React.FC<RepositoryOverviewProps> = ({
                         {insight.caveat && (
                           <div className="pt-1.5">
                             <span className="mono-label text-[9px] text-text-subtle uppercase block mb-0.5 tracking-[0.16em]">CAVEAT</span>
-                            <p className="text-[11px] text-text-muted/80 font-sans leading-relaxed">
+                            <p className="text-[11px] text-text-muted font-sans leading-relaxed">
                               {insight.caveat}
                             </p>
                           </div>
@@ -1129,8 +1144,11 @@ export const RepositoryOverview: React.FC<RepositoryOverviewProps> = ({
       {/* ── 6. CODEBASE SHAPE (Structural Metrics & Root Distribution) ───────── */}
       <section aria-labelledby="structural-snapshot-heading" className="rounded-xl border border-white/[0.07] bg-surface-0/50 p-5 sm:p-6 backdrop-blur-sm">
         <div className="flex items-baseline justify-between gap-3 pb-3 border-b border-white/[0.06] mb-4">
-          <span className="mono-label tracking-[0.16em]">CODEBASE SHAPE</span>
-          <span className="mono-detail text-[10px] uppercase text-text-subtle">
+          <div className="flex items-center gap-2 min-w-0">
+            <FolderTree className="h-4 w-4 text-primary shrink-0" aria-hidden="true" />
+            <span className="mono-label tracking-[0.16em]">CODEBASE SHAPE</span>
+          </div>
+          <span className="mono-detail text-[10px] uppercase text-text-subtle shrink-0">
             TOPOLOGICAL DISTRIBUTION
           </span>
         </div>
@@ -1299,11 +1317,11 @@ export const RepositoryOverview: React.FC<RepositoryOverviewProps> = ({
             <button
               type="button"
               onClick={() => onNavigateTab('graph')}
-              className="w-full p-3 sm:p-3.5 rounded-lg border border-primary/25 bg-primary/[0.03] hover:border-primary/60 hover:bg-primary/[0.07] text-left transition-all duration-150 flex items-center justify-between gap-3 sm:gap-4 group focus-visible:outline-none"
+              className="w-full p-3 sm:p-3.5 rounded-lg border border-white/[0.05] bg-surface-1/30 hover:border-primary/40 hover:bg-surface-1/60 text-left transition-all duration-150 flex items-center justify-between gap-3 sm:gap-4 group focus-visible:outline-none"
             >
               <div className="flex items-center gap-3 sm:gap-4 min-w-0">
-                <span className="font-mono text-xs font-bold text-primary shrink-0">01</span>
-                <div className="p-1.5 rounded bg-primary/10 text-primary shrink-0">
+                <span className="font-mono text-xs font-bold text-text-subtle group-hover:text-primary transition-colors shrink-0">01</span>
+                <div className="p-1.5 rounded bg-white/[0.05] text-text-muted group-hover:text-primary transition-colors shrink-0">
                   <Package className="h-4 w-4" aria-hidden="true" />
                 </div>
                 <div className="min-w-0">
@@ -1315,7 +1333,7 @@ export const RepositoryOverview: React.FC<RepositoryOverviewProps> = ({
                   </p>
                 </div>
               </div>
-              <span className="mono-detail text-[11px] text-primary shrink-0 flex items-center gap-1 font-semibold">
+              <span className="mono-detail text-[11px] text-text-subtle group-hover:text-primary shrink-0 flex items-center gap-1 font-semibold">
                 <span className="hidden sm:inline">Open File Graph</span>
                 <ArrowRight className="h-3 w-3 group-hover:translate-x-0.5 transition-transform" />
               </span>
@@ -1329,7 +1347,7 @@ export const RepositoryOverview: React.FC<RepositoryOverviewProps> = ({
             className="w-full p-3 sm:p-3.5 rounded-lg border border-white/[0.05] bg-surface-1/30 hover:border-primary/40 hover:bg-surface-1/60 text-left transition-all duration-150 flex items-center justify-between gap-3 sm:gap-4 group focus-visible:outline-none"
           >
             <div className="flex items-center gap-3 sm:gap-4 min-w-0">
-              <span className="font-mono text-xs font-bold text-text-subtle shrink-0">
+              <span className="font-mono text-xs font-bold text-text-subtle group-hover:text-primary transition-colors shrink-0">
                 {dependencyCount > 0 ? '02' : '01'}
               </span>
               <div className="p-1.5 rounded bg-white/[0.05] text-text-muted group-hover:text-primary transition-colors shrink-0">
@@ -1360,7 +1378,7 @@ export const RepositoryOverview: React.FC<RepositoryOverviewProps> = ({
               className="w-full p-3 sm:p-3.5 rounded-lg border border-white/[0.05] bg-surface-1/30 hover:border-primary/40 hover:bg-surface-1/60 text-left transition-all duration-150 flex items-center justify-between gap-3 sm:gap-4 group focus-visible:outline-none"
             >
               <div className="flex items-center gap-3 sm:gap-4 min-w-0">
-                <span className="font-mono text-xs font-bold text-text-subtle shrink-0">
+                <span className="font-mono text-xs font-bold text-text-subtle group-hover:text-primary transition-colors shrink-0">
                   {dependencyCount > 0 ? '03' : '02'}
                 </span>
                 <div className="p-1.5 rounded bg-white/[0.05] text-text-muted group-hover:text-primary transition-colors shrink-0">
@@ -1389,7 +1407,7 @@ export const RepositoryOverview: React.FC<RepositoryOverviewProps> = ({
             className="w-full p-3 sm:p-3.5 rounded-lg border border-white/[0.05] bg-surface-1/30 hover:border-primary/40 hover:bg-surface-1/60 text-left transition-all duration-150 flex items-center justify-between gap-3 sm:gap-4 group focus-visible:outline-none"
           >
             <div className="flex items-center gap-3 sm:gap-4 min-w-0">
-              <span className="font-mono text-xs font-bold text-text-subtle shrink-0">
+              <span className="font-mono text-xs font-bold text-text-subtle group-hover:text-primary transition-colors shrink-0">
                 {dependencyCount > 0 && readingSteps > 0 ? '04' : dependencyCount > 0 || readingSteps > 0 ? '03' : '02'}
               </span>
               <div className="p-1.5 rounded bg-white/[0.05] text-text-muted group-hover:text-primary transition-colors shrink-0">
@@ -1417,7 +1435,7 @@ export const RepositoryOverview: React.FC<RepositoryOverviewProps> = ({
             className="w-full p-3 sm:p-3.5 rounded-lg border border-white/[0.05] bg-surface-1/30 hover:border-primary/40 hover:bg-surface-1/60 text-left transition-all duration-150 flex items-center justify-between gap-3 sm:gap-4 group focus-visible:outline-none"
           >
             <div className="flex items-center gap-3 sm:gap-4 min-w-0">
-              <span className="font-mono text-xs font-bold text-text-subtle shrink-0">
+              <span className="font-mono text-xs font-bold text-text-subtle group-hover:text-primary transition-colors shrink-0">
                 {dependencyCount > 0 && readingSteps > 0 ? '05' : '04'}
               </span>
               <div className="p-1.5 rounded bg-white/[0.05] text-text-muted group-hover:text-primary transition-colors shrink-0">
@@ -1439,6 +1457,40 @@ export const RepositoryOverview: React.FC<RepositoryOverviewProps> = ({
           </button>
         </div>
       </section>
+
+      {/* ── 9. FINAL: COMPLETION & INDEXED STATE PROVENANCE ─────────────────── */}
+      <footer
+        aria-label="Repository Analysis Provenance"
+        className="pt-4 pb-2 border-t border-white/[0.05] flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 text-[11px] font-mono text-text-subtle"
+      >
+        {/*
+          Provenance only — which snapshot this page is describing. The
+          authoritative "ANALYSIS COMPLETE" indicator belongs to the dashboard
+          shell; repeating it here produced two competing completion claims.
+        */}
+        <div className="flex items-center gap-2">
+          <span className="h-1.5 w-1.5 rounded-full bg-success shrink-0" aria-hidden="true" />
+          <span className="uppercase tracking-[0.14em]">
+            INDEXED SNAPSHOT · {owner && repoSlug ? `${owner}/${repoSlug}` : repoName}
+          </span>
+        </div>
+        <div className="flex items-center gap-2.5 text-[10.5px] uppercase tracking-wider">
+          <span>STRUCTURE MAPPED</span>
+          <span>·</span>
+          <span>RELATIONSHIPS RESOLVED</span>
+          <span>·</span>
+          {/*
+            An absent timestamp is UNKNOWN, not "recently". Claiming recency the
+            backend never reported is exactly the kind of fabricated state ARIA
+            must not render.
+          */}
+          <span>
+            {relativeTimeFrom(indexedAt)
+              ? `INDEXED ${relativeTimeFrom(indexedAt)!.toUpperCase()}`
+              : 'INDEX TIME UNKNOWN'}
+          </span>
+        </div>
+      </footer>
     </div>
   );
 };

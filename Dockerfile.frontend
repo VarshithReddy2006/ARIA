@@ -1,0 +1,64 @@
+# ============================================================
+# Dockerfile.frontend — ARIA Web Dashboard (Astro 5 + React 18)
+#
+# Builds with the standalone Node adapter (ARIA_DEPLOY_TARGET=node) rather than
+# the Vercel adapter, so the dashboard runs as an ordinary long-lived container
+# and ARIA is self-hostable with `docker compose up`.
+#
+# The hosted Vercel deployment is unaffected: it builds with the default
+# ARIA_DEPLOY_TARGET=vercel.
+# ============================================================
+
+# ------------------------------------------------------------
+# Stage 1: build
+# ------------------------------------------------------------
+FROM node:20-alpine AS builder
+
+WORKDIR /app/frontend
+
+COPY frontend/package*.json ./
+RUN npm ci
+
+COPY frontend/ ./
+RUN chmod -R +x node_modules/.bin
+
+# PUBLIC_* values are inlined into the client bundle at build time.
+# In self-hosted production/Docker, this defaults to empty string so requests
+# use relative paths (/api/v1/...) through the Astro server-side proxy.
+ARG PUBLIC_API_URL=""
+ENV PUBLIC_API_URL=$PUBLIC_API_URL
+
+ENV ARIA_DEPLOY_TARGET=node
+RUN npm run build
+
+
+# ------------------------------------------------------------
+# Stage 2: runtime
+# ------------------------------------------------------------
+FROM node:20-alpine AS production
+
+ENV NODE_ENV=production
+
+WORKDIR /app/frontend
+
+RUN addgroup -g 10001 -S appuser \
+    && adduser -u 10001 -S appuser -G appuser
+
+# Only production dependencies are needed to run the standalone server.
+COPY frontend/package*.json ./
+RUN npm ci --omit=dev && npm cache clean --force
+
+COPY --from=builder --chown=10001:10001 /app/frontend/dist ./dist
+
+USER appuser
+
+# The standalone Astro server reads HOST and PORT.
+ENV HOST=0.0.0.0 \
+    PORT=4321
+
+EXPOSE 4321
+
+HEALTHCHECK --interval=30s --timeout=5s --start-period=20s --retries=3 \
+    CMD node -e "require('http').get({host:'127.0.0.1',port:process.env.PORT||4321,path:'/'},r=>process.exit(r.statusCode<500?0:1)).on('error',()=>process.exit(1))"
+
+CMD ["node", "./dist/server/entry.mjs"]

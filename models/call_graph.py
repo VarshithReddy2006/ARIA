@@ -11,8 +11,24 @@ Node IDs use the format: "{file_path}::{qualifier}.{name}"
 
 from __future__ import annotations
 
+from enum import Enum
 from typing import Dict, List, Optional
 from pydantic import BaseModel, Field
+
+
+class CallRelationshipType(str, Enum):
+    """Semantic classification of a function or method call relationship."""
+
+    DIRECT_CALL = "DIRECT_CALL"
+    METHOD_CALL = "METHOD_CALL"
+    INSTANCE_METHOD = "INSTANCE_METHOD"
+    INHERITED_CALL = "INHERITED_CALL"
+    SUPER_CALL = "SUPER_CALL"
+    MODULE_FUNCTION_CALL = "MODULE_FUNCTION_CALL"
+    CONSTRUCTOR_CALL = "CONSTRUCTOR_CALL"
+    ALIAS_CALL = "ALIAS_CALL"
+    DECORATED_HANDLER = "DECORATED_HANDLER"
+    UNRESOLVED_CALL = "UNRESOLVED_CALL"
 
 
 class CallNode(BaseModel):
@@ -55,11 +71,15 @@ class CallEdge(BaseModel):
     """A directed edge from caller to callee in the call graph.
 
     Attributes:
-        caller_id:    node_id of the calling function.
-        callee_id:    node_id of the called function.
-        call_line:    Line number of the call expression.
-        ambiguous:    True when the callee was resolved heuristically and
-                      multiple matches existed — not a certain resolution.
+        caller_id:       node_id of the calling function.
+        callee_id:       node_id of the called function.
+        call_line:       Line number of the call expression.
+        ambiguous:       True when the callee was resolved heuristically and
+                         multiple matches existed — not a certain resolution.
+        relationship:    CallRelationshipType semantic classification.
+        receiver_expr:   Raw receiver text (e.g., "self", "session").
+        receiver_type:   Statically inferred type of receiver.
+        confidence_tier: Confidence tier ("HIGH", "MEDIUM", "LOW").
     """
 
     caller_id: str = Field(..., description="node_id of the caller.")
@@ -68,6 +88,17 @@ class CallEdge(BaseModel):
     ambiguous: bool = Field(
         False, description="True for heuristic/uncertain resolutions."
     )
+    relationship: str = Field(
+        CallRelationshipType.DIRECT_CALL.value,
+        description="CallRelationshipType classification.",
+    )
+    receiver_expr: Optional[str] = Field(
+        None, description="Raw receiver text (e.g. self, session)."
+    )
+    receiver_type: Optional[str] = Field(
+        None, description="Statically inferred type of receiver."
+    )
+    confidence_tier: str = Field("HIGH", description="HIGH | MEDIUM | LOW")
 
 
 class BlastRadiusResult(BaseModel):

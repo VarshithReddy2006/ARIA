@@ -43,29 +43,35 @@ CATEGORY_STACK_WEIGHT = {
 # ---------------------------------------------------------------------------
 # Path & pattern rules
 # ---------------------------------------------------------------------------
-_GENERATED_DIR_PARTS = frozenset(
+CANONICAL_IGNORED_DIRS: frozenset[str] = frozenset(
     {
-        "dist",
-        "build",
-        "out",
-        "coverage",
-        "node_modules",
-        "vendor",
+        "data",
+        "cloned_repos",
+        "testenv",
+        "env",
         ".venv",
         "venv",
+        "node_modules",
+        ".git",
+        "dist",
+        "build",
+        ".next",
         "__pycache__",
         ".pytest_cache",
         ".cache",
-        ".git",
         ".tox",
+        "coverage",
+        "out",
+        "vendor",
         "target",
         "bin",
         "obj",
-        ".next",
         ".turbo",
         ".output",
     }
 )
+
+_GENERATED_DIR_PARTS = CANONICAL_IGNORED_DIRS
 
 _GENERATED_EXTENSIONS = frozenset(
     {

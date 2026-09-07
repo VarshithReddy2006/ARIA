@@ -24,7 +24,7 @@ All validation gates have completed with unanimous passes:
 - **Read/Write Contention:** **36.6x lower read latency** under 80/20 write load (`1.39 ms` Qdrant vs `50.90 ms` ChromaDB).
 - **RetrievalLRUCache:** 9/9 invariants verified (Cold `2.06 ms` $\to$ Warm `0.0275 ms` p50).
 - **Failure & Recovery:** 11/11 failure injection and observable rollback scenarios passed.
-- **Regression Suite:** `2,539 passed, 2 skipped, 0 failed` in 102.77s | `Ruff: 0 errors` | `Format: 1,063 files clean`.
+- **Regression Suite:** `2,960 passed, 4 skipped, 0 failed` in ~161.8s | `Ruff: 0 errors` | `Format: 1,241 files clean`.
 
 ---
 
@@ -213,9 +213,9 @@ Live HTTP benchmark against full streaming chat pipeline backed by 4 Uvicorn wor
 
 ## 16. Regression Validation Results
 
-- **Pytest:** `2,539 passed, 2 skipped, 0 failed` in 102.77s
+- **Pytest:** `2,960 passed, 4 skipped, 0 failed` in ~161.8s
 - **Ruff Check:** `All checks passed!` (0 lint errors)
-- **Ruff Format:** `1,063 files already formatted` (100% compliant)
+- **Ruff Format:** `1,241 files already formatted` (100% compliant)
 - **API Contracts:** 100% backward compatible across all routes.
 
 ---

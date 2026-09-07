@@ -41,6 +41,49 @@ class ReportMetadata(BaseModel):
     execution_time_ms: float = Field(..., description="Time taken to compile report.")
 
 
+class RuleViolationItem(BaseModel):
+    """Structured architectural boundary rule violation."""
+
+    rule_id: str = Field(..., description="Unique rule code (e.g. ARCH-001).")
+    rule_name: str = Field(..., description="Human-readable rule name.")
+    severity: str = Field(..., description="CRITICAL | MAJOR | MINOR.")
+    source_node: str = Field(..., description="Origin module/file path.")
+    target_node: str = Field(..., description="Target module/file path.")
+    description: str = Field(
+        ..., description="Explanation of why this violates layer boundaries."
+    )
+
+
+class WhyThisScoreItem(BaseModel):
+    """Deterministic score driver with grounded evidence."""
+
+    dimension: str = Field(..., description="Health dimension name.")
+    score: float = Field(..., description="Dimension score out of 100.")
+    status: str = Field(..., description="attention | review | healthy | unknown.")
+    evidence: str = Field(..., description="Exact numerical or structural evidence.")
+    impact: str = Field(
+        ..., description="How this affects overall codebase maintainability."
+    )
+    recommendation: str = Field(
+        ..., description="Action to remediate this score driver."
+    )
+
+
+class SignalAttentionItem(BaseModel):
+    """High-priority signal requiring engineering attention."""
+
+    id: str = Field(..., description="Signal identifier.")
+    severity: str = Field(..., description="critical | high | medium | low.")
+    title: str = Field(..., description="Concise issue title.")
+    evidence: str = Field(..., description="Concrete numerical proof.")
+    meaning: str = Field(..., description="Why this matters.")
+    action_label: str = Field(..., description="Action button label.")
+    action_target: str = Field(..., description="Target view or surface.")
+    affected_file: Optional[str] = Field(
+        None, description="Primary affected file path."
+    )
+
+
 class ArchReportSection(BaseModel):
     """Summary of structural stability and modular coupling."""
 
@@ -58,6 +101,9 @@ class ArchReportSection(BaseModel):
     )
     smells: List[str] = Field(
         default_factory=list, description="Details of design smell violations."
+    )
+    rule_violations: List[RuleViolationItem] = Field(
+        default_factory=list, description="Structured ArchUnit-style rule violations."
     )
 
 
@@ -128,6 +174,18 @@ class ReportDataModel(BaseModel):
     refactoring_priorities: List[str] = Field(
         default_factory=list,
         description="Prioritized file refactoring recommendations.",
+    )
+    why_this_score: List[WhyThisScoreItem] = Field(
+        default_factory=list,
+        description="Grounding evidence for why this score was computed.",
+    )
+    signals_needing_attention: List[SignalAttentionItem] = Field(
+        default_factory=list,
+        description="Prioritized signals that require engineering attention.",
+    )
+    healthy_baseline: List[str] = Field(
+        default_factory=list,
+        description="Verified healthy signals supported by evidence.",
     )
     ai_summary: Optional[str] = Field(
         None, description="High-level LLM-generated code summary."

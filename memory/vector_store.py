@@ -211,15 +211,26 @@ class ProductionVectorStore:
                 lat_ms = (time.perf_counter() - t0) * 1000.0
                 self.telemetry.record_qdrant_request(lat_ms, success=True)
 
-                # Shadow execution if enabled
-                if self.enable_shadow and self.fallback is not None:
+                # Fallback to Chroma if primary returned empty results for read operations
+                if (
+                    self.enable_fallback
+                    and self.fallback is not None
+                    and method_name
+                    in (
+                        "get_repository_file_paths",
+                        "search_repository",
+                        "get_file_chunks",
+                    )
+                    and not res
+                ):
                     try:
                         fallback_method = getattr(self.fallback, method_name)
                         fallback_res = fallback_method(*args, **kwargs)
-                        match = self._compare_results(res, fallback_res)
-                        self.telemetry.record_shadow(match)
-                    except Exception as s_exc:
-                        logger.debug("Shadow validation execution error: %s", s_exc)
+                        if fallback_res:
+                            self.telemetry.record_fallback()
+                            return fallback_res
+                    except Exception as fb_exc:
+                        logger.debug("Fallback read query error: %s", fb_exc)
 
                 return res
             except Exception as exc:

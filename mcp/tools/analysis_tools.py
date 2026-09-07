@@ -83,6 +83,7 @@ def register(server: Any) -> None:
         repo: str,
         change_description: Optional[str] = None,
         file_path: Optional[str] = None,
+        operating_mode: Optional[str] = "BALANCED",
     ) -> str:
         """Predicts which files a proposed change will affect.
 
@@ -92,13 +93,20 @@ def register(server: Any) -> None:
             change_description: Natural-language description of the intended
                 change, e.g. an issue body or "rename the auth middleware".
             file_path: Deprecated alias for change_description.
+            operating_mode: Impact confidence filter: "SAFE" (HIGH only),
+                "BALANCED" (HIGH+MEDIUM, default), or "EXPLORATORY" (ALL).
         """
         from mcp.observability import mcp_request_context
         from mcp.dependencies import get_aria_client
 
         with mcp_request_context(
             "get_impact_analysis",
-            {"owner": owner, "repo": repo, "change_description": change_description},
+            {
+                "owner": owner,
+                "repo": repo,
+                "change_description": change_description,
+                "operating_mode": operating_mode,
+            },
         ):
             with tool_boundary("get_impact_analysis"):
                 repo_name = require_repo(owner, repo)
@@ -120,7 +128,11 @@ def register(server: Any) -> None:
                 client = get_aria_client()
                 data = client.post(
                     "/api/v1/impact-analysis",
-                    json={"repo": repo_name, "issue": effective_text},
+                    json={
+                        "repo": repo_name,
+                        "issue": effective_text,
+                        "operating_mode": operating_mode or "BALANCED",
+                    },
                 )
                 return json.dumps(data, indent=2, default=str)
 

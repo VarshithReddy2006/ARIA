@@ -12,6 +12,7 @@ import {
   parseAnswerHierarchy,
   deduplicateSources,
   deriveFileRoleAndSignificance,
+  getActionForIntent,
 } from '../src/lib/chatIntelligence.ts';
 
 const INTERACTIVE = 'src/components/interactive';
@@ -61,8 +62,16 @@ describe('ARIA Chat & Engineering Copilot — 10/10 Verification', () => {
     // Git history
     assert.equal(detectChatIntent('What has changed recently in git history?').intent, 'GIT_HISTORY');
 
-    // Health
+    // Health & Security
     assert.equal(detectChatIntent('Why is the repository health score low?').intent, 'HEALTH');
+    assert.equal(detectChatIntent('Are there security vulnerabilities or injection flaws?').intent, 'SECURITY');
+
+    // Debugging & Testing
+    assert.equal(detectChatIntent('Debug this error and find the root cause of failure').intent, 'DEBUGGING');
+    assert.equal(detectChatIntent('What unit tests and pytest test suites exist?').intent, 'TESTING');
+
+    // Circular Dependency
+    assert.equal(detectChatIntent('Are there circular dependencies or cyclic imports?').intent, 'CIRCULAR_DEPENDENCY');
 
     // Reading path
     assert.equal(detectChatIntent('What should I read first to onboard?').intent, 'READING_PATH');
@@ -210,7 +219,14 @@ describe('ARIA Chat & Engineering Copilot — 10/10 Verification', () => {
     assert.ok(existsSync(CHAT_INTERFACE), 'ChatInterface component must exist');
     const src = read(CHAT_INTERFACE);
 
-    assert.ok(src.includes('Repository Engineering Copilot'), 'Header must reflect Copilot identity');
+    // Case-insensitive: the header is rendered as an uppercase mono label
+    // ("REPOSITORY ENGINEERING COPILOT"). This asserts the identity, not the
+    // typographic treatment, which the shared label styling owns.
+    assert.match(
+      src,
+      /Repository Engineering Copilot/i,
+      'Header must reflect Copilot identity',
+    );
     assert.ok(src.includes('detectChatIntent'), 'Must integrate intent detection');
     assert.ok(src.includes('dynamicPrompts'), 'Must render dynamic suggested prompts');
     assert.ok(src.includes('followUps'), 'Must render follow-up prompt chips');
@@ -221,5 +237,19 @@ describe('ARIA Chat & Engineering Copilot — 10/10 Verification', () => {
     assert.ok(src.includes('KeyFilesSection'), 'Must render Key Files section');
     assert.ok(src.includes('ProgressiveEvidencePanel'), 'Must render Progressive Evidence Panel');
     assert.ok(src.includes('EvidenceBadge'), 'Must render Evidence Level Badges');
+  });
+
+  // ── 10. Cross-Surface Action Mapping ──────────────────────────────────────
+  test('10. getActionForIntent routes intents to corresponding intelligence panels', () => {
+    assert.equal(getActionForIntent('CALL_GRAPH').actionTarget, 'call_graph');
+    assert.equal(getActionForIntent('DEBUGGING').actionTarget, 'call_graph');
+    assert.equal(getActionForIntent('DEAD_CODE').actionTarget, 'dead_code');
+    assert.equal(getActionForIntent('GIT_HISTORY').actionTarget, 'git_history');
+    assert.equal(getActionForIntent('PR_RISK').actionTarget, 'pr_intelligence');
+    assert.equal(getActionForIntent('HEALTH').actionTarget, 'report');
+    assert.equal(getActionForIntent('SECURITY').actionTarget, 'report');
+    assert.equal(getActionForIntent('READING_ORDER').actionTarget, 'reading_path');
+    assert.equal(getActionForIntent('API_SURFACE').actionTarget, 'api_surface');
+    assert.equal(getActionForIntent('ARCHITECTURE').actionTarget, 'graph');
   });
 });

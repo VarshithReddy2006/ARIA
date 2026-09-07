@@ -34,6 +34,7 @@ from models.symbol import Symbol, SymbolIndex
 from services.tree_sitter_service import TreeSitterService, _LANGUAGE_REGISTRY
 from storage.snapshot_store import SnapshotStore
 from core.cache import AnalysisCache
+from core.file_classifier import CANONICAL_IGNORED_DIRS
 
 logger = logging.getLogger(__name__)
 
@@ -49,7 +50,7 @@ _SYMBOLS_DIR = os.path.join(
 
 # Increment when the schema or extraction logic changes.
 # Older persisted indices are automatically discarded.
-_SCHEMA_VERSION = 1
+_SCHEMA_VERSION = 2
 
 
 class SymbolService:
@@ -302,6 +303,42 @@ class SymbolService:
         candidates = exact_case if exact_case else matches
         return sorted(candidates, key=lambda s: _priority.get(s.type, 99))[0]
 
+    def get_class_methods(self, repo_name: str, class_name: str) -> List[Symbol]:
+        """Return all method symbols defined on class_name in repo_name."""
+        index = self.load(repo_name)
+        if index is None:
+            return []
+        cls_lower = class_name.lower()
+        return [
+            s
+            for s in index.symbols
+            if s.type == "method"
+            and s.parent_class
+            and s.parent_class.lower() == cls_lower
+        ]
+
+    def get_symbol_span(
+        self, repo_name: str, symbol_name: str
+    ) -> Optional[tuple[str, int, int]]:
+        """Return (file_path, start_line, end_line) for symbol_name."""
+        sym = self.get_definition(repo_name, symbol_name)
+        if not sym:
+            return None
+        start = sym.start_line or sym.line_number
+        end = sym.end_line or sym.line_number
+        return (sym.file_path, start, end)
+
+    def get_definition_with_span(
+        self, repo_name: str, symbol_name: str
+    ) -> Optional[tuple[Symbol, int, int]]:
+        """Return (Symbol, start_line, end_line) ensuring start_line and end_line are present."""
+        sym = self.get_definition(repo_name, symbol_name)
+        if not sym:
+            return None
+        start = sym.start_line if sym.start_line is not None else sym.line_number
+        end = sym.end_line if sym.end_line is not None else sym.line_number
+        return (sym, start, end)
+
     def get_references(
         self, repo_name: str, symbol_name: str
     ) -> Optional[List[Symbol]]:
@@ -315,6 +352,72 @@ class SymbolService:
             return None
         matches = index.name_symbol_map.get(symbol_name.lower(), [])
         return [s for s in matches if s.name == symbol_name] or matches
+
+    def find_matching_symbols(
+        self, repo_name: str, symbol_query: str, file_context: Optional[str] = None
+    ) -> List[Symbol]:
+        """Find matching symbols supporting qualified names (Class.method) and context."""
+        index = self.load(repo_name)
+        if index is None:
+            return []
+
+        query = symbol_query.strip().rstrip("()")
+        if "." in query:
+            parts = query.split(".")
+            parent = parts[-2]
+            name = parts[-1]
+            matches = [
+                s
+                for s in index.symbols
+                if s.name.lower() == name.lower()
+                and s.parent_class
+                and s.parent_class.lower() == parent.lower()
+            ]
+            if matches:
+                if file_context:
+                    fc_norm = file_context.replace("\\", "/").lower()
+                    exact = [
+                        s
+                        for s in matches
+                        if s.file_path.replace("\\", "/").lower() == fc_norm
+                    ]
+                    if exact:
+                        return exact
+                    suffix = [
+                        s
+                        for s in matches
+                        if s.file_path.replace("\\", "/")
+                        .lower()
+                        .endswith(f"/{fc_norm}")
+                    ]
+                    if suffix:
+                        return suffix
+                    ctx_matches = [s for s in matches if fc_norm in s.file_path.lower()]
+                    if ctx_matches:
+                        return ctx_matches
+                return matches
+
+        # Fallback to simple name search
+        simple_name = query.split(".")[-1].lower()
+        matches = index.name_symbol_map.get(simple_name, [])
+        if file_context and len(matches) > 1:
+            fc_norm = file_context.replace("\\", "/").lower()
+            exact = [
+                s for s in matches if s.file_path.replace("\\", "/").lower() == fc_norm
+            ]
+            if exact:
+                return exact
+            suffix = [
+                s
+                for s in matches
+                if s.file_path.replace("\\", "/").lower().endswith(f"/{fc_norm}")
+            ]
+            if suffix:
+                return suffix
+            ctx_matches = [s for s in matches if fc_norm in s.file_path.lower()]
+            if ctx_matches:
+                return ctx_matches
+        return matches
 
     # ------------------------------------------------------------------
     # Symbol Extraction — per-file entry point
@@ -386,11 +489,15 @@ class SymbolService:
         name = self._node_name(node)
         if not name:
             return None
+        start_line = node.start_point[0] + 1
+        end_line = node.end_point[0] + 1
         return Symbol(
             name=name,
             type="method" if parent_class else "function",
             file_path=file_path,
-            line_number=node.start_point[0] + 1,
+            line_number=start_line,
+            start_line=start_line,
+            end_line=end_line,
             language=lang,
             parent_class=parent_class,
         )
@@ -407,12 +514,17 @@ class SymbolService:
         if not class_name:
             return symbols
 
+        class_start_line = node.start_point[0] + 1
+        class_end_line = node.end_point[0] + 1
+
         symbols.append(
             Symbol(
                 name=class_name,
                 type="class",
                 file_path=file_path,
-                line_number=node.start_point[0] + 1,
+                line_number=class_start_line,
+                start_line=class_start_line,
+                end_line=class_end_line,
                 language=lang,
             )
         )
@@ -517,11 +629,15 @@ class SymbolService:
         name = self._node_name(node)
         if not name:
             return None
+        start_line = node.start_point[0] + 1
+        end_line = node.end_point[0] + 1
         return Symbol(
             name=name,
             type="method" if parent_class else "function",
             file_path=file_path,
-            line_number=node.start_point[0] + 1,
+            line_number=start_line,
+            start_line=start_line,
+            end_line=end_line,
             language=lang,
             parent_class=parent_class,
         )
@@ -536,11 +652,15 @@ class SymbolService:
             elif child.type == "arrow_function":
                 has_arrow = True
         if name and has_arrow:
+            start_line = declarator_node.start_point[0] + 1
+            end_line = declarator_node.end_point[0] + 1
             return Symbol(
                 name=name,
                 type="function",
                 file_path=file_path,
-                line_number=declarator_node.start_point[0] + 1,
+                line_number=start_line,
+                start_line=start_line,
+                end_line=end_line,
                 language=lang,
             )
         return None
@@ -556,12 +676,17 @@ class SymbolService:
         if not class_name:
             return symbols
 
+        class_start_line = node.start_point[0] + 1
+        class_end_line = node.end_point[0] + 1
+
         symbols.append(
             Symbol(
                 name=class_name,
                 type="class",
                 file_path=file_path,
-                line_number=node.start_point[0] + 1,
+                line_number=class_start_line,
+                start_line=class_start_line,
+                end_line=class_end_line,
                 language=lang,
             )
         )
@@ -573,12 +698,16 @@ class SymbolService:
                     if member.type == "method_definition":
                         name = self._node_name(member)
                         if name:
+                            m_start = member.start_point[0] + 1
+                            m_end = member.end_point[0] + 1
                             symbols.append(
                                 Symbol(
                                     name=name,
                                     type="method",
                                     file_path=file_path,
-                                    line_number=member.start_point[0] + 1,
+                                    line_number=m_start,
+                                    start_line=m_start,
+                                    end_line=m_end,
                                     language=lang,
                                     parent_class=class_name,
                                 )
@@ -590,11 +719,15 @@ class SymbolService:
         name = self._node_name(node)
         if not name:
             return None
+        start_line = node.start_point[0] + 1
+        end_line = node.end_point[0] + 1
         return Symbol(
             name=name,
             type="interface",
             file_path=file_path,
-            line_number=node.start_point[0] + 1,
+            line_number=start_line,
+            start_line=start_line,
+            end_line=end_line,
             language=lang,
         )
 
@@ -602,11 +735,15 @@ class SymbolService:
         name = self._node_name(node)
         if not name:
             return None
+        start_line = node.start_point[0] + 1
+        end_line = node.end_point[0] + 1
         return Symbol(
             name=name,
             type="enum",
             file_path=file_path,
-            line_number=node.start_point[0] + 1,
+            line_number=start_line,
+            start_line=start_line,
+            end_line=end_line,
             language=lang,
         )
 
@@ -626,18 +763,7 @@ class SymbolService:
     # Disk walk helper (mirrors ArchitectureService._walk_repo_paths)
     # ------------------------------------------------------------------
 
-    _IGNORED_DIRS = {
-        "node_modules",
-        ".git",
-        "dist",
-        "build",
-        ".next",
-        "venv",
-        "__pycache__",
-        ".venv",
-        ".tox",
-        "coverage",
-    }
+    _IGNORED_DIRS = CANONICAL_IGNORED_DIRS
 
     def _walk_repo(self, repo_path: str) -> List[Dict[str, str]]:
         """Walk *repo_path* and return [{path, content}] for supported files."""

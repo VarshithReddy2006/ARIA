@@ -94,6 +94,24 @@ class FollowUpEngine:
             len(unresolved_aspects),
         )
 
+        # Build verified symbol-to-file mapping from retrieved code chunks
+        symbol_to_file: Dict[str, str] = {}
+        for chunk in code_chunks:
+            f = chunk.get("metadata", {}).get("file_path")
+            if not f or f.endswith((".md", ".txt", ".json", ".yaml", ".yml")):
+                continue
+            content = chunk.get("content", "")
+            for match in _SYMBOL_RE.finditer(content):
+                sym = match.group(1)
+                if len(sym) > 2 and sym not in symbol_to_file:
+                    symbol_to_file[sym] = f
+            # Also check matched_symbols in metadata
+            meta_syms = chunk.get("metadata", {}).get("matched_symbols")
+            if isinstance(meta_syms, list):
+                for ms in meta_syms:
+                    if ms and ms not in symbol_to_file:
+                        symbol_to_file[ms] = f
+
         # 3. Generate candidate questions across strategies
         candidates_raw: List[str] = []
 
@@ -101,13 +119,8 @@ class FollowUpEngine:
         for sym in extracted_symbols[:4]:
             if sym.lower() in ("pass", "main", "none", "true", "false"):
                 continue
-            matching_files = [
-                f
-                for f in extracted_files
-                if not f.endswith((".md", ".txt", ".json", ".yaml"))
-            ]
-            if matching_files:
-                target_f = matching_files[0]
+            target_f = symbol_to_file.get(sym)
+            if target_f:
                 candidates_raw.append(
                     f"What exact data transformations does `{sym}()` perform inside `{target_f}`?"
                 )
@@ -122,21 +135,15 @@ class FollowUpEngine:
                     f"Which callers in the codebase depend on the return value of `{sym}()`?"
                 )
 
-        # Strategy B: Artifact Lifecycle & Validation
+        # Strategy B: Artifact Lifecycle & Validation (only if real artifacts present)
         for art in re.findall(
             r"[\w\-\./]+\.(?:pkl|onnx|h5|pt|joblib)", a_str + " " + q_str, re.I
         ):
-            matching_files = [
-                f
-                for f in extracted_files
-                if not f.endswith((".md", ".txt", ".json", ".yaml"))
-            ]
-            target_f = f" in `{matching_files[0]}`" if matching_files else ""
+            target_f = ""
+            if extracted_files and not extracted_files[0].endswith((".md", ".txt")):
+                target_f = f" in `{extracted_files[0]}`"
             candidates_raw.append(
-                f"How is `{art}` loaded, cached, and validated{target_f} before inference execution?"
-            )
-            candidates_raw.append(
-                f"Where in the repository is `{art}` trained or generated?"
+                f"How is `{art}` loaded, cached, and validated{target_f} before execution?"
             )
 
         # Strategy C: Caller & Dependency propagation
@@ -154,42 +161,32 @@ class FollowUpEngine:
 
         # Strategy D: Schema Change & Blast Radius
         for sym in extracted_symbols[:3]:
-            matching_files = [
-                f
-                for f in extracted_files
-                if not f.endswith((".md", ".txt", ".json", ".yaml"))
-            ]
-            target_f = f" in `{matching_files[0]}`" if matching_files else ""
+            target_f = f" in `{symbol_to_file[sym]}`" if sym in symbol_to_file else ""
             candidates_raw.append(
                 f"What would break across callers if `{sym}()`{target_f} changed its schema or output contract?"
             )
 
         # Strategy E: Endpoint & Route Validation
         for ep in extracted_endpoints[:2]:
-            matching_f = extracted_files[0] if extracted_files else "Backend/app.py"
+            matching_f = (
+                f" in `{extracted_files[0]}`"
+                if extracted_files and not extracted_files[0].endswith((".md", ".txt"))
+                else ""
+            )
             candidates_raw.append(
-                f"What payload validation occurs on `{ep}` in `{matching_f}` before dispatching?"
+                f"What payload validation occurs on `{ep}`{matching_f} before dispatching?"
             )
 
         # Strategy F: Safe Refactoring & Testing
         for sym in extracted_symbols[:2]:
-            matching_files = [
-                f
-                for f in extracted_files
-                if not f.endswith((".md", ".txt", ".json", ".yaml"))
-            ]
-            target_f = f" in `{matching_files[0]}`" if matching_files else ""
+            target_f = f" in `{symbol_to_file[sym]}`" if sym in symbol_to_file else ""
             candidates_raw.append(
                 f"What unit tests and fixtures should be added to verify `{sym}()`{target_f}?"
             )
 
         # Strategy G: Unresolved Aspects from Threads
         for unres in unresolved_aspects[:3]:
-            if "artifact" in unres or ".pkl" in unres:
-                candidates_raw.append(
-                    "How is the model artifact trained, versioned, or updated in the repository?"
-                )
-            elif "caller" in unres:
+            if "caller" in unres:
                 candidates_raw.append(
                     "Which callers outside the primary flow invoke these transformation helpers?"
                 )

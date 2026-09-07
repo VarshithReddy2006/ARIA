@@ -2,12 +2,39 @@ import { defineConfig } from 'astro/config';
 import react from '@astrojs/react';
 import tailwind from '@astrojs/tailwind';
 import vercel from '@astrojs/vercel';
+import node from '@astrojs/node';
+
+/*
+ * Deployment target.
+ *
+ * `output: 'server'` means every page is rendered by an adapter at request time,
+ * so the adapter is not optional — without a matching one the build produces no
+ * servable pages. Two targets are supported:
+ *
+ *   vercel (default) — Serverless Functions, used by the hosted deployment.
+ *   node             — standalone Node server, used by the Docker image
+ *                      (Dockerfile.frontend) so ARIA is self-hostable via
+ *                      `docker compose up`.
+ *
+ * Selected with ARIA_DEPLOY_TARGET so the hosted Vercel build keeps its existing
+ * behaviour with no configuration change.
+ */
+const deployTarget = process.env.ARIA_DEPLOY_TARGET ?? 'vercel';
+
+if (!['vercel', 'node'].includes(deployTarget)) {
+  throw new Error(
+    `ARIA_DEPLOY_TARGET must be 'vercel' or 'node', received '${deployTarget}'.`,
+  );
+}
 
 export default defineConfig({
   output: 'server',
-  adapter: vercel({
-    // Uses Node.js 20.x runtime for Vercel Serverless Functions
-  }),
+  adapter:
+    deployTarget === 'node'
+      ? node({ mode: 'standalone' })
+      : vercel({
+          // Uses Node.js 20.x runtime for Vercel Serverless Functions
+        }),
   integrations: [
     react(),
     tailwind({

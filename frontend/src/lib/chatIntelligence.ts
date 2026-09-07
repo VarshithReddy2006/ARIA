@@ -152,7 +152,11 @@ const INTENT_RULES: Array<{
     actionLabel: 'Open PR Intelligence',
   },
   {
-    pattern: /\b(health|score|grade|quality|maintainability|bottlenecks?|risky areas?|vulnerabilit(y|ies))\b/i,
+    // "vulnerabilit(y|ies)" deliberately does NOT appear here. It belongs to the
+    // SECURITY detector below, and because HEALTH is evaluated first, listing it
+    // in both places shadowed SECURITY entirely for the most common phrasing
+    // ("are there security vulnerabilities?").
+    pattern: /\b(health|score|grade|quality|maintainability|bottlenecks?|risky areas?)\b/i,
     intent: 'HEALTH',
     confidence: 0.90,
     actionTarget: 'report',
@@ -166,7 +170,35 @@ const INTENT_RULES: Array<{
     actionLabel: 'Follow Reading Path',
   },
   {
-    pattern: /\b(circular|cycle|cyclic|circular.depend|import.loop|dependency.cycle|packages?|external libraries|dependencies)\b/i,
+    pattern: /\b(debug|root.?cause|why is (?:it|this) failing|error|exception|stack.?trace|bug|crash|failure point|where does (?:it|this) break|troubleshoot)\b/i,
+    intent: 'DEBUGGING',
+    confidence: 0.93,
+    actionTarget: 'call_graph',
+    actionLabel: 'Debug Call Flow',
+  },
+  {
+    pattern: /\b(tests?|testing|test suite|unit tests?|integration tests?|fixtures?|coverage|assert|pytest)\b/i,
+    intent: 'TESTING',
+    confidence: 0.90,
+    actionTarget: 'graph',
+    actionLabel: 'Inspect Test Structure',
+  },
+  {
+    pattern: /\b(security|vulnerabilit(y|ies)|cve|injection|xss|csrf|auth bypass|sanitize|exploit)\b/i,
+    intent: 'SECURITY',
+    confidence: 0.92,
+    actionTarget: 'report',
+    actionLabel: 'Review Security Profile',
+  },
+  {
+    pattern: /\b(circular|cycle|cyclic|circular.depend|import.loop|dependency.cycle)\b/i,
+    intent: 'CIRCULAR_DEPENDENCY',
+    confidence: 0.95,
+    actionTarget: 'graph',
+    actionLabel: 'Inspect Cycles in Graph',
+  },
+  {
+    pattern: /\b(packages?|external libraries|dependencies|requirements|pip packages?|npm packages?)\b/i,
     intent: 'DEPENDENCY',
     confidence: 0.92,
     actionTarget: 'graph',
@@ -249,6 +281,47 @@ export function detectChatIntent(query: string): IntentAnalysis {
     actionLabel: 'Inspect in File Graph',
   };
 }
+
+export function getActionForIntent(intent: string): { actionTarget: IntentAnalysis['actionTarget']; actionLabel: string } {
+  const norm = intent.toUpperCase();
+  switch (norm) {
+    case 'CHANGE_PLANNING':
+      return { actionTarget: 'graph', actionLabel: 'Inspect Impact in File Graph' };
+    case 'IMPACT_ANALYSIS':
+      return { actionTarget: 'graph', actionLabel: 'Analyze Impact Propagation' };
+    case 'CALL_GRAPH':
+    case 'DEBUGGING':
+      return { actionTarget: 'call_graph', actionLabel: 'Trace in Call Graph' };
+    case 'DEAD_CODE':
+      return { actionTarget: 'dead_code', actionLabel: 'View Dead Code Analysis' };
+    case 'API':
+    case 'API_SURFACE':
+    case 'API_FLOW':
+      return { actionTarget: 'api_surface', actionLabel: 'Open API Surface' };
+    case 'GIT_HISTORY':
+      return { actionTarget: 'git_history', actionLabel: 'Inspect Git History' };
+    case 'PR_RISK':
+      return { actionTarget: 'pr_intelligence', actionLabel: 'Open PR Intelligence' };
+    case 'HEALTH':
+    case 'SECURITY':
+      return { actionTarget: 'report', actionLabel: 'Review Health Report' };
+    case 'READING_ORDER':
+    case 'READING_PATH':
+    case 'OVERVIEW':
+      return { actionTarget: 'reading_path', actionLabel: 'Follow Reading Path' };
+    case 'CIRCULAR_DEPENDENCY':
+    case 'DEPENDENCY':
+      return { actionTarget: 'graph', actionLabel: 'Explore Dependencies in Graph' };
+    case 'SYMBOL':
+    case 'SYMBOL_EXPLANATION':
+      return { actionTarget: 'call_graph', actionLabel: 'Trace Symbol in Call Graph' };
+    case 'FILE_EXPLANATION':
+    case 'ARCHITECTURE':
+    default:
+      return { actionTarget: 'graph', actionLabel: 'Inspect in File Graph' };
+  }
+}
+
 
 // ---------------------------------------------------------------------------
 // 2. Dynamic Suggested Prompts Generation

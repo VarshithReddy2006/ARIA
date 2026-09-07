@@ -89,8 +89,27 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      - name: Build
+      # `npm run build` does not type-check: Astro/Vite strip types without
+      # verifying them. Two drifting copies of the impact-analysis types shipped
+      # a green build while `tsc --noEmit` failed, so this runs explicitly.
+      - name: Type check
+        run: npm run lint
+
+      # The 386-case suite covers intent routing, edge semantics, layout framing
+      # and the cross-surface event contracts. It was never wired into CI, so
+      # frontend regressions could merge unnoticed.
+      - name: Test
+        run: npm test
+
+      - name: Build (Vercel target, as deployed)
         run: npm run build
+
+      # Guards the self-hosted Docker path: the standalone Node adapter build is
+      # what Dockerfile.frontend ships, and it is not exercised by the build above.
+      - name: Build (standalone Node target, as containerised)
+        run: npm run build
+        env:
+          ARIA_DEPLOY_TARGET: node
 
   vscode-extension-build:
     runs-on: ubuntu-latest
@@ -117,3 +136,45 @@ jobs:
 
       - name: Run tests
         run: npm test
+
+  # ---------------------------------------------------------------------------
+  # Container builds
+  #
+  # The self-hosted deployment path (docker-compose.yml) was previously never
+  # built by CI, so a broken Dockerfile could only be discovered by a user
+  # running `docker compose up`. Images are built but not pushed.
+  # ---------------------------------------------------------------------------
+  container-build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build API image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: Dockerfile.api
+          push: false
+          load: false
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Build frontend image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: Dockerfile.frontend
+          push: false
+          load: false
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Validate compose topology
+        env:
+          API_KEY: ci-validation-only
+        run: docker compose -f docker-compose.yml config --quiet

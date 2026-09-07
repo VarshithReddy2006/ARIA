@@ -14,7 +14,7 @@ export type AnalysisTabId =
   | 'report' | 'dead_code' | 'issues'
   | 'git_history' | 'pr_intelligence' | 'architecture_drift' | 'impact_analysis';
 
-export type AnalysisTabGroup = 'Understand' | 'Structure' | 'Quality' | 'History & PRs';
+export type AnalysisTabGroup = 'Understand' | 'Structure' | 'Quality & Reliability' | 'History & Change';
 
 export interface AnalysisTabMeta {
   id: AnalysisTabId;
@@ -72,49 +72,49 @@ export const ANALYSIS_TABS: AnalysisTabMeta[] = [
   {
     id: 'report',
     label: 'Health Report',
-    group: 'Quality',
+    group: 'Quality & Reliability',
     description: 'Scored analytics for maintainability, coupling, and docs',
     keywords: ['health', 'score', 'quality', 'maintainability', 'metrics', 'audit'],
   },
   {
     id: 'dead_code',
     label: 'Dead Code',
-    group: 'Quality',
+    group: 'Quality & Reliability',
     description: 'Unreachable modules and orphan chains with cleanup scores',
     keywords: ['unused', 'unreachable', 'orphan', 'cleanup', 'prune'],
   },
   {
     id: 'issues',
     label: 'Issues',
-    group: 'Quality',
+    group: 'Quality & Reliability',
     description: 'Map GitHub issues onto the files most likely responsible',
     keywords: ['bugs', 'github', 'tickets', 'triage'],
   },
   {
     id: 'git_history',
     label: 'Git History',
-    group: 'History & PRs',
+    group: 'History & Change',
     description: 'Churn, hotspots, and contribution patterns over time',
     keywords: ['commits', 'churn', 'hotspots', 'blame', 'authors', 'log'],
   },
   {
     id: 'pr_intelligence',
     label: 'PR Risk',
-    group: 'History & PRs',
+    group: 'History & Change',
     description: 'Blast radius and risk scoring for a pull request',
     keywords: ['pull request', 'review', 'blast radius', 'diff', 'risk'],
   },
   {
     id: 'architecture_drift',
     label: 'PR Drift',
-    group: 'History & PRs',
+    group: 'History & Change',
     description: 'Cycles, coupling shifts, and entry-point changes in a PR',
     keywords: ['drift', 'cycles', 'coupling', 'regression', 'architecture'],
   },
   {
     id: 'impact_analysis',
     label: 'Impact',
-    group: 'History & PRs',
+    group: 'History & Change',
     description: 'Downstream propagation paths for a changed symbol',
     keywords: ['propagation', 'downstream', 'blast', 'affected', 'ripple'],
   },
@@ -124,8 +124,8 @@ export const ANALYSIS_TABS: AnalysisTabMeta[] = [
 export const ANALYSIS_TAB_GROUPS: AnalysisTabGroup[] = [
   'Understand',
   'Structure',
-  'Quality',
-  'History & PRs',
+  'Quality & Reliability',
+  'History & Change',
 ];
 
 const TAB_IDS = new Set<string>(ANALYSIS_TABS.map((t) => t.id));

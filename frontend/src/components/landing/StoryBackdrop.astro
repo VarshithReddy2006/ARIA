@@ -79,11 +79,18 @@ const nodes = [
       <path d="M760 -40 L760 940" />
     </g>
 
-    <g fill="#5e6ad2" opacity="0.35">
-      <circle cx="520" cy="420" r="2.5" />
-      <circle cx="1010" cy="300" r="2.5" />
-      <circle cx="400" cy="520" r="2" />
-      <circle cx="860" cy="690" r="2" />
+    <g class="story-pulses" fill="none">
+      <circle cx="520" cy="420" r="16" stroke="#818CF8" stroke-width="0.8" opacity="0.35" class="svg-pulse" />
+      <circle cx="1010" cy="300" r="16" stroke="#818CF8" stroke-width="0.8" opacity="0.35" class="svg-pulse" />
+      <circle cx="400" cy="520" r="14" stroke="#38BDF8" stroke-width="0.8" opacity="0.35" class="svg-pulse" />
+      <circle cx="860" cy="690" r="14" stroke="#34D399" stroke-width="0.8" opacity="0.35" class="svg-pulse" />
+    </g>
+
+    <g fill="#818CF8" opacity="0.6">
+      <circle cx="520" cy="420" r="3" />
+      <circle cx="1010" cy="300" r="3" />
+      <circle cx="400" cy="520" r="2.5" />
+      <circle cx="860" cy="690" r="2.5" />
     </g>
   </svg>
   </div>
@@ -135,15 +142,18 @@ const nodes = [
   <!-- 07 · Blueprint measurement marks -->
   <div class="bd-ticks"></div>
 
-  <!-- 08 · Depth -->
+  <!-- 08 · Depth & Cinematic Atmosphere -->
   <div class="bd-fog"></div>
+  <div class="story-atmosphere"></div>
+  <div class="story-scanline"></div>
   <div class="story-noise"></div>
   <div class="story-vignette"></div>
+  <div class="story-viewport-vignette"></div>
 </div>
 
 {/*
-  Pointer light. Sits outside `.story-backdrop` because that layer is clipped and
-  pinned behind the content, and this has to sit above it. Never interactive.
+  Pointer light & Ambient Cursor Spotlight. Sits outside `.story-backdrop` because that
+  layer is clipped and pinned behind the content, and this has to sit above it.
 */}
 <div class="pointer-light" data-pointer-light aria-hidden="true"></div>
 
@@ -538,6 +548,8 @@ const nodes = [
     const paint = () => {
       raf = 0;
       light.style.transform = `translate3d(${x}px, ${y}px, 0)`;
+      document.documentElement.style.setProperty('--mouse-x', `${x}px`);
+      document.documentElement.style.setProperty('--mouse-y', `${y}px`);
     };
 
     const onMove = (event: PointerEvent) => {

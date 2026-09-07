@@ -184,9 +184,9 @@ A realistic production-shaped HTTP load benchmark was executed against a live 4-
 
 Full system regression validation was executed against the entire ARIA test suite:
 
-- **Pytest Suite:** `2,539 passed, 2 skipped, 0 failed` in 119.07s.
-- **Ruff Linter:** `All checks passed!` (0 lint errors across 1,060 files).
-- **Ruff Formatter:** `1,060 files already formatted` (100% clean).
+- **Pytest Suite:** `2,960 passed, 4 skipped, 0 failed` in ~161.8s.
+- **Ruff Linter:** `All checks passed!` (0 lint errors).
+- **Ruff Formatter:** `1,241 files already formatted` (100% clean).
 - **API Contracts:** 100% backward compatible (all legacy and `/api/v1/` endpoints preserved).
 
 ---

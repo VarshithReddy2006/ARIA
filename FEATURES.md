@@ -21,16 +21,20 @@ This document outlines all functional modules, intelligence engines, and develop
 - **Strongly Connected Components (SCC)**: Groups modules into cohesive clusters to analyze architectural boundaries.
 
 ### 3. Grounded Repository Chat (v2)
-- **Rule-Based Intent Router**: Categorizes user queries before calling LLMs to avoid hallucinations:
+- **Deterministic Gating & Intent Router**: Resolves explicit file paths, symbol names, functions, snake_case identifiers, and backtick expressions directly to indexed codebase assets, preventing common conversational words from hijacking deterministic lookups.
+- **Rule-Based Intent Routing**: Dispatches to structured repository intelligence engines:
   - `architecture`: Queries the directed NetworkX graph.
-  - `dependency`: Extracts import/export paths.
-  - `symbol`: Searches the AST database for class/function definitions.
-  - `churn` / `pr`: Inspects commit histories or files in a pull request.
-  - `explanation` / `general`: Routes to semantic document blocks.
-- **AST-Weighted Retrieval**: For structural queries, AST symbol definitions are prioritized over semantic vector search hits, reducing hallucinations.
-- **Vector Search (ChromaDB)**: Embeds source code chunks using the `BAAI/bge-small-en-v1.5` model, storing them in ChromaDB for semantic concept searches.
+  - `dependency`: Extracts import/export paths and cycle data.
+  - `symbol`: Searches the AST database for class/function definitions and implementations.
+  - `call_graph`: Traces callers, callees, and cross-module invocation paths.
+  - `api_surface`: Loads HTTP route registrations, parameters, and handler mappings.
+  - `impact_analysis`: Traverses upstream blast radius and downstream dependents.
+  - `reading_order`: Computes topological codebase onboarding paths.
+  - `general_qa`: Routes to hybrid vector retrieval.
+- **Source Code Priority**: Executable source files receive highest priority over generated documentation, preventing answers from grounding on historical/stale reports.
+- **Hybrid Vector Search**: Embeds source code chunks using the `BAAI/bge-small-en-v1.5` model with asymmetric query prefixes across Qdrant and ChromaDB vector stores.
 - **Stream responses**: Streams answers token-by-token using Server-Sent Events (SSE).
-- **Source Citations**: Attaches exact file paths, line ranges, and confidence match ratings to every chatbot response.
+- **Source Citations**: Attaches exact file paths, line ranges, and confidence match ratings to every response, verified against active codebase files.
 - **Stop & Regenerate Actions**: Instantly aborts in-flight streams or requests a revised response.
 
 ### 4. Code Quality & Health Reports
@@ -55,9 +59,10 @@ This document outlines all functional modules, intelligence engines, and develop
 - **In-House CLI**: `repo-intel` command-line utility for cloning, indexing, and printing architecture guides straight from the terminal.
 
 ### 7. Production Engineering
-- **LLM Failover Engine**: Validates Gemini (primary) and DeepSeek (fallback) keys during startup. Automatically handles model failovers.
+- **Multi-Provider LLM Gateway**: `ProviderManager` orchestrates candidate priority order: Google Gemini (`gemini-3.1-flash-lite`, Priority 1), DeepSeek V4 Flash NIM (`deepseek-ai/deepseek-v4-flash-0731`, Priority 2), NVIDIA Llama 3.2 11B Vision (`meta/llama-3.2-11b-vision-instruct`, Priority 3), and NVIDIA MiniMax M3 (`minimaxai/minimax-m3`, Priority 4).
+- **Resilience & Circuit Breakers**: Per-provider circuit breaker (`CLOSED`/`OPEN`/`HALF_OPEN`), token-aware failover (retries next candidate if 0 tokens emitted), and 60s read timeout boundary against upstream NVIDIA queueing.
 - **WatchFiles Exclusion Filter**: Restricts Uvicorn auto-reload dirs to source code folder trees, avoiding restarts during analysis cloning.
-- **CORS & Rate Limiting**: Production-ready middleware securing API endpoints.
+- **CORS, Rate Limiting & Secret Redaction**: Production-ready middleware securing API endpoints and stripping API keys/tokens from error outputs, logs, and telemetry.
 
 ---
 

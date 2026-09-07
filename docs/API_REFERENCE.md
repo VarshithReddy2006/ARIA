@@ -61,7 +61,7 @@ Returns the static configuration health — active LLM provider, model, embeddin
 {
   "backend": "online",
   "llm_provider": "gemini",
-  "llm_model": "gemini-2.5-flash",
+  "llm_model": "gemini-3.1-flash-lite",
   "embedding_provider": "BAAI/bge-small-en-v1.5",
   "vector_db": "chromadb",
   "status": "healthy"
@@ -515,7 +515,7 @@ curl http://127.0.0.1:8001/api/chat/health
   "all_providers": {
     "gemini": {
       "provider": "gemini",
-      "model": "gemini-2.5-flash",
+      "model": "gemini-3.1-flash-lite",
       "healthy": true,
       "authenticated": true,
       "latency_ms": 234.1,

@@ -33,8 +33,35 @@ from typing import Any, Dict, List, Optional
 from collections import defaultdict, OrderedDict
 
 from .retrieval_cache import retrieval_cache
+from .retrieval_timer import RetrievalTimer
 
 logger = logging.getLogger(__name__)
+
+# ---------------------------------------------------------------------------
+# File classification cache — avoids repeated classify_file() calls
+# ---------------------------------------------------------------------------
+_CLASSIFICATION_CACHE: Dict[str, Dict[str, Any]] = {}
+_CLASSIFICATION_CACHE_LOCK = threading.Lock()
+_CLASSIFICATION_CACHE_MAX = 10_000
+
+
+def _get_cached_classification(path: str) -> Dict[str, Any]:
+    """Return cached file classification, computing on miss."""
+    norm = path.replace("\\", "/").lower()
+    with _CLASSIFICATION_CACHE_LOCK:
+        if norm in _CLASSIFICATION_CACHE:
+            return _CLASSIFICATION_CACHE[norm]
+    from core.file_classifier import classify_file
+
+    result = classify_file(path)
+    with _CLASSIFICATION_CACHE_LOCK:
+        if len(_CLASSIFICATION_CACHE) >= _CLASSIFICATION_CACHE_MAX:
+            # Evict ~25% oldest entries
+            keys = list(_CLASSIFICATION_CACHE.keys())
+            for k in keys[: len(keys) // 4]:
+                _CLASSIFICATION_CACHE.pop(k, None)
+        _CLASSIFICATION_CACHE[norm] = result
+    return result
 
 
 # ---------------------------------------------------------------------------
@@ -112,13 +139,22 @@ def get_unique_file_paths(repo_name: str, chroma_store) -> List[str]:
     try:
         if _has_concrete_method(chroma_store, "get_repository_file_paths"):
             paths = chroma_store.get_repository_file_paths(repo_name)
+            if not paths and repo_name.lower() != repo_name:
+                paths = chroma_store.get_repository_file_paths(repo_name.lower())
         else:
             res = chroma_store.collection.get(
                 where={"repo_name": repo_name}, include=["metadatas"]
             )
-            metas = res.get("metadatas", []) if res else []
+            if (not res or not res.get("metadatas")) and repo_name.lower() != repo_name:
+                res = chroma_store.collection.get(
+                    where={"repo_name": repo_name.lower()}, include=["metadatas"]
+                )
             paths = sorted(
-                {meta["file_path"] for meta in metas if meta and meta.get("file_path")}
+                {
+                    m["file_path"]
+                    for m in res.get("metadatas", [])
+                    if m and m.get("file_path")
+                }
             )
         _FILE_PATHS_CACHE[repo_name] = (now, paths)
         return paths
@@ -155,16 +191,15 @@ def extract_file_candidates(question: str) -> List[str]:
 
 def is_non_preferred_file(path: str) -> bool:
     """Return True if the path is test, mock, compiled, example, or non-production file."""
-    from core.file_classifier import classify_file, CATEGORY_PRODUCTION
+    from core.file_classifier import CATEGORY_PRODUCTION
 
-    c = classify_file(path)
+    c = _get_cached_classification(path)
     return c["category"] != CATEGORY_PRODUCTION
 
 
 def get_directory_rank(path: str) -> int:
     """Return ranking index for the path directories (lower is closer/preferred)."""
     from core.file_classifier import (
-        classify_file,
         CATEGORY_PRODUCTION,
         CATEGORY_CONFIG,
         CATEGORY_DOCS,
@@ -172,7 +207,7 @@ def get_directory_rank(path: str) -> int:
         CATEGORY_TEST,
     )
 
-    c = classify_file(path)
+    c = _get_cached_classification(path)
     cat = c["category"]
     if cat == CATEGORY_PRODUCTION:
         p = path.replace("\\", "/").lower()
@@ -193,20 +228,310 @@ def get_directory_rank(path: str) -> int:
     return 7
 
 
+_COMMON_STOP_WORDS_SET = {
+    "explain",
+    "describe",
+    "show",
+    "what",
+    "how",
+    "why",
+    "where",
+    "who",
+    "when",
+    "which",
+    "the",
+    "a",
+    "an",
+    "is",
+    "are",
+    "was",
+    "were",
+    "of",
+    "to",
+    "and",
+    "in",
+    "on",
+    "at",
+    "for",
+    "with",
+    "about",
+    "from",
+    "file",
+    "class",
+    "function",
+    "method",
+    "service",
+    "router",
+    "module",
+    "package",
+    "code",
+    "repo",
+    "repository",
+    "can",
+    "could",
+    "would",
+    "should",
+    "does",
+    "do",
+    "did",
+    "we",
+    "you",
+    "they",
+    "it",
+    "this",
+    "that",
+    "these",
+    "those",
+    "please",
+    "help",
+    "find",
+    "look",
+    "see",
+    "check",
+    "handle",
+    "handles",
+    "handling",
+    "handler",
+    "handled",
+    "process",
+    "processes",
+    "processing",
+    "processed",
+    "route",
+    "routes",
+    "routing",
+    "routed",
+    "build",
+    "builds",
+    "building",
+    "builder",
+    "built",
+    "execute",
+    "executes",
+    "executing",
+    "executed",
+    "execution",
+    "dispatch",
+    "dispatches",
+    "dispatching",
+    "dispatched",
+    "run",
+    "runs",
+    "running",
+    "ran",
+    "manage",
+    "manages",
+    "managing",
+    "managed",
+    "support",
+    "supports",
+    "supporting",
+    "supported",
+    "work",
+    "works",
+    "working",
+    "worked",
+    "use",
+    "uses",
+    "using",
+    "used",
+    "get",
+    "gets",
+    "getting",
+    "got",
+    "set",
+    "sets",
+    "setting",
+    "call",
+    "calls",
+    "calling",
+    "called",
+    "send",
+    "sends",
+    "sending",
+    "sent",
+    "test",
+    "tests",
+    "testing",
+    "tested",
+    "failover",
+    "failure",
+    "failures",
+    "fail",
+    "fails",
+    "failed",
+    "failing",
+    "error",
+    "errors",
+    "exception",
+    "exceptions",
+    "prompt",
+    "prompts",
+    "context",
+    "contexts",
+    "provider",
+    "providers",
+    "model",
+    "models",
+    "aria",
+    "llm",
+    "nim",
+    "ai",
+    "api",
+}
+
+
 def detect_deterministic_retrieval(
     question: str,
     repo_name: str,
     chroma_store,
     symbol_service,
+    intent_name: Optional[str] = None,
 ) -> Optional[Dict[str, Any]]:
     """Detect if the query explicitly references a file path, filename, or symbol.
 
+    Deterministic retrieval occurs when:
+      1. An explicit file path is present (e.g. 'services/chat/provider_manager.py').
+      2. An explicit symbol identifier is present (e.g. 'ProviderManager', 'get_provider()').
+      3. An explicit method/function syntax is present (e.g. 'RepositoryAnalyzer.analyze').
+      4. Query intent is explicitly SYMBOL/FILE_EXPLANATION and match is high-confidence.
+
+    Broad conversational queries (GENERAL_QA, ARCHITECTURE, CONCEPTUAL, etc.) or multi-word
+    questions do NOT allow raw English words to hijack deterministic symbol lookup.
+
     Returns details if matched, else None.
     """
-    candidates = extract_file_candidates(question)
     file_paths = get_unique_file_paths(repo_name, chroma_store)
     if not file_paths:
         return None
+
+    from .explicit_entity_resolver import ExplicitEntityResolver
+
+    resolver = ExplicitEntityResolver()
+    entity_res = resolver.resolve(question)
+
+    if entity_res.has_explicit_entity:
+        if entity_res.target_file:
+            cand_norm = entity_res.target_file.replace("\\", "/").lower()
+            matching_files = [
+                path
+                for path in file_paths
+                if path.replace("\\", "/").lower() == cand_norm
+                or path.replace("\\", "/").lower().endswith("/" + cand_norm)
+                or path.replace("\\", "/").lower().startswith(cand_norm + "/")
+            ]
+            if matching_files:
+                prod_files = [f for f in matching_files if not is_non_preferred_file(f)]
+                matched_p = prod_files[0] if prod_files else matching_files[0]
+                return {
+                    "matched_file": matched_p,
+                    "confidence": 100 if "/" in cand_norm else 98,
+                    "match_type": "path" if "/" in cand_norm else "filename",
+                    "clarification_needed": False,
+                    "choices": [],
+                    "entity_requested": entity_res.entity_name,
+                }
+            elif "." in cand_norm or "/" in cand_norm:
+                return {
+                    "matched_file": None,
+                    "confidence": 100,
+                    "match_type": "not_found",
+                    "clarification_needed": False,
+                    "choices": [],
+                    "entity_requested": entity_res.target_file,
+                    "not_found": True,
+                }
+
+        if entity_res.target_symbol:
+            sym_name = entity_res.target_symbol
+            if "." in sym_name:
+                sym_name = sym_name.split(".")[0]
+            if symbol_service:
+                if hasattr(symbol_service, "get_definition_with_span"):
+                    try:
+                        res_span = symbol_service.get_definition_with_span(
+                            repo_name, sym_name
+                        )
+                        if res_span:
+                            sym, s_start, s_end = res_span
+                            if not is_non_preferred_file(sym.file_path):
+                                methods = (
+                                    [
+                                        s.name if hasattr(s, "name") else str(s)
+                                        for s in symbol_service.get_class_methods(
+                                            repo_name, sym.name
+                                        )
+                                    ]
+                                    if hasattr(symbol_service, "get_class_methods")
+                                    and sym.type == "class"
+                                    else []
+                                )
+                                return {
+                                    "matched_file": sym.file_path,
+                                    "matched_symbol": sym.name,
+                                    "symbol_kind": sym.type,
+                                    "symbol_start_line": s_start,
+                                    "symbol_end_line": s_end,
+                                    "symbol_methods": methods,
+                                    "confidence": 96,
+                                    "match_type": "symbol",
+                                    "clarification_needed": False,
+                                    "choices": [],
+                                    "entity_requested": entity_res.entity_name,
+                                }
+                    except Exception as e:
+                        logger.warning(
+                            "Error resolving explicit entity symbol '%s': %s",
+                            sym_name,
+                            e,
+                        )
+                elif hasattr(symbol_service, "load"):
+                    try:
+                        idx = symbol_service.load(repo_name)
+                        symbols = getattr(idx, "symbols", [])
+                        for sym in symbols:
+                            if sym.name == sym_name:
+                                return {
+                                    "matched_file": sym.file_path,
+                                    "matched_symbol": sym.name,
+                                    "symbol_kind": getattr(sym, "type", "symbol"),
+                                    "symbol_start_line": getattr(
+                                        sym, "line_number", None
+                                    ),
+                                    "symbol_end_line": None,
+                                    "symbol_methods": [],
+                                    "confidence": 96,
+                                    "match_type": "symbol",
+                                    "clarification_needed": False,
+                                    "choices": [],
+                                    "entity_requested": entity_res.entity_name,
+                                }
+                    except Exception:
+                        pass
+
+            # Fallback: check if symbol maps to a snake_case filename in file_paths
+            snake_cand = re.sub(r"(?<!^)(?=[A-Z])", "_", sym_name).lower() + ".py"
+            matching_files = [
+                f for f in file_paths if os.path.basename(f).lower() == snake_cand
+            ]
+            if matching_files:
+                prod_files = [f for f in matching_files if not is_non_preferred_file(f)]
+                target = prod_files[0] if prod_files else matching_files[0]
+                return {
+                    "matched_file": target,
+                    "matched_symbol": sym_name,
+                    "symbol_kind": "class",
+                    "symbol_start_line": None,
+                    "symbol_end_line": None,
+                    "symbol_methods": [],
+                    "confidence": 96,
+                    "match_type": "symbol",
+                    "clarification_needed": False,
+                    "choices": [],
+                    "entity_requested": entity_res.entity_name,
+                }
+
+    candidates = extract_file_candidates(question)
 
     # 1. Exact path match (bypasses all else, is case-insensitive normalized)
     for path in file_paths:
@@ -226,6 +551,7 @@ def detect_deterministic_retrieval(
                     "match_type": "path",
                     "clarification_needed": False,
                     "choices": [],
+                    "entity_requested": cand,
                 }
 
     # 2. Exact filename match
@@ -247,6 +573,7 @@ def detect_deterministic_retrieval(
                     "match_type": "filename",
                     "clarification_needed": False,
                     "choices": [],
+                    "entity_requested": cand_filename,
                 }
             elif len(prod_files) > 1:
                 # Group by rank
@@ -264,6 +591,7 @@ def detect_deterministic_retrieval(
                         "match_type": "filename",
                         "clarification_needed": False,
                         "choices": [],
+                        "entity_requested": cand_filename,
                     }
                 else:
                     return {
@@ -273,6 +601,7 @@ def detect_deterministic_retrieval(
                         "clarification_needed": True,
                         "choices": closest_prod_files,
                         "candidate": cand_filename,
+                        "entity_requested": cand_filename,
                     }
             else:
                 # Fallback to non-production files
@@ -289,48 +618,53 @@ def detect_deterministic_retrieval(
                     "match_type": "filename",
                     "clarification_needed": False,
                     "choices": [],
+                    "entity_requested": cand_filename,
                 }
 
-    # 3. Exact symbol match
-    if symbol_service:
-        # Extract alphanumeric words
+    # 3. Exact symbol match fallback (only for explicit symbol lookup queries or very short 1-3 word queries)
+    # Broad/conversational questions (e.g. GENERAL_QA, CONCEPTUAL, DEBUGGING, ARCHITECTURE, IMPACT_ANALYSIS,
+    # or queries with > 3 words) must never have arbitrary English words hijack retrieval.
+    is_explicit_symbol_intent = intent_name in ("SYMBOL", "FILE_EXPLANATION")
+    word_count = len(question.strip().split())
+    allow_symbol_scan = is_explicit_symbol_intent or word_count <= 3
+
+    if symbol_service and allow_symbol_scan:
         words = re.findall(r"\b[a-zA-Z_]\w*\b", question)
         for word in words:
-            if word.lower() in {
-                "explain",
-                "describe",
-                "show",
-                "what",
-                "how",
-                "why",
-                "where",
-                "who",
-                "when",
-                "the",
-                "a",
-                "an",
-                "is",
-                "of",
-                "to",
-                "and",
-                "in",
-                "file",
-                "class",
-                "function",
-                "method",
-            }:
+            if word.lower() in _COMMON_STOP_WORDS_SET:
+                continue
+            if len(word) < 4 and not (
+                "_" in word or any(c.isupper() for c in word[1:])
+            ):
                 continue
             try:
-                sym = symbol_service.get_definition(repo_name, word)
-                if sym:
+                res_span = symbol_service.get_definition_with_span(repo_name, word)
+                if res_span:
+                    sym, s_start, s_end = res_span
                     sym_file = sym.file_path
                     if not is_non_preferred_file(sym_file):
+                        methods = (
+                            [
+                                s.name if hasattr(s, "name") else str(s)
+                                for s in symbol_service.get_class_methods(
+                                    repo_name, sym.name
+                                )
+                            ]
+                            if sym.type == "class"
+                            else []
+                        )
                         return {
                             "matched_file": sym_file,
+                            "matched_symbol": sym.name,
+                            "symbol_kind": sym.type,
+                            "symbol_start_line": s_start,
+                            "symbol_end_line": s_end,
+                            "symbol_methods": methods,
                             "confidence": 96,
                             "match_type": "symbol",
                             "clarification_needed": False,
                             "choices": [],
+                            "entity_requested": word,
                         }
             except Exception as e:
                 logger.warning("Error checking symbol '%s': %s", word, e)
@@ -352,25 +686,65 @@ def find_matched_symbols(
     """Return a dictionary mapping normalized file paths to Symbol objects matched in the question."""
     matched: Dict[str, List[Any]] = {}
     try:
+        from .explicit_entity_resolver import ExplicitEntityResolver
+
+        resolver = ExplicitEntityResolver()
+        entity_res = resolver.resolve(question)
+
         index = symbol_index or (
             symbol_service.load(repo_name) if symbol_service else None
         )
-        if index and hasattr(index, "name_symbol_map"):
-            words = set(re.findall(r"[a-zA-Z_]\w*", question))
-            words_lower = {w.lower() for w in words}
+        if not index:
+            return matched
+
+        # If explicit entity resolved a target symbol, match only that explicit symbol
+        if entity_res.has_explicit_entity and entity_res.target_symbol:
+            explicit_sym = entity_res.target_symbol.split(".")[0]
+            if (
+                hasattr(index, "name_symbol_map")
+                and explicit_sym in index.name_symbol_map
+            ):
+                for s in index.name_symbol_map[explicit_sym]:
+                    norm_p = s.file_path.replace("\\", "/").lower()
+                    if norm_p not in matched:
+                        matched[norm_p] = []
+                    matched[norm_p].append(s)
+            elif index.symbols:
+                for s in index.symbols:
+                    if s.name == explicit_sym or s.name.lower() == explicit_sym.lower():
+                        norm_path = s.file_path.replace("\\", "/").lower()
+                        if norm_path not in matched:
+                            matched[norm_path] = []
+                        matched[norm_path].append(s)
+            return matched
+
+        # For non-explicit queries, extract code tokens (backticks, snake_case, PascalCase)
+        # and ignore all common conversational verbs and stopwords.
+        raw_words = re.findall(r"[a-zA-Z_]\w*", question)
+        candidate_words = set()
+        for w in raw_words:
+            if w.lower() in _COMMON_STOP_WORDS_SET:
+                continue
+            # Accept if PascalCase (e.g. ProviderManager), snake_case with underscore (e.g. get_provider), or explicit syntax
+            if "_" in w or any(c.isupper() for c in w[1:]):
+                candidate_words.add(w)
+                candidate_words.add(w.lower())
+            elif f"`{w}`" in question or f"{w}(" in question:
+                candidate_words.add(w)
+                candidate_words.add(w.lower())
+
+        if hasattr(index, "name_symbol_map"):
             name_map = index.name_symbol_map
-            for w in words_lower:
+            for w in candidate_words:
                 if w in name_map:
                     for s in name_map[w]:
                         norm_p = s.file_path.replace("\\", "/").lower()
                         if norm_p not in matched:
                             matched[norm_p] = []
                         matched[norm_p].append(s)
-        elif index and index.symbols:
-            words = set(re.findall(r"[a-zA-Z_]\w*", question))
-            words_lower = {w.lower() for w in words}
+        elif index.symbols:
             for s in index.symbols:
-                if s.name in words or s.name.lower() in words_lower:
+                if s.name in candidate_words or s.name.lower() in candidate_words:
                     norm_path = s.file_path.replace("\\", "/").lower()
                     if norm_path not in matched:
                         matched[norm_path] = []
@@ -430,9 +804,35 @@ def find_chunk_line_numbers(
     return None
 
 
+def is_historical_or_benchmark_doc(path: str) -> bool:
+    """Return True if path represents historical docs, benchmark reports, performance benchmarks, audits, or generated summaries."""
+    p = path.replace("\\", "/").lower()
+    patterns = (
+        "docs/performance",
+        "docs/azure_",
+        "docs/final_",
+        "docs/engineering-audit",
+        "benchmarks/",
+        "benchmark/",
+        "evaluation/",
+        "reports/",
+        "audit",
+    )
+    return any(pat in p for pat in patterns)
+
+
+def is_primary_documentation(path: str) -> bool:
+    """Return True if path is a top-level readme or primary architecture document."""
+    p = path.replace("\\", "/").lower()
+    base = os.path.basename(p)
+    return base in ("readme.md", "architecture.md", "contributing.md")
+
+
 def is_architecture_file(path: str) -> bool:
     """Return True if the file path represents an architecture summary, index, or entry point."""
     p = path.replace("\\", "/").lower()
+    if is_historical_or_benchmark_doc(p):
+        return False
     if "architecture" in p or "overview" in p:
         return True
     if p in (
@@ -481,7 +881,6 @@ def _get_tier_weight(file_path: str) -> float:
             return 0.0
 
     from core.file_classifier import (
-        classify_file,
         CATEGORY_PRODUCTION,
         CATEGORY_CONFIG,
         CATEGORY_DOCS,
@@ -490,14 +889,18 @@ def _get_tier_weight(file_path: str) -> float:
         CATEGORY_GENERATED,
     )
 
-    c = classify_file(p)
+    c = _get_cached_classification(p)
     cat = c["category"]
     if cat == CATEGORY_GENERATED:
         return 0.0
     if cat == CATEGORY_PRODUCTION:
         return 1.0
     if cat == CATEGORY_DOCS:
-        return 0.6
+        if is_historical_or_benchmark_doc(p):
+            return 0.2
+        if is_primary_documentation(p):
+            return 0.6
+        return 0.5
     if cat == CATEGORY_EXAMPLE:
         return 0.4
     if cat == CATEGORY_TEST:
@@ -711,6 +1114,8 @@ def determine_ranking_category(
             is_exact_filename = True
 
     is_exact_symbol = p_clean in matched_symbols_by_file
+    is_historical_doc = is_historical_or_benchmark_doc(path)
+    is_primary_doc = is_primary_documentation(path)
     is_arch = is_architecture_file(path)
     is_test = is_test_file(path)
     is_gen = is_generated_or_compiled(path)
@@ -743,17 +1148,33 @@ def determine_ranking_category(
     if weight >= 1.0:
         return 700000.0, "Production source file"
 
-    # 5. Architecture file
-    if is_arch:
+    # 5. Architecture file (non-historical)
+    if is_arch and not is_historical_doc:
         return 600000.0, "Referenced by architecture graph"
 
-    # 6. Documentation
-    if weight >= 0.5:
-        return 500000.0, "Documentation file"
+    # 6. Configuration file
+    from core.file_classifier import CATEGORY_CONFIG
 
-    # 7. Configuration
-    if weight >= 0.1:
+    c = _get_cached_classification(p_clean)
+    if weight >= 0.1 and (
+        c.get("category") == CATEGORY_CONFIG
+        or any(pat.search(p_clean) for pat in _TIER_3_PATTERNS)
+    ):
         return 400000.0, "Configuration file"
+
+    # 7. Primary documentation (README / ARCHITECTURE)
+    if is_primary_doc:
+        return 300000.0, "Primary documentation"
+
+    # 8. Historical or benchmark documentation
+    if is_historical_doc:
+        return 150000.0, "Historical or benchmark documentation"
+
+    # General documentation
+    if weight >= 0.4:
+        return 250000.0, "Documentation file"
+
+    return 200000.0, "Repository file"
 
     return 700000.0, "Production source file"
 
@@ -850,16 +1271,18 @@ def intelligent_retrieve(
     repo_name: str,
     embedding_service,
     chroma_store,
-    top_k_initial: int = 15,
+    top_k_initial: int = 40,
     top_k_final: int = 5,
     symbol_service=None,
     conversation_context=None,
     conversation_settings=None,
     disable_previous_boosts: bool = False,
     use_cache: bool = True,
+    deterministic_match: Optional[Dict[str, Any]] = None,
 ) -> tuple[List[Dict[str, Any]], Dict[str, Any]]:
     """Full retrieval pipeline with File-Aware layer, dynamic confidence, contextual ranking, and tier tracking."""
     t_total = time.perf_counter()
+    rtimer = RetrievalTimer()
     metrics: Dict[str, Any] = {
         "initial_retrieved": 0,
         "after_exclusion": 0,
@@ -922,17 +1345,20 @@ def intelligent_retrieve(
             return cached_chunks, cached_metrics
 
     # 1. Fetch unique file paths for this repo
-    file_paths = get_unique_file_paths(repo_name, chroma_store)
+    with rtimer.track("file_paths_fetch"):
+        file_paths = get_unique_file_paths(repo_name, chroma_store)
 
-    # Check for deterministic retrieval match first
-    det_match = None
-    if file_paths:
-        det_match = detect_deterministic_retrieval(
-            question=question,
-            repo_name=repo_name,
-            chroma_store=chroma_store,
-            symbol_service=symbol_service,
-        )
+    # Use pre-computed deterministic match if provided by the pipeline,
+    # otherwise compute it here (backward compat for direct callers).
+    det_match = deterministic_match
+    if det_match is None and file_paths:
+        with rtimer.track("deterministic_detection"):
+            det_match = detect_deterministic_retrieval(
+                question=question,
+                repo_name=repo_name,
+                chroma_store=chroma_store,
+                symbol_service=symbol_service,
+            )
 
     if det_match:
         matched_file_path = det_match["matched_file"]
@@ -1013,12 +1439,45 @@ def intelligent_retrieve(
             meta["confidence"] = confidence
             populate_chunk_symbols_and_lines(c, repo_name, question, symbol_service)
 
+        sym_name = det_match.get("matched_symbol")
+        sym_start = det_match.get("symbol_start_line")
+        sym_end = det_match.get("symbol_end_line")
+        sym_methods = det_match.get("symbol_methods", [])
+        coverage_pct = 100
+
+        # If a symbol span was resolved, filter to chunks covering the symbol span and compute coverage
+        if sym_start is not None and sym_end is not None and chunks:
+            overlapping_chunks = []
+            for c in chunks:
+                c_start = c.get("metadata", {}).get("start_line", 0)
+                c_end = c.get("metadata", {}).get("end_line", 0)
+                if c_start and c_end:
+                    if c_end >= sym_start and c_start <= sym_end:
+                        overlapping_chunks.append(c)
+            if overlapping_chunks:
+                chunks = overlapping_chunks
+                min_covered = min(
+                    c.get("metadata", {}).get("start_line", sym_start) for c in chunks
+                )
+                max_covered = max(
+                    c.get("metadata", {}).get("end_line", sym_end) for c in chunks
+                )
+                eff_start = max(min_covered, sym_start)
+                eff_end = min(max_covered, sym_end)
+                covered_lines = max(0, eff_end - eff_start + 1)
+                total_lines = sym_end - sym_start + 1
+                coverage_pct = min(
+                    100, int(round((covered_lines / max(1, total_lines)) * 100))
+                )
+
         elapsed_ms = (time.perf_counter() - t_total) * 1000
         logger.info(
-            "DETERMINISTIC_FILE_RETRIEVAL query=%s matched_file=%s chunks=%d elapsed_ms=%.2f semantic_search=False",
+            "DETERMINISTIC_FILE_RETRIEVAL query=%s matched_file=%s symbol=%s chunks=%d coverage=%d%% elapsed_ms=%.2f semantic_search=False",
             question,
             matched_file_path,
+            sym_name,
             len(chunks),
+            coverage_pct,
             elapsed_ms,
         )
 
@@ -1033,6 +1492,12 @@ def intelligent_retrieve(
             "total_ms": elapsed_ms,
             "confidence": confidence,
             "matched_file": matched_file_path,
+            "matched_symbol": sym_name,
+            "symbol_start_line": sym_start,
+            "symbol_end_line": sym_end,
+            "symbol_coverage": coverage_pct,
+            "symbol_methods": sym_methods,
+            "entity_requested": det_match.get("entity_requested"),
             "deterministic": True,
             "semantic_search": False,
             "cache_hit": False,
@@ -1042,16 +1507,27 @@ def intelligent_retrieve(
         return chunks, metrics
 
     # 2. Extract explicit file references and find matched symbols
-    candidates = extract_file_candidates(question)
-    asks_about_tests = any(
-        w in question.lower() for w in ["test", "testing", "spec", "mock", "fixture"]
-    )
+    with rtimer.track("query_preprocessing"):
+        candidates = extract_file_candidates(question)
+        asks_about_tests = any(
+            w in question.lower()
+            for w in ["test", "testing", "spec", "mock", "fixture"]
+        )
+
+    # Load symbol index ONCE and reuse across all symbol lookups
+    _symbol_index = None
+    if symbol_service:
+        try:
+            _symbol_index = symbol_service.load(repo_name)
+        except Exception as exc:
+            logger.warning("Failed to load symbol index for %s: %s", repo_name, exc)
 
     matched_symbols_by_file = {}
-    if symbol_service:
-        matched_symbols_by_file = find_matched_symbols(
-            question, repo_name, symbol_service
-        )
+    if symbol_service and _symbol_index:
+        with rtimer.track("symbol_matching"):
+            matched_symbols_by_file = find_matched_symbols(
+                question, repo_name, symbol_service, symbol_index=_symbol_index
+            )
 
     # 3. Direct lookup of files that match candidates or symbols (unless excluded)
     matched_files = set()
@@ -1111,18 +1587,20 @@ def intelligent_retrieve(
             logger.warning("Failed direct lookup for %s: %s", f, exc)
 
     # 4. Semantic Search
-    t0 = time.perf_counter()
-    query_text = build_query_text(question)
-    query_embedding = embedding_service.generate_embedding(query_text)
-    metrics["embed_ms"] = (time.perf_counter() - t0) * 1000
-
-    t0 = time.perf_counter()
-    raw_semantic_chunks = chroma_store.search_repository(
-        repo_name=repo_name,
-        query_embedding=query_embedding,
-        limit=top_k_initial,
+    with rtimer.track("query_embedding"):
+        query_text = build_query_text(question)
+        query_embedding = embedding_service.generate_embedding(query_text)
+    metrics["embed_ms"] = (
+        rtimer.report().get("query_embedding", {}).get("total_ms", 0.0)
     )
-    metrics["search_ms"] = (time.perf_counter() - t0) * 1000
+
+    with rtimer.track("vector_search"):
+        raw_semantic_chunks = chroma_store.search_repository(
+            repo_name=repo_name,
+            query_embedding=query_embedding,
+            limit=top_k_initial,
+        )
+    metrics["search_ms"] = rtimer.report().get("vector_search", {}).get("total_ms", 0.0)
     metrics["initial_retrieved"] = len(raw_semantic_chunks)
 
     # 5. Pool direct and semantic chunks, deduplicating by ID
@@ -1143,6 +1621,9 @@ def intelligent_retrieve(
     # 6. Score and rank all chunks in the pool
     t0 = time.perf_counter()
     scored_chunks = []
+    _file_chunk_count: Dict[
+        str, int
+    ] = {}  # track chunks per file for diminishing returns
     for chunk in pool:
         meta = chunk.setdefault("metadata", {})
         path = meta.get("file_path", "")
@@ -1234,6 +1715,14 @@ def intelligent_retrieve(
             is_arch=is_arch,
         )
 
+        # Diminishing returns: penalize additional chunks from the same file
+        file_key = path.replace("\\", "/").lower()
+        prev_count = _file_chunk_count.get(file_key, 0)
+        if prev_count >= 2:
+            # After 2 chunks from same file, apply 30% penalty per additional chunk
+            total_score *= max(0.3, 1.0 - 0.3 * (prev_count - 1))
+        _file_chunk_count[file_key] = prev_count + 1
+
         chunk["_rerank_score"] = total_score
         chunk["_similarity"] = round(similarity, 4)
         chunk["_token_overlap"] = round(overlap, 4)
@@ -1275,7 +1764,14 @@ def intelligent_retrieve(
         h = _content_hash(chunk["content"])
         if h not in seen_hashes:
             seen_hashes.add(h)
-            populate_chunk_symbols_and_lines(chunk, repo_name, question, symbol_service)
+            with rtimer.track("symbol_population"):
+                populate_chunk_symbols_and_lines(
+                    chunk,
+                    repo_name,
+                    question,
+                    symbol_service,
+                    symbol_index=_symbol_index,
+                )
             final_chunks.append(chunk)
             if len(final_chunks) >= top_k_final:
                 break
@@ -1293,6 +1789,10 @@ def intelligent_retrieve(
     metrics["confidence"] = max_confidence
 
     metrics["total_ms"] = (time.perf_counter() - t_total) * 1000
+
+    # Emit sub-stage profiling
+    rtimer.log_report("RETRIEVAL_SUBSTAGE_PROFILE")
+    metrics["substage_profile"] = rtimer.report()
 
     # Logging matching details
     log_lines = [

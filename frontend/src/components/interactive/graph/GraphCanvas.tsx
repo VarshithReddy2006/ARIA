@@ -72,44 +72,27 @@ function nodeClassName(
   }
 
   if (isFocus) {
-    return `${base} ${dim} !bg-zinc-900 !border-indigo-400 !text-white ring-1 ring-indigo-500/50 shadow-[0_0_20px_rgba(99,102,241,0.15)] font-bold scale-[1.03] z-20`;
+    return `${base} ${dim} !bg-[#0D0D10] !border-[#5E6AD2] !text-[#EDEDED] ring-1 ring-[#5E6AD2]/60 shadow-[0_0_24px_rgba(94,106,210,0.30)] font-bold scale-[1.03] z-20`;
   }
 
   if (isNeighbor) {
-    return `${base} ${dim} !bg-zinc-900/95 !border-zinc-500 !text-zinc-200 shadow-sm z-10 hover:!border-zinc-300`;
+    return `${base} ${dim} !bg-[#0D0D10] !border-zinc-500/80 !text-[#EDEDED] shadow-sm z-10 hover:!border-zinc-300`;
   }
 
   if (highlighted) {
-    return `${base} ${dim} !bg-amber-950/50 !border-amber-400 !text-amber-200 shadow-lg shadow-amber-500/10 hover:!bg-amber-900/40`;
+    return `${base} ${dim} !bg-amber-950/40 !border-amber-500/50 !text-amber-200 shadow-lg shadow-amber-500/10 hover:!bg-amber-900/30`;
   }
 
+  // Base state: dark neutral surface with subtle border, category reflected via small dot
   switch (category) {
     case 'entry_point':
-      return `${base} ${dim} !bg-zinc-900/90 !border-emerald-500/60 !text-emerald-300 font-medium hover:!border-emerald-400`;
-    case 'core_module':
-      return `${base} ${dim} !bg-zinc-900/90 !border-blue-500/60 !text-blue-300 font-medium hover:!border-blue-400`;
-    case 'domain':
-      return `${base} ${dim} !bg-zinc-900/90 !border-violet-500/60 !text-violet-300 font-medium hover:!border-violet-400`;
+      return `${base} ${dim} !bg-[#08080A] !border-emerald-500/40 !text-zinc-200 font-medium hover:!border-emerald-500/70`;
     case 'high_coupling':
-      return `${base} ${dim} !bg-zinc-900/90 !border-amber-500/60 !text-amber-300 hover:!border-amber-400`;
-    case 'directory':
-      return `${base} ${dim} !bg-zinc-900/90 !border-purple-500/60 !text-purple-300 font-medium hover:!border-purple-400`;
-    case 'service':
-      return `${base} ${dim} !bg-zinc-900/90 !border-indigo-500/60 !text-indigo-300 font-medium hover:!border-indigo-400`;
-    case 'controller':
-      return `${base} ${dim} !bg-zinc-900/90 !border-pink-500/60 !text-pink-300 font-medium hover:!border-pink-400`;
-    case 'infrastructure':
-      return `${base} ${dim} !bg-zinc-900/90 !border-sky-500/60 !text-sky-300 font-medium hover:!border-sky-400`;
-    case 'worker':
-      return `${base} ${dim} !bg-zinc-900/90 !border-yellow-500/60 !text-yellow-300 font-medium hover:!border-yellow-400`;
-    case 'test':
-      return `${base} ${dim} !bg-zinc-900/90 !border-cyan-500/50 !text-cyan-300 hover:!border-cyan-400`;
-    case 'config':
-      return `${base} ${dim} !bg-zinc-900/90 !border-stone-500/50 !text-stone-300 hover:!border-stone-400`;
-    case 'utility':
-      return `${base} ${dim} !bg-zinc-900/90 !border-slate-500/50 !text-slate-300 hover:!border-slate-400`;
+      return `${base} ${dim} !bg-[#08080A] !border-amber-500/40 !text-zinc-200 font-medium hover:!border-amber-500/70`;
+    case 'core_module':
+      return `${base} ${dim} !bg-[#08080A] !border-blue-500/40 !text-zinc-200 font-medium hover:!border-blue-500/70`;
     default:
-      return `${base} ${dim} !bg-zinc-900/80 !border-zinc-800 !text-zinc-300 hover:!border-zinc-600`;
+      return `${base} ${dim} !bg-[#08080A] !border-[#1F1F23] !text-zinc-300 hover:!border-zinc-600 hover:!text-zinc-100`;
   }
 }
 
@@ -129,10 +112,23 @@ export function toReactFlowNodes(apiNodes: GraphNode[], activeNodeId: string | n
       'architecture',
     );
 
+    const dotColor = CATEGORY_COLORS[n.category] ?? '#71717a';
+
+    const nodeLabel = (
+      <span className="inline-flex items-center gap-1.5 w-full justify-center">
+        <span
+          className="w-1.5 h-1.5 rounded-full shrink-0"
+          style={{ backgroundColor: dotColor }}
+          aria-hidden="true"
+        />
+        <span className="truncate">{n.label}</span>
+      </span>
+    );
+
     return {
       id: n.id,
       type: 'default',
-      data: { label: n.label, raw: n },
+      data: { label: nodeLabel, raw: n },
       className: `${nodeClassName(n.category, n.highlighted, isFocus, isDimmed, isNeighbor, heatmapMode, n.degree)}${
         // A single luminance peak on the node ARIA just identified. The class is
         // keyed to the focus, so it is re-applied — and re-runs once — per

@@ -3,6 +3,8 @@ httpx>=0.27.0
 
 # Local BGE embeddings — no API calls, no quotas
 sentence-transformers>=3.0.0
+onnxruntime>=1.17.0
+onnx>=1.15.0
 
 # Vector store
 chromadb>=0.4.0
@@ -39,8 +41,8 @@ tree-sitter-typescript>=0.21.0,<0.22.0
 pydantic-settings>=2.0.0
 typer>=0.9.0
 
-# Google GenAI SDK
-google-genai>=0.1.1
+# Google GenAI SDK (2.22.0+ for modern Auth-Key and Gemini 2.5/3.x compatibility)
+google-genai>=2.22.0
 
 # Model Context Protocol (MCP) server SDK.
 # Upper bound is deliberate: SDK 2.x removed mcp.server.fastmcp and the FastMCP

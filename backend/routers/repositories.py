@@ -26,6 +26,8 @@ from utils.subprocess_runner import SHORT_GIT_TIMEOUT, run_safe_command
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel, Field
 
+# Performance instrumentation
+from backend.metrics.performance import StageTimer
 from backend.dependencies import (
     ANALYSIS_STORE,
     persist_analysis_store_sync,
@@ -58,6 +60,9 @@ from services.github_service import (
 from services.ingestion_service import detect_tech_stack_and_deps
 
 logger = logging.getLogger(__name__)
+
+# Global collector for the latest run
+performance_collector = StageTimer()
 
 
 class _ReloadSafeDependency:
@@ -717,6 +722,7 @@ def execute_repository_analysis(
     # ── 1. Cloning & Acquisition (01 CLONE) ──────────────────────────────────
     mem_tracker.log_phase("before_clone")
     _emit("clone", "cloning", "Cloning repository from GitHub...", progress=5)
+    clone_perf_start = performance_collector.start("Clone")
     timer.start("Clone")
     try:
         with repository_lock(repo_name, branch=branch):
@@ -724,11 +730,13 @@ def execute_repository_analysis(
         successful_phases.append("clone")
     finally:
         timer.stop("Clone")
+        performance_collector.stop("Clone", clone_perf_start)
     mem_tracker.log_phase("after_clone", local_path=local_path)
     _emit("clone", "cloned", "✓ Repository cloned successfully", progress=15)
 
     # ── 2. Detecting & Extracting (02 DETECT) ─────────────────────────────────
     _emit("detect", "detecting", "Detecting languages and frameworks...", progress=20)
+    parse_perf_start = performance_collector.start("Parse")
     timer.start("Parse")
     mem_tracker.log_phase("before_iter_source_files")
 
@@ -773,6 +781,7 @@ def execute_repository_analysis(
     tech_stack, dependencies = detect_tech_stack_and_deps(manifest_records)
     mem_tracker.log_phase("after_tech_stack_detection")
     timer.stop("Parse")
+    performance_collector.stop("Parse", parse_perf_start)
     successful_phases.append("detect")
     _emit(
         "detect",
@@ -1130,16 +1139,54 @@ def execute_repository_analysis(
             timer.stop("Chunk")
             mem_tracker.log_phase("before_first_embedding_batch")
 
+            def _on_embed_progress(p_info: Dict[str, Any]) -> None:
+                b_num = p_info.get("batch", 1)
+                t_batches = p_info.get("total_batches", 1)
+                done_c = p_info.get("completed_chunks", 0)
+                tot_c = p_info.get("total_chunks", total_chunks_full)
+                pct = float(p_info.get("progress_pct", 0.0))
+                c_hits = p_info.get("cache_hits", 0)
+                c_misses = p_info.get("cache_misses", 0)
+
+                # Map embedding progress (0%..100%) to pipeline progress (48%..55%)
+                overall_p = round(48 + (pct / 100.0) * 7, 1)
+
+                _emit(
+                    "embed",
+                    "generating_embeddings",
+                    f"Generating Embeddings: batch {b_num}/{t_batches} ({done_c}/{tot_c} chunks, {pct:.1f}%)",
+                    stats={
+                        "batch": b_num,
+                        "total_batches": t_batches,
+                        "chunks_processed": done_c,
+                        "chunks_total": tot_c,
+                        "embeddings_indexed": 0,
+                        "files_processed": len(all_file_paths),
+                        "elapsed_seconds": int(time.time() - start_time),
+                        "cache_hits": c_hits,
+                        "cache_misses": c_misses,
+                        "batch_size": batch_size,
+                        "embed_progress_pct": pct,
+                    },
+                    progress=overall_p,
+                )
+
             _emit(
                 "embed",
                 "generating_embeddings",
                 f"Generating Embeddings: chunked {total_chunks_full} chunks, starting embedding...",
                 stats={
+                    "batch": 0,
+                    "total_batches": max(
+                        1, (total_chunks_full + batch_size - 1) // batch_size
+                    ),
                     "chunks_processed": 0,
+                    "chunks_total": total_chunks_full,
                     "embeddings_indexed": 0,
                     "files_processed": len(all_file_paths),
                     "elapsed_seconds": int(time.time() - start_time),
                     "batch_size": batch_size,
+                    "embed_progress_pct": 0.0,
                 },
                 progress=48,
             )
@@ -1148,7 +1195,9 @@ def execute_repository_analysis(
             timer.start("Embedding")
             emb_stats = {}
             all_embeddings_full = embedding_service.generate_embeddings(
-                all_chunks_full, stats=emb_stats
+                all_chunks_full,
+                stats=emb_stats,
+                progress_callback=_on_embed_progress,
             )
             timer.stop("Embedding")
             mem_tracker.log_phase(

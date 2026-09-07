@@ -84,6 +84,9 @@ class IntentRouter:
         impact_analysis_service=None,
         api_surface_service=None,
         call_graph_service=None,
+        dead_code_service=None,
+        git_history_service=None,
+        pr_intelligence_service=None,
     ) -> None:
         self._arch = architecture_service
         self._graph = graph_service
@@ -92,6 +95,9 @@ class IntentRouter:
         self._impact = impact_analysis_service
         self._api_surface = api_surface_service
         self._call_graph = call_graph_service
+        self._dead_code = dead_code_service
+        self._git_history = git_history_service
+        self._pr_intelligence = pr_intelligence_service
 
     def route(
         self,
@@ -126,6 +132,11 @@ class IntentRouter:
             Intent.READING_ORDER: self._handle_reading_order,
             Intent.IMPACT_ANALYSIS: self._handle_impact_analysis,
             Intent.CHANGE_PLANNING: self._handle_impact_analysis,
+            Intent.DEAD_CODE: self._handle_dead_code,
+            Intent.GIT_HISTORY: self._handle_git_history,
+            Intent.PR_RISK: self._handle_pr_risk,
+            Intent.HEALTH: self._handle_health,
+            Intent.SECURITY: self._handle_health,
         }
 
         handler = dispatch.get(intent)
@@ -558,4 +569,120 @@ class IntentRouter:
                 "affected_count": len(affected),
                 "seed": seed,
             },
+        )
+
+    def _handle_dead_code(
+        self, repo_name: str, question: str, ir: IntentResult
+    ) -> RepositoryIntelligence:
+        if not self._dead_code:
+            return RepositoryIntelligence(intent=ir.intent)
+
+        try:
+            res = self._dead_code.analyze(repo_name)
+        except Exception as exc:
+            logger.debug("Dead code analysis failed for '%s': %s", repo_name, exc)
+            return RepositoryIntelligence(
+                intent=ir.intent, metadata={"reason": str(exc)}
+            )
+
+        if not res:
+            return RepositoryIntelligence(intent=ir.intent)
+
+        lines = [
+            "## Dead Code Analysis",
+            f"- **Dead files detected:** {len(getattr(res, 'dead_files', []) or [])}",
+            f"- **Orphan modules detected:** {len(getattr(res, 'orphan_modules', []) or [])}",
+            f"- **Dead dependency chains:** {len(getattr(res, 'dead_dependency_chains', []) or [])}",
+        ]
+        dead_files = getattr(res, "dead_files", []) or []
+        source_files = []
+        if dead_files:
+            lines.append("\n**Unreachable / Unreferenced Files:**")
+            for df in dead_files[:8]:
+                path = getattr(df, "file_path", str(df))
+                lines.append(f"  - `{path}`")
+                source_files.append(path)
+
+        return RepositoryIntelligence(
+            intent=ir.intent,
+            structured_context="\n".join(lines),
+            source_files=source_files[:5],
+            metadata={"dead_files_count": len(dead_files)},
+        )
+
+    def _handle_git_history(
+        self, repo_name: str, question: str, ir: IntentResult
+    ) -> RepositoryIntelligence:
+        if not self._git_history:
+            return RepositoryIntelligence(intent=ir.intent)
+
+        try:
+            summary = self._git_history.load(repo_name)
+        except Exception as exc:
+            logger.debug("Git history load failed for '%s': %s", repo_name, exc)
+            return RepositoryIntelligence(
+                intent=ir.intent, metadata={"reason": str(exc)}
+            )
+
+        if not summary:
+            return RepositoryIntelligence(intent=ir.intent)
+
+        hotspots = getattr(summary, "hotspots", []) or []
+        total_commits = getattr(summary, "total_commits", 0)
+        lines = [
+            "## Git History & Hotspots",
+            f"- **Total commits analyzed:** {total_commits}",
+            f"- **Hotspots identified:** {len(hotspots)}",
+        ]
+        source_files = []
+        if hotspots:
+            lines.append("\n**Top Churn / Hotspot Files:**")
+            for h in hotspots[:8]:
+                path = getattr(h, "file_path", str(h))
+                commits = getattr(h, "commits", 0)
+                lines.append(f"  - `{path}` ({commits} commits)")
+                source_files.append(path)
+
+        return RepositoryIntelligence(
+            intent=ir.intent,
+            structured_context="\n".join(lines),
+            source_files=source_files[:5],
+            metadata={"total_commits": total_commits, "hotspot_count": len(hotspots)},
+        )
+
+    def _handle_pr_risk(
+        self, repo_name: str, question: str, ir: IntentResult
+    ) -> RepositoryIntelligence:
+        # PR risk context if specific file entities mentioned
+        if not self._impact:
+            return RepositoryIntelligence(intent=ir.intent)
+        return self._handle_impact_analysis(repo_name, question, ir)
+
+    def _handle_health(
+        self, repo_name: str, question: str, ir: IntentResult
+    ) -> RepositoryIntelligence:
+        if not self._arch:
+            return RepositoryIntelligence(intent=ir.intent)
+
+        summary = self._arch.get_summary(repo_name)
+        if not summary:
+            return RepositoryIntelligence(intent=ir.intent)
+
+        lines = [
+            "## Repository Health & Complexity Overview",
+            f"- **Total files:** {summary.total_files}",
+            f"- **Total dependencies:** {summary.total_dependencies}",
+            f"- **Circular dependencies:** {len(getattr(summary, 'cycles', []) or [])}",
+            f"- **High-coupling modules:** {len(getattr(summary, 'high_coupling_modules', []) or [])}",
+        ]
+        if getattr(summary, "high_coupling_modules", None):
+            lines.append("\n**High-Coupling Risk Areas:**")
+            for m in summary.high_coupling_modules[:6]:
+                lines.append(f"  - `{m}`")
+
+        return RepositoryIntelligence(
+            intent=ir.intent,
+            structured_context="\n".join(lines),
+            source_files=list(getattr(summary, "high_coupling_modules", []) or [])[:5],
+            metadata={"cycles_count": len(getattr(summary, "cycles", []) or [])},
         )

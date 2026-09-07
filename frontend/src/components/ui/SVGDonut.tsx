@@ -1,6 +1,6 @@
 import React, { useEffect, useRef } from 'react';
 
-type DonutTone = 'success' | 'warn' | 'danger' | 'primary' | 'info';
+type DonutTone = 'success' | 'warn' | 'danger' | 'primary' | 'info' | 'glass-indigo';
 
 interface SVGDonutProps {
   /** 0–100 score value */
@@ -16,11 +16,12 @@ interface SVGDonutProps {
 }
 
 const toneStroke: Record<DonutTone, string> = {
-  success: 'var(--success)',
-  warn:    'var(--warn)',
-  danger:  'var(--danger)',
-  primary: 'var(--primary)',
-  info:    'var(--info)',
+  success:        'var(--success)',
+  warn:           'var(--warn)',
+  danger:         'var(--danger)',
+  primary:        'var(--primary)',
+  info:           'var(--info)',
+  'glass-indigo': 'url(#svg-donut-glass-indigo)',
 };
 
 /**
@@ -73,15 +74,25 @@ export const SVGDonut: React.FC<SVGDonutProps> = ({
         viewBox={`0 0 ${size} ${size}`}
         role="img"
         aria-label={`${clampedValue} out of 100`}
-        className="rotate-[-90deg]"
+        className="rotate-[-90deg] overflow-visible"
       >
+        <defs>
+          <linearGradient id="svg-donut-glass-indigo" x1="0%" y1="0%" x2="100%" y2="100%">
+            <stop offset="0%" stopColor="#545DC4" />
+            <stop offset="50%" stopColor="#6B74D9" />
+            <stop offset="100%" stopColor="#7C86E8" />
+          </linearGradient>
+          <filter id="svg-donut-glass-glow" x="-20%" y="-20%" width="140%" height="140%">
+            <feDropShadow dx="0" dy="0" stdDeviation="3" floodColor="#6B74D9" floodOpacity="0.22" />
+          </filter>
+        </defs>
         {/* Track ring */}
         <circle
           cx={centre}
           cy={centre}
           r={radius}
           fill="none"
-          stroke="var(--border)"
+          stroke="#1F1F23"
           strokeWidth={strokeWidth}
         />
         {/* Progress ring */}
@@ -92,6 +103,7 @@ export const SVGDonut: React.FC<SVGDonutProps> = ({
           r={radius}
           fill="none"
           stroke={toneStroke[tone]}
+          filter={tone === 'glass-indigo' ? 'url(#svg-donut-glass-glow)' : undefined}
           strokeWidth={strokeWidth}
           strokeLinecap="round"
           strokeDasharray={`${targetDash} ${circumference - targetDash}`}

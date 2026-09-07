@@ -7,15 +7,15 @@ const handle: APIRoute = async ({ request, params, url }) => {
   let body: any = undefined;
   if (request.method !== 'GET' && request.method !== 'HEAD') {
     const contentType = request.headers.get('content-type') || '';
-    if (contentType.includes('application/json')) {
-      try {
-        body = await request.json();
-      } catch {
+    try {
+      if (contentType.includes('application/json') || contentType.includes('text/') || contentType.includes('application/x-www-form-urlencoded')) {
         body = await request.text();
+      } else {
+        const buffer = await request.arrayBuffer();
+        body = new Uint8Array(buffer);
       }
-    } else {
-      const buffer = await request.arrayBuffer();
-      body = new Uint8Array(buffer);
+    } catch {
+      body = undefined;
     }
   }
 

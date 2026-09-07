@@ -94,52 +94,62 @@ export const ChangeSurface: React.FC = () => {
         */}
         <div
           style={{
-            opacity: resolved ? 1 : 0.16,
-            transform: resolved ? 'none' : 'translateY(10px)',
+            opacity: resolved ? 1 : 0.85,
+            transform: resolved ? 'none' : 'translateY(6px)',
             transition:
               'opacity 700ms cubic-bezier(0.16,1,0.3,1), transform 700ms cubic-bezier(0.16,1,0.3,1)',
           }}
+          className="p-6 rounded-xl border border-white/[0.08] bg-gradient-to-b from-[#0D1220]/95 to-[#070A12]/98 backdrop-blur-2xl shadow-2xl"
         >
-          <span className="mono-label block mb-4">AFFECTED SURFACE</span>
-          <div className="flex items-end gap-3">
-            <span className="font-mono text-4xl sm:text-5xl font-bold tabular-nums leading-none text-text">
+          {/* DIFF != IMPACT distinction */}
+          <div className="flex items-center justify-between pb-3 mb-4 border-b border-white/[0.08]">
+            <span className="mono-label font-bold flex items-center gap-1.5" style={{ color: EDGE_TONE.outgoing }}>
+              <span className="h-1.5 w-1.5 rounded-full" style={{ backgroundColor: EDGE_TONE.outgoing, boxShadow: `0 0 6px ${EDGE_TONE.outgoing}cc` }}></span>
+              DIFF ≠ IMPACT
+            </span>
+            <span className="mono-label text-[10px] text-[#34D399] font-bold px-2 py-0.5 rounded bg-[#34D399]/10 border border-[#34D399]/30">CALL GRAPH PROVEN</span>
+          </div>
+
+          <span className="mono-label block mb-2 text-[#94A3B8] font-bold">AFFECTED SURFACE</span>
+          <div className="flex items-baseline gap-2.5">
+            <span className="font-mono text-5xl sm:text-6xl font-extrabold tabular-nums leading-none text-[#F8FAFC] tracking-tight">
               {Math.round(filesValue)}
             </span>
-            <span className="mono-detail pb-1.5">files reached</span>
+            <span className="font-mono text-xs text-[#CBD5E1] uppercase tracking-wider font-bold">files reached</span>
           </div>
 
           {/* Reach across the chain, drawn once the chain is complete. */}
-          <div className="mt-4 h-[3px] w-full bg-white/[0.06] overflow-hidden">
+          <div className="mt-4 h-[3px] w-full bg-white/[0.06] overflow-hidden rounded-full">
             <div
-              className="h-full origin-left"
+              className="h-full origin-left bg-gradient-to-r from-primary to-[#34D399]"
               style={{
-                backgroundColor: EDGE_TONE.outgoing,
                 transform: `scaleX(${resolved ? 1 : 0})`,
                 transition: 'transform 1000ms cubic-bezier(0.16,1,0.3,1)',
+                boxShadow: '0 0 10px rgba(129,140,248,0.6)',
               }}
             />
           </div>
 
-          <dl className="mt-6 grid grid-cols-3 gap-4">
+          <dl className="mt-5 grid grid-cols-3 gap-3 pt-4 border-t border-white/[0.08]">
             {[
               { k: 'DEPTH', v: scenario.depth },
               { k: 'SYMBOLS', v: scenario.symbols },
               { k: 'HOPS', v: scenario.chain.length },
             ].map((m) => (
-              <div key={m.k}>
-                <dt className="mono-label mb-1.5">{m.k}</dt>
-                <dd className="font-mono text-lg text-text tabular-nums">{m.v}</dd>
+              <div key={m.k} className="p-2.5 rounded-lg bg-[#0A0D14] border border-white/[0.06] text-center">
+                <dt className="mono-label mb-1 text-[9.5px] text-[#94A3B8] font-bold">{m.k}</dt>
+                <dd className="font-mono text-base font-bold text-[#F8FAFC] tabular-nums">{m.v}</dd>
               </div>
             ))}
           </dl>
 
           {/* Current propagation state, so the rail and the chain stay in step. */}
-          <p className="mono-label mt-6" style={{ letterSpacing: '0.2em' }}>
-            STATE · {currentStage}
+          <p className="mono-label mt-4 text-[10px] text-[#CBD5E1]" style={{ letterSpacing: '0.18em' }}>
+            STATE · <span className="font-bold" style={{ color: EDGE_TONE.outgoing }}>{currentStage}</span>
           </p>
 
           {/* Matches the disclosure wording used by chapters 02 and 03. */}
-          <p className="mono-label mt-2" style={{ letterSpacing: '0.2em' }}>
+          <p className="mono-label mt-1 text-[9px] text-[#64748B]" style={{ letterSpacing: '0.18em' }}>
             ILLUSTRATIVE · ARIA&apos;S OWN REPOSITORY
           </p>
         </div>
@@ -167,8 +177,8 @@ export const ChangeSurface: React.FC = () => {
                 width: '4px',
                 height: '4px',
                 borderRadius: '50%',
-                background: '#5e6ad2',
-                boxShadow: '0 0 8px 2px rgba(94,106,210,0.6)',
+                background: '#737DFF',
+                boxShadow: '0 0 8px 2px rgba(115,125,255,0.6)',
                 transform: 'translateX(-1.5px)',
               }}
               aria-hidden="true"
@@ -184,8 +194,8 @@ export const ChangeSurface: React.FC = () => {
                 key={`${scenario.id}-${i}`}
                 className="relative pb-10 sm:pb-12 last:pb-0"
                 style={{
-                  opacity: isLit ? 1 : 0.22,
-                  transform: isLit ? 'none' : 'translateY(10px)',
+                  opacity: isLit ? 1 : 0.78,
+                  transform: isLit ? 'none' : 'translateY(4px)',
                   transition:
                     'opacity 700ms cubic-bezier(0.16,1,0.3,1), transform 700ms cubic-bezier(0.16,1,0.3,1)',
                 }}
@@ -193,17 +203,11 @@ export const ChangeSurface: React.FC = () => {
                 <span
                   className={`absolute -left-11 sm:-left-14 top-0 flex h-7 w-7 sm:h-9 sm:w-9 items-center justify-center
                               rounded-full border font-mono text-[10px] transition-colors duration-500 ${isLit
-                      ? 'border-primary/60 bg-primary/12 text-primary'
+                      ? 'border-primary/60 bg-primary/12 text-primary font-semibold'
                       : 'border-white/10 bg-canvas text-text-subtle'
                     }`}
                   aria-hidden="true"
                 >
-                  {/*
-                    The stage that has just been reached emits one ring, which
-                    dissipates. Keyed on the stage index so it fires once per
-                    advance rather than looping — the change arriving here, not a
-                    process running here.
-                  */}
                   {!reduced && i === lit - 1 && (
                     <span
                       key={`${scenario.id}-wake-${i}`}
@@ -213,16 +217,11 @@ export const ChangeSurface: React.FC = () => {
                   {String(i + 1).padStart(2, '0')}
                 </span>
 
-                {/*
-                  Direction, stated on the spine. The chain previously ran as a
-                  plain vertical rule, which showed sequence but not causality —
-                  a reader could not tell propagation from a numbered list.
-                */}
                 {i > 0 && (
                   <span
                     className="absolute -left-[30px] sm:-left-[38px] -top-5 font-mono text-[11px] leading-none"
                     style={{
-                      color: isLit ? EDGE_TONE.outgoing : 'rgba(255,255,255,0.12)',
+                      color: isLit ? '#737DFF' : 'rgba(255,255,255,0.12)',
                       transition: 'color 500ms ease',
                     }}
                     aria-hidden="true"
@@ -231,13 +230,7 @@ export const ChangeSurface: React.FC = () => {
                   </span>
                 )}
 
-                {/*
-                  The stage name only. The index is already on the marker beside
-                  it, and repeating it in the "01 — " form made every propagation
-                  step look like a chapter marker competing with the real one at
-                  the top of the section.
-                */}
-                <span className="mono-label block mb-2.5">{stage.stage}</span>
+                <span className="mono-label block mb-2.5 text-text-secondary font-semibold">{stage.stage}</span>
 
                 <p
                   className={`font-mono break-all leading-snug ${isHead
@@ -258,10 +251,9 @@ export const ChangeSurface: React.FC = () => {
 
         {/* The point of the section, then the bridge onward. */}
         <div className="mt-12 hair-t pt-6">
-          <p className="display-3 text-text">A change is never isolated.</p>
-          <p className="mono-detail mt-3 max-w-xl">
-            Traced through the call graph before the merge — not inferred from the diff text.
-            Before you merge, ARIA can show how far a change travels.
+          <p className="display-3 text-text font-bold">A change is never isolated.</p>
+          <p className="story-lead mt-3 text-[14px] text-text-secondary max-w-xl">
+            Traced through the <span className="text-primary font-semibold">call graph</span> before the merge — not inferred from the diff text.
           </p>
         </div>
       </div>

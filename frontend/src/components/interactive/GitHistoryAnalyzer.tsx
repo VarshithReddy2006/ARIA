@@ -989,11 +989,11 @@ export const GitHistoryAnalyzer: React.FC<Props> = ({ repoName }) => {
         <div className="flex flex-col lg:flex-row lg:items-end lg:justify-between gap-5">
           <div className="min-w-0 max-w-2xl">
             <span className="mono-label mono-label-accent block mb-2.5">
-              GIT HISTORY / REPOSITORY MEMORY
+              GIT HISTORY / CHANGE INTELLIGENCE
             </span>
-            <h2 className="display-3 text-text">Git History &amp; Churn Analysis</h2>
+            <h2 className="display-3 text-text">HOW HAS THIS REPOSITORY CHANGED OVER TIME?</h2>
             <p className="text-[13px] text-text-muted leading-relaxed mt-3 max-w-xl">
-              Identify hotspot files, author ownership risk, and commit activity trends.
+              Trace commit volume, hotspot files, single-author ownership risk, and repository churn over time.
             </p>
           </div>
 

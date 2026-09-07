@@ -33,7 +33,7 @@ from typing import Any, AsyncIterator, Dict, List, Optional, Tuple
 logger = logging.getLogger(__name__)
 
 _SECRET_RE = re.compile(
-    r"(?:AIza[0-9A-Za-z-_]{35}|sk-[a-zA-Z0-9_-]{20,}|ghp_[a-zA-Z0-9]{30,}|Bearer\s+[a-zA-Z0-9._-]{25,}|AKIA[0-9A-Z]{16})",
+    r"(?:AIza[0-9A-Za-z-_]{10,}|nvapi-[a-zA-Z0-9_-]{10,}|AQ\.[0-9A-Za-z-_]{10,}|sk-[a-zA-Z0-9_-]{10,}|ghp_[a-zA-Z0-9]{20,}|Bearer\s+[a-zA-Z0-9._-]{10,}|AKIA[0-9A-Z]{16})",
     re.I,
 )
 
@@ -233,7 +233,7 @@ class ProviderManager:
         except Exception as exc:
             logger.error("ProviderManager: failed to load primary provider: %s", exc)
 
-        # Secondary provider (if failover is enabled and key exists)
+            # Secondary provider (if failover is enabled and key exists)
         if failover_enabled:
             if primary_name == "gemini" and current_settings.deepseek_api_key:
                 try:
@@ -261,6 +261,45 @@ class ProviderManager:
                     logger.debug(
                         "ProviderManager: DeepSeek secondary unavailable: %s", exc
                     )
+
+                # Secondary fallback candidate models on NVIDIA NIM (e.g. meta/llama-3.2-11b-vision-instruct)
+                fb_models_raw = (
+                    getattr(current_settings, "deepseek_fallback_models", "") or ""
+                )
+                fb_models = [m.strip() for m in fb_models_raw.split(",") if m.strip()]
+                for idx, fb_model in enumerate(fb_models, start=3):
+                    try:
+                        from services.llm.deepseek_provider import DeepSeekProvider
+
+                        fallback_provider = DeepSeekProvider(
+                            api_key=current_settings.deepseek_api_key,
+                            base_url=current_settings.deepseek_base_url,
+                            model=fb_model,
+                        )
+                        p_name = f"nvidia_fallback_{fb_model.split('/')[-1].replace('-', '_').replace('.', '_')}"
+                        fallback_entry = ProviderEntry(
+                            name=p_name,
+                            provider=fallback_provider,
+                            priority=idx,
+                            timeout=total_timeout,
+                        )
+                        fallback_entry.circuit_breaker.recovery_timeout = cooldown
+                        fallback_entry.circuit_breaker.failure_threshold = (
+                            failure_thresh
+                        )
+                        entries.append(fallback_entry)
+                        logger.info(
+                            "[LLM_ROUTER] registered tertiary_provider=%s model=%s priority=%d",
+                            p_name,
+                            fallback_provider.model,
+                            idx,
+                        )
+                    except Exception as exc:
+                        logger.debug(
+                            "ProviderManager: NVIDIA fallback candidate %s unavailable: %s",
+                            fb_model,
+                            exc,
+                        )
 
             elif primary_name == "deepseek" and current_settings.gemini_api_key:
                 try:
@@ -401,22 +440,26 @@ class ProviderManager:
                 is_quota = False
                 fallback_reason = "exception"
                 error_type_val = "unknown"
-                if entry.name == "gemini":
-                    err = classify_gemini_error(exc, "gemini")
+                if entry.name.startswith("gemini"):
+                    err = classify_gemini_error(exc, entry.name)
                     fallback_reason = err.error_type.value
                     error_type_val = err.error_type.value
                     if err.error_type in (
                         ProviderErrorType.QUOTA_EXCEEDED,
                         ProviderErrorType.RATE_LIMIT_ERROR,
+                        ProviderErrorType.AUTHENTICATION_ERROR,
+                        ProviderErrorType.INVALID_CREDENTIAL_TYPE,
                     ):
                         is_quota = True
-                elif entry.name == "deepseek":
-                    err = classify_deepseek_error(exc, "deepseek")
+                else:
+                    err = classify_deepseek_error(exc, entry.name)
                     fallback_reason = err.error_type.value
                     error_type_val = err.error_type.value
                     if err.error_type in (
                         ProviderErrorType.QUOTA_EXCEEDED,
                         ProviderErrorType.RATE_LIMIT_ERROR,
+                        ProviderErrorType.AUTHENTICATION_ERROR,
+                        ProviderErrorType.INVALID_CREDENTIAL_TYPE,
                     ):
                         is_quota = True
 
@@ -625,22 +668,26 @@ class ProviderManager:
                 if isinstance(exc, EmptyCompletionError):
                     fallback_reason = "empty_completion"
                     error_type_val = "empty_completion"
-                elif entry.name == "gemini":
-                    err = classify_gemini_error(exc, "gemini")
+                elif entry.name.startswith("gemini"):
+                    err = classify_gemini_error(exc, entry.name)
                     fallback_reason = err.error_type.value
                     error_type_val = err.error_type.value
                     if err.error_type in (
                         ProviderErrorType.QUOTA_EXCEEDED,
                         ProviderErrorType.RATE_LIMIT_ERROR,
+                        ProviderErrorType.AUTHENTICATION_ERROR,
+                        ProviderErrorType.INVALID_CREDENTIAL_TYPE,
                     ):
                         is_quota = True
-                elif entry.name == "deepseek":
-                    err = classify_deepseek_error(exc, "deepseek")
+                else:
+                    err = classify_deepseek_error(exc, entry.name)
                     fallback_reason = err.error_type.value
                     error_type_val = err.error_type.value
                     if err.error_type in (
                         ProviderErrorType.QUOTA_EXCEEDED,
                         ProviderErrorType.RATE_LIMIT_ERROR,
+                        ProviderErrorType.AUTHENTICATION_ERROR,
+                        ProviderErrorType.INVALID_CREDENTIAL_TYPE,
                     ):
                         is_quota = True
 

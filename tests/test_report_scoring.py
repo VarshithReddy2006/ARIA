@@ -173,3 +173,119 @@ def test_score_calculation_degraded_repo():
     assert report.scores.hygiene < 80.0
     assert report.scores.churn < 80.0
     assert report.scores.grade in ["B", "C", "D", "F"]
+
+
+def test_why_this_score_and_attention_signals():
+    # Setup repo with cycles and dead code
+    mock_symbol = MagicMock()
+    mock_symbol.symbol_count = 20
+    mock_symbol.symbols = [MagicMock(name=f"f_{i}", type="function") for i in range(20)]
+    mock_symbol_service = MagicMock()
+    mock_symbol_service.load.return_value = mock_symbol
+
+    mock_dead_code = MagicMock()
+    mock_dead_code.unused_files = [
+        MagicMock(file_path="src/orphan.py", recommendation="Delete")
+    ]
+    mock_dead_code_service = MagicMock()
+    mock_dead_code_service.analyze.return_value = mock_dead_code
+
+    mock_churn = MagicMock()
+    mock_churn.hotspots = [MagicMock(file_path="src/hotspot.py", churn_score=0.95)]
+    mock_churn.file_records = [MagicMock() for _ in range(10)]
+    mock_git_history_service = MagicMock()
+    mock_git_history_service.load.return_value = mock_churn
+
+    mock_graph = nx.DiGraph()
+    mock_graph.add_edge("src/a.py", "src/b.py")
+    mock_graph.add_edge("src/b.py", "src/a.py")
+    mock_graph_service = MagicMock()
+    mock_graph_service.load_graph.return_value = mock_graph
+
+    mock_analysis = MagicMock()
+    mock_analysis.metadata = {"loc": "5000", "commits_count": "120"}
+    mock_analysis.tech_stack = ["python"]
+    mock_architecture = MagicMock()
+    mock_architecture.reading_order = ["src/a.py"]
+
+    store = {
+        "org/signals_test": {
+            "analysis": mock_analysis,
+            "architecture": mock_architecture,
+        }
+    }
+
+    composer = ReportComposer(
+        store=store,
+        symbol_service=mock_symbol_service,
+        call_graph_service=MagicMock(),
+        dead_code_service=mock_dead_code_service,
+        git_history_service=mock_git_history_service,
+        graph_service=mock_graph_service,
+    )
+
+    report = composer.compose_report("org/signals_test")
+
+    # Verify structured why_this_score
+    assert len(report.why_this_score) >= 1
+    arch_driver = next(
+        (
+            item
+            for item in report.why_this_score
+            if item.dimension == "Architecture Stability"
+        ),
+        None,
+    )
+    assert arch_driver is not None
+    assert "cycle" in arch_driver.evidence.lower()
+
+    # Verify signals_needing_attention
+    assert len(report.signals_needing_attention) >= 1
+    cycle_signal = next(
+        (
+            s
+            for s in report.signals_needing_attention
+            if "circular" in s.title.lower() or "cycle" in s.title.lower()
+        ),
+        None,
+    )
+    assert cycle_signal is not None
+    assert cycle_signal.severity in ["CRITICAL", "HIGH"]
+    assert cycle_signal.action_target == "graph"
+
+    # Verify refactoring_priorities
+    assert len(report.refactoring_priorities) >= 1
+    top_priority = report.refactoring_priorities[0]
+    assert any(
+        fp in top_priority
+        for fp in ["src/a.py", "src/b.py", "src/orphan.py", "src/hotspot.py"]
+    )
+
+
+def test_path_normalization_sanitizes_machine_and_cloned_paths():
+    composer = ReportComposer(
+        store={},
+        symbol_service=MagicMock(),
+        call_graph_service=MagicMock(),
+        dead_code_service=MagicMock(),
+        git_history_service=MagicMock(),
+        graph_service=MagicMock(),
+    )
+
+    # Windows absolute path
+    norm1 = composer._normalize_repo_path(
+        "C:\\VARSHITHREDDY\\projects\\Repo-Intelligence-Agent\\services\\foo.py"
+    )
+    assert norm1 == "services/foo.py"
+
+    # Cloned repos runtime path
+    norm2 = composer._normalize_repo_path("data/cloned_repos/owner/repo/core/engine.py")
+    assert norm2 == "core/engine.py"
+
+    # Linux absolute path
+    norm3 = composer._normalize_repo_path("/home/user/workspace/backend/api.py")
+    assert norm3 == "backend/api.py"
+
+    # Already relative path
+    norm4 = composer._normalize_repo_path("src/components/ReportPanel.tsx")
+    assert norm4 == "src/components/ReportPanel.tsx"

@@ -116,15 +116,31 @@ interface Props {
 
 // ── Execution Role Colors ─────────────────────────────────────────────────
 
+export const CG_EXECUTION_PALETTE = {
+  entry: '#2DD4BF',
+  call: '#818CF8',
+  branch: '#A78BFA',
+  recursion: '#F59E0B',
+  terminal: '#A1A1AA',
+  failure: '#FB7185',
+  sideEffect: '#C4B5FD',
+  external: '#71717A',
+  return: '#A1A1AA',
+  selection: '#6B74D9',
+  surface: '#07070A',
+  elevated: '#0E0E12',
+  border: 'rgba(255, 255, 255, 0.085)',
+} as const;
+
 const ROLE_ACCENT: Record<ExecutionRole, { color: string; border: string; bg: string }> = {
-  ENTRY:       { color: '#10b981', border: 'border-emerald-500/80', bg: 'bg-emerald-950/60' },
-  CALL:        { color: '#3b82f6', border: 'border-blue-500/60',    bg: 'bg-blue-950/40' },
-  BRANCH:      { color: '#8b5cf6', border: 'border-purple-500/70',  bg: 'bg-purple-950/50' },
-  RETURN:      { color: '#06b6d4', border: 'border-cyan-500/70',    bg: 'bg-cyan-950/40' },
-  'SIDE EFFECT': { color: '#f43f5e', border: 'border-rose-500/80',  bg: 'bg-rose-950/60' },
-  EXTERNAL:    { color: '#64748b', border: 'border-slate-500/60',   bg: 'bg-slate-900/60' },
-  RECURSIVE:   { color: '#f59e0b', border: 'border-amber-500/80',   bg: 'bg-amber-950/70' },
-  TERMINAL:    { color: '#71717a', border: 'border-zinc-700/80',    bg: 'bg-zinc-900/80' },
+  ENTRY:       { color: '#2DD4BF', border: 'border-[#2DD4BF]/30', bg: 'bg-[#2DD4BF]/10 text-[#2DD4BF]' },
+  CALL:        { color: '#818CF8', border: 'border-[#818CF8]/30', bg: 'bg-[#818CF8]/10 text-[#818CF8]' },
+  BRANCH:      { color: '#A78BFA', border: 'border-[#A78BFA]/30', bg: 'bg-[#A78BFA]/10 text-[#A78BFA]' },
+  RETURN:      { color: '#A1A1AA', border: 'border-zinc-700/50',  bg: 'bg-zinc-800/40 text-[#A1A1AA]' },
+  'SIDE EFFECT': { color: '#C4B5FD', border: 'border-[#C4B5FD]/30', bg: 'bg-[#C4B5FD]/10 text-[#C4B5FD]' },
+  EXTERNAL:    { color: '#71717A', border: 'border-zinc-800',     bg: 'bg-zinc-900/50 text-[#71717A]' },
+  RECURSIVE:   { color: '#F59E0B', border: 'border-[#F59E0B]/30', bg: 'bg-[#F59E0B]/10 text-[#F59E0B]' },
+  TERMINAL:    { color: '#A1A1AA', border: 'border-zinc-700/50',  bg: 'bg-zinc-800/40 text-[#A1A1AA]' },
 };
 
 function shortId(id: string): string {
@@ -159,21 +175,23 @@ const CustomCallNode: React.FC<{ data: CustomNodeData }> = ({ data }) => {
 
   const roleStyle = ROLE_ACCENT[role] || ROLE_ACCENT.CALL;
 
-  let borderStyle = roleStyle.border;
+  let borderStyle = 'border-[#1F1F23]';
   let glowStyle = '';
+  let surfaceBg = 'bg-[#08080A]';
 
   if (isSelected) {
-    borderStyle = 'border-indigo-400';
-    glowStyle = 'ring-2 ring-indigo-500/70 shadow-lg shadow-indigo-500/30';
+    borderStyle = 'border-[#5E6AD2]';
+    glowStyle = 'ring-1 ring-[#5E6AD2]/70 shadow-[0_0_20px_rgba(94,106,210,0.25)]';
+    surfaceBg = 'bg-[#0D0D10]';
   } else if (isOnPath) {
-    borderStyle = 'border-amber-400';
-    glowStyle = 'ring-2 ring-amber-400/60 shadow-md shadow-amber-500/25';
+    borderStyle = 'border-[#818CF8]/80';
+    glowStyle = 'ring-1 ring-[#818CF8]/50 shadow-sm shadow-[#818CF8]/20';
   } else if (isCaller) {
-    borderStyle = 'border-emerald-500';
-    glowStyle = 'ring-1 ring-emerald-500/50 shadow-sm shadow-emerald-500/15';
+    borderStyle = 'border-[#2DD4BF]/60';
+    glowStyle = 'ring-1 ring-[#2DD4BF]/40 shadow-sm shadow-[#2DD4BF]/15';
   } else if (isCallee) {
-    borderStyle = 'border-indigo-500';
-    glowStyle = 'ring-1 ring-indigo-500/50 shadow-sm shadow-indigo-500/15';
+    borderStyle = 'border-[#818CF8]/60';
+    glowStyle = 'ring-1 ring-[#818CF8]/40 shadow-sm shadow-[#818CF8]/15';
   }
 
   return (
@@ -183,46 +201,46 @@ const CustomCallNode: React.FC<{ data: CustomNodeData }> = ({ data }) => {
         height: CG_NODE_H,
         transitionDelay: `${stageDelayMs}ms`,
       }}
-      className={`relative flex flex-col justify-center px-3 py-1.5 rounded-lg bg-zinc-950/95 border ${borderStyle} ${glowStyle} cursor-pointer select-none transition-all duration-200 ${
-        isDimmed ? 'opacity-15 scale-95' : 'opacity-100 hover:border-zinc-400'
+      className={`relative flex flex-col justify-center px-3 py-1.5 rounded-lg ${surfaceBg} border ${borderStyle} ${glowStyle} cursor-pointer select-none transition-all duration-200 ${
+        isDimmed ? 'opacity-15' : 'opacity-100 hover:border-zinc-500'
       }`}
     >
       <Handle
         type="target"
         position={Position.Top}
-        className="!w-1.5 !h-1.5 !bg-zinc-500 !border-none !-top-1"
+        className="!w-1.5 !h-1.5 !bg-zinc-600 !border-none !-top-1"
       />
       <Handle
         type="source"
         position={Position.Bottom}
-        className="!w-1.5 !h-1.5 !bg-zinc-500 !border-none !-bottom-1"
+        className="!w-1.5 !h-1.5 !bg-zinc-600 !border-none !-bottom-1"
       />
 
       <div className="flex items-center justify-between gap-1.5 min-w-0">
         <div className="flex items-center gap-1.5 min-w-0 flex-1">
           <span
-            className="w-2 h-2 rounded-full shrink-0 shadow-sm"
+            className="w-1.5 h-1.5 rounded-full shrink-0 shadow-sm"
             style={{ backgroundColor: roleStyle.color }}
             aria-hidden="true"
           />
-          <span className="text-[11px] font-bold text-zinc-100 truncate font-mono" title={node.label}>
+          <span className="text-[11px] font-bold text-[#EDEDED] truncate font-mono" title={node.label}>
             {shortId(node.id)}
           </span>
         </div>
 
         <span
-          className={`text-[8px] font-mono font-extrabold px-1.5 py-0.5 rounded shrink-0 border ${roleStyle.bg} text-zinc-200 border-zinc-700/80`}
+          className={`text-[8px] font-mono font-extrabold px-1.5 py-0.5 rounded shrink-0 border ${roleStyle.border} ${roleStyle.bg}`}
         >
           {role}
         </span>
       </div>
 
-      <div className="flex items-center justify-between text-[9px] text-zinc-500 font-mono mt-1 pt-1 border-t border-zinc-900">
+      <div className="flex items-center justify-between text-[9px] text-[#71717A] font-mono mt-1 pt-1 border-t border-[#1F1F23]">
         <span className="truncate max-w-[110px]" title={node.file_path || 'source'}>
           {node.file_path ? node.file_path.split('/').pop() : ''}
         </span>
-        <span className="shrink-0 text-zinc-400 font-medium">
-          <span className="text-emerald-400" title="Callers (Fan-in)">{node.fan_in}↓</span> / <span className="text-indigo-400" title="Callees (Fan-out)">{node.fan_out}↑</span>
+        <span className="shrink-0 text-[#A1A1AA] font-medium">
+          <span className="text-[#2DD4BF]" title="Callers (Fan-in)">{node.fan_in}↓</span> / <span className="text-[#818CF8]" title="Callees (Fan-out)">{node.fan_out}↑</span>
         </span>
       </div>
     </div>
@@ -357,15 +375,23 @@ const CallGraphCanvas: React.FC<CanvasProps> = ({
         'execution',
       );
 
+      const edgeStroke = isPathEdge
+        ? '#818CF8'
+        : isIncoming
+          ? '#2DD4BF'
+          : isOutgoing
+            ? '#818CF8'
+            : visual.stroke;
+
       return {
         id: `e-${i}-${e.source}-${e.target}`,
         source: e.source,
         target: e.target,
         animated: false,
         style: {
-          stroke: isPathEdge ? '#f59e0b' : isIncoming ? '#10b981' : isOutgoing ? '#6366f1' : visual.stroke,
+          stroke: edgeStroke,
           strokeWidth: isPathEdge ? 2.5 : visual.strokeWidth,
-          opacity: isPathEdge ? 1 : visual.opacity,
+          opacity: isPathEdge ? 0.95 : visual.opacity,
           strokeDasharray: visual.dash,
           transition: edgeTransition(choreo),
         },
@@ -373,7 +399,7 @@ const CallGraphCanvas: React.FC<CanvasProps> = ({
           type: MarkerType.ArrowClosed,
           width: 10,
           height: 10,
-          color: isPathEdge ? '#f59e0b' : isIncoming ? '#10b981' : isOutgoing ? '#6366f1' : visual.stroke,
+          color: edgeStroke,
         },
         ...(visual.bothEnds
           ? {
@@ -499,7 +525,7 @@ const CallGraphCanvas: React.FC<CanvasProps> = ({
                 onClick={onToggleFocusOnly}
                 className={`px-2 py-1 rounded text-[10px] font-bold uppercase transition-colors ${
                   focusOnly
-                    ? 'bg-indigo-600 text-white shadow-sm'
+                    ? 'bg-[#5E6AD2] text-white shadow-sm'
                     : 'text-zinc-400 hover:text-zinc-100 hover:bg-zinc-900'
                 }`}
                 title={focusOnly ? 'Show full graph' : 'Isolate focused neighborhood'}
@@ -526,11 +552,11 @@ const CallGraphCanvas: React.FC<CanvasProps> = ({
         <MiniMap
           nodeColor={(n: any) => {
             const original = n.data?.node as CgNode;
-            if (!original) return '#27272a';
-            if (original.is_recursive) return '#f59e0b';
-            if (original.category === 'entry_point') return '#10b981';
-            if (original.fan_in >= 5) return '#3b82f6';
-            return '#3f3f46';
+            if (!original) return '#1f1f23';
+            if (original.is_recursive) return '#F59E0B';
+            if (original.category === 'entry_point') return '#2DD4BF';
+            if (original.fan_in >= 5) return '#A78BFA';
+            return '#27272a';
           }}
           maskColor="rgba(3, 3, 3, 0.88)"
           className="!bg-zinc-950/95 !border-zinc-800/80 !rounded-md overflow-hidden shadow-2xl"
@@ -716,12 +742,12 @@ const NodePanel: React.FC<NodePanelProps> = ({
       </div>
 
       {/* Tabs */}
-      <div className="flex border-b border-zinc-800 bg-zinc-950 select-none text-[9px] font-bold uppercase overflow-x-auto">
+      <div className="flex border-b border-[#1F1F23] bg-[#08080A] select-none text-[9px] font-bold uppercase overflow-x-auto">
         <button
           onClick={() => setPanelTab('execution')}
           className={`flex-1 py-2 px-1 text-center border-b-2 transition-all whitespace-nowrap ${
             panelTab === 'execution'
-              ? 'border-indigo-400 text-indigo-300 bg-indigo-500/10 font-extrabold'
+              ? 'border-[#5E6AD2] text-[#EDEDED] bg-[#5E6AD2]/10 font-extrabold'
               : 'border-transparent text-zinc-400 hover:text-zinc-200'
           }`}
         >
@@ -731,7 +757,7 @@ const NodePanel: React.FC<NodePanelProps> = ({
           onClick={() => setPanelTab('callers')}
           className={`flex-1 py-2 px-1 text-center border-b-2 transition-all whitespace-nowrap ${
             panelTab === 'callers'
-              ? 'border-indigo-400 text-indigo-300 bg-indigo-500/10 font-extrabold'
+              ? 'border-[#5E6AD2] text-[#EDEDED] bg-[#5E6AD2]/10 font-extrabold'
               : 'border-transparent text-zinc-400 hover:text-zinc-200'
           }`}
         >
@@ -741,7 +767,7 @@ const NodePanel: React.FC<NodePanelProps> = ({
           onClick={() => setPanelTab('callees')}
           className={`flex-1 py-2 px-1 text-center border-b-2 transition-all whitespace-nowrap ${
             panelTab === 'callees'
-              ? 'border-indigo-400 text-indigo-300 bg-indigo-500/10 font-extrabold'
+              ? 'border-[#5E6AD2] text-[#EDEDED] bg-[#5E6AD2]/10 font-extrabold'
               : 'border-transparent text-zinc-400 hover:text-zinc-200'
           }`}
         >
@@ -751,7 +777,7 @@ const NodePanel: React.FC<NodePanelProps> = ({
           onClick={() => setPanelTab('technical')}
           className={`flex-1 py-2 px-1 text-center border-b-2 transition-all whitespace-nowrap ${
             panelTab === 'technical'
-              ? 'border-indigo-400 text-indigo-300 bg-indigo-500/10 font-extrabold'
+              ? 'border-[#5E6AD2] text-[#EDEDED] bg-[#5E6AD2]/10 font-extrabold'
               : 'border-transparent text-zinc-400 hover:text-zinc-200'
           }`}
         >
@@ -764,14 +790,14 @@ const NodePanel: React.FC<NodePanelProps> = ({
         {panelTab === 'execution' && (
           <>
             {/* Coupling Band Verdict */}
-            <div className="flex items-center justify-between p-2.5 bg-zinc-900/80 border border-zinc-800 rounded-lg text-xs">
+            <div className="flex items-center justify-between p-2.5 bg-[#0D0D10] border border-[#1F1F23] rounded-lg text-xs">
               <div className="space-y-0.5">
                 <span className="text-[9px] font-bold text-zinc-400 uppercase tracking-wider block">Coupling Verdict</span>
                 <span className="text-[9px] text-zinc-500 block">Derived from fan-in and degree metrics</span>
               </div>
               <span className={`text-[9px] font-bold px-2 py-0.5 rounded border uppercase ${
                 couplingBand.tone === 'warn'
-                  ? 'text-amber-400 bg-amber-950/40 border-amber-500/40'
+                  ? 'text-[#F59E0B] bg-[#F59E0B]/10 border-[#F59E0B]/30'
                   : 'text-zinc-300 bg-zinc-800 border-zinc-700'
               }`}>
                 {couplingBand.text}
@@ -779,31 +805,31 @@ const NodePanel: React.FC<NodePanelProps> = ({
             </div>
 
             {/* Role & Behavioral Reach */}
-            <div className="p-2.5 bg-zinc-900/80 border border-zinc-800 rounded-lg flex items-center justify-between">
+            <div className="p-2.5 bg-[#0D0D10] border border-[#1F1F23] rounded-lg flex items-center justify-between">
               <div className="space-y-0.5">
                 <span className="text-[9px] font-bold text-zinc-400 uppercase tracking-wider block">Execution Role</span>
                 <span className="text-[10px] text-zinc-200 font-semibold">{role}</span>
               </div>
-              <span className={`text-[9px] font-bold px-2 py-0.5 rounded border uppercase ${ROLE_ACCENT[role]?.bg || 'bg-zinc-800'} text-zinc-200 border-zinc-700`}>
+              <span className={`text-[9px] font-bold px-2 py-0.5 rounded border uppercase ${ROLE_ACCENT[role]?.border || 'border-zinc-700'} ${ROLE_ACCENT[role]?.bg || 'bg-zinc-800'}`}>
                 {role}
               </span>
             </div>
 
             {/* Execution Metrics Grid */}
             <div className="grid grid-cols-3 gap-2 select-none">
-              <div className="p-2 bg-zinc-900/80 border border-zinc-800 rounded-lg text-center">
+              <div className="p-2 bg-[#0D0D10] border border-[#1F1F23] rounded-lg text-center">
                 <p className="text-zinc-400 text-[8px] uppercase tracking-wider font-bold">Inbound</p>
-                <p className="text-base font-bold text-emerald-400 mt-0.5">{node.fan_in}</p>
+                <p className="text-base font-bold text-[#2DD4BF] mt-0.5">{node.fan_in}</p>
                 <p className="text-[7px] text-zinc-500">callers</p>
               </div>
-              <div className="p-2 bg-zinc-900/80 border border-zinc-800 rounded-lg text-center">
+              <div className="p-2 bg-[#0D0D10] border border-[#1F1F23] rounded-lg text-center">
                 <p className="text-zinc-400 text-[8px] uppercase tracking-wider font-bold">Outbound</p>
-                <p className="text-base font-bold text-indigo-400 mt-0.5">{node.fan_out}</p>
+                <p className="text-base font-bold text-[#818CF8] mt-0.5">{node.fan_out}</p>
                 <p className="text-[7px] text-zinc-500">callees</p>
               </div>
-              <div className="p-2 bg-zinc-900/80 border border-zinc-800 rounded-lg text-center">
+              <div className="p-2 bg-[#0D0D10] border border-[#1F1F23] rounded-lg text-center">
                 <p className="text-zinc-400 text-[8px] uppercase tracking-wider font-bold">Centrality</p>
-                <p className="text-base font-bold text-amber-400 mt-0.5">{(node.centrality * 100).toFixed(0)}%</p>
+                <p className="text-base font-bold text-[#A78BFA] mt-0.5">{(node.centrality * 100).toFixed(0)}%</p>
                 <p className="text-[7px] text-zinc-500">route influence</p>
               </div>
             </div>
@@ -1234,6 +1260,7 @@ export const CallGraphAnalyzer: React.FC<Props> = ({ repoName }) => {
   const [activePathNodes, setActivePathNodes] = useState<Set<string>>(new Set());
   const [activeTraceRoute, setActiveTraceRoute] = useState<TraceRouteDetails | null>(null);
   const [activeSimulation, setActiveSimulation] = useState<ChangeSimulationImpact | null>(null);
+  const [selectionGuidanceMessage, setSelectionGuidanceMessage] = useState<string | null>(null);
   const [focusOnly, setFocusOnly] = useState(false);
   const [showStory, setShowStory] = useState(true);
 
@@ -1395,9 +1422,62 @@ export const CallGraphAnalyzer: React.FC<Props> = ({ repoName }) => {
 
   // Change Simulation Handler
   const handleSimulateChange = useCallback((node: CgNode) => {
+    setSelectionGuidanceMessage(null);
+    setSelectedNode(node);
     const sim = simulateChangeImpact(node.id, filteredNodes, filteredEdges);
     setActiveSimulation(sim);
-  }, [filteredNodes, filteredEdges]);
+    const allIds = [sim.targetId, ...sim.downstreamCascade];
+    setActivePathNodes(new Set(allIds));
+    loadBlastRadius(node.id);
+  }, [filteredNodes, filteredEdges, loadBlastRadius]);
+
+  // Investigation Actions Handlers
+  const handleInvestigateWhatHappens = useCallback(() => {
+    setSelectionGuidanceMessage(null);
+    setMode('execution_flows');
+    if (selectedNode) {
+      // Trace path from/to the selected function
+      const upstream = tracePathToNode(selectedNode.id, filteredNodes, filteredEdges, 'upstream');
+      const downstream = tracePathToNode(selectedNode.id, filteredNodes, filteredEdges, 'downstream');
+      const combined = Array.from(new Set([...upstream, ...downstream]));
+      setActivePathNodes(new Set(combined));
+      const details = traceDetailedRoute(combined, filteredNodes, filteredEdges, selectedNode.id);
+      setActiveTraceRoute(details);
+    } else if (rankedFlows.length > 0) {
+      setActiveFlow(rankedFlows[0]);
+      setActivePathNodes(new Set(rankedFlows[0].path));
+    }
+  }, [selectedNode, rankedFlows, filteredNodes, filteredEdges]);
+
+  const handleInvestigateWhereCanItBreak = useCallback(() => {
+    setSelectionGuidanceMessage(null);
+    setMode('failure_boundaries');
+    if (selectedNode) {
+      // If a node is selected, find if it or its downstream neighbors hit failure boundaries
+      const downstream = tracePathToNode(selectedNode.id, filteredNodes, filteredEdges, 'downstream');
+      const relevantBoundaries = failureBoundariesList.filter(
+        (fb) => fb.nodeId === selectedNode.id || downstream.includes(fb.nodeId)
+      );
+      if (relevantBoundaries.length > 0) {
+        setActivePathNodes(new Set([selectedNode.id, ...relevantBoundaries.map((b) => b.nodeId)]));
+      }
+    }
+  }, [selectedNode, failureBoundariesList, filteredNodes, filteredEdges]);
+
+  const handleInvestigateWhatChanges = useCallback(() => {
+    const target = selectedNode || signals.primaryEntryPoint || (filteredNodes.length > 0 ? filteredNodes[0] : null);
+    if (!target) {
+      setSelectionGuidanceMessage('Select a function to analyze its change impact.');
+      return;
+    }
+    if (!selectedNode) {
+      setSelectedNode(target);
+      setSelectionGuidanceMessage(`Analyzing change impact for ${shortId(target.id)}() (primary entry point). Select any function to analyze its specific blast radius.`);
+    } else {
+      setSelectionGuidanceMessage(null);
+    }
+    handleSimulateChange(target);
+  }, [selectedNode, signals.primaryEntryPoint, filteredNodes, handleSimulateChange]);
 
   // Keyboard shortcut '/'
   useEffect(() => {
@@ -1522,27 +1602,27 @@ export const CallGraphAnalyzer: React.FC<Props> = ({ repoName }) => {
             <span className="text-[10px] text-zinc-400 uppercase tracking-wider">REPOSITORY EXECUTION</span>
           </div>
           <div className="flex items-center gap-2 text-[10px] text-zinc-400 flex-wrap">
-            <span className="text-zinc-200 font-bold">{filteredNodes.length.toLocaleString()}</span> FUNCTIONS
+            <span className="text-[#EDEDED] font-bold">{filteredNodes.length.toLocaleString()}</span> FUNCTIONS
             <span className="text-zinc-600">·</span>
-            <span className="text-zinc-200 font-bold">{filteredEdges.length.toLocaleString()}</span> CALL EDGES
+            <span className="text-[#EDEDED] font-bold">{filteredEdges.length.toLocaleString()}</span> CALL EDGES
             <span className="text-zinc-600">·</span>
-            <span className="text-emerald-400 font-bold">{signals.entryPointCount}</span> ENTRY POINTS
+            <span className="text-[#2DD4BF] font-bold">{signals.entryPointCount}</span> ENTRY POINTS
             {signals.recursiveSymbolsCount > 0 && (
               <>
                 <span className="text-zinc-600">·</span>
-                <span className="text-amber-400 font-bold">{signals.recursiveSymbolsCount}</span> RECURSIVE
+                <span className="text-[#F59E0B] font-bold">{signals.recursiveSymbolsCount}</span> RECURSIVE
               </>
             )}
             {signals.highFanInCount > 0 && (
               <>
                 <span className="text-zinc-600">·</span>
-                <span className="text-indigo-400 font-bold">{signals.highFanInCount}</span> HIGH FAN-IN
+                <span className="text-[#A78BFA] font-bold">{signals.highFanInCount}</span> HIGH FAN-IN
               </>
             )}
             {signals.disconnectedCount > 0 && (
               <>
                 <span className="text-zinc-600">·</span>
-                <span className="text-zinc-500">{signals.disconnectedCount} DISCONNECTED</span>
+                <span className="text-[#71717A]">{signals.disconnectedCount} DISCONNECTED</span>
               </>
             )}
           </div>
@@ -1550,12 +1630,12 @@ export const CallGraphAnalyzer: React.FC<Props> = ({ repoName }) => {
 
         {/* Header Actions */}
         <div className="flex items-center gap-3 shrink-0">
-          <div className="flex items-center bg-zinc-900 border border-zinc-800 rounded p-0.5 text-[9px]">
+          <div className="flex items-center bg-[#08080A] border border-[#1F1F23] rounded p-0.5 text-[9px]">
             <button
               onClick={() => setActiveView('graph')}
               className={`px-3 py-1 rounded font-bold transition-all ${
                 activeView === 'graph'
-                  ? 'bg-indigo-600 text-white shadow-sm'
+                  ? 'bg-[#5E6AD2] text-white shadow-sm'
                   : 'text-zinc-400 hover:text-zinc-200'
               }`}
             >
@@ -1565,7 +1645,7 @@ export const CallGraphAnalyzer: React.FC<Props> = ({ repoName }) => {
               onClick={() => setActiveView('stats')}
               className={`px-3 py-1 rounded font-bold transition-all ${
                 activeView === 'stats'
-                  ? 'bg-indigo-600 text-white shadow-sm'
+                  ? 'bg-[#5E6AD2] text-white shadow-sm'
                   : 'text-zinc-400 hover:text-zinc-200'
               }`}
             >
@@ -1605,15 +1685,15 @@ export const CallGraphAnalyzer: React.FC<Props> = ({ repoName }) => {
 
       {/* Hero Initial Experience: "WHAT HAPPENS WHEN THIS SOFTWARE RUNS?" */}
       {signals.executionStory && (
-        <div className="p-4 bg-zinc-950/95 border border-indigo-500/30 rounded-xl space-y-3 font-mono shadow-2xl">
+        <div className="p-4 bg-[#08080A] border border-[#5E6AD2]/30 rounded-xl space-y-3 font-mono shadow-2xl">
           <div className="flex items-center justify-between flex-wrap gap-2">
             <div className="flex items-center gap-2">
-              <Play className="h-4 w-4 text-emerald-400 fill-emerald-500/20" />
+              <Play className="h-4 w-4 text-[#2DD4BF] fill-[#2DD4BF]/20" />
               <div>
-                <h3 className="font-extrabold text-xs text-zinc-100 uppercase tracking-wider">
+                <h3 className="font-extrabold text-xs text-[#EDEDED] uppercase tracking-wider">
                   WHAT HAPPENS WHEN THIS SOFTWARE RUNS?
                 </h3>
-                <p className="text-[10px] text-zinc-400">
+                <p className="text-[10px] text-[#A1A1AA]">
                   {signals.executionStory.summaryText}
                 </p>
               </div>
@@ -1630,13 +1710,19 @@ export const CallGraphAnalyzer: React.FC<Props> = ({ repoName }) => {
 
           {/* Primary Flow Flowchart Ribbon */}
           {signals.executionStory.whatHappensFirst.length > 0 && (
-            <div className="p-2.5 bg-zinc-900/80 border border-zinc-800 rounded-lg overflow-x-auto">
+            <div className="p-2.5 bg-[#0D0D10] border border-[#1F1F23] rounded-lg overflow-x-auto">
               <div className="flex items-center gap-2 min-w-max">
                 {signals.executionStory.whatHappensFirst.map((step, idx) => (
                   <React.Fragment key={idx}>
-                    <div className="px-2.5 py-1 bg-zinc-950 border border-zinc-800 rounded text-[10px] text-zinc-200 font-semibold flex items-center gap-1.5 shadow-sm">
-                      <span className={`text-[8px] font-bold px-1 rounded ${idx === 0 ? 'text-emerald-400 bg-emerald-950' : idx === signals.executionStory!.whatHappensFirst.length - 1 ? 'text-rose-400 bg-rose-950' : 'text-blue-400 bg-blue-950'}`}>
-                        {idx === 0 ? 'ENTRY' : idx === signals.executionStory!.whatHappensFirst.length - 1 ? 'RETURN' : 'ACTION'}
+                    <div className="px-2.5 py-1 bg-[#08080A] border border-[#1F1F23] rounded text-[10px] text-[#EDEDED] font-semibold flex items-center gap-1.5 shadow-sm">
+                      <span className={`text-[8px] font-bold px-1.5 py-0.5 rounded border ${
+                        idx === 0
+                          ? 'text-[#2DD4BF] bg-[#2DD4BF]/10 border-[#2DD4BF]/30'
+                          : idx === signals.executionStory!.whatHappensFirst.length - 1
+                            ? 'text-[#A1A1AA] bg-zinc-800/40 border-zinc-700/50'
+                            : 'text-[#818CF8] bg-[#818CF8]/10 border-[#818CF8]/30'
+                      }`}>
+                        {idx === 0 ? 'ENTRY' : idx === signals.executionStory!.whatHappensFirst.length - 1 ? 'TERMINAL' : 'CALL'}
                       </span>
                       <span>{step.split(':')[1]?.trim() || step}</span>
                     </div>
@@ -1651,10 +1737,10 @@ export const CallGraphAnalyzer: React.FC<Props> = ({ repoName }) => {
 
           {/* Narrative Grounded Statements */}
           {showStory && signals.executionStory.narrativeParagraphs.length > 0 && (
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-2 pt-1 border-t border-zinc-800/60 text-[11px] font-sans text-zinc-300 leading-relaxed">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-2 pt-1 border-t border-[#1F1F23] text-[11px] font-sans text-zinc-300 leading-relaxed">
               {signals.executionStory.narrativeParagraphs.map((p, idx) => (
                 <div key={idx} className="p-2 bg-zinc-900/40 border border-zinc-800/60 rounded flex items-start gap-2">
-                  <span className="text-indigo-400 font-bold shrink-0 mt-0.5">•</span>
+                  <span className="text-[#5E6AD2] font-bold shrink-0 mt-0.5">•</span>
                   <span>{p}</span>
                 </div>
               ))}
@@ -1662,53 +1748,99 @@ export const CallGraphAnalyzer: React.FC<Props> = ({ repoName }) => {
           )}
 
           {/* Three Immediate Developer Investigation Actions */}
-          <div className="pt-2 border-t border-zinc-800/80 flex items-center gap-2 flex-wrap">
-            <span className="text-[9px] font-bold text-zinc-500 uppercase tracking-wider mr-1">
-              INVESTIGATE:
-            </span>
+          <div className="pt-2 border-t border-[#1F1F23] space-y-2">
+            <div className="flex items-center justify-between flex-wrap gap-2">
+              <span className="text-[9px] font-bold text-zinc-500 uppercase tracking-wider flex items-center gap-1.5">
+                <span>INVESTIGATE{selectedNode ? `: ${shortId(selectedNode.id)}()` : ''}</span>
+                {selectedNode && (
+                  <span className="text-[8px] text-[#5E6AD2] font-semibold lowercase">
+                    (context locked to selection)
+                  </span>
+                )}
+              </span>
+              <span className="text-[8px] text-zinc-500 font-mono hidden sm:inline">
+                {selectedNode ? '3 lenses over selected function' : 'Select any function or investigate active flow'}
+              </span>
+            </div>
 
-            <button
-              onClick={() => {
-                setMode('execution_flows');
-                if (rankedFlows.length > 0) {
-                  setActiveFlow(rankedFlows[0]);
-                  setActivePathNodes(new Set(rankedFlows[0].path));
-                }
-              }}
-              className={`px-3 py-1.5 rounded text-[10px] font-bold uppercase transition-all flex items-center gap-1.5 ${
-                mode === 'execution_flows'
-                  ? 'bg-indigo-600 text-white shadow-md'
-                  : 'bg-zinc-900 border border-zinc-800 text-zinc-300 hover:text-zinc-100 hover:border-indigo-500/50'
-              }`}
-            >
-              <Play className="h-3 w-3 text-emerald-400" /> 1. What happens?
-            </button>
+            <div className="flex items-center gap-2.5 flex-wrap">
+              {/* ACTION 1: WHAT HAPPENS? */}
+              <button
+                onClick={handleInvestigateWhatHappens}
+                title="What executes from this function? Understand execution flow, caller-callee relationships, branches, and terminal states."
+                className={`group px-3 py-1.5 rounded-md transition-all flex items-center gap-2 border ${
+                  mode === 'execution_flows' && !activeSimulation
+                    ? 'bg-[#5E6AD2] border-[#5E6AD2] text-white shadow-md'
+                    : 'bg-[#08080A] border-[#1F1F23] text-zinc-300 hover:text-zinc-100 hover:border-[#5E6AD2]/50'
+                }`}
+              >
+                <Play className={`h-3.5 w-3.5 ${mode === 'execution_flows' && !activeSimulation ? 'text-white' : 'text-[#2DD4BF]'}`} />
+                <div className="text-left leading-tight">
+                  <div className="text-[10px] font-bold uppercase tracking-wide">WHAT HAPPENS?</div>
+                  <div className={`text-[8px] lowercase ${mode === 'execution_flows' && !activeSimulation ? 'text-indigo-100' : 'text-zinc-500 group-hover:text-zinc-400'}`}>
+                    understand execution flow
+                  </div>
+                </div>
+              </button>
 
-            <button
-              onClick={() => {
-                setMode('failure_boundaries');
-              }}
-              className={`px-3 py-1.5 rounded text-[10px] font-bold uppercase transition-all flex items-center gap-1.5 ${
-                mode === 'failure_boundaries'
-                  ? 'bg-rose-600 text-white shadow-md'
-                  : 'bg-zinc-900 border border-zinc-800 text-zinc-300 hover:text-zinc-100 hover:border-rose-500/50'
-              }`}
-            >
-              <AlertTriangle className="h-3 w-3 text-rose-400" /> 2. Where can it break?
-            </button>
+              {/* ACTION 2: WHERE CAN IT BREAK? */}
+              <button
+                onClick={handleInvestigateWhereCanItBreak}
+                title="Find failure and exception boundaries in this execution path. Inspect error handlers, failure gates, and recursive loop guards."
+                className={`group px-3 py-1.5 rounded-md transition-all flex items-center gap-2 border ${
+                  mode === 'failure_boundaries' && !activeSimulation
+                    ? 'bg-[#5E6AD2] border-[#5E6AD2] text-white shadow-md ring-1 ring-[#FB7185]/50'
+                    : 'bg-[#08080A] border-[#1F1F23] text-zinc-300 hover:text-zinc-100 hover:border-[#FB7185]/50'
+                }`}
+              >
+                <AlertTriangle className={`h-3.5 w-3.5 ${mode === 'failure_boundaries' && !activeSimulation ? 'text-white' : 'text-[#FB7185]'}`} />
+                <div className="text-left leading-tight">
+                  <div className="text-[10px] font-bold uppercase tracking-wide">WHERE CAN IT BREAK?</div>
+                  <div className={`text-[8px] lowercase ${mode === 'failure_boundaries' && !activeSimulation ? 'text-indigo-100' : 'text-zinc-500 group-hover:text-zinc-400'}`}>
+                    find failure boundaries
+                  </div>
+                </div>
+              </button>
 
-            <button
-              onClick={() => {
-                if (signals.primaryEntryPoint) {
-                  handleSimulateChange(signals.primaryEntryPoint);
-                } else if (filteredNodes.length > 0) {
-                  handleSimulateChange(filteredNodes[0]);
-                }
-              }}
-              className="px-3 py-1.5 rounded text-[10px] font-bold uppercase transition-all flex items-center gap-1.5 bg-zinc-900 border border-zinc-800 text-zinc-300 hover:text-zinc-100 hover:border-amber-500/50"
-            >
-              <Zap className="h-3 w-3 text-amber-400" /> 3. What changes if I modify this?
-            </button>
+              {/* ACTION 3: WHAT CHANGES IF I MODIFY THIS? */}
+              <button
+                onClick={handleInvestigateWhatChanges}
+                disabled={brLoading}
+                title="Trace downstream impact of changing this function. Assess affected callers, downstream cascade, affected files, and test suites."
+                className={`group px-3 py-1.5 rounded-md transition-all flex items-center gap-2 border ${
+                  activeSimulation
+                    ? 'bg-[#5E6AD2] border-[#5E6AD2] text-white shadow-md ring-1 ring-[#A78BFA]/50'
+                    : 'bg-[#08080A] border-[#1F1F23] text-zinc-300 hover:text-zinc-100 hover:border-[#A78BFA]/50'
+                } ${brLoading ? 'opacity-70 cursor-wait' : ''}`}
+              >
+                {brLoading ? (
+                  <RefreshCw className="h-3.5 w-3.5 animate-spin text-white" />
+                ) : (
+                  <Zap className={`h-3.5 w-3.5 ${activeSimulation ? 'text-white' : 'text-[#A78BFA]'}`} />
+                )}
+                <div className="text-left leading-tight">
+                  <div className="text-[10px] font-bold uppercase tracking-wide">
+                    {brLoading ? 'ANALYZING IMPACT...' : 'WHAT CHANGES IF I MODIFY THIS?'}
+                  </div>
+                  <div className={`text-[8px] lowercase ${activeSimulation ? 'text-indigo-100' : 'text-zinc-500 group-hover:text-zinc-400'}`}>
+                    analyze change impact
+                  </div>
+                </div>
+              </button>
+            </div>
+
+            {/* Empty-Selection Guidance Message */}
+            {selectionGuidanceMessage && (
+              <div className="flex items-center justify-between p-2 bg-[#0D0D10] border border-[#5E6AD2]/30 rounded text-xs text-zinc-300">
+                <span className="text-[10px] font-mono">{selectionGuidanceMessage}</span>
+                <button
+                  onClick={() => setSelectionGuidanceMessage(null)}
+                  className="text-zinc-500 hover:text-zinc-200 text-[10px] uppercase font-bold"
+                >
+                  Dismiss
+                </button>
+              </div>
+            )}
           </div>
         </div>
       )}
@@ -1767,16 +1899,16 @@ export const CallGraphAnalyzer: React.FC<Props> = ({ repoName }) => {
           {activeView === 'graph' && (
             <div className="space-y-2">
               {/* Execution-First Modes Controller & Search */}
-              <div className="px-3 py-2 bg-zinc-950/95 border border-zinc-800/80 rounded-lg flex items-center justify-between gap-3 flex-wrap select-none text-xs shadow-md">
+              <div className="px-3 py-2 bg-[#08080A] border border-[#1F1F23] rounded-lg flex items-center justify-between gap-3 flex-wrap select-none text-xs shadow-md">
                 {/* Modes */}
-                <div className="flex items-center bg-zinc-900 border border-zinc-800 rounded p-0.5 text-[9px] overflow-x-auto">
+                <div className="flex items-center bg-[#0D0D10] border border-[#1F1F23] rounded p-0.5 text-[9px] overflow-x-auto">
                   <button
                     onClick={() => {
                       setMode('execution_flows');
                       setActiveTraceRoute(null);
                     }}
                     className={`px-2.5 py-1 rounded transition-all font-bold whitespace-nowrap ${
-                      mode === 'execution_flows' ? 'bg-indigo-600 text-white shadow-sm' : 'text-zinc-400 hover:text-zinc-200'
+                      mode === 'execution_flows' ? 'bg-[#5E6AD2] text-white shadow-sm' : 'text-zinc-400 hover:text-zinc-200'
                     }`}
                     title="Ranked end-to-end execution chains"
                   >
@@ -1785,7 +1917,7 @@ export const CallGraphAnalyzer: React.FC<Props> = ({ repoName }) => {
                   <button
                     onClick={() => setMode('trace')}
                     className={`px-2.5 py-1 rounded transition-all font-bold whitespace-nowrap ${
-                      mode === 'trace' ? 'bg-indigo-600 text-white shadow-sm' : 'text-zinc-400 hover:text-zinc-200'
+                      mode === 'trace' ? 'bg-[#5E6AD2] text-white shadow-sm' : 'text-zinc-400 hover:text-zinc-200'
                     }`}
                     title="Investigate upstream callers and downstream callees"
                   >
@@ -1794,7 +1926,7 @@ export const CallGraphAnalyzer: React.FC<Props> = ({ repoName }) => {
                   <button
                     onClick={() => setMode('failure_boundaries')}
                     className={`px-2.5 py-1 rounded transition-all font-bold whitespace-nowrap ${
-                      mode === 'failure_boundaries' ? 'bg-rose-600 text-white shadow-sm' : 'text-zinc-400 hover:text-zinc-200'
+                      mode === 'failure_boundaries' ? 'bg-[#5E6AD2] text-white shadow-sm ring-1 ring-[#FB7185]/50' : 'text-zinc-400 hover:text-zinc-200'
                     }`}
                     title="Failure boundaries & risky execution gates"
                   >
@@ -1803,7 +1935,7 @@ export const CallGraphAnalyzer: React.FC<Props> = ({ repoName }) => {
                   <button
                     onClick={() => setMode('branches')}
                     className={`px-2.5 py-1 rounded transition-all font-bold whitespace-nowrap ${
-                      mode === 'branches' ? 'bg-indigo-600 text-white shadow-sm' : 'text-zinc-400 hover:text-zinc-200'
+                      mode === 'branches' ? 'bg-[#5E6AD2] text-white shadow-sm' : 'text-zinc-400 hover:text-zinc-200'
                     }`}
                     title="Divergent conditional execution paths"
                   >
@@ -1812,7 +1944,7 @@ export const CallGraphAnalyzer: React.FC<Props> = ({ repoName }) => {
                   <button
                     onClick={() => setMode('hot_paths')}
                     className={`px-2.5 py-1 rounded transition-all font-bold whitespace-nowrap ${
-                      mode === 'hot_paths' ? 'bg-indigo-600 text-white shadow-sm' : 'text-zinc-400 hover:text-zinc-200'
+                      mode === 'hot_paths' ? 'bg-[#5E6AD2] text-white shadow-sm' : 'text-zinc-400 hover:text-zinc-200'
                     }`}
                     title="High route-participation symbols"
                   >
@@ -1821,7 +1953,7 @@ export const CallGraphAnalyzer: React.FC<Props> = ({ repoName }) => {
                   <button
                     onClick={() => setMode('recursion')}
                     className={`px-2.5 py-1 rounded transition-all font-bold whitespace-nowrap ${
-                      mode === 'recursion' ? 'bg-amber-500/20 text-amber-300 border border-amber-500' : 'text-zinc-400 hover:text-zinc-200'
+                      mode === 'recursion' ? 'bg-[#5E6AD2] text-white shadow-sm ring-1 ring-[#F59E0B]/50' : 'text-zinc-400 hover:text-zinc-200'
                     }`}
                     title="Recursive call cycles"
                   >
@@ -1830,7 +1962,7 @@ export const CallGraphAnalyzer: React.FC<Props> = ({ repoName }) => {
                   <button
                     onClick={() => setMode('symbol_detail')}
                     className={`px-2.5 py-1 rounded transition-all font-bold whitespace-nowrap ${
-                      mode === 'symbol_detail' ? 'bg-indigo-600 text-white shadow-sm' : 'text-zinc-400 hover:text-zinc-200'
+                      mode === 'symbol_detail' ? 'bg-[#5E6AD2] text-white shadow-sm' : 'text-zinc-400 hover:text-zinc-200'
                     }`}
                     title="Advanced full low-level topology"
                   >
@@ -1846,7 +1978,7 @@ export const CallGraphAnalyzer: React.FC<Props> = ({ repoName }) => {
                     value={searchQuery}
                     onChange={(e) => handleSearch(e.target.value)}
                     placeholder="Search functions, methods, symbols…"
-                    className="w-full bg-zinc-900/90 border border-zinc-800 rounded pl-8 pr-8 py-1 text-xs font-mono focus:outline-none focus:border-indigo-500 text-zinc-100 placeholder:text-zinc-500/70"
+                    className="w-full bg-[#0D0D10] border border-[#1F1F23] rounded pl-8 pr-8 py-1 text-xs font-mono focus:outline-none focus:border-[#5E6AD2] text-zinc-100 placeholder:text-zinc-500/70"
                     aria-label="Search call graph"
                   />
                   {searchQuery ? (
@@ -1892,10 +2024,10 @@ export const CallGraphAnalyzer: React.FC<Props> = ({ repoName }) => {
 
               {/* Execution Flows Mode: Ranked End-to-End Chains */}
               {mode === 'execution_flows' && rankedFlows.length > 0 && (
-                <div className="p-3 bg-zinc-950/90 border border-zinc-800/80 rounded-lg space-y-2 shadow-sm font-mono">
+                <div className="p-3 bg-[#08080A] border border-[#1F1F23] rounded-lg space-y-2 shadow-sm font-mono">
                   <div className="flex items-center justify-between text-[10px]">
-                    <span className="font-bold text-indigo-400 uppercase tracking-wider flex items-center gap-1">
-                      <Workflow className="h-3 w-3" /> Ranked Execution Flows (Top {rankedFlows.length})
+                    <span className="font-bold text-[#818CF8] uppercase tracking-wider flex items-center gap-1">
+                      <Workflow className="h-3 w-3 text-[#5E6AD2]" /> Ranked Execution Flows (Top {rankedFlows.length})
                     </span>
                     <span className="text-zinc-500">Click any flow to trace step-by-step execution</span>
                   </div>
@@ -1906,27 +2038,30 @@ export const CallGraphAnalyzer: React.FC<Props> = ({ repoName }) => {
                         key={flow.id}
                         className={`p-3 rounded-lg border text-left flex flex-col justify-between space-y-2 transition-all ${
                           activeFlow?.id === flow.id
-                            ? 'bg-indigo-950/50 border-indigo-500 ring-1 ring-indigo-500/40 shadow-lg'
-                            : 'bg-zinc-900/70 border-zinc-800/80 hover:border-zinc-700 text-zinc-300'
+                            ? 'bg-[#0D0D10] border-[#5E6AD2] ring-1 ring-[#5E6AD2]/50 shadow-lg'
+                            : 'bg-[#08080A] border-[#1F1F23] hover:border-zinc-700 text-zinc-300'
                         }`}
                       >
                         <div>
                           <div className="flex items-center justify-between text-[9px] text-zinc-400 mb-1">
-                            <span className="font-bold text-indigo-300">FLOW #{idx + 1}</span>
+                            <span className="font-bold text-[#818CF8]">FLOW #{idx + 1}</span>
                             <span>{flow.length} steps · {flow.crossModuleCount} modules</span>
                           </div>
 
                           {/* Step breakdown */}
-                          <div className="p-2 bg-zinc-950/80 border border-zinc-800/80 rounded my-1.5 space-y-1 text-[10px]">
-                            {flow.steps?.map((step, sIdx) => (
-                              <div key={sIdx} className="flex items-center gap-1.5 text-zinc-200 truncate">
-                                <span className={`text-[8px] font-bold px-1 rounded ${step.isEntry ? 'text-emerald-400 bg-emerald-950/80' : step.isTerminal ? 'text-zinc-400 bg-zinc-800' : 'text-blue-400 bg-blue-950/80'}`}>
-                                  {step.role}
-                                </span>
-                                <span className="font-semibold truncate">{step.label}()</span>
-                                <span className="text-[8px] text-zinc-500 truncate ml-auto">{step.filePath.split('/').pop()}</span>
-                              </div>
-                            ))}
+                          <div className="p-2 bg-[#0D0D10] border border-[#1F1F23] rounded my-1.5 space-y-1 text-[10px]">
+                            {flow.steps?.map((step, sIdx) => {
+                              const stepStyle = ROLE_ACCENT[step.role] || ROLE_ACCENT.CALL;
+                              return (
+                                <div key={sIdx} className="flex items-center gap-1.5 text-zinc-200 truncate">
+                                  <span className={`text-[8px] font-bold px-1.5 py-0.5 rounded border ${stepStyle.border} ${stepStyle.bg}`}>
+                                    {step.role}
+                                  </span>
+                                  <span className="font-semibold truncate">{step.label}()</span>
+                                  <span className="text-[8px] text-zinc-500 truncate ml-auto">{step.filePath.split('/').pop()}</span>
+                                </div>
+                              );
+                            })}
                           </div>
 
                           <div className="text-[9px] text-zinc-400 leading-tight font-sans">
@@ -1934,7 +2069,7 @@ export const CallGraphAnalyzer: React.FC<Props> = ({ repoName }) => {
                           </div>
                         </div>
 
-                        <div className="flex items-center gap-2 pt-1 border-t border-zinc-800/80">
+                        <div className="flex items-center gap-2 pt-1 border-t border-[#1F1F23]">
                           <button
                             onClick={() => {
                               setActiveFlow(flow);
@@ -1942,7 +2077,7 @@ export const CallGraphAnalyzer: React.FC<Props> = ({ repoName }) => {
                               const first = filteredNodes.find((n) => n.id === flow.path[0]);
                               if (first) setSelectedNode(first);
                             }}
-                            className="flex-1 py-1 bg-indigo-600 hover:bg-indigo-500 text-white rounded text-[9px] font-bold uppercase transition-all"
+                            className="flex-1 py-1 bg-[#5E6AD2] hover:bg-[#6D79E0] text-white rounded text-[9px] font-bold uppercase transition-all shadow-sm"
                           >
                             Trace Flow
                           </button>
@@ -1955,11 +2090,11 @@ export const CallGraphAnalyzer: React.FC<Props> = ({ repoName }) => {
 
               {/* Failure Boundaries Section ("WHERE CAN IT BREAK?") */}
               {mode === 'failure_boundaries' && (
-                <div className="p-3 bg-zinc-950 border border-rose-500/40 rounded-lg space-y-3 font-mono">
+                <div className="p-3 bg-[#08080A] border border-[#FB7185]/40 rounded-lg space-y-3 font-mono">
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-2">
-                      <AlertTriangle className="h-4 w-4 text-rose-400" />
-                      <h3 className="text-xs font-bold text-zinc-100 uppercase tracking-wider">
+                      <AlertTriangle className="h-4 w-4 text-[#FB7185]" />
+                      <h3 className="text-xs font-bold text-[#EDEDED] uppercase tracking-wider">
                         WHERE CAN IT BREAK? (Failure Boundaries & Critical Gates)
                       </h3>
                     </div>
@@ -1967,7 +2102,7 @@ export const CallGraphAnalyzer: React.FC<Props> = ({ repoName }) => {
                   </div>
 
                   {failureBoundariesList.length === 0 ? (
-                    <div className="p-3 bg-zinc-900/60 border border-zinc-800 rounded text-zinc-400 text-xs">
+                    <div className="p-3 bg-[#0D0D10] border border-[#1F1F23] rounded text-zinc-400 text-xs">
                       No high-risk database or recursive failure boundaries identified in static graph.
                     </div>
                   ) : (
@@ -1975,11 +2110,11 @@ export const CallGraphAnalyzer: React.FC<Props> = ({ repoName }) => {
                       {failureBoundariesList.slice(0, 6).map((fb) => (
                         <div
                           key={fb.id}
-                          className="p-3 bg-zinc-900/80 border border-rose-500/30 rounded-lg space-y-2 text-xs"
+                          className="p-3 bg-[#0D0D10] border border-[#FB7185]/30 rounded-lg space-y-2 text-xs"
                         >
                           <div className="flex items-center justify-between">
-                            <span className="text-[11px] font-bold text-rose-300">{fb.symbolName}</span>
-                            <span className={`text-[8px] px-1.5 py-0.5 rounded font-bold uppercase border ${fb.riskRating === 'Critical' ? 'bg-red-950/80 text-red-300 border-red-800' : 'bg-amber-950/80 text-amber-300 border-amber-800'}`}>
+                            <span className="text-[11px] font-bold text-[#FB7185]">{fb.symbolName}</span>
+                            <span className={`text-[8px] px-1.5 py-0.5 rounded font-bold uppercase border ${fb.riskRating === 'Critical' ? 'bg-[#FB7185]/15 text-[#FB7185] border-[#FB7185]/40' : 'bg-[#F59E0B]/15 text-[#F59E0B] border-[#F59E0B]/40'}`}>
                               {fb.boundaryType} · {fb.riskRating}
                             </span>
                           </div>
@@ -1988,12 +2123,12 @@ export const CallGraphAnalyzer: React.FC<Props> = ({ repoName }) => {
                             {fb.whyItIsRisky}
                           </p>
 
-                          <div className="flex items-center justify-between pt-1 border-t border-zinc-800 text-[9px] text-zinc-500">
+                          <div className="flex items-center justify-between pt-1 border-t border-[#1F1F23] text-[9px] text-zinc-500">
                             <span>Reachable from {fb.inboundEntryPathsCount} entry path(s)</span>
                             <div className="flex items-center gap-2">
                               <button
                                 onClick={() => handleTraceUpstream(fb.nodeId)}
-                                className="text-rose-400 hover:text-rose-300 font-bold uppercase"
+                                className="text-[#FB7185] hover:text-[#FB7185]/80 font-bold uppercase"
                               >
                                 Trace Ancestry
                               </button>
@@ -2008,11 +2143,11 @@ export const CallGraphAnalyzer: React.FC<Props> = ({ repoName }) => {
 
               {/* Trace Mode: WHERE DID EXECUTION COME FROM? vs WHAT HAPPENS NEXT? */}
               {mode === 'trace' && activeTraceRoute && (
-                <div className="p-3 bg-zinc-950 border border-indigo-500/40 rounded-lg space-y-3 font-mono">
+                <div className="p-3 bg-[#08080A] border border-[#5E6AD2]/40 rounded-lg space-y-3 font-mono">
                   <div className="flex items-center justify-between text-xs">
                     <div className="flex items-center gap-2">
-                      <Compass className="h-4 w-4 text-indigo-400" />
-                      <span className="font-bold text-zinc-100 uppercase">
+                      <Compass className="h-4 w-4 text-[#818CF8]" />
+                      <span className="font-bold text-[#EDEDED] uppercase">
                         Execution Trace: {shortId(activeTraceRoute.path[activeTraceRoute.path.length - 1] || '')}
                       </span>
                       <span className="text-[9px] text-zinc-400">
@@ -2029,28 +2164,28 @@ export const CallGraphAnalyzer: React.FC<Props> = ({ repoName }) => {
 
                   {/* Split Path Breakdown */}
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                    <div className="p-2.5 bg-zinc-900/80 border border-emerald-500/30 rounded-lg space-y-1.5">
-                      <span className="text-[9px] font-bold text-emerald-400 uppercase tracking-wider block">
+                    <div className="p-2.5 bg-[#0D0D10] border border-[#2DD4BF]/30 rounded-lg space-y-1.5">
+                      <span className="text-[9px] font-bold text-[#2DD4BF] uppercase tracking-wider block">
                         WHERE DID EXECUTION COME FROM? (Upstream Ancestry)
                       </span>
                       <div className="space-y-1">
                         {activeTraceRoute.upstreamPath.map((id, idx) => (
-                          <div key={id} className="flex items-center gap-2 text-[10px] text-zinc-200 p-1 bg-zinc-950/60 rounded">
-                            <span className="text-emerald-400 font-bold text-[9px]">#{idx + 1}</span>
+                          <div key={id} className="flex items-center gap-2 text-[10px] text-zinc-200 p-1 bg-[#08080A] border border-[#1F1F23] rounded">
+                            <span className="text-[#2DD4BF] font-bold text-[9px]">#{idx + 1}</span>
                             <span className="font-semibold truncate">{shortId(id)}()</span>
                           </div>
                         ))}
                       </div>
                     </div>
 
-                    <div className="p-2.5 bg-zinc-900/80 border border-indigo-500/30 rounded-lg space-y-1.5">
-                      <span className="text-[9px] font-bold text-indigo-400 uppercase tracking-wider block">
+                    <div className="p-2.5 bg-[#0D0D10] border border-[#818CF8]/30 rounded-lg space-y-1.5">
+                      <span className="text-[9px] font-bold text-[#818CF8] uppercase tracking-wider block">
                         WHAT HAPPENS NEXT? (Downstream Propagation)
                       </span>
                       <div className="space-y-1">
                         {activeTraceRoute.downstreamPath.map((id, idx) => (
-                          <div key={id} className="flex items-center gap-2 text-[10px] text-zinc-200 p-1 bg-zinc-950/60 rounded">
-                            <span className="text-indigo-400 font-bold text-[9px]">#{idx + 1}</span>
+                          <div key={id} className="flex items-center gap-2 text-[10px] text-zinc-200 p-1 bg-[#08080A] border border-[#1F1F23] rounded">
+                            <span className="text-[#818CF8] font-bold text-[9px]">#{idx + 1}</span>
                             <span className="font-semibold truncate">{shortId(id)}()</span>
                           </div>
                         ))}
@@ -2062,16 +2197,16 @@ export const CallGraphAnalyzer: React.FC<Props> = ({ repoName }) => {
 
               {/* Branch Mode: Divergent Execution Paths */}
               {mode === 'branches' && (
-                <div className="p-3 bg-zinc-950 border border-purple-500/40 rounded-lg space-y-3 font-mono">
+                <div className="p-3 bg-[#08080A] border border-[#A78BFA]/40 rounded-lg space-y-3 font-mono">
                   <div className="flex items-center gap-2">
-                    <Split className="h-4 w-4 text-purple-400" />
-                    <h3 className="text-xs font-bold text-zinc-100 uppercase tracking-wider">
+                    <Split className="h-4 w-4 text-[#A78BFA]" />
+                    <h3 className="text-xs font-bold text-[#EDEDED] uppercase tracking-wider">
                       Branch Points & Divergent Execution Routes ({branchPointsList.length} detected)
                     </h3>
                   </div>
 
                   {branchPointsList.length === 0 ? (
-                    <div className="p-3 bg-zinc-900/60 border border-zinc-800 rounded text-zinc-400 text-xs">
+                    <div className="p-3 bg-[#0D0D10] border border-[#1F1F23] rounded text-zinc-400 text-xs">
                       ARIA cannot establish the branch behavior from the indexed call graph.
                     </div>
                   ) : (
@@ -2079,38 +2214,38 @@ export const CallGraphAnalyzer: React.FC<Props> = ({ repoName }) => {
                       {branchPointsList.slice(0, 6).map((bp) => (
                         <div
                           key={bp.nodeId}
-                          className="p-3 bg-zinc-900/80 border border-purple-500/30 rounded-lg space-y-2 text-xs"
+                          className="p-3 bg-[#0D0D10] border border-[#A78BFA]/30 rounded-lg space-y-2 text-xs"
                         >
                           <div className="flex items-center justify-between">
-                            <span className="text-[11px] font-bold text-purple-300">{shortId(bp.nodeId)}()</span>
-                            <span className="text-[8px] bg-purple-950/80 text-purple-300 border border-purple-800 px-1.5 py-0.5 rounded font-bold uppercase">
+                            <span className="text-[11px] font-bold text-[#A78BFA]">{shortId(bp.nodeId)}()</span>
+                            <span className="text-[8px] bg-[#A78BFA]/10 text-[#A78BFA] border border-[#A78BFA]/30 px-1.5 py-0.5 rounded font-bold uppercase">
                               {bp.branchCount} Divergent Branches
                             </span>
                           </div>
                           <p className="text-[9px] text-zinc-400 font-sans">{bp.reason}</p>
 
-                          <div className="space-y-1 pt-1 border-t border-zinc-800">
+                          <div className="space-y-1 pt-1 border-t border-[#1F1F23]">
                             {bp.divergentBranches.map((br) => (
-                              <div key={br.targetId} className="p-1.5 bg-zinc-950/60 rounded flex items-center justify-between text-[10px]">
+                              <div key={br.targetId} className="p-1.5 bg-[#08080A] rounded flex items-center justify-between text-[10px]">
                                 <span className="text-zinc-200 truncate">→ {shortId(br.targetId)}()</span>
                                 <span className="text-[8px] text-zinc-500">{br.downstreamCount} downstream</span>
                               </div>
                             ))}
                           </div>
 
-                          <div className="flex items-center gap-2 pt-1 border-t border-zinc-800">
+                          <div className="flex items-center gap-2 pt-1 border-t border-[#1F1F23]">
                             <button
                               onClick={() => {
                                 setSelectedNode(bp.node);
                                 handleTraceUpstream(bp.nodeId);
                               }}
-                              className="flex-1 py-1 bg-purple-600 hover:bg-purple-500 text-white rounded text-[9px] font-bold uppercase"
+                              className="flex-1 py-1 bg-[#5E6AD2] hover:bg-[#6D79E0] text-white rounded text-[9px] font-bold uppercase shadow-sm"
                             >
                               Trace Branch Point
                             </button>
                             <button
                               onClick={() => handleSimulateChange(bp.node)}
-                              className="flex-1 py-1 bg-zinc-800 hover:bg-zinc-700 text-zinc-200 rounded text-[9px] font-bold uppercase"
+                              className="flex-1 py-1 bg-[#08080A] hover:bg-zinc-800 border border-[#1F1F23] text-zinc-200 rounded text-[9px] font-bold uppercase"
                             >
                               Simulate Change
                             </button>
@@ -2124,10 +2259,10 @@ export const CallGraphAnalyzer: React.FC<Props> = ({ repoName }) => {
 
               {/* Hot Paths Mode: High Route-Participation Symbols */}
               {mode === 'hot_paths' && (
-                <div className="p-3 bg-zinc-950 border border-zinc-800 rounded-lg space-y-3 font-mono">
+                <div className="p-3 bg-[#08080A] border border-[#1F1F23] rounded-lg space-y-3 font-mono">
                   <div className="flex items-center gap-2">
-                    <Flame className="h-4 w-4 text-orange-400" />
-                    <h3 className="text-xs font-bold text-zinc-100 uppercase tracking-wider">
+                    <Flame className="h-4 w-4 text-[#A78BFA]" />
+                    <h3 className="text-xs font-bold text-[#EDEDED] uppercase tracking-wider">
                       Hot Execution Paths & High Route Participation
                     </h3>
                   </div>
@@ -2136,30 +2271,30 @@ export const CallGraphAnalyzer: React.FC<Props> = ({ repoName }) => {
                     {rankedHotspotsList.map((h) => (
                       <div
                         key={h.node.id}
-                        className="p-3 bg-zinc-900/80 border border-zinc-800 hover:border-zinc-700 rounded-lg space-y-2 text-xs transition-all"
+                        className="p-3 bg-[#0D0D10] border border-[#1F1F23] hover:border-zinc-700 rounded-lg space-y-2 text-xs transition-all"
                       >
                         <div className="flex items-center justify-between">
-                          <span className="text-[9px] font-bold text-amber-400">#{h.rank} HOT PATH</span>
+                          <span className="text-[9px] font-bold text-[#A78BFA]">#{h.rank} HOT PATH</span>
                           <span className="text-[8px] text-zinc-500 truncate max-w-[140px]">{h.node.file_path}</span>
                         </div>
-                        <div className="font-bold text-zinc-100 truncate text-[11px]">{shortId(h.node.id)}()</div>
+                        <div className="font-bold text-[#EDEDED] truncate text-[11px]">{shortId(h.node.id)}()</div>
                         <div className="text-[9px] text-zinc-400 font-sans">{h.riskReason}</div>
-                        <div className="flex items-center gap-1.5 pt-1 border-t border-zinc-800/80">
+                        <div className="flex items-center gap-1.5 pt-1 border-t border-[#1F1F23]">
                           <button
                             onClick={() => setSelectedNode(h.node)}
-                            className="flex-1 py-1 bg-zinc-800 hover:bg-zinc-700 text-zinc-200 rounded text-[9px] font-bold uppercase"
+                            className="flex-1 py-1 bg-[#08080A] hover:bg-zinc-800 border border-[#1F1F23] text-zinc-200 rounded text-[9px] font-bold uppercase"
                           >
                             Center
                           </button>
                           <button
                             onClick={() => handleTraceUpstream(h.node.id)}
-                            className="flex-1 py-1 bg-indigo-500/10 hover:bg-indigo-500/20 text-indigo-300 border border-indigo-500/30 rounded text-[9px] font-bold uppercase"
+                            className="flex-1 py-1 bg-[#5E6AD2]/10 hover:bg-[#5E6AD2]/20 text-[#818CF8] border border-[#5E6AD2]/30 rounded text-[9px] font-bold uppercase"
                           >
                             Trace
                           </button>
                           <button
                             onClick={() => handleSimulateChange(h.node)}
-                            className="flex-1 py-1 bg-amber-500/10 hover:bg-amber-500/20 text-amber-300 border border-amber-500/30 rounded text-[9px] font-bold uppercase"
+                            className="flex-1 py-1 bg-[#A78BFA]/10 hover:bg-[#A78BFA]/20 text-[#A78BFA] border border-[#A78BFA]/30 rounded text-[9px] font-bold uppercase"
                           >
                             Simulate
                           </button>
@@ -2172,10 +2307,10 @@ export const CallGraphAnalyzer: React.FC<Props> = ({ repoName }) => {
 
               {/* Recursion Mode: Dedicated Recursive Cycles Diagnostics */}
               {mode === 'recursion' && (
-                <div className="p-3 bg-zinc-950 border border-amber-500/40 rounded-lg space-y-3 font-mono">
+                <div className="p-3 bg-[#08080A] border border-[#F59E0B]/40 rounded-lg space-y-3 font-mono">
                   <div className="flex items-center gap-2">
-                    <Repeat2 className="h-4 w-4 text-amber-400" />
-                    <h3 className="text-xs font-bold text-zinc-100 uppercase tracking-wider">
+                    <Repeat2 className="h-4 w-4 text-[#F59E0B]" />
+                    <h3 className="text-xs font-bold text-[#EDEDED] uppercase tracking-wider">
                       Recursion Diagnostics & Call Cycles ({recursiveClustersList.length} detected)
                     </h3>
                   </div>
@@ -2187,24 +2322,24 @@ export const CallGraphAnalyzer: React.FC<Props> = ({ repoName }) => {
                       {recursiveClustersList.map((cl) => (
                         <div
                           key={cl.id}
-                          className="p-3 bg-zinc-900/80 border border-amber-500/30 rounded-lg space-y-2 text-xs"
+                          className="p-3 bg-[#0D0D10] border border-[#F59E0B]/30 rounded-lg space-y-2 text-xs"
                         >
                           <div className="flex items-center justify-between">
-                            <span className="text-[11px] font-bold text-amber-300">{cl.name}</span>
-                            <span className="text-[8px] bg-amber-950/80 text-amber-400 border border-amber-800 px-1.5 py-0.5 rounded font-bold uppercase">
+                            <span className="text-[11px] font-bold text-[#F59E0B]">{cl.name}</span>
+                            <span className="text-[8px] bg-[#F59E0B]/10 text-[#F59E0B] border border-[#F59E0B]/30 px-1.5 py-0.5 rounded font-bold uppercase">
                               {cl.isSelfLoop ? 'Self Loop' : `${cl.cycleLength}-Cycle`}
                             </span>
                           </div>
 
-                          <div className="p-2 bg-zinc-950 rounded space-y-1 font-mono text-[10px]">
+                          <div className="p-2 bg-[#08080A] border border-[#1F1F23] rounded space-y-1 font-mono text-[10px]">
                             {cl.isSelfLoop ? (
-                              <div className="text-amber-300">{shortId(cl.symbols[0])}() ↺ {shortId(cl.symbols[0])}()</div>
+                              <div className="text-[#F59E0B]">{shortId(cl.symbols[0])}() ↺ {shortId(cl.symbols[0])}()</div>
                             ) : (
-                              <div className="text-amber-300">{shortId(cl.symbols[0])}() ↕ {shortId(cl.symbols[1] || cl.symbols[0])}()</div>
+                              <div className="text-[#F59E0B]">{shortId(cl.symbols[0])}() ↕ {shortId(cl.symbols[1] || cl.symbols[0])}()</div>
                             )}
                           </div>
 
-                          <div className="flex items-center justify-between pt-1 border-t border-zinc-800 text-[9px] text-zinc-500">
+                          <div className="flex items-center justify-between pt-1 border-t border-[#1F1F23] text-[9px] text-zinc-500">
                             <span>Files: {cl.files.join(', ') || 'source'}</span>
                             <button
                               onClick={() => {
@@ -2214,7 +2349,7 @@ export const CallGraphAnalyzer: React.FC<Props> = ({ repoName }) => {
                                   setActivePathNodes(new Set(cl.symbols));
                                 }
                               }}
-                              className="text-amber-400 hover:text-amber-300 font-bold uppercase"
+                              className="text-[#F59E0B] hover:text-[#F59E0B]/80 font-bold uppercase"
                             >
                               Trace Cycle
                             </button>

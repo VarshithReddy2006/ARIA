@@ -1,4 +1,4 @@
-﻿# ARIA — Production Benchmark Report: FastAPI on Azure
+# ARIA — Production Benchmark Report: FastAPI on Azure
 
 **Target Repository**: [https://github.com/fastapi/fastapi](https://github.com/fastapi/fastapi)
 **Branch**: `main`
@@ -124,7 +124,7 @@ All persistent artifacts were verified on the Azure Files SMB mount (`/app/data`
 **Observation**: During both `Spoon-Knife` and `FastAPI` runs on Azure, Report Generation recorded `~61.0 seconds` in the performance summary, whereas previous Modal runs completed the report phase in `2–3 seconds`.
 
 **Root Cause Analysis**:
-1. **Regional Provider Policy**: The Azure Container Apps Environment is hosted in `eastasia` (Hong Kong). Direct Google Gemini API endpoints (`gemini-2.5-flash`) return HTTP 400 `failed_precondition: user location is not supported for the api use.` when called from East Asia datacenter IP ranges.
+1. **Regional Provider Policy**: The Azure Container Apps Environment is hosted in `eastasia` (Hong Kong). Direct Google Gemini API endpoints (`gemini-3.1-flash-lite` / Gemini API) return HTTP 400 `failed_precondition: user location is not supported for the api use.` when called from East Asia datacenter IP ranges.
 2. **Retry & Backoff Window**: `services/llm/gemini_provider.py` is configured with resilient exponential backoff (initial retry ~1.19s, followed by retry cycle) to handle transient API issues.
 3. **Fallback Resolution**: After exhausting the provider retry budget (~60 seconds wall-clock), ARIA gracefully and cleanly activates deterministic structured synthesis / template report generation, producing the full final report and persisting the snapshot without failing the pipeline.
 4. **Conclusion**: The 61-second report phase duration is not caused by slow report computation or timer overlap; it is the exact duration of the provider location timeout and subsequent graceful fallback.

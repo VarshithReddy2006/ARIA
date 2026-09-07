@@ -208,7 +208,16 @@ class ChromaStore:
         def _get():
             record = self._versions.get(ids=[repo_name], include=["documents"])
             documents = record.get("documents", []) if record else []
-            return documents[0] if documents else None
+            if documents:
+                return documents[0]
+            if repo_name.lower() != repo_name:
+                record_lower = self._versions.get(
+                    ids=[repo_name.lower()], include=["documents"]
+                )
+                docs_lower = record_lower.get("documents", []) if record_lower else []
+                if docs_lower:
+                    return docs_lower[0]
+            return None
 
         try:
             ver = self._execute_with_recovery(
@@ -576,11 +585,20 @@ class ChromaStore:
         self, repo_name: str, query_embedding: List[float], limit: int
     ) -> List[Dict[str, Any]]:
         version = self._active_version(repo_name)
-        return self.search_similar(
+        if version is None and repo_name != repo_name.lower():
+            version = self._active_version(repo_name.lower())
+        res = self.search_similar(
             query_embedding=query_embedding,
             limit=limit,
             where_filter=self._where_for_repository(repo_name, version),
         )
+        if not res and repo_name != repo_name.lower():
+            res = self.search_similar(
+                query_embedding=query_embedding,
+                limit=limit,
+                where_filter=self._where_for_repository(repo_name.lower(), version),
+            )
+        return res
 
     def search_repository(
         self, repo_name: str, query_embedding: List[float], limit: int = 5
@@ -593,12 +611,22 @@ class ChromaStore:
         """Return paths from the currently published repository revision."""
         with self._publication_lock:
             version = self._active_version(repo_name)
+            if version is None and repo_name != repo_name.lower():
+                version = self._active_version(repo_name.lower())
 
             def _get_paths():
-                return self.collection.get(
+                res = self.collection.get(
                     where=self._where_for_repository(repo_name, version),
                     include=["metadatas"],
                 )
+                if (
+                    not res or not res.get("metadatas")
+                ) and repo_name != repo_name.lower():
+                    res = self.collection.get(
+                        where=self._where_for_repository(repo_name.lower(), version),
+                        include=["metadatas"],
+                    )
+                return res
 
             try:
                 result = self._execute_with_recovery(
@@ -620,12 +648,54 @@ class ChromaStore:
         """Return chunks for one file from the currently published revision."""
         with self._publication_lock:
             version = self._active_version(repo_name)
+            if version is None and repo_name != repo_name.lower():
+                version = self._active_version(repo_name.lower())
 
             def _get_chunks():
-                return self.collection.get(
-                    where=self._where_for_repository(repo_name, version, file_path),
+                res = self.collection.get(
+                    where={"file_path": file_path},
                     include=["documents", "metadatas"],
                 )
+                if not res or not res.get("documents"):
+                    return {"ids": [], "documents": [], "metadatas": []}
+
+                docs = res.get("documents", [])
+                metas = res.get("metadatas", [])
+                ids = res.get("ids", [str(i) for i in range(len(docs))])
+
+                repo_norm = repo_name.lower()
+                version_matched_ids, version_matched_docs, version_matched_metas = (
+                    [],
+                    [],
+                    [],
+                )
+                repo_matched_ids, repo_matched_docs, repo_matched_metas = [], [], []
+                for cid, doc, meta in zip(ids, docs, metas):
+                    if not meta:
+                        continue
+                    m_repo = str(meta.get("repo_name", "")).lower()
+                    if m_repo and m_repo != repo_norm:
+                        continue
+                    repo_matched_ids.append(cid)
+                    repo_matched_docs.append(doc)
+                    repo_matched_metas.append(meta)
+                    m_ver = meta.get("index_version")
+                    if version is not None and m_ver == version:
+                        version_matched_ids.append(cid)
+                        version_matched_docs.append(doc)
+                        version_matched_metas.append(meta)
+
+                if version_matched_docs:
+                    return {
+                        "ids": version_matched_ids,
+                        "documents": version_matched_docs,
+                        "metadatas": version_matched_metas,
+                    }
+                return {
+                    "ids": repo_matched_ids,
+                    "documents": repo_matched_docs,
+                    "metadatas": repo_matched_metas,
+                }
 
             try:
                 return self._execute_with_recovery(
@@ -638,7 +708,7 @@ class ChromaStore:
                     file_path,
                     exc,
                 )
-                return {"documents": [], "metadatas": []}
+                return {"ids": [], "documents": [], "metadatas": []}
 
     def delete_files(self, repo_name: str, file_paths: List[str]) -> None:
         """Remove paths from the currently published repository revision."""

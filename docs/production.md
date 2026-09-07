@@ -84,7 +84,7 @@ INFO  backend.api: Embedding model and tokenizer warmed up successfully.
 INFO  backend.api: Warming up Python Tree-sitter parser...
 INFO  backend.api: Python Tree-sitter parser warmed up successfully.
 INFO  backend.startup: Validating LLM providers...
-INFO  backend.startup: LLM_PROVIDER_HEALTH provider=gemini model=gemini-2.5-flash healthy=true latency_ms=234
+INFO  backend.startup: LLM_PROVIDER_HEALTH provider=gemini model=gemini-3.1-flash-lite healthy=true latency_ms=234
 INFO  backend.startup: LLM provider validation complete. healthy_providers=['gemini']
 INFO  uvicorn: Application startup complete.
 ```
@@ -93,7 +93,7 @@ INFO  uvicorn: Application startup complete.
 
 ## Configuration
 
-All configuration is in `backend/settings.py` via Pydantic Settings. Values are read from environment variables (or `.env` in development).
+All configuration is in `core/config.py` via Pydantic Settings. Values are read from environment variables (or `.env` in development).
 
 In production, `APP_ENV=production` activates:
 - Fail-fast startup when all LLM providers are unhealthy
@@ -116,7 +116,7 @@ Use this for load balancer health probes. It returns immediately without making 
 {
   "backend": "online",
   "llm_provider": "gemini",
-  "llm_model": "gemini-2.5-flash",
+  "llm_model": "gemini-3.1-flash-lite",
   "embedding_provider": "BAAI/bge-small-en-v1.5",
   "vector_db": "chromadb",
   "status": "healthy"

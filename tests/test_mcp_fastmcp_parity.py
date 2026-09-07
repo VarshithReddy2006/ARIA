@@ -38,6 +38,7 @@ EXPENSIVE_TOOLS = {
     "generate_report",  # composes every analysis
     "export_report",  # composes then renders
     "get_impact_analysis",  # LLM-assisted change prediction
+    "get_blast_radius",  # traverses call graph via HTTP client
 }
 
 # The eight tools the legacy stdio server exposes and FastMCP must match.

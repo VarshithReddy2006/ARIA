@@ -463,4 +463,93 @@ describe('Server-Side Proxy Security & Astro Endpoint Verification', () => {
     assert.equal(HEAD, ALL);
     assert.equal(OPTIONS, ALL);
   });
+
+  test('16. executeProxy returns ReadableStream directly for text/event-stream without buffering', async () => {
+    const stream = new ReadableStream<Uint8Array>({
+      start(controller) {
+        controller.enqueue(new TextEncoder().encode('data: {"text": "Hello"}\n\n'));
+        controller.enqueue(new TextEncoder().encode('data: {"text": " world"}\n\n'));
+        controller.close();
+      },
+    });
+
+    const mockFetch: typeof fetch = async () => {
+      return new Response(stream, {
+        status: 200,
+        headers: {
+          'Content-Type': 'text/event-stream',
+          'Cache-Control': 'no-cache',
+        },
+      });
+    };
+
+    const result = await executeProxy(
+      {
+        method: 'POST',
+        url: '/api/v1/chat',
+        body: { repo: 'test/repo', message: 'Hello' },
+      },
+      {
+        apiUrl: DEFAULT_TEST_API_URL,
+        apiKey: SECRET_KEY,
+        fetchFn: mockFetch,
+      },
+    );
+
+    assert.equal(result.status, 200);
+    assert.ok(result.body instanceof ReadableStream, 'Body must be a ReadableStream for SSE');
+    assert.equal(result.headers['content-type'] || result.headers['Content-Type'], 'text/event-stream');
+
+    const reader = (result.body as ReadableStream<Uint8Array>).getReader();
+    const { value: chunk1 } = await reader.read();
+    assert.ok(chunk1);
+    assert.equal(new TextDecoder().decode(chunk1), 'data: {"text": "Hello"}\n\n');
+  });
+
+  test('17. Astro ALL handler pipes SSE streaming response directly', async () => {
+    const origKey = process.env.ARIA_API_KEY;
+    const origUrl = process.env.ARIA_API_URL;
+    const origFetch = globalThis.fetch;
+
+    try {
+      process.env.ARIA_API_KEY = SECRET_KEY;
+      process.env.ARIA_API_URL = DEFAULT_TEST_API_URL;
+
+      const stream = new ReadableStream<Uint8Array>({
+        start(controller) {
+          controller.enqueue(new TextEncoder().encode('data: {"text": "token1"}\n\n'));
+          controller.close();
+        },
+      });
+
+      globalThis.fetch = (async () => {
+        return new Response(stream, {
+          status: 200,
+          headers: { 'Content-Type': 'text/event-stream' },
+        });
+      }) as typeof fetch;
+
+      const mockRequest = new Request('http://localhost:4321/api/v1/chat', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ repo: 'test/repo', message: 'hi' }),
+      });
+
+      const response = await ALL({
+        request: mockRequest,
+        params: { path: 'v1/chat' },
+        url: new URL('http://localhost:4321/api/v1/chat'),
+      } as any);
+
+      assert.equal(response.status, 200);
+      assert.ok(response.body);
+      const reader = response.body.getReader();
+      const { value } = await reader.read();
+      assert.equal(new TextDecoder().decode(value), 'data: {"text": "token1"}\n\n');
+    } finally {
+      process.env.ARIA_API_KEY = origKey;
+      process.env.ARIA_API_URL = origUrl;
+      globalThis.fetch = origFetch;
+    }
+  });
 });

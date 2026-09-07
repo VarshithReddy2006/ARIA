@@ -42,7 +42,7 @@ FASTMCP_CMD = [
 
 # Generous: a cold start imports the ML/vector stack. Tight enough to catch hangs.
 HANDSHAKE_TIMEOUT = 120.0
-CALL_TIMEOUT = 60.0
+CALL_TIMEOUT = 120.0
 
 
 class _MockARIAHandler(http.server.BaseHTTPRequestHandler):

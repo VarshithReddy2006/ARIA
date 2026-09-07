@@ -18,10 +18,12 @@ The Gemini provider validates credentials at startup by listing available models
 
 ### Solution
 1. Get a valid API key from [Google AI Studio](https://aistudio.google.com/app/apikey).
-2. Set `GEMINI_API_KEY=AIza...` in your `.env` (must start with `AIza`).
+2. Set `GEMINI_API_KEY=...` in your `.env` (Google AI Studio keys typically start with `AIza` or `AQ.`).
 3. Call `POST /api/v1/chat/reload` or restart the server to reload.
 
-For DeepSeek, verify your NVIDIA NIM key at [build.nvidia.com](https://build.nvidia.com) and set `DEEPSEEK_API_KEY=nvapi-...`.
+For DeepSeek:
+1. Verify your NVIDIA NIM key at [build.nvidia.com](https://build.nvidia.com) and set `DEEPSEEK_API_KEY=nvapi-...`.
+2. Note that upstream NVIDIA NIM endpoints may occasionally experience 529 load or response latency. ARIA bounds this with `LLM_READ_TIMEOUT=60.0` and automatically fails over to configured NVIDIA fallback models (`meta/llama-3.2-11b-vision-instruct`, `minimaxai/minimax-m3`).
 
 ---
 

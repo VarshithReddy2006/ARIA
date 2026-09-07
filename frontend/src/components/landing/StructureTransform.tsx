@@ -80,24 +80,14 @@ export const StructureTransform: React.FC = () => {
         `translate3d(${((xPct / 100) * w).toFixed(1)}px, ${((yPct / 100) * h).toFixed(1)}px, 0) translate(-50%, -50%)`;
 
       /*
-        Once direction exists the file layer is no longer the subject, so it
-        recedes rather than disappearing — the grouping it established is still
-        part of what the reader is looking at.
+        Once direction exists the file layer is context for the symbols and modules,
+        so it settles into a stable, crisp secondary presence without blur.
       */
-      const fileRecede = 1 - 0.55 * Math.max(s4, s5);
+      const fileRecede = 1 - 0.15 * Math.max(s4, s5);
 
-      /*
-        Depth, not perspective. As grouping becomes context the file layer loses
-        a little focus, so the reader's attention is pulled to the layer that is
-        currently the subject. Written only when the rounded value changes.
-      */
       const layer = fileLayerRef.current;
       if (layer) {
-        const blur = Math.round((1 - fileRecede) * 2.6 * 10) / 10;
-        if (blur !== lastBlur.current) {
-          lastBlur.current = blur;
-          layer.style.filter = blur > 0.05 ? `blur(${blur}px)` : 'none';
-        }
+        layer.style.filter = 'none';
       }
 
       // ── 01 FILES → 02 MODULES: scatter migrates into clusters ────────────
@@ -126,7 +116,7 @@ export const StructureTransform: React.FC = () => {
 
         if (!el) continue;
         el.style.transform = toPx(jx, jy);
-        el.style.opacity = (appear * 0.85 * fileRecede).toFixed(3);
+        el.style.opacity = (appear * (0.82 + 0.18 * fileRecede)).toFixed(3);
       }
 
       /*
@@ -202,7 +192,7 @@ export const StructureTransform: React.FC = () => {
           isFocus ||
           model.callerEdges.includes(i) ||
           model.dependencyEdges.includes(i);
-        const recede = participates ? 1 : 1 - 0.92 * Math.max(s4, s5);
+        const recede = participates ? 1 : 1 - 0.25 * Math.max(s4, s5);
 
         /*
           Declarations bloom outward as they emerge — a small overshoot that
@@ -297,8 +287,8 @@ export const StructureTransform: React.FC = () => {
     : 'sticky top-0 min-h-screen flex flex-col justify-center overflow-hidden py-20';
 
   return (
-    <div ref={ref} className={wrapperClass} data-stage="structure" data-pin="self">
-      <div className={stickyClass}>
+    <div ref={ref} className={wrapperClass} data-stage="structure" data-pin="self" suppressHydrationWarning>
+      <div className={stickyClass} suppressHydrationWarning>
         {/* ── Section intro ───────────────────────────────────────────────── */}
         <div className="story-shell">
           <div className="flex items-center gap-4 mb-7">
@@ -315,46 +305,57 @@ export const StructureTransform: React.FC = () => {
         {/* ── Narrative rail + stage ──────────────────────────────────────── */}
         <div className="story-shell mt-10 sm:mt-12">
           <div className="grid grid-cols-1 gap-y-8 lg:grid-cols-[minmax(0,32fr)_minmax(0,68fr)] lg:gap-x-10 items-start min-w-0">
-            {/* Stage narrative */}
-            <ol className="min-w-0">
+            {/* Stage narrative — Interactive concept selector */}
+            <ol className="space-y-1 sm:space-y-1.5 self-start">
               {STRUCTURE_STAGES.map((s, i) => {
                 const active = i === step;
                 const reached = i <= step;
                 return (
-                  <li
-                    key={s.label}
-                    aria-current={active ? 'step' : undefined}
-                    className={`relative border-l pl-4 py-2.5 transition-colors duration-300 ${active
-                      ? 'border-primary'
-                      : reached
-                        ? 'border-white/[0.14]'
-                        : 'border-white/[0.05]'
-                      }`}
-                  >
-                    <div className="flex items-baseline gap-3 min-w-0">
-                      <span
-                        className={`mono-label tabular-nums shrink-0 transition-colors duration-300 ${active ? 'text-primary' : ''
-                          }`}
-                      >
-                        {String(i + 1).padStart(2, '0')}
-                      </span>
-                      <span
-                        className={`font-mono text-[13px] sm:text-sm font-semibold tracking-[0.14em] transition-colors duration-300 ${active
-                          ? 'text-white'
-                          : reached
-                            ? 'text-text-muted'
-                            : 'text-text-subtle'
-                          }`}
-                      >
-                        {s.label}
-                      </span>
-                    </div>
-                    <p
-                      className={`text-[12px] leading-relaxed mt-1 transition-colors duration-300 ${active ? 'text-text-muted' : 'text-text-subtle'
+                  <li key={s.label}>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const targetP = STAGE_RANGES[i][0] + 0.08;
+                        onFrame(targetP);
+                        if (ref.current) {
+                          const rect = ref.current.getBoundingClientRect();
+                          const targetScroll = window.scrollY + rect.top + (targetP * (ref.current.offsetHeight - window.innerHeight));
+                          window.scrollTo({ top: targetScroll, behavior: 'smooth' });
+                        }
+                      }}
+                      aria-current={active ? 'step' : undefined}
+                      className={`w-full text-left relative border-l-2 pl-4 py-3 rounded-r-xl transition-all duration-300 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#818CF8] ${active
+                        ? 'border-[#818CF8] bg-gradient-to-r from-[#131A2E]/90 to-[#0A0D14]/70 shadow-[0_0_24px_rgba(129,140,248,0.18)] translate-x-1'
+                        : reached
+                          ? 'border-white/[0.14] hover:bg-white/[0.03] hover:border-white/[0.3]'
+                          : 'border-white/[0.05] hover:bg-white/[0.02]'
                         }`}
                     >
-                      {s.detail}
-                    </p>
+                      <div className="flex items-baseline gap-3 min-w-0">
+                        <span
+                          className={`mono-label tabular-nums shrink-0 transition-colors duration-300 font-bold ${active ? 'text-[#818CF8]' : 'text-[#64748B]'
+                            }`}
+                        >
+                          {String(i + 1).padStart(2, '0')}
+                        </span>
+                        <span
+                          className={`font-mono text-[13px] sm:text-sm font-bold tracking-[0.16em] uppercase transition-colors duration-300 ${active
+                            ? 'text-[#F8FAFC]'
+                            : reached
+                              ? 'text-[#CBD5E1]'
+                              : 'text-[#64748B]'
+                            }`}
+                        >
+                          {s.label}
+                        </span>
+                      </div>
+                      <p
+                        className={`text-[12px] leading-relaxed mt-1 transition-colors duration-300 font-sans ${active ? 'text-[#CBD5E1]' : 'text-[#64748B]'
+                          }`}
+                      >
+                        {s.detail}
+                      </p>
+                    </button>
                   </li>
                 );
               })}
@@ -363,11 +364,12 @@ export const StructureTransform: React.FC = () => {
             {/* The stage */}
             <div className="min-w-0">
               <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-1.5 mb-3">
-                <span className="mono-label truncate">
+                <span className="mono-label truncate text-[#818CF8] font-bold flex items-center gap-2">
+                  <span className="h-1.5 w-1.5 rounded-full bg-[#818CF8] shadow-[0_0_8px_rgba(129,140,248,0.8)] animate-pulse"></span>
                   {STRUCTURE_STAGES[step].label} · {STRUCTURE_STAGES[step].detail}
                 </span>
                 {/* Never hidden at any width: the composition is illustrative. */}
-                <span className="mono-label shrink-0">
+                <span className="mono-label shrink-0 text-[#64748B]">
                   ILLUSTRATIVE · ARIA&apos;S OWN REPOSITORY
                 </span>
               </div>
@@ -376,9 +378,10 @@ export const StructureTransform: React.FC = () => {
                 ref={stageRef}
                 data-mode="flat"
                 data-pointer="precision"
-                className="structure-stage relative w-full h-[44vh] min-h-[280px] sm:h-[52vh] lg:h-[56vh]"
+                className="structure-stage relative w-full h-[44vh] min-h-[280px] sm:h-[52vh] lg:h-[56vh] rounded-2xl border border-white/[0.08] bg-gradient-to-b from-[#0D1220]/85 to-[#070A12]/95 backdrop-blur-2xl shadow-2xl overflow-hidden"
                 role="img"
                 aria-label="A scattered list of repository files groups into modules, splits into declared symbols, then resolves inbound callers and outbound dependencies into a directed topology as the page scrolls."
+                suppressHydrationWarning
               >
                 <svg
                   className="absolute inset-0 h-full w-full overflow-visible"
@@ -428,11 +431,11 @@ export const StructureTransform: React.FC = () => {
                       cx={m.at.x}
                       cy={m.at.y}
                       r={7}
-                      fill="rgba(94,106,210,0.05)"
-                      stroke="rgba(94,106,210,0.28)"
+                      fill="rgba(129,140,248,0.06)"
+                      stroke="rgba(129,140,248,0.35)"
                       strokeWidth="0.12"
                       strokeDasharray="4 4"
-                      style={{ opacity: reduced ? 0.18 : 0 }}
+                      style={{ opacity: reduced ? 0.22 : 0 }}
                       vectorEffect="non-scaling-stroke"
                     />
                   ))}
@@ -444,7 +447,7 @@ export const StructureTransform: React.FC = () => {
                       ref={(el) => {
                         moduleEdgeRefs.current[i] = el;
                       }}
-                      stroke="rgba(255,255,255,0.10)"
+                      stroke="rgba(255,255,255,0.12)"
                       strokeWidth="0.1"
                       pathLength={1}
                       strokeDasharray={1}
@@ -493,6 +496,7 @@ export const StructureTransform: React.FC = () => {
                   ref={fileLayerRef}
                   className="absolute inset-0 pointer-events-none"
                   aria-hidden="true"
+                  suppressHydrationWarning
                 >
                   {model.files.map((_, i) => (
                     <span
@@ -500,7 +504,7 @@ export const StructureTransform: React.FC = () => {
                       ref={(el) => {
                         fileRefs.current[i] = el;
                       }}
-                      className="structure-file absolute left-0 top-0 block h-[3px] w-[3px] rounded-sm bg-white/70"
+                      className="structure-file absolute left-0 top-0 block h-[3px] w-[3px] rounded-sm bg-white/70 shadow-[0_0_6px_rgba(255,255,255,0.4)]"
                       style={{ opacity: reduced ? 0.4 : 0 }}
                     />
                   ))}
@@ -513,7 +517,7 @@ export const StructureTransform: React.FC = () => {
                     ref={(el) => {
                       symbolRefs.current[i] = el;
                     }}
-                    className={`structure-symbol absolute left-0 top-0 block rounded-full ${i === model.focus ? 'structure-symbol--focus' : ''
+                    className={`structure-symbol absolute left-0 top-0 block rounded-full ${i === model.focus ? 'structure-symbol--focus ring-2 ring-[#818CF8] shadow-[0_0_14px_rgba(129,140,248,0.8)]' : ''
                       }`}
                     style={{ opacity: reduced ? 1 : 0 }}
                     aria-hidden="true"
@@ -527,10 +531,11 @@ export const StructureTransform: React.FC = () => {
                     ref={(el) => {
                       moduleRefs.current[i] = el;
                     }}
-                    className="structure-module absolute left-0 top-0 whitespace-nowrap"
+                    className="structure-module absolute left-0 top-0 whitespace-nowrap px-2 py-0.5 rounded bg-[#0A0D14]/80 border border-white/[0.06] backdrop-blur-md"
                     style={{ opacity: reduced ? 1 : 0 }}
+                    suppressHydrationWarning
                   >
-                    <span className="font-mono text-[10px] tracking-[0.16em] text-text-muted">
+                    <span className="font-mono text-[10px] tracking-[0.16em] text-[#CBD5E1] font-semibold">
                       {m.label}
                     </span>
                   </div>

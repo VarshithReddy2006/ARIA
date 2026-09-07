@@ -163,7 +163,23 @@ class RetrievalPipeline:
             repo_name,
             self.chroma_store,
             self.symbol_service,
+            intent_result.intent.value,
         )
+
+        if det_match and det_match.get("not_found"):
+            target_f = det_match.get("entity_requested")
+            msg = f"The file `{target_f}` does not exist in the repository."
+            citation_valid, citation_report = self._verify_answer(msg, [])
+            return {
+                "answer": msg,
+                "sources": [],
+                "confidence": 100,
+                "verified": True,
+                "citation_report": citation_report,
+                "evaluation": {},
+                "intent": intent_result.intent.value,
+                "fallback_mode": False,
+            }
 
         if det_match and det_match.get("clarification_needed"):
             choices = det_match["choices"]
@@ -205,6 +221,7 @@ class RetrievalPipeline:
             conversation_context=orch_res.context,
             conversation_settings=self.orchestrator.settings,
             disable_previous_boosts=orch_res.disable_previous_boosts,
+            deterministic_match=det_match,
         )
 
         if route_task is not None:
@@ -255,6 +272,21 @@ class RetrievalPipeline:
             conversation_history=history,
             intent_name=intent_result.intent.value,
             deterministic_file_path=ret_metrics.get("matched_file")
+            if ret_metrics.get("deterministic")
+            else None,
+            matched_symbol=ret_metrics.get("matched_symbol")
+            if ret_metrics.get("deterministic")
+            else None,
+            symbol_start_line=ret_metrics.get("symbol_start_line")
+            if ret_metrics.get("deterministic")
+            else None,
+            symbol_end_line=ret_metrics.get("symbol_end_line")
+            if ret_metrics.get("deterministic")
+            else None,
+            symbol_coverage=ret_metrics.get("symbol_coverage")
+            if ret_metrics.get("deterministic")
+            else None,
+            symbol_methods=ret_metrics.get("symbol_methods")
             if ret_metrics.get("deterministic")
             else None,
         )
@@ -396,7 +428,26 @@ class RetrievalPipeline:
             repo_name,
             self.chroma_store,
             self.symbol_service,
+            intent_result.intent.value,
         )
+
+        if det_match and det_match.get("not_found"):
+            target_f = det_match.get("entity_requested")
+            msg = f"The file `{target_f}` does not exist in the repository."
+            citation_valid, citation_report = self._verify_answer(msg, [])
+            yield self._sse({"text": msg})
+            yield self._sse(
+                {
+                    "sources": [],
+                    "confidence": 100,
+                    "verified": True,
+                    "citation_report": citation_report,
+                    "fallback_mode": False,
+                    "intent": intent_result.intent.value,
+                    "status": "done",
+                }
+            )
+            return
 
         if det_match and det_match.get("clarification_needed"):
             choices = det_match["choices"]
@@ -441,6 +492,7 @@ class RetrievalPipeline:
             conversation_context=orch_res.context,
             conversation_settings=self.orchestrator.settings,
             disable_previous_boosts=orch_res.disable_previous_boosts,
+            deterministic_match=det_match,
         )
 
         if route_task is not None:
@@ -496,6 +548,21 @@ class RetrievalPipeline:
             conversation_history=history,
             intent_name=intent_result.intent.value,
             deterministic_file_path=ret_metrics.get("matched_file")
+            if ret_metrics.get("deterministic")
+            else None,
+            matched_symbol=ret_metrics.get("matched_symbol")
+            if ret_metrics.get("deterministic")
+            else None,
+            symbol_start_line=ret_metrics.get("symbol_start_line")
+            if ret_metrics.get("deterministic")
+            else None,
+            symbol_end_line=ret_metrics.get("symbol_end_line")
+            if ret_metrics.get("deterministic")
+            else None,
+            symbol_coverage=ret_metrics.get("symbol_coverage")
+            if ret_metrics.get("deterministic")
+            else None,
+            symbol_methods=ret_metrics.get("symbol_methods")
             if ret_metrics.get("deterministic")
             else None,
         )

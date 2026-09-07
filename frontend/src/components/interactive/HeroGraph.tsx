@@ -298,10 +298,20 @@ export const HeroGraph: React.FC<{ className?: string }> = ({ className = '' }) 
       }
     }
 
-    // ── Phase 00: Architectural grid & technical registration marks ──────
+    // Subtle multi-layer mouse parallax (max ±8px)
+    const px = mouse.active && !reducedMotion.current ? Math.max(-8, Math.min(8, ((mouse.x - w * 0.5) / (w * 0.5)) * 8)) : 0;
+    const py = mouse.active && !reducedMotion.current ? Math.max(-8, Math.min(8, ((mouse.y - h * 0.5) / (h * 0.5)) * 8)) : 0;
+
+    // ── Phase 00: Architectural grid & technical registration marks (Parallax 0.15x) ──────
+    const gridPx = px * 0.15;
+    const gridPy = py * 0.15;
     const gridSize = Math.max(70, Math.floor(w / 14));
+
+    ctx.save();
+    ctx.translate(gridPx, gridPy);
+
     ctx.beginPath();
-    ctx.strokeStyle = 'rgba(255, 255, 255, 0.014)';
+    ctx.strokeStyle = 'rgba(255, 255, 255, 0.016)';
     ctx.lineWidth = 0.5;
     for (let x = gridSize; x < w; x += gridSize) {
       ctx.moveTo(x, 0);
@@ -314,7 +324,7 @@ export const HeroGraph: React.FC<{ className?: string }> = ({ className = '' }) 
     ctx.stroke();
 
     // Technical registration crosses at select intersections
-    ctx.strokeStyle = 'rgba(94, 106, 210, 0.12)';
+    ctx.strokeStyle = 'rgba(115, 125, 255, 0.14)';
     ctx.lineWidth = 0.75;
     const crossSize = 3;
     for (let x = gridSize * 2; x < w - gridSize; x += gridSize * 3) {
@@ -327,6 +337,7 @@ export const HeroGraph: React.FC<{ className?: string }> = ({ className = '' }) 
         ctx.stroke();
       }
     }
+    ctx.restore();
 
     // Draw pointer awareness relationship rays
     if (!assembling && mouse.active && !reducedMotion.current) {
@@ -340,8 +351,8 @@ export const HeroGraph: React.FC<{ className?: string }> = ({ className = '' }) 
         const rayAlpha = (1 - d / 170) * 0.28;
         ctx.beginPath();
         ctx.moveTo(mouse.x, mouse.y);
-        ctx.lineTo(n.x, n.y);
-        ctx.strokeStyle = `rgba(129, 140, 248, ${rayAlpha.toFixed(3)})`;
+        ctx.lineTo(n.x + px * 0.45, n.y + py * 0.45);
+        ctx.strokeStyle = `rgba(115, 125, 255, ${rayAlpha.toFixed(3)})`;
         ctx.lineWidth = 0.5;
         ctx.setLineDash([2, 4]);
         ctx.stroke();
@@ -349,13 +360,18 @@ export const HeroGraph: React.FC<{ className?: string }> = ({ className = '' }) 
       }
     }
 
-    // Draw edges
+    // Draw edges (Parallax 0.30x)
+    const edgePx = px * 0.30;
+    const edgePy = py * 0.30;
+    ctx.save();
+    ctx.translate(edgePx, edgePy);
+
     for (const edge of edges) {
       const a = nodes[edge.from];
       const b = nodes[edge.to];
       if (!a || !b) continue;
 
-      const pulseMod = reducedMotion.current ? 1 : 0.5 + 0.5 * Math.sin(time * 0.0005 + edge.pulsePhase);
+      const pulseMod = reducedMotion.current ? 1 : 0.65 + 0.35 * Math.sin(time * 0.0006 + edge.pulsePhase);
 
       /*
         Relationships cannot exist before the things they relate. Each edge waits
@@ -372,48 +388,49 @@ export const HeroGraph: React.FC<{ className?: string }> = ({ className = '' }) 
         reach = easeOutQuint(ready);
       }
 
-      const edgeOpacity = edge.opacity * pulseMod * (assembling ? reach : 1);
+      const edgeOpacity = Math.min(0.50, (edge.opacity * 1.4) * pulseMod * (assembling ? reach : 1));
 
       ctx.beginPath();
       ctx.moveTo(a.x, a.y);
       ctx.lineTo(a.x + (b.x - a.x) * reach, a.y + (b.y - a.y) * reach);
-      ctx.strokeStyle = `rgba(94, 106, 210, ${edgeOpacity})`;
-      ctx.lineWidth = edge.isFlow ? 0.75 : 0.35;
+      ctx.strokeStyle = `rgba(115, 125, 255, ${edgeOpacity.toFixed(3)})`;
+      ctx.lineWidth = edge.isFlow ? 0.95 : 0.45;
       ctx.stroke();
 
-      // Data-flow packet traveling along flow edges
+      // Data-flow packet traveling along flow edges (max 1-3 concurrent)
       if (edge.isFlow && !reducedMotion.current && !assembling) {
         const flowT = ((time * 0.00012 + edge.pulsePhase) % 1);
         const fx = a.x + (b.x - a.x) * flowT;
         const fy = a.y + (b.y - a.y) * flowT;
 
-        // A soft halo ring instead of shadowBlur: same read, far cheaper to
-        // rasterise every frame.
+        // Soft outer photon halo
         ctx.beginPath();
-        ctx.arc(fx, fy, 3, 0, Math.PI * 2);
-        ctx.fillStyle = `rgba(94, 106, 210, ${0.18 * pulseMod})`;
+        ctx.arc(fx, fy, 4.0, 0, Math.PI * 2);
+        ctx.fillStyle = `rgba(115, 125, 255, ${(0.22 * pulseMod).toFixed(3)})`;
         ctx.fill();
 
+        // Core bright packet
         ctx.beginPath();
-        ctx.arc(fx, fy, 1.5, 0, Math.PI * 2);
-        ctx.fillStyle = `rgba(180, 200, 255, ${0.45 * pulseMod})`;
+        ctx.arc(fx, fy, 1.8, 0, Math.PI * 2);
+        ctx.fillStyle = `rgba(244, 245, 247, ${(0.75 * pulseMod).toFixed(3)})`;
         ctx.fill();
       }
     }
+    ctx.restore();
 
-    // Draw nodes across 3 depth planes (0=distant soft, 1=structural, 2=key modules)
+    // Draw nodes across 3 depth planes (Parallax 0.45x)
+    const nodePx = px * 0.45;
+    const nodePy = py * 0.45;
+    ctx.save();
+    ctx.translate(nodePx, nodePy);
+
     for (let d = 0; d <= 2; d++) {
       for (const n of nodes) {
         if (n.depth !== d) continue;
 
         const isAccent = n.layer === 0 || n.layer === 2;
-        const isHovered = !assembling && mouse.active && Math.hypot(n.x - mouse.x, n.y - mouse.y) < 65;
+        const isHovered = !assembling && mouse.active && Math.hypot((n.x + nodePx) - mouse.x, (n.y + nodePy) - mouse.y) < 65;
 
-        /*
-          A node arrives slightly large and settles — the one overshoot in the
-          whole composition, and it is what makes the assembly feel physical
-          rather than interpolated.
-        */
         let arrive = 1;
         if (assembling) {
           const local = Math.min(1, Math.max(0, (assembleT - n.arriveAt) / (1 - n.arriveAt)));
@@ -425,15 +442,14 @@ export const HeroGraph: React.FC<{ className?: string }> = ({ className = '' }) 
         ctx.beginPath();
         ctx.arc(n.x, n.y, (isHovered ? n.radius * 1.4 : n.radius) * settle, 0, Math.PI * 2);
 
-        // One alpha for the node, its halo and its label — they arrive together.
         ctx.globalAlpha = arrive;
 
         if (n.depth === 2 || isHovered) {
-          ctx.fillStyle = isAccent ? 'rgba(120, 140, 245, 0.92)' : 'rgba(230, 235, 250, 0.88)';
+          ctx.fillStyle = isAccent ? 'rgba(135, 145, 255, 0.95)' : 'rgba(244, 245, 247, 0.95)';
         } else if (n.depth === 1) {
-          ctx.fillStyle = isAccent ? `rgba(94, 106, 210, ${n.opacity * 1.25})` : `rgba(140, 145, 160, ${n.opacity})`;
+          ctx.fillStyle = isAccent ? `rgba(115, 125, 255, ${(n.opacity * 1.4).toFixed(3)})` : `rgba(195, 199, 208, ${(n.opacity * 1.25).toFixed(3)})`;
         } else {
-          ctx.fillStyle = `rgba(80, 85, 100, ${n.opacity * 0.85})`;
+          ctx.fillStyle = `rgba(129, 136, 149, ${(n.opacity * 1.15).toFixed(3)})`;
         }
         ctx.fill();
 
@@ -441,18 +457,13 @@ export const HeroGraph: React.FC<{ className?: string }> = ({ className = '' }) 
         if (n.depth === 2) {
           const glowPulse = reducedMotion.current ? 1 : 0.7 + 0.3 * Math.sin(time * 0.0008 + n.baseX);
           ctx.beginPath();
-          ctx.arc(n.x, n.y, n.radius + 5, 0, Math.PI * 2);
-          ctx.fillStyle = `rgba(94, 106, 210, ${0.08 * glowPulse})`;
+          ctx.arc(n.x, n.y, n.radius + 6, 0, Math.PI * 2);
+          ctx.fillStyle = `rgba(115, 125, 255, ${(0.14 * glowPulse).toFixed(3)})`;
           ctx.fill();
 
-          /*
-            Module paths settle last. Naming a thing is the final step of
-            recognising it, so the labels arrive only once the structure they
-            annotate has stopped moving.
-          */
           if (n.label && w > 768 && !assembling) {
-            ctx.font = '9px "JetBrains Mono", monospace';
-            ctx.fillStyle = `rgba(142, 147, 158, ${0.45 * glowPulse})`;
+            ctx.font = '9.5px "JetBrains Mono", monospace';
+            ctx.fillStyle = `rgba(195, 199, 208, ${(0.75 * glowPulse).toFixed(3)})`;
             ctx.fillText(n.label, n.x + 8, n.y + 3);
           }
         }
@@ -460,6 +471,7 @@ export const HeroGraph: React.FC<{ className?: string }> = ({ className = '' }) 
         ctx.globalAlpha = 1;
       }
     }
+    ctx.restore();
 
     // Reduced motion gets a single composed frame, never a loop.
     if (reducedMotion.current) {

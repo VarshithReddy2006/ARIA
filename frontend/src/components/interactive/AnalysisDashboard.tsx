@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useMemo, useCallback, Suspense, lazy } from 'react';
 import { apiUrl, extractErrorMessage } from '../../lib/api';
 import FileTree from './FileTree';
-import { RepoHero, useRepoHealth, type CentralityHub } from './RepoHero';
+import { useRepoHealth, type CentralityHub } from './RepoHero';
 import { RepositoryOverview } from './RepositoryOverview';
 import { Reveal } from '../ui/Reveal';
 import { FilePath } from '../ui/FilePath';
@@ -32,7 +32,7 @@ const GitHistoryAnalyzer = lazy(() => import('./GitHistoryAnalyzer').then((m) =>
 const CallGraphAnalyzer = lazy(() => import('./CallGraphAnalyzer').then((m) => ({ default: m.CallGraphAnalyzer })));
 const APISurfaceAnalyzer = lazy(() => import('./APISurfaceAnalyzer').then((m) => ({ default: m.APISurfaceAnalyzer })));
 const ReportPanel = lazy(() => import('./ReportPanel'));
-const ImpactAnalysisGraph = lazy(() => import('./ImpactAnalysisGraph'));
+const ImpactAnalysisWorkspace = lazy(() => import('./ImpactAnalysisWorkspace'));
 import { InteractiveDependencyGraph } from './graph/InteractiveDependencyGraph';
 
 // ── Types ─────────────────────────────────────────────────────────────────────
@@ -77,16 +77,18 @@ const TABS: TabItem<TabId>[] = [
   { id: 'graph',              label: 'File Graph',    icon: Code2,           group: 'Structure' },
   { id: 'call_graph',         label: 'Call Graph',    icon: Workflow,        group: 'Structure' },
   { id: 'api_surface',        label: 'API Surface',   icon: Globe,           group: 'Structure' },
-  // ── Quality ──
-  { id: 'report',             label: 'Health Report', icon: FileText,        group: 'Quality' },
-  { id: 'dead_code',          label: 'Dead Code',     icon: Trash2,          group: 'Quality' },
-  { id: 'issues',             label: 'Issues',        icon: Cpu,             group: 'Quality' },
-  // ── History & PRs ──
-  { id: 'git_history',        label: 'Git History',   icon: GitCommit,       group: 'History & PRs' },
-  { id: 'pr_intelligence',    label: 'PR Risk',       icon: GitPullRequest,  group: 'History & PRs' },
-  { id: 'architecture_drift', label: 'PR Drift',      icon: GitCompare,      group: 'History & PRs' },
-  { id: 'impact_analysis',    label: 'Impact',        icon: Target,          group: 'History & PRs' },
+  // ── Quality & Reliability ──
+  { id: 'report',             label: 'Health Report', icon: FileText,        group: 'Quality & Reliability' },
+  { id: 'dead_code',          label: 'Dead Code',     icon: Trash2,          group: 'Quality & Reliability' },
+  { id: 'issues',             label: 'Issues',        icon: Cpu,             group: 'Quality & Reliability' },
+  // ── History & Change ──
+  { id: 'git_history',        label: 'Git History',   icon: GitCommit,       group: 'History & Change' },
+  { id: 'pr_intelligence',    label: 'PR Risk',       icon: GitPullRequest,  group: 'History & Change' },
+  { id: 'architecture_drift', label: 'PR Drift',      icon: GitCompare,      group: 'History & Change' },
+  { id: 'impact_analysis',    label: 'Impact',        icon: Target,          group: 'History & Change' },
 ];
+
+const PRIMARY_TAB_IDS = new Set<TabId>(['analysis', 'reading_path', 'chat', 'graph', 'call_graph', 'api_surface']);
 
 function countFiles(structure: Record<string, string[]>): number {
   return Object.values(structure || {}).reduce((sum, arr) => sum + (arr ? arr.length : 0), 0);
@@ -161,12 +163,6 @@ export const AnalysisDashboard: React.FC<DashboardProps> = ({ repoParam }) => {
     const initialFile = resolveInitialFile();
     return initialFile ? { path: initialFile, token: Date.now() } : null;
   });
-
-  // Impact Analysis state
-  const [impactData, setImpactData]   = useState<any | null>(null);
-  const [impactLoading, setImpactLoading] = useState(false);
-  const [issueInput, setIssueInput]   = useState('');
-  const [impactError, setImpactError] = useState<string | null>(null);
 
   // Lazy mount: tracks which tabs have been visited (so we only mount on first visit)
   const [mountedTabs, setMountedTabs] = useState<Set<TabId>>(new Set([resolveInitialTab()]));
@@ -266,6 +262,9 @@ export const AnalysisDashboard: React.FC<DashboardProps> = ({ repoParam }) => {
     setActiveTab(tab);
     setMountedTabs(prev => new Set([...prev, tab]));
     syncTabToUrl(tab, file !== undefined ? file : (tab === 'graph' ? selectedFile : null));
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(new CustomEvent('aria-tab-changed', { detail: { tab } }));
+    }
   };
 
   /** Sends a file-specific question to the Chat tab and switches to it. */
@@ -287,6 +286,23 @@ export const AnalysisDashboard: React.FC<DashboardProps> = ({ repoParam }) => {
     };
     window.addEventListener('aria-workspace-file-select', handleWorkspaceFileSelect);
     return () => window.removeEventListener('aria-workspace-file-select', handleWorkspaceFileSelect);
+  }, []);
+
+  // ── Sync with global shell navigation and search events ───────────────────
+  useEffect(() => {
+    const initialTab = resolveInitialTab();
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(new CustomEvent('aria-tab-changed', { detail: { tab: initialTab } }));
+    }
+    const handleOpenPalette = () => {
+      setPaletteOpen(true);
+    };
+
+    window.addEventListener('open-command-palette', handleOpenPalette);
+
+    return () => {
+      window.removeEventListener('open-command-palette', handleOpenPalette);
+    };
   }, []);
 
   const handleFileTreeSelect = (filePath: string) => {
@@ -423,6 +439,9 @@ export const AnalysisDashboard: React.FC<DashboardProps> = ({ repoParam }) => {
       
       const repoVal = getRepoFromUrl(repoParam);
       setRepoName(repoVal);
+      if (typeof window !== 'undefined') {
+        window.dispatchEvent(new CustomEvent('aria-tab-changed', { detail: { tab } }));
+      }
     };
     window.addEventListener('popstate', handlePopState);
     return () => window.removeEventListener('popstate', handlePopState);
@@ -448,11 +467,7 @@ export const AnalysisDashboard: React.FC<DashboardProps> = ({ repoParam }) => {
       handleTabChange('graph', targetPath);
     };
 
-    const handleOpenImpact = (e: Event) => {
-      const customEvent = e as CustomEvent<{ file?: string }>;
-      if (customEvent.detail?.file) {
-        setIssueInput(customEvent.detail.file);
-      }
+    const handleOpenImpact = () => {
       handleTabChange('impact_analysis');
     };
 
@@ -460,16 +475,25 @@ export const AnalysisDashboard: React.FC<DashboardProps> = ({ repoParam }) => {
       handleTabChange('issues');
     };
 
+    const handleNavigateTab = (e: Event) => {
+      const customEvent = e as CustomEvent<{ tab: TabId; file?: string }>;
+      if (customEvent.detail?.tab) {
+        handleTabChange(customEvent.detail.tab, customEvent.detail.file);
+      }
+    };
+
     window.addEventListener('aria-open-chat', handleOpenChat);
     window.addEventListener('aria-open-graph', handleOpenGraph);
     window.addEventListener('aria-open-impact', handleOpenImpact);
     window.addEventListener('aria-open-issues', handleOpenIssues);
+    window.addEventListener('aria-navigate-tab', handleNavigateTab);
 
     return () => {
       window.removeEventListener('aria-open-chat', handleOpenChat);
       window.removeEventListener('aria-open-graph', handleOpenGraph);
       window.removeEventListener('aria-open-impact', handleOpenImpact);
       window.removeEventListener('aria-open-issues', handleOpenIssues);
+      window.removeEventListener('aria-navigate-tab', handleNavigateTab);
     };
   }, []);
 
@@ -495,9 +519,6 @@ export const AnalysisDashboard: React.FC<DashboardProps> = ({ repoParam }) => {
 
     setData(null);
     setSelectedFile(null);
-    setImpactData(null);
-    setIssueInput('');
-    setImpactError(null);
     setLoading(true);
     setErrorMessage(null);
 
@@ -539,28 +560,6 @@ export const AnalysisDashboard: React.FC<DashboardProps> = ({ repoParam }) => {
     fetchAnalysisData(false);
   }, [fetchAnalysisData]);
 
-  const handleRunImpactAnalysis = (overrideText?: string) => {
-    const queryText = overrideText !== undefined ? overrideText : issueInput;
-    if (!queryText.trim()) return;
-    if (overrideText !== undefined) setIssueInput(overrideText);
-    setImpactLoading(true);
-    setImpactError(null);
-
-    fetch(apiUrl('/api/v1/impact-analysis'), {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ repo: repoName, issue: queryText }),
-    })
-      .then(async (res) => {
-        if (!res.ok) {
-          const errData = await res.json().catch(() => ({}));
-          throw new Error(extractErrorMessage(errData) || 'Failed to analyze impact');
-        }
-        return res.json();
-      })
-      .then((resData) => { setImpactData(resData); setImpactLoading(false); })
-      .catch((err) => { setImpactError(extractErrorMessage(err)); setImpactLoading(false); });
-  };
 
   // ── Loading skeleton ───────────────────────────────────────────────────────
   if (loading) {
@@ -660,52 +659,12 @@ export const AnalysisDashboard: React.FC<DashboardProps> = ({ repoParam }) => {
         scopeLabel={repoName}
       />
 
-      {/* ── COMPACT REPOSITORY HEADER ────────────────────────────────────────── */}
-      <header>
-        <RepoHero
-          onOpenCommandPalette={() => setPaletteOpen(true)}
-          owner={owner}
-          repoSlug={repoSlug}
-          indexedAt={indexedAt}
-          onRefresh={() => window.location.reload()}
-          onExportReport={() => handleTabChange('report')}
-        />
-      </header>
-
-      {/* ── DEGRADED / PARTIAL CAPABILITY NOTICE ─────────────────────────────── */}
-      {isDegraded && (
-        <div role="alert" className="p-4 rounded-lg border border-warn/30 bg-warn/5 text-xs">
-          <div className="flex items-center gap-2 text-warn font-mono font-semibold uppercase tracking-wider mb-1.5">
-            <AlertCircle className="h-4 w-4 shrink-0" aria-hidden="true" />
-            <span>ANALYSIS DEGRADED</span>
-          </div>
-          <p className="text-text-muted mb-2">
-            Some analysis capabilities are currently unavailable for this repository.
-          </p>
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-[11px] font-mono">
-            <div>
-              <span className="text-success font-semibold">Available:</span>
-              <ul className="list-disc pl-4 text-text-muted mt-0.5 space-y-0.5">
-                <li>Repository Structure</li>
-                <li>Dependency Analysis</li>
-                <li>File Graph</li>
-              </ul>
-            </div>
-            <div>
-              <span className="text-warn font-semibold">Unavailable:</span>
-              <ul className="list-disc pl-4 text-text-muted mt-0.5 space-y-0.5">
-                <li>Advanced Symbol Indexing</li>
-                <li>Call Graph Propagation</li>
-              </ul>
-            </div>
-          </div>
+      {/* ── SECONDARY INSTRUMENT SUB-RAIL (Only rendered when exploring secondary tools) ── */}
+      {!PRIMARY_TAB_IDS.has(activeTab) && (
+        <div className="tab-rail-sticky -mt-1 pt-1 z-10 bg-canvas/90 backdrop-blur pb-2">
+          <Tabs items={TABS.filter(t => !PRIMARY_TAB_IDS.has(t.id))} active={activeTab} onChange={handleTabChange} />
         </div>
       )}
-
-      {/* ── TAB RAIL (Always accessible for all 13 surfaces) ────────────────── */}
-      <div className="tab-rail-sticky -mt-1 pt-1 z-10 bg-canvas/90 backdrop-blur pb-2">
-        <Tabs items={TABS} active={activeTab} onChange={handleTabChange} />
-      </div>
 
       {/* ── TAB CONTENT MOUNTING ─────────────────────────────────────────────── */}
       {activeTab === 'analysis' ? (
@@ -905,119 +864,9 @@ export const AnalysisDashboard: React.FC<DashboardProps> = ({ repoParam }) => {
                       </Suspense>
                     )}
                     {id === 'impact_analysis' && (
-                      <div className="min-w-0">
-                        <header className="min-w-0">
-                          <span className="mono-label mono-label-accent block mb-2.5">
-                            IMPACT INTELLIGENCE / PREDICTIVE ANALYSIS
-                          </span>
-                          <h2 className="display-3 text-text">See what this change will touch.</h2>
-                          <p className="text-[13px] text-text-muted leading-relaxed mt-3 max-w-2xl">
-                            Trace import propagation, affected components, and architectural risk before modifying the codebase.
-                          </p>
-                        </header>
-
-                        <div className="mt-9 min-w-0">
-                          <h3 className="mono-label pb-3 hair-b">PREDICTIVE IMPACT ANALYSIS</h3>
-                          <p className="text-[12px] text-text-muted leading-relaxed mt-4 max-w-2xl">
-                            Describe a proposed code modification or feature request.
-                          </p>
-
-                          <div className="mt-3 flex flex-col sm:flex-row sm:items-start gap-3 min-w-0">
-                            <label htmlFor="impact-query" className="sr-only">Issue text</label>
-                            <textarea
-                              id="impact-query"
-                              value={issueInput}
-                              onChange={(e) => setIssueInput(e.target.value)}
-                              placeholder="e.g., Add GitHub OAuth Login, or Fix SQLite Timeout Issue"
-                              rows={2}
-                              className="console-field flex-grow text-[12.5px] min-h-0"
-                            />
-                            <button
-                              type="button"
-                              onClick={() => handleRunImpactAnalysis()}
-                              disabled={impactLoading || !issueInput.trim()}
-                              className="action-chip shrink-0 justify-center disabled:opacity-40 disabled:cursor-not-allowed"
-                            >
-                              Run Analysis
-                              <ArrowRight className="h-3 w-3" aria-hidden="true" />
-                            </button>
-                          </div>
-
-                          <div className="mt-2.5" aria-hidden="true">
-                            {impactLoading ? <div className="activity-line" /> : <div className="h-px" />}
-                          </div>
-
-                          {impactError && (
-                            <div role="alert" className="mt-5 flex items-start gap-3">
-                              <AlertCircle className="h-4 w-4 shrink-0 mt-0.5 text-danger" aria-hidden="true" />
-                              <div className="min-w-0">
-                                <span className="mono-label block mb-1.5" style={{ color: 'var(--danger)' }}>
-                                  IMPACT ANALYSIS UNAVAILABLE
-                                </span>
-                                <p className="text-[12px] text-text-muted leading-relaxed">{impactError}</p>
-                              </div>
-                            </div>
-                          )}
-
-                          <div className="mt-7 min-w-0">
-                            <span className="mono-label block mb-2.5">QUICK SCENARIOS</span>
-                            <div className="flex flex-wrap gap-x-5 gap-y-2">
-                              {[
-                                repoName.includes('fastapi') ? 'Add API key authentication' : 'Add GitHub OAuth Login',
-                                'Fix SQLite Timeout Issue',
-                                'Refactor Duplicate HTML Templates',
-                              ].map((preset) => (
-                                <button
-                                  key={preset}
-                                  type="button"
-                                  onClick={() => handleRunImpactAnalysis(preset)}
-                                  disabled={impactLoading}
-                                  className="api-action link-arrow disabled:opacity-40 disabled:cursor-not-allowed"
-                                >
-                                  {preset.toUpperCase()}
-                                  <ArrowRight className="h-2.5 w-2.5 arrow ml-1" aria-hidden="true" />
-                                </button>
-                              ))}
-                            </div>
-                          </div>
-                        </div>
-
-                        {impactLoading && (
-                          <div className="mt-9 pt-6 hair-t">
-                            <span className="mono-label block mb-3">ANALYZING IMPACT</span>
-                            <p className="mono-detail mb-5" style={{ fontSize: 10, letterSpacing: '0.16em' }}>
-                              SCENARIO → PROPAGATION → RISK
-                            </p>
-                            <SkeletonGroup label="Analyzing change impact">
-                              <div className="space-y-4"><SkeletonCard /><SkeletonCard /></div>
-                            </SkeletonGroup>
-                          </div>
-                        )}
-
-                        {!impactLoading && impactData && (
-                          <div className="mt-9 min-w-0">
-                            <Suspense fallback={<SkeletonGraph />}>
-                              <ImpactAnalysisGraph
-                                repoName={repoName}
-                                impactData={impactData}
-                                onReset={() => setImpactData(null)}
-                              />
-                            </Suspense>
-                          </div>
-                        )}
-
-                        {!impactLoading && !impactData && !impactError && (
-                          <div className="mt-8 pt-5 hair-t min-w-0 max-h-[15rem]">
-                            <span className="mono-label block mb-2">WAITING FOR SCENARIO</span>
-                            <p className="mono-detail mb-3" style={{ fontSize: 10, letterSpacing: '0.2em' }}>
-                              SCENARIO → PROPAGATION → RISK
-                            </p>
-                            <p className="text-[13px] text-text-muted leading-relaxed max-w-lg">
-                              Describe a proposed change above to begin.
-                            </p>
-                          </div>
-                        )}
-                      </div>
+                      <Suspense fallback={<SkeletonDashboard />}>
+                        <ImpactAnalysisWorkspace repoName={repoName} />
+                      </Suspense>
                     )}
                   </>
                 )}

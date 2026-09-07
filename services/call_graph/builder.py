@@ -61,7 +61,16 @@ class CallGraphBuilder:
             if context and context.repo_path:
                 files = self.symbol_service._walk_repo(context.repo_path)
             else:
-                files = []
+                safe_name = repo_name.replace("/", "_")
+                cloned_path = os.path.join("data", "cloned_repos", safe_name)
+                if os.path.exists(cloned_path):
+                    files = self.symbol_service._walk_repo(cloned_path)
+                elif os.path.exists(repo_name):
+                    files = self.symbol_service._walk_repo(repo_name)
+                elif repo_name in ("VarshithReddy2006/ARIA", "ARIA"):
+                    files = self.symbol_service._walk_repo(".")
+                else:
+                    files = []
 
         yield {
             "status": "building_lookup",
@@ -82,9 +91,9 @@ class CallGraphBuilder:
         # Collect all call edges across the repo
         all_nodes: Dict[str, CallNode] = {}
 
-        # Register all known symbols as nodes first
+        # Register all known symbols as nodes first (including classes as callable constructors)
         for sym in symbol_index.symbols:
-            if sym.type in ("function", "method"):
+            if sym.type in ("function", "method", "class"):
                 q = _qualified(sym)
                 nid = _node_id(sym.file_path, q)
                 if nid not in all_nodes:
@@ -99,6 +108,23 @@ class CallGraphBuilder:
                         parent_class=sym.parent_class,
                     )
 
+        # Initialize Semantic Call Resolver and Class Hierarchy
+        from services.call_graph.semantic_resolver import (
+            ClassHierarchyIndex,
+            SemanticCallResolver,
+        )
+
+        hierarchy = ClassHierarchyIndex()
+        for sym in symbol_index.symbols:
+            if sym.type == "class":
+                hierarchy.register_class(
+                    sym.file_path, sym.name, getattr(sym, "bases", []) or []
+                )
+            elif sym.type == "method" and sym.parent_class:
+                hierarchy.register_method(sym.file_path, sym.parent_class, sym.name)
+
+        resolver = SemanticCallResolver(all_nodes, defn_by_name, hierarchy)
+
         # Extract call sites per file
         file_edges_map = {}
         for f in files:
@@ -107,7 +133,12 @@ class CallGraphBuilder:
             if not path or not content:
                 continue
             file_edges = self.extractor.extract_call_edges(
-                path, content, defn_by_name, all_nodes
+                path,
+                content,
+                defn_by_name,
+                all_nodes,
+                resolver=resolver,
+                hierarchy=hierarchy,
             )
             file_edges_map[path] = file_edges
 
@@ -139,7 +170,16 @@ class CallGraphBuilder:
                 parent_class=node.parent_class or "",
             )
 
-        for caller_id, callee_id, call_line, ambiguous in all_edges:
+        for edge in all_edges:
+            caller_id = edge[0]
+            callee_id = edge[1]
+            call_line = edge[2]
+            ambiguous = edge[3]
+            relationship = edge[4] if len(edge) > 4 else "DIRECT_CALL"
+            receiver_expr = edge[5] if len(edge) > 5 else None
+            receiver_type = edge[6] if len(edge) > 6 else None
+            confidence_tier = edge[7] if len(edge) > 7 else "HIGH"
+
             if caller_id in G and callee_id in G:
                 # If edge exists, keep lowest call_line
                 if G.has_edge(caller_id, callee_id):
@@ -152,7 +192,10 @@ class CallGraphBuilder:
                         callee_id,
                         call_line=call_line,
                         ambiguous=ambiguous,
-                        relationship="calls",
+                        relationship=relationship,
+                        receiver_expr=receiver_expr,
+                        receiver_type=receiver_type,
+                        confidence_tier=confidence_tier,
                     )
 
         yield {"status": "computing_metrics", "message": "Computing graph metrics…"}
@@ -267,9 +310,9 @@ class CallGraphBuilder:
         # Collect all call edges across the repo
         all_nodes: Dict[str, CallNode] = {}
 
-        # Register all known symbols as nodes first
+        # Register all known symbols as nodes first (including classes as callable constructors)
         for sym in symbol_index.symbols:
-            if sym.type in ("function", "method"):
+            if sym.type in ("function", "method", "class"):
                 q = _qualified(sym)
                 nid = _node_id(sym.file_path, q)
                 if nid not in all_nodes:
@@ -284,6 +327,23 @@ class CallGraphBuilder:
                         parent_class=sym.parent_class,
                     )
 
+        # Initialize Semantic Call Resolver and Class Hierarchy
+        from services.call_graph.semantic_resolver import (
+            ClassHierarchyIndex,
+            SemanticCallResolver,
+        )
+
+        hierarchy = ClassHierarchyIndex()
+        for sym in symbol_index.symbols:
+            if sym.type == "class":
+                hierarchy.register_class(
+                    sym.file_path, sym.name, getattr(sym, "bases", []) or []
+                )
+            elif sym.type == "method" and sym.parent_class:
+                hierarchy.register_method(sym.file_path, sym.parent_class, sym.name)
+
+        resolver = SemanticCallResolver(all_nodes, defn_by_name, hierarchy)
+
         # 1. Filter out old call edges belonging to modified/deleted files
         file_edges_map = old_edges_data.get("edges", {})
         for path in list(file_edges_map.keys()):
@@ -297,7 +357,12 @@ class CallGraphBuilder:
                 content = f.get("content", "")
                 if path and content:
                     file_edges = self.extractor.extract_call_edges(
-                        path, content, defn_by_name, all_nodes
+                        path,
+                        content,
+                        defn_by_name,
+                        all_nodes,
+                        resolver=resolver,
+                        hierarchy=hierarchy,
                     )
                     file_edges_map[path] = file_edges
 
@@ -313,7 +378,12 @@ class CallGraphBuilder:
                             ) as fh:
                                 content = fh.read()
                             file_edges = self.extractor.extract_call_edges(
-                                path, content, defn_by_name, all_nodes
+                                path,
+                                content,
+                                defn_by_name,
+                                all_nodes,
+                                resolver=resolver,
+                                hierarchy=hierarchy,
                             )
                             file_edges_map[path] = file_edges
                         except Exception:
@@ -347,7 +417,16 @@ class CallGraphBuilder:
                 parent_class=node.parent_class or "",
             )
 
-        for caller_id, callee_id, call_line, ambiguous in all_edges:
+        for edge in all_edges:
+            caller_id = edge[0]
+            callee_id = edge[1]
+            call_line = edge[2]
+            ambiguous = edge[3]
+            relationship = edge[4] if len(edge) > 4 else "DIRECT_CALL"
+            receiver_expr = edge[5] if len(edge) > 5 else None
+            receiver_type = edge[6] if len(edge) > 6 else None
+            confidence_tier = edge[7] if len(edge) > 7 else "HIGH"
+
             if caller_id in G and callee_id in G:
                 if G.has_edge(caller_id, callee_id):
                     existing = G[caller_id][callee_id]
@@ -359,7 +438,10 @@ class CallGraphBuilder:
                         callee_id,
                         call_line=call_line,
                         ambiguous=ambiguous,
-                        relationship="calls",
+                        relationship=relationship,
+                        receiver_expr=receiver_expr,
+                        receiver_type=receiver_type,
+                        confidence_tier=confidence_tier,
                     )
 
         yield {"status": "computing_metrics", "message": "Computing graph metrics…"}

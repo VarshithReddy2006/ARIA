@@ -92,3 +92,75 @@ def test_allowed_hosts_wildcard_accepted_in_development():
         ALLOWED_HOSTS=["*"],
     )
     assert s.allowed_hosts == ["*"]
+
+
+# ---------------------------------------------------------------------------
+# Self-Hosted Deployment Persistence Regression Tests
+# ---------------------------------------------------------------------------
+
+
+def test_sqlite_db_path_docker_persistent_path_preserved():
+    """Configured docker persistent volume path /app/data/repo_understanding.db is preserved."""
+    s = Settings(
+        APP_ENV="production",
+        LLM_PROVIDER="gemini",
+        GEMINI_API_KEY="test-key",
+        ALLOWED_HOSTS=["api.example.com"],
+        SQLITE_DB_PATH="/app/data/repo_understanding.db",
+    )
+    assert s.sqlite_db_path == "/app/data/repo_understanding.db"
+
+
+def test_sqlite_db_path_explicit_custom_absolute_path_preserved():
+    """Any explicitly configured absolute path is preserved exactly without rewriting to /tmp."""
+    custom_path = "/var/lib/aria/custom_repo.db"
+    s = Settings(
+        APP_ENV="production",
+        LLM_PROVIDER="gemini",
+        GEMINI_API_KEY="test-key",
+        ALLOWED_HOSTS=["api.example.com"],
+        SQLITE_DB_PATH=custom_path,
+    )
+    assert s.sqlite_db_path == custom_path
+
+
+def test_sqlite_db_path_unset_production_fallback():
+    """Unset SQLITE_DB_PATH in production falls back to /tmp/repo_understanding.db."""
+    s = Settings(
+        APP_ENV="production",
+        LLM_PROVIDER="gemini",
+        GEMINI_API_KEY="test-key",
+        ALLOWED_HOSTS=["api.example.com"],
+    )
+    assert s.sqlite_db_path == "/tmp/repo_understanding.db"
+
+
+def test_sqlite_db_path_default_relative_production_fallback():
+    """Default relative path 'data/repo_understanding.db' in production falls back to /tmp/repo_understanding.db."""
+    s = Settings(
+        APP_ENV="production",
+        LLM_PROVIDER="gemini",
+        GEMINI_API_KEY="test-key",
+        ALLOWED_HOSTS=["api.example.com"],
+        SQLITE_DB_PATH="data/repo_understanding.db",
+    )
+    assert s.sqlite_db_path == "/tmp/repo_understanding.db"
+
+
+def test_sqlite_db_path_unset_development_fallback():
+    """Unset SQLITE_DB_PATH in development falls back to data/repo_understanding.db."""
+    s = Settings(
+        APP_ENV="development",
+        LLM_PROVIDER="gemini",
+    )
+    assert s.sqlite_db_path == "data/repo_understanding.db"
+
+
+def test_sqlite_db_path_explicit_relative_development():
+    """Explicit relative path in development is preserved."""
+    s = Settings(
+        APP_ENV="development",
+        LLM_PROVIDER="gemini",
+        SQLITE_DB_PATH="custom/path/repo.db",
+    )
+    assert s.sqlite_db_path == "custom/path/repo.db"

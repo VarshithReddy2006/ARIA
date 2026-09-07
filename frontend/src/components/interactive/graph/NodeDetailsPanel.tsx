@@ -223,21 +223,21 @@ export const NodeDetailsPanel: React.FC<NodeDetailsPanelProps> = ({
                 Dependency Signals
               </span>
               <div className="grid grid-cols-4 gap-1.5 text-center font-mono">
-                <div className="bg-zinc-950 p-1.5 rounded border border-zinc-800/80">
-                  <span className="text-[8px] text-zinc-500 block uppercase">Imports</span>
-                  <span className="text-zinc-200 font-bold text-xs">{details?.metrics?.fan_out ?? node.degree ?? 0}</span>
+                <div className="bg-surface-1 p-1.5 rounded border border-border">
+                  <span className="text-[8px] text-text-subtle block uppercase">Imports</span>
+                  <span className="text-text font-bold text-xs">{details?.metrics?.fan_out ?? node.degree ?? 0}</span>
                 </div>
-                <div className="bg-zinc-950 p-1.5 rounded border border-zinc-800/80">
-                  <span className="text-[8px] text-zinc-500 block uppercase">Imported By</span>
-                  <span className="text-emerald-400 font-bold text-xs">{details?.metrics?.fan_in ?? '—'}</span>
+                <div className="bg-surface-1 p-1.5 rounded border border-border">
+                  <span className="text-[8px] text-text-subtle block uppercase">Imported By</span>
+                  <span className="text-success font-bold text-xs">{details?.metrics?.fan_in ?? '—'}</span>
                 </div>
-                <div className="bg-zinc-950 p-1.5 rounded border border-zinc-800/80">
-                  <span className="text-[8px] text-zinc-500 block uppercase">Degree</span>
-                  <span className="text-zinc-200 font-bold text-xs">{node.degree}</span>
+                <div className="bg-surface-1 p-1.5 rounded border border-border">
+                  <span className="text-[8px] text-text-subtle block uppercase">Degree</span>
+                  <span className="text-text font-bold text-xs">{node.degree}</span>
                 </div>
-                <div className="bg-zinc-950 p-1.5 rounded border border-zinc-800/80">
-                  <span className="text-[8px] text-zinc-500 block uppercase">Centrality</span>
-                  <span className="text-indigo-400 font-bold text-xs">
+                <div className="bg-surface-1 p-1.5 rounded border border-border">
+                  <span className="text-[8px] text-text-subtle block uppercase">Centrality</span>
+                  <span className="text-primary font-bold text-xs">
                     {node.centrality > 0 ? `${(node.centrality * 100).toFixed(1)}%` : '—'}
                   </span>
                 </div>
@@ -351,7 +351,7 @@ export const NodeDetailsPanel: React.FC<NodeDetailsPanelProps> = ({
                       );
                     }
                   }}
-                  className="flex items-center justify-center gap-1.5 bg-rose-500/10 hover:bg-rose-500/20 border border-rose-500/30 text-rose-400 font-bold px-2.5 py-2 rounded text-[10px] transition-all"
+                  className="flex items-center justify-center gap-1.5 bg-danger/10 hover:bg-danger/20 border border-danger/30 text-danger font-bold px-2.5 py-2 rounded text-[10px] transition-all"
                   title="Inspect blast radius and change impact"
                 >
                   <Zap className="h-3.5 w-3.5" /> Blast Radius
@@ -575,7 +575,7 @@ export const NodeDetailsPanel: React.FC<NodeDetailsPanelProps> = ({
             <div className="space-y-1">
               {details?.risk_indicators?.length
                 ? details.risk_indicators.map((rk, idx) => (
-                    <div key={idx} className="p-2 rounded bg-amber-500/10 border border-amber-500/20 text-amber-400 font-bold flex items-center gap-2">
+                    <div key={idx} className="p-2 rounded bg-warn/10 border border-warn/30 text-warn font-bold flex items-center gap-2">
                       <ShieldAlert className="h-3.5 w-3.5 shrink-0" />
                       <span>{rk.label}: {rk.description}</span>
                     </div>
@@ -587,12 +587,12 @@ export const NodeDetailsPanel: React.FC<NodeDetailsPanelProps> = ({
 
         {tab === 'impact' && (
           <div className="space-y-3 text-[10px]">
-            <div className="p-3 bg-rose-950/20 border border-rose-500/30 rounded-lg space-y-1">
-              <span className="text-[9px] font-bold text-rose-400 uppercase tracking-wider block flex items-center gap-1">
+            <div className="p-3 bg-danger/10 border border-danger/30 rounded-lg space-y-1">
+              <span className="text-[9px] font-bold text-danger uppercase tracking-wider block flex items-center gap-1">
                 <Zap className="h-3.5 w-3.5" /> Blast Radius Assessment
               </span>
               <div className="flex justify-between font-bold text-xs text-text pt-1">
-                <span>Risk Level: <span className="text-rose-400">{renderValue(details?.impact?.risk_level)}</span></span>
+                <span>Risk Level: <span className="text-danger">{renderValue(details?.impact?.risk_level)}</span></span>
                 <span>Affected Files: <span className="text-primary">{renderValue(details?.impact?.total_affected_files)}</span></span>
               </div>
             </div>

@@ -16,8 +16,10 @@ import {
   ZoomIn,
   ZoomOut,
   Crosshair,
+  Eye,
 } from 'lucide-react';
 import type { GraphMode, AbstractionLevel } from './types';
+import { useGraphWorkspace } from './workspaceStore';
 
 interface GraphToolbarProps {
   mode: GraphMode;
@@ -64,11 +66,11 @@ const ToolButton: React.FC<ToolButtonProps> = ({
   const base =
     'flex items-center gap-1.5 px-2.5 py-1.5 rounded text-[10px] font-mono font-semibold transition-all border shrink-0';
   const inactive =
-    'bg-zinc-900/80 border-zinc-800 text-zinc-400 hover:text-zinc-100 hover:border-indigo-500/50';
+    'bg-[#08080A] border-[#1F1F23] text-zinc-400 hover:text-zinc-100 hover:border-[#5E6AD2]/50';
   const activeStyle =
-    'bg-indigo-500/20 border-indigo-500 text-indigo-200 shadow-sm';
+    'bg-[#5E6AD2]/20 border-[#5E6AD2] text-[#EDEDED] shadow-sm';
   const accentStyle =
-    'bg-amber-500/15 border-amber-500/40 text-amber-300 hover:bg-amber-500/25';
+    'bg-[#5E6AD2]/15 border-[#5E6AD2]/40 text-[#EDEDED] hover:bg-[#5E6AD2]/25';
   const dangerStyle =
     'bg-red-500/10 border-red-500/30 text-red-400 hover:bg-red-500/20';
   const disabledStyle = 'opacity-40 cursor-not-allowed';
@@ -134,6 +136,7 @@ export const GraphToolbar: React.FC<GraphToolbarProps> = ({
   const focusLabel = focusNode
     ? focusNode.split('/').pop() ?? focusNode
     : null;
+  const { focusMode, setFocusMode } = useGraphWorkspace();
   const [showLegend,    setShowLegend]    = useState(false);
   const [showShortcuts, setShowShortcuts] = useState(false);
 
@@ -248,6 +251,15 @@ export const GraphToolbar: React.FC<GraphToolbarProps> = ({
 
       {/* View controls */}
       <div className="flex items-center gap-1.5">
+        <ToolButton
+          onClick={() => setFocusMode(!focusMode)}
+          active={focusMode}
+          title={focusMode ? 'Exit Focus Mode (show all nodes)' : 'Focus Neighborhood: isolate active node and 1-hop connections'}
+        >
+          <Eye className="h-3 w-3" />
+          <span>{focusMode ? 'Focused' : 'Focus'}</span>
+        </ToolButton>
+
         <ToolButton onClick={onFitView} title="Fit all nodes in view">
           <Maximize2 className="h-3 w-3" />
           <span>Fit</span>

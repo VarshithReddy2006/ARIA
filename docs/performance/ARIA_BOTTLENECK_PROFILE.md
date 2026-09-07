@@ -303,8 +303,8 @@ Tested on 4-worker Uvicorn cluster with realistic query traffic under mock provi
 
 ## 12. Regression & Compliance Verification
 
-- **Full Pytest Suite:** `2,539 passed, 2 skipped, 0 failures` (in 153.97s).
-- **Retrieval Test Suite:** `85 passed in tests/test_retrieval_v2.py`, `8 passed in tests/test_retrieval_cache.py`.
-- **Linter & Formatting:** `ruff check .` (0 errors), `ruff format --check .` (1,056 files formatted).
+- **Full Pytest Suite:** `2,960 passed, 4 skipped, 0 failures` (in ~161.8s).
+- **Retrieval Test Suite:** Passing across all retrieval regression suites.
+- **Linter & Formatting:** `ruff check .` (0 errors), `ruff format --check .` (1,241 files formatted).
 - **Invariants & Preservations:** All API schemas, Gemini/DeepSeek provider orchestration, tree-sitter symbol graphs, and frontend streaming contracts preserved without alteration.
 

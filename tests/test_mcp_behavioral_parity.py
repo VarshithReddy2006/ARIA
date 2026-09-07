@@ -104,7 +104,11 @@ class TestImpactAnalysisAlias:
         assert payload == {"affected_files": ["a.py"]}
         client.post.assert_called_once_with(
             "/api/v1/impact-analysis",
-            json={"repo": "acme/widget", "issue": "rename auth"},
+            json={
+                "repo": "acme/widget",
+                "issue": "rename auth",
+                "operating_mode": "BALANCED",
+            },
         )
 
     def test_deprecated_alias_still_works(self, tools: Capture, client: Any) -> None:
@@ -112,7 +116,11 @@ class TestImpactAnalysisAlias:
         assert payload == {"affected_files": ["a.py"]}
         client.post.assert_called_once_with(
             "/api/v1/impact-analysis",
-            json={"repo": "acme/widget", "issue": "core/auth.py"},
+            json={
+                "repo": "acme/widget",
+                "issue": "core/auth.py",
+                "operating_mode": "BALANCED",
+            },
         )
 
     def test_new_parameter_wins_when_both_supplied(
@@ -123,7 +131,11 @@ class TestImpactAnalysisAlias:
         )
         client.post.assert_called_once_with(
             "/api/v1/impact-analysis",
-            json={"repo": "acme/widget", "issue": "preferred"},
+            json={
+                "repo": "acme/widget",
+                "issue": "preferred",
+                "operating_mode": "BALANCED",
+            },
         )
 
     def test_neither_parameter_is_invalid_params(
@@ -132,6 +144,26 @@ class TestImpactAnalysisAlias:
         with pytest.raises(ToolInputError, match="Missing required argument"):
             self._call(tools, client)
         client.post.assert_not_called()
+
+    def test_operating_mode_is_forwarded_to_the_api(
+        self, tools: Capture, client: Any
+    ) -> None:
+        """A caller-supplied operating_mode must reach the backend unchanged.
+
+        Regression guard: the MCP adapter previously dropped this argument, so
+        SAFE/EXPLORATORY requests were silently downgraded to BALANCED.
+        """
+        self._call(
+            tools, client, change_description="rename auth", operating_mode="SAFE"
+        )
+        client.post.assert_called_once_with(
+            "/api/v1/impact-analysis",
+            json={
+                "repo": "acme/widget",
+                "issue": "rename auth",
+                "operating_mode": "SAFE",
+            },
+        )
 
     def test_metadata_documents_the_alias(self) -> None:
         from mcp.tools import analysis_tools

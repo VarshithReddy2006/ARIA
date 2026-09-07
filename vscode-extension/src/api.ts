@@ -217,12 +217,53 @@ export interface ReadingOrder {
   [key: string]: unknown;
 }
 
+export interface EvidenceItem {
+  kind: 'FACT' | 'INFERENCE' | 'PREDICTION' | 'RECOMMENDATION' | string;
+  statement: string;
+  source_reference?: string;
+  confidence: number;
+}
+
+export interface CallerInfo {
+  caller_id: string;
+  caller_name: string;
+  file_path: string;
+  line_number: number;
+  is_direct: boolean;
+  depth: number;
+}
+
+export interface ApiExposureInfo {
+  public_routes: string[];
+  internal_routes: string[];
+  exported_symbols: string[];
+  deprecated_interfaces: string[];
+}
+
+export interface TestImpactItem {
+  test_file: string;
+  impact_type: string;
+  reason: string;
+}
+
 export interface ImpactAnalysis {
   repo: string;
   issue: string;
   affected_files: string[];
   risk_level: string;
   risk_score: number;
+  blast_radius_category?: string;
+  affected_symbols?: string[];
+  direct_callers?: CallerInfo[];
+  transitive_callers?: CallerInfo[];
+  api_exposure?: ApiExposureInfo;
+  affected_tests?: TestImpactItem[];
+  architecture_boundaries?: string[];
+  evidence_items?: EvidenceItem[];
+  implementation_order?: string[];
+  verified_impact_count?: number;
+  likely_impact_count?: number;
+  candidate_count?: number;
   [key: string]: unknown;
 }
 

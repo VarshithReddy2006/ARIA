@@ -1,9 +1,10 @@
-"""Embedding Service — local BGE embeddings via sentence-transformers with two-tier caching.
+"""Embedding Service — local BGE embeddings via SentenceTransformers / ONNX Runtime INT8 with two-tier caching.
 
 Replaces Gemini text-embedding-004 with BAAI/bge-small-en-v1.5 running
 entirely locally. No API calls, no quotas, no API key required.
 
 Features:
+  - Pluggable inference backends: ONNX Runtime (INT8/FP32) + PyTorch fallback
   - Process-level thread-safe singleton model initialization
   - Two-tier caching: L1 in-memory LRU cache + L2 SQLite persistent cache (WAL mode)
   - Deterministic SHA-256 content-addressed chunk hashing isolated by model/version
@@ -12,6 +13,7 @@ Features:
   - Structured performance and telemetry tracking
 """
 
+from abc import ABC, abstractmethod
 import hashlib
 import json
 import logging
@@ -20,7 +22,9 @@ import threading
 import time
 from collections import OrderedDict
 from dataclasses import dataclass
-from typing import Any, Dict, Generator, List, Optional, Tuple, Union
+from typing import Any, Callable, Dict, Generator, List, Optional, Tuple, Union
+
+import numpy as np
 
 from core.config import settings
 from storage.migrations import get_db_connection
@@ -40,16 +44,40 @@ CACHE_WRITE_BATCH_SIZE = 1000  # Bounded write transactions
 
 
 # ---------------------------------------------------------------------------
-# Deterministic SHA-256 Chunk Hashing
+# Deterministic SHA-256 Chunk Hashing (Backend/Model/Quantization/Version Aware)
 # ---------------------------------------------------------------------------
 def compute_chunk_hash(
     text: str,
     model_name: str = _MODEL_NAME,
     model_version: str = _MODEL_VERSION,
+    backend: Optional[str] = None,
+    quantization: Optional[str] = None,
 ) -> str:
-    """Compute deterministic SHA-256 hash incorporating content and model metadata."""
+    """Compute deterministic SHA-256 hash incorporating content, model, backend, and quantization metadata."""
+    backend_val = (
+        (
+            backend
+            if backend is not None
+            else getattr(settings, "embedding_backend", "onnx")
+        )
+        .lower()
+        .strip()
+    )
+    quant_val = (
+        (
+            quantization
+            if quantization is not None
+            else (
+                getattr(settings, "embedding_onnx_quantization", "int8")
+                if backend_val == "onnx"
+                else "none"
+            )
+        )
+        .lower()
+        .strip()
+    )
     normalized = text.strip()
-    key = f"{model_name}:{model_version}:{normalized}"
+    key = f"{model_name}:{model_version}:{backend_val}:{quant_val}:{normalized}"
     return hashlib.sha256(key.encode("utf-8")).hexdigest()
 
 
@@ -57,9 +85,33 @@ def compute_chunk_hashes_bulk(
     texts: List[str],
     model_name: str = _MODEL_NAME,
     model_version: str = _MODEL_VERSION,
+    backend: Optional[str] = None,
+    quantization: Optional[str] = None,
 ) -> List[str]:
-    """Compute deterministic SHA-256 hashes for all texts in one pass."""
-    prefix = f"{model_name}:{model_version}:"
+    """Compute deterministic SHA-256 hashes for all texts in one pass incorporating backend and quantization."""
+    backend_val = (
+        (
+            backend
+            if backend is not None
+            else getattr(settings, "embedding_backend", "onnx")
+        )
+        .lower()
+        .strip()
+    )
+    quant_val = (
+        (
+            quantization
+            if quantization is not None
+            else (
+                getattr(settings, "embedding_onnx_quantization", "int8")
+                if backend_val == "onnx"
+                else "none"
+            )
+        )
+        .lower()
+        .strip()
+    )
+    prefix = f"{model_name}:{model_version}:{backend_val}:{quant_val}:"
     results = []
     for t in texts:
         normalized = t.strip()
@@ -249,52 +301,344 @@ def _save_embeddings_to_cache_bulk(records: List[Dict[str, Any]]) -> None:
 
 
 # ---------------------------------------------------------------------------
-# Model Singleton — Loaded once and reused across all workers/processes
+# Embedding Backends
+# ---------------------------------------------------------------------------
+class BaseEmbeddingBackend(ABC):
+    """Abstract base class for embedding inference backends."""
+
+    @abstractmethod
+    def encode(
+        self,
+        texts: List[str],
+        batch_size: int = 64,
+        normalize_embeddings: bool = True,
+        show_progress_bar: bool = False,
+    ) -> np.ndarray:
+        """Encode texts into embeddings with shape [N, 384]."""
+        pass
+
+
+class PyTorchEmbeddingBackend(BaseEmbeddingBackend):
+    """PyTorch SentenceTransformer backend."""
+
+    def __init__(self, model_name: str = _MODEL_NAME) -> None:
+        self.model_name = model_name
+        import torch
+
+        os.environ.setdefault("TOKENIZERS_PARALLELISM", "false")
+        if hasattr(torch, "set_num_threads"):
+            try:
+                num_threads = min(os.cpu_count() or 4, 8)
+                torch.set_num_threads(num_threads)
+            except Exception:
+                pass
+        if hasattr(torch, "set_num_interop_threads"):
+            try:
+                torch.set_num_interop_threads(min(4, os.cpu_count() or 2))
+            except Exception:
+                pass
+
+        from sentence_transformers import SentenceTransformer  # type: ignore
+
+        logger.info("Loading PyTorch SentenceTransformer model '%s'…", model_name)
+        self.model = SentenceTransformer(model_name)
+
+    def encode(
+        self,
+        texts: List[str],
+        batch_size: int = 64,
+        normalize_embeddings: bool = True,
+        show_progress_bar: bool = False,
+    ) -> np.ndarray:
+        return self.model.encode(
+            texts,
+            batch_size=batch_size,
+            normalize_embeddings=normalize_embeddings,
+            show_progress_bar=show_progress_bar,
+        )
+
+
+class ONNXEmbeddingBackend(BaseEmbeddingBackend):
+    """ONNX Runtime embedding backend with INT8/FP32 inference."""
+
+    def __init__(
+        self,
+        model_name: str = _MODEL_NAME,
+        quantization: str = "int8",
+        threads: Optional[int] = None,
+    ) -> None:
+        self.model_name = model_name
+        self.quantization = quantization.lower().strip()
+        self.threads = (
+            threads
+            if threads is not None
+            else getattr(settings, "embedding_onnx_threads", None)
+            or min(os.cpu_count() or 4, 8)
+        )
+
+        import onnxruntime as ort
+        from transformers import AutoTokenizer
+
+        logger.info(
+            "Initializing ONNXEmbeddingBackend (model='%s', quantization='%s', threads=%d)…",
+            model_name,
+            self.quantization,
+            self.threads,
+        )
+
+        self.tokenizer = AutoTokenizer.from_pretrained(model_name)
+        model_path = self._ensure_onnx_model()
+
+        opts = ort.SessionOptions()
+        opts.intra_op_num_threads = self.threads
+        opts.inter_op_num_threads = min(4, os.cpu_count() or 2)
+        opts.execution_mode = ort.ExecutionMode.ORT_SEQUENTIAL
+        opts.graph_optimization_level = ort.GraphOptimizationLevel.ORT_ENABLE_ALL
+
+        self.session = ort.InferenceSession(
+            model_path,
+            sess_options=opts,
+            providers=["CPUExecutionProvider"],
+        )
+        logger.info(
+            "ONNX session initialized successfully from '%s' (%s mode).",
+            model_path,
+            self.quantization,
+        )
+
+    def _get_model_cache_dir(self) -> str:
+        cache_base = os.environ.get(
+            "ARIA_MODEL_CACHE_DIR",
+            os.path.expanduser("~/.cache/aria/models"),
+        )
+        safe_name = self.model_name.replace("/", "_")
+        target_dir = os.path.join(cache_base, safe_name)
+        os.makedirs(target_dir, exist_ok=True)
+        return target_dir
+
+    def _ensure_onnx_model(self) -> str:
+        """Ensure ONNX FP32 and INT8 models exist on disk, exporting if necessary."""
+        cache_dir = self._get_model_cache_dir()
+        fp32_path = os.path.join(cache_dir, "model.onnx")
+        int8_path = os.path.join(cache_dir, "model_int8.onnx")
+
+        # 1. Check if requested model already exists
+        if self.quantization == "int8" and os.path.exists(int8_path):
+            return int8_path
+        if self.quantization == "fp32" and os.path.exists(fp32_path):
+            return fp32_path
+
+        # 2. Export FP32 if needed
+        if not os.path.exists(fp32_path):
+            logger.info("Exporting '%s' to ONNX FP32 format…", self.model_name)
+            import torch
+            from transformers import AutoModel
+
+            class _BertWrapper(torch.nn.Module):
+                def __init__(self, model):
+                    super().__init__()
+                    self.model = model
+
+                def forward(self, input_ids, attention_mask, token_type_ids):
+                    out = self.model(
+                        input_ids=input_ids,
+                        attention_mask=attention_mask,
+                        token_type_ids=token_type_ids,
+                        return_dict=True,
+                    )
+                    return out.last_hidden_state
+
+            pt_model = AutoModel.from_pretrained(self.model_name)
+            pt_model.eval()
+            wrapper = _BertWrapper(pt_model)
+            wrapper.eval()
+
+            dummy_text = ["Represent this sentence: def sample(): return 1"]
+            inputs = self.tokenizer(
+                dummy_text,
+                padding=True,
+                truncation=True,
+                max_length=512,
+                return_tensors="pt",
+            )
+            dummy_input = (
+                inputs["input_ids"],
+                inputs["attention_mask"],
+                inputs["token_type_ids"],
+            )
+
+            input_names = ["input_ids", "attention_mask", "token_type_ids"]
+            dynamic_axes = {
+                "input_ids": {0: "batch_size", 1: "sequence_length"},
+                "attention_mask": {0: "batch_size", 1: "sequence_length"},
+                "token_type_ids": {0: "batch_size", 1: "sequence_length"},
+                "last_hidden_state": {0: "batch_size", 1: "sequence_length"},
+            }
+
+            temp_fp32 = fp32_path + ".tmp"
+            with torch.no_grad():
+                torch.onnx.export(
+                    wrapper,
+                    dummy_input,
+                    temp_fp32,
+                    input_names=input_names,
+                    output_names=["last_hidden_state"],
+                    dynamic_axes=dynamic_axes,
+                    opset_version=14,
+                    do_constant_folding=True,
+                    dynamo=False,
+                )
+            if os.path.exists(fp32_path):
+                try:
+                    os.remove(fp32_path)
+                except Exception:
+                    pass
+            os.replace(temp_fp32, fp32_path)
+            logger.info(
+                "ONNX FP32 export complete: %s (%.2f MB)",
+                fp32_path,
+                os.path.getsize(fp32_path) / (1024 * 1024),
+            )
+
+        # 3. Quantize to INT8 if requested
+        if self.quantization == "int8":
+            if not os.path.exists(int8_path):
+                logger.info("Quantizing ONNX FP32 model to INT8 (MatMul/Gemm)…")
+                from onnxruntime.quantization import QuantType, quantize_dynamic
+
+                temp_int8 = int8_path + ".tmp"
+                quantize_dynamic(
+                    model_input=fp32_path,
+                    model_output=temp_int8,
+                    weight_type=QuantType.QInt8,
+                    op_types_to_quantize=["MatMul", "Gemm"],
+                    per_channel=True,
+                )
+                if os.path.exists(int8_path):
+                    try:
+                        os.remove(int8_path)
+                    except Exception:
+                        pass
+                os.replace(temp_int8, int8_path)
+                logger.info(
+                    "ONNX INT8 quantization complete: %s (%.2f MB)",
+                    int8_path,
+                    os.path.getsize(int8_path) / (1024 * 1024),
+                )
+            return int8_path
+
+        return fp32_path
+
+    def encode(
+        self,
+        texts: List[str],
+        batch_size: int = 64,
+        normalize_embeddings: bool = True,
+        show_progress_bar: bool = False,
+    ) -> np.ndarray:
+        if not texts:
+            return np.empty((0, 384), dtype=np.float32)
+
+        all_embs: List[np.ndarray] = []
+        for i in range(0, len(texts), batch_size):
+            batch_texts = texts[i : i + batch_size]
+            toks = self.tokenizer(
+                batch_texts,
+                padding=True,
+                truncation=True,
+                max_length=512,
+                return_tensors="np",
+            )
+            feed = {
+                "input_ids": toks["input_ids"].astype(np.int64),
+                "attention_mask": toks["attention_mask"].astype(np.int64),
+                "token_type_ids": toks["token_type_ids"].astype(np.int64),
+            }
+            last_hidden_state = self.session.run(None, feed)[0]
+
+            # CLS token pooling (BGE uses [CLS] token embedding at index 0)
+            cls_token = last_hidden_state[:, 0]
+
+            if normalize_embeddings:
+                norms = np.linalg.norm(cls_token, axis=1, keepdims=True)
+                norms = np.where(norms == 0, 1e-12, norms)
+                cls_token = cls_token / norms
+
+            all_embs.append(cls_token.astype(np.float32))
+
+        return np.vstack(all_embs)
+
+
+# ---------------------------------------------------------------------------
+# Backend Singleton & Factory
 # ---------------------------------------------------------------------------
 _model_lock = threading.Lock()
 _inference_lock = threading.Lock()
-_model = None
+_backend_instance: Optional[BaseEmbeddingBackend] = None
 _model_load_time_ms: float = 0.0
 
 
-def _get_model():
-    """Return the cached SentenceTransformer model, loading it on first call."""
-    global _model, _model_load_time_ms
-    if _model is not None:
-        return _model
+def _get_backend(
+    backend_override: Optional[str] = None,
+    quantization_override: Optional[str] = None,
+) -> BaseEmbeddingBackend:
+    """Return the cached embedding backend, initializing or failing over safely."""
+    global _backend_instance, _model_load_time_ms
+    if _backend_instance is not None and backend_override is None:
+        return _backend_instance
 
     with _model_lock:
-        if _model is not None:  # double-checked locking
-            return _model
+        if _backend_instance is not None and backend_override is None:
+            return _backend_instance
 
         t0 = time.perf_counter()
-        try:
-            import torch
-
-            os.environ.setdefault("TOKENIZERS_PARALLELISM", "false")
-            if hasattr(torch, "set_num_threads"):
-                num_threads = min(os.cpu_count() or 4, 8)
-                torch.set_num_threads(num_threads)
-            if hasattr(torch, "set_num_interop_threads"):
-                torch.set_num_interop_threads(min(4, os.cpu_count() or 2))
-
-            from sentence_transformers import SentenceTransformer  # type: ignore
-
-            logger.info("Loading BGE embedding model '%s' (first call)…", _MODEL_NAME)
-            _model = SentenceTransformer(_MODEL_NAME)
-            _model_load_time_ms = (time.perf_counter() - t0) * 1000.0
-            logger.info(
-                "BGE model loaded successfully in %.2fms",
-                _model_load_time_ms,
+        target_backend = (
+            (
+                backend_override
+                if backend_override is not None
+                else getattr(settings, "embedding_backend", "onnx")
             )
-        except Exception as exc:
-            logger.warning(
-                "Failed to load SentenceTransformer model '%s': %s. Falling back to dummy model.",
-                _MODEL_NAME,
-                exc,
-            )
+            .lower()
+            .strip()
+        )
+        target_quant = (
+            quantization_override
+            if quantization_override is not None
+            else getattr(settings, "embedding_onnx_quantization", "int8")
+        )
 
-            class _DummyModel:
+        backend: Optional[BaseEmbeddingBackend] = None
+
+        if target_backend == "onnx":
+            try:
+                backend = ONNXEmbeddingBackend(
+                    model_name=_MODEL_NAME,
+                    quantization=target_quant,
+                )
+            except Exception as onnx_err:
+                logger.warning(
+                    "ONNXEmbeddingBackend initialization failed (%s). Falling back to PyTorch: %s",
+                    onnx_err,
+                    onnx_err,
+                    exc_info=True,
+                )
+                try:
+                    backend = PyTorchEmbeddingBackend(model_name=_MODEL_NAME)
+                except Exception as pt_err:
+                    logger.error(
+                        "Both ONNX and PyTorch backend initializations failed: %s",
+                        pt_err,
+                    )
+
+        elif target_backend == "pytorch":
+            try:
+                backend = PyTorchEmbeddingBackend(model_name=_MODEL_NAME)
+            except Exception as pt_err:
+                logger.error("PyTorch backend initialization failed: %s", pt_err)
+
+        if backend is None:
+            # Fallback dummy backend
+            class _DummyBackend(BaseEmbeddingBackend):
                 def encode(
                     self,
                     texts,
@@ -302,13 +646,20 @@ def _get_model():
                     normalize_embeddings=True,
                     show_progress_bar=False,
                 ):
-                    dim = 384
-                    return [[0.0] * dim for _ in texts]
+                    return np.zeros((len(texts), 384), dtype=np.float32)
 
-            _model = _DummyModel()
+            backend = _DummyBackend()
+
+        if backend_override is None:
+            _backend_instance = backend
             _model_load_time_ms = (time.perf_counter() - t0) * 1000.0
 
-    return _model
+        return backend
+
+
+def _get_model():
+    """Backward compatibility shim returning the active embedding backend."""
+    return _get_backend()
 
 
 # ---------------------------------------------------------------------------
@@ -372,7 +723,7 @@ class EmbeddingTelemetry:
 # EmbeddingService
 # ---------------------------------------------------------------------------
 class EmbeddingService:
-    """Generates dense vector embeddings using a local BGE model with two-tier caching."""
+    """Generates dense vector embeddings using local BGE model with two-tier caching."""
 
     def __init__(
         self,
@@ -380,6 +731,8 @@ class EmbeddingService:
         model_name: str = _MODEL_NAME,
         max_outer_batch_size: Optional[int] = None,
         encode_batch_size: Optional[int] = None,
+        backend_name: Optional[str] = None,
+        quantization: Optional[str] = None,
     ) -> None:
         if client is not None:
             logger.debug(
@@ -387,6 +740,24 @@ class EmbeddingService:
             )
         self.model_name = model_name
         self.model_version = _MODEL_VERSION
+        self.backend_name = (
+            (
+                getattr(settings, "embedding_backend", "onnx")
+                if backend_name is None
+                else backend_name
+            )
+            .lower()
+            .strip()
+        )
+        self.quantization = (
+            (
+                getattr(settings, "embedding_onnx_quantization", "int8")
+                if (quantization is None and self.backend_name == "onnx")
+                else (quantization or "none")
+            )
+            .lower()
+            .strip()
+        )
         self.max_outer_batch_size = max(
             1,
             max_outer_batch_size
@@ -450,6 +821,7 @@ class EmbeddingService:
         texts: List[str],
         max_outer_batch_size: Optional[int] = None,
         stats: Optional[Dict[str, Any]] = None,
+        progress_callback: Optional[Callable[[Dict[str, Any]], None]] = None,
     ) -> List[List[float]]:
         """Generate embeddings for a list of strings with optimized bulk pipeline.
 
@@ -466,6 +838,7 @@ class EmbeddingService:
             texts: List of input strings.
             max_outer_batch_size: Optional override for outer batch size.
             stats: Optional dictionary to receive live telemetry stats.
+            progress_callback: Optional callback receiving per-batch progress metadata.
 
         Returns:
             A list of embedding vectors in the exact original order.
@@ -481,7 +854,11 @@ class EmbeddingService:
         t_hash_start = time.perf_counter()
         prefixed_texts = [f"Represent this sentence: {t}" for t in texts]
         hashes = compute_chunk_hashes_bulk(
-            prefixed_texts, self.model_name, self.model_version
+            prefixed_texts,
+            self.model_name,
+            self.model_version,
+            backend=self.backend_name,
+            quantization=self.quantization,
         )
         t_hash = time.perf_counter() - t_hash_start
 
@@ -523,6 +900,27 @@ class EmbeddingService:
         cache_hit_count = l1_hits + l2_hits
         cache_miss_count = len(uncached_indices)
 
+        # If everything was cached, notify progress_callback of 100% completion immediately
+        if not uncached_indices and progress_callback is not None:
+            try:
+                progress_callback(
+                    {
+                        "batch": 1,
+                        "total_batches": 1,
+                        "batch_items": 0,
+                        "completed_chunks": total_texts,
+                        "total_chunks": total_texts,
+                        "progress_pct": 100.0,
+                        "cache_hits": cache_hit_count,
+                        "cache_misses": 0,
+                        "elapsed_batch_seconds": 0.0,
+                    }
+                )
+            except Exception as cb_err:
+                logger.debug(
+                    "Embedding progress callback error (cache hit): %s", cb_err
+                )
+
         # ── 4. Process cache misses: deduplicate → batch encode ────────────
         t_inference_start = time.perf_counter()
         batches_processed = 0
@@ -546,10 +944,6 @@ class EmbeddingService:
             encode_batch_size = self.encode_batch_size
             total_unique = len(unique_texts)
 
-            # Batch encode — use larger batches for throughput
-            # The encode_batch_size controls internal batching within model.encode()
-            # We call model.encode() with ALL unique texts at once for maximum efficiency
-            # but respect max_outer_batch_size for memory-bounded encoding
             outer_limit = (
                 max(1, max_outer_batch_size)
                 if max_outer_batch_size is not None
@@ -589,6 +983,34 @@ class EmbeddingService:
                 for i, vec in enumerate(encoded):
                     vec_list = vec.tolist() if hasattr(vec, "tolist") else list(vec)
                     all_new_embeddings[batch_hashes[i]] = vec_list
+
+                if progress_callback is not None:
+                    completed_chunks = (
+                        min(
+                            total_texts,
+                            cache_hit_count
+                            + int((end_idx / total_unique) * cache_miss_count),
+                        )
+                        if total_unique > 0
+                        else total_texts
+                    )
+                    pct = round((completed_chunks / max(1, total_texts)) * 100.0, 1)
+                    try:
+                        progress_callback(
+                            {
+                                "batch": batch_num,
+                                "total_batches": batches_processed,
+                                "batch_items": len(batch_texts),
+                                "completed_chunks": completed_chunks,
+                                "total_chunks": total_texts,
+                                "progress_pct": pct,
+                                "cache_hits": cache_hit_count,
+                                "cache_misses": cache_miss_count,
+                                "elapsed_batch_seconds": elapsed_batch,
+                            }
+                        )
+                    except Exception as cb_err:
+                        logger.debug("Embedding progress callback error: %s", cb_err)
 
             # Map results back to original indices
             for idx in uncached_indices:
@@ -661,13 +1083,9 @@ class EmbeddingService:
         self,
         chunks: List[Union[str, Dict[str, Any], Any]],
         stats: Optional[Dict[str, Any]] = None,
+        progress_callback: Optional[Callable[[Dict[str, Any]], None]] = None,
     ) -> List[List[float]]:
-        """Generate embeddings for chunks, dictionaries, or raw strings.
-
-        This method accepts the full chunk list and processes it through the
-        optimized bulk pipeline in one pass. For cold runs this avoids repeated
-        per-batch cache lookups and writes.
-        """
+        """Generate embeddings for chunks, dictionaries, or raw strings."""
         texts: List[str] = []
         for c in chunks:
             if isinstance(c, str):
@@ -679,7 +1097,9 @@ class EmbeddingService:
             else:
                 texts.append(str(c))
 
-        return self.generate_embeddings_batch(texts, stats=stats)
+        return self.generate_embeddings_batch(
+            texts, stats=stats, progress_callback=progress_callback
+        )
 
     def stream_generate_embeddings_batches(
         self,

@@ -13,10 +13,10 @@ interface EmptyStateProps {
 }
 
 const toneRing: Record<NonNullable<EmptyStateProps['tone']>, string> = {
-  neutral: 'text-text-muted border-border/80 bg-surface-2/50',
-  success: 'text-success border-success/30 bg-success/10',
-  warn:    'text-warn border-warn/30 bg-warn/10',
-  danger:  'text-danger border-danger/30 bg-danger/10',
+  neutral: 'text-[#B8BEC9] border-[#202631] bg-[#11141B]',
+  success: 'text-[#35D6A3] border-[rgba(53,214,163,0.34)] bg-[rgba(53,214,163,0.09)]',
+  warn:    'text-[#F0B429] border-[rgba(240,180,41,0.38)] bg-[rgba(240,180,41,0.10)]',
+  danger:  'text-[#F27781] border-[rgba(242,119,129,0.34)] bg-[rgba(242,119,129,0.09)]',
 };
 
 export const EmptyState: React.FC<EmptyStateProps> = ({
@@ -43,7 +43,7 @@ export const EmptyState: React.FC<EmptyStateProps> = ({
           <p className="text-xs text-text-muted leading-relaxed font-sans font-normal">{description}</p>
         )}
         {secondaryHelp && (
-          <p className="text-[10px] text-text-subtle/80 font-normal leading-normal font-sans italic">{secondaryHelp}</p>
+          <p className="text-[10px] text-text-subtle font-normal leading-normal font-sans italic">{secondaryHelp}</p>
         )}
       </div>
       {action && <div className="pt-2 select-none">{action}</div>}

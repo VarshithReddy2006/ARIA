@@ -37,6 +37,66 @@ pdf_renderer = _ReloadSafeDependency("pdf_renderer", get_pdf_renderer)
 router = APIRouter(prefix="/report", tags=["report"])
 
 
+@router.get("/{owner}/{repo}", response_model=ReportDataModel)
+def get_report(owner: str, repo: str) -> ReportDataModel:
+    """Returns the cached health report if available, or compiles it on demand."""
+    import json
+    import os
+    from core.config import settings
+
+    repo_name = f"{owner}/{repo}"
+    safe_name = repo_name.replace("/", "_").replace("\\", "_")
+
+    analysis_path = getattr(settings, "analysis_store_path", None) or os.environ.get(
+        "ANALYSIS_STORE_PATH"
+    )
+    base = os.path.dirname(os.path.abspath(analysis_path)) if analysis_path else "data"
+    report_file = os.path.join(base, "reports", f"{safe_name}.json")
+
+    # 1. Check shared JSON artifact first
+    if os.path.isfile(report_file):
+        try:
+            with open(report_file, "r", encoding="utf-8") as fh:
+                data = json.load(fh)
+            return ReportDataModel.model_validate(data)
+        except Exception:
+            pass
+
+    # 2. Check SQLite cache
+    try:
+        conn = get_db_connection()
+        try:
+            cursor = conn.cursor()
+            cursor.execute(
+                """
+                SELECT report_data
+                FROM repo_reports
+                WHERE repo_name = ?
+                ORDER BY generated_at DESC
+                LIMIT 1
+                """,
+                (repo_name,),
+            )
+            row = cursor.fetchone()
+            if row is not None and row[0]:
+                data = json.loads(row[0])
+                return ReportDataModel.model_validate(data)
+        finally:
+            conn.close()
+    except Exception:
+        pass
+
+    # 3. Dynamic composition fallback
+    try:
+        return report_composer.compose_report(repo_name)
+    except ValueError as exc:
+        raise HTTPException(status_code=412, detail=str(exc))
+    except Exception as exc:
+        raise HTTPException(
+            status_code=500, detail=f"Failed to build report: {str(exc)}"
+        )
+
+
 @router.post("/{owner}/{repo}/build", response_model=ReportDataModel)
 def build_report(owner: str, repo: str) -> ReportDataModel:
     """Triggers report generation for the specified repository and returns the model."""

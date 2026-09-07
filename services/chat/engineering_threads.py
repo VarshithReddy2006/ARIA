@@ -507,26 +507,19 @@ class EngineeringThreadTracker:
                     thread.resolved_aspects.append("change_blast_radius")
 
             # Seed potential unresolved aspects
+            f_ref = f" in {files[0]}" if files else ""
             candidates = [
                 (
-                    "model_artifact_lifecycle",
-                    "how the model artifact (.pkl/.onnx) is loaded, versioned, or trained",
-                ),
-                (
-                    "feature_vector_schema",
-                    "exact feature vector shape and validation in feature extraction",
-                ),
-                (
                     "caller_contract_propagation",
-                    "upstream and downstream callers depending on transformation output",
+                    f"upstream and downstream callers depending on transformation output{f_ref}",
                 ),
                 (
                     "failure_handling_and_fallback",
-                    "exception handling when input is malformed or model missing",
+                    f"exception handling and fallback paths{f_ref}",
                 ),
                 (
                     "unit_test_and_mock_coverage",
-                    "test coverage and fixtures for inference verification",
+                    f"test coverage and fixtures for implementation verification{f_ref}",
                 ),
             ]
             for key, desc in candidates:

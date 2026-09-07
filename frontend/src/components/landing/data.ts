@@ -507,19 +507,42 @@ export const PIPELINE_STAGES = [
   },
 ];
 
-/* ── Chapter 09: technology ───────────────────────────────────────────────── */
+/* ── Chapter 09: technology & capabilities ────────────────────────────────── */
+export const CAPABILITY_MAP = [
+  {
+    domain: 'STRUCTURE',
+    items: ['AST parsing', 'Repository topology', 'Dependency graphs', 'Cycle & layer detection'],
+  },
+  {
+    domain: 'SEMANTICS',
+    items: ['Symbol index', 'Call graph resolution', 'Centrality ranking', 'Deterministic AST scopes'],
+  },
+  {
+    domain: 'CHANGE',
+    items: ['Change impact analysis', 'Dead code detection', 'PR blast radius & risk', 'Architectural drift'],
+  },
+  {
+    domain: 'MEMORY',
+    items: ['Git history telemetry', 'Commit concentration', 'Code churn tracking', 'Hotspot identification'],
+  },
+  {
+    domain: 'INTERACTION',
+    items: ['ARIA Chat (grounded RAG)', 'Guided Reading Path', 'Model Context Protocol (MCP)', 'REST API & CLI'],
+  },
+];
+
 export const TECHNOLOGY = [
   {
-    column: 'CORE',
-    items: ['Tree-sitter AST', 'NetworkX Topology', 'FastAPI', 'Python 3.12', 'ChromaDB'],
+    column: 'CORE ENGINE',
+    items: ['Tree-sitter AST', 'NetworkX Topology', 'FastAPI & SSE', 'Python 3.12', 'SQLite & ChromaDB'],
   },
   {
     column: 'INTELLIGENCE',
-    items: ['Gemini 2.5 Flash', 'DeepSeek', 'Deterministic RAG', 'Incremental Caching'],
+    items: ['Gemini 2.5 Flash', 'DeepSeek fallback', 'Deterministic RAG', 'Incremental Index Caching'],
   },
   {
-    column: 'INTERFACE',
-    items: ['Astro', 'React', 'Tailwind CSS', 'TypeScript'],
+    column: 'INTERFACE & CLIENTS',
+    items: ['Astro + React Islands', 'TypeScript', 'Tailwind CSS', 'MCP Server protocol'],
   },
 ];
 

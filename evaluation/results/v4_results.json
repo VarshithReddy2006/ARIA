@@ -1,0 +1,1162 @@
+[
+  {
+    "task_id": "task-01-fastapi-oauth2",
+    "repository": "fastapi/fastapi",
+    "change_description": "Modify OAuth2PasswordBearer tokenUrl requirement and validation in fastapi/security/oauth2.py",
+    "ground_truth_counts": {
+      "files": 4,
+      "callers": 2,
+      "tests": 3,
+      "valid_tests": 3
+    },
+    "baseline": {
+      "latency_ms": 717.64,
+      "files": {
+        "precision": 0.0047,
+        "recall": 1.0,
+        "f1": 0.0093,
+        "tp": 4,
+        "fp": 853,
+        "fn": 0
+      },
+      "callers": {
+        "precision": 0.0,
+        "recall": 0.0,
+        "f1": 0.0,
+        "tp": 0,
+        "fp": 17,
+        "fn": 2
+      },
+      "tests": {
+        "precision": 0.0062,
+        "recall": 1.0,
+        "f1": 0.0124,
+        "tp": 3,
+        "fp": 479,
+        "fn": 0
+      },
+      "predicted_file_count": 857,
+      "predicted_caller_count": 17,
+      "predicted_test_count": 482
+    },
+    "aria": {
+      "latency_ms": 1203.11,
+      "files": {
+        "precision": 0.0667,
+        "recall": 0.25,
+        "f1": 0.1053,
+        "tp": 1,
+        "fp": 14,
+        "fn": 3
+      },
+      "callers": {
+        "precision": 0.0,
+        "recall": 0.0,
+        "f1": 0.0,
+        "tp": 0,
+        "fp": 0,
+        "fn": 2
+      },
+      "tests": {
+        "precision": 0.0857,
+        "recall": 1.0,
+        "f1": 0.1579,
+        "tp": 3,
+        "fp": 32,
+        "fn": 0
+      },
+      "tests_high": {
+        "precision": 0.3333,
+        "recall": 0.6667,
+        "f1": 0.4444,
+        "tp": 2,
+        "fp": 4,
+        "fn": 1
+      },
+      "tests_high_med": {
+        "precision": 0.0857,
+        "recall": 1.0,
+        "f1": 0.1579,
+        "tp": 3,
+        "fp": 32,
+        "fn": 0
+      },
+      "tests_all": {
+        "precision": 0.0789,
+        "recall": 1.0,
+        "f1": 0.1463,
+        "tp": 3,
+        "fp": 35,
+        "fn": 0
+      },
+      "valid_tests_high": {
+        "precision": 0.1667,
+        "recall": 0.3333,
+        "f1": 0.2222,
+        "tp": 1,
+        "fp": 5,
+        "fn": 2
+      },
+      "valid_tests_high_med": {
+        "precision": 0.0286,
+        "recall": 0.3333,
+        "f1": 0.0526,
+        "tp": 1,
+        "fp": 34,
+        "fn": 2
+      },
+      "predicted_file_count": 15,
+      "predicted_caller_count": 0,
+      "predicted_test_count": 38,
+      "predicted_test_count_high": 6,
+      "predicted_test_count_high_med": 35,
+      "blast_radius": "L",
+      "risk_level": "extreme",
+      "evidence_count": 56
+    }
+  },
+  {
+    "task_id": "task-02-fastapi-serialize-response",
+    "repository": "fastapi/fastapi",
+    "change_description": "Refactor serialize_response to support custom json encoders in fastapi/routing.py",
+    "ground_truth_counts": {
+      "files": 3,
+      "callers": 2,
+      "tests": 2,
+      "valid_tests": 1
+    },
+    "baseline": {
+      "latency_ms": 160.3,
+      "files": {
+        "precision": 0.0035,
+        "recall": 1.0,
+        "f1": 0.0069,
+        "tp": 3,
+        "fp": 865,
+        "fn": 0
+      },
+      "callers": {
+        "precision": 0.0,
+        "recall": 0.0,
+        "f1": 0.0,
+        "tp": 0,
+        "fp": 382,
+        "fn": 2
+      },
+      "tests": {
+        "precision": 0.002,
+        "recall": 0.5,
+        "f1": 0.0041,
+        "tp": 1,
+        "fp": 489,
+        "fn": 1
+      },
+      "predicted_file_count": 868,
+      "predicted_caller_count": 382,
+      "predicted_test_count": 490
+    },
+    "aria": {
+      "latency_ms": 658.56,
+      "files": {
+        "precision": 0.0645,
+        "recall": 0.6667,
+        "f1": 0.1176,
+        "tp": 2,
+        "fp": 29,
+        "fn": 1
+      },
+      "callers": {
+        "precision": 0.25,
+        "recall": 0.5,
+        "f1": 0.3333,
+        "tp": 1,
+        "fp": 3,
+        "fn": 1
+      },
+      "tests": {
+        "precision": 0.0041,
+        "recall": 0.5,
+        "f1": 0.0082,
+        "tp": 1,
+        "fp": 241,
+        "fn": 1
+      },
+      "tests_high": {
+        "precision": 0.25,
+        "recall": 0.5,
+        "f1": 0.3333,
+        "tp": 1,
+        "fp": 3,
+        "fn": 1
+      },
+      "tests_high_med": {
+        "precision": 0.0041,
+        "recall": 0.5,
+        "f1": 0.0082,
+        "tp": 1,
+        "fp": 241,
+        "fn": 1
+      },
+      "tests_all": {
+        "precision": 0.0041,
+        "recall": 0.5,
+        "f1": 0.0082,
+        "tp": 1,
+        "fp": 242,
+        "fn": 1
+      },
+      "valid_tests_high": {
+        "precision": 0.0,
+        "recall": 0.0,
+        "f1": 0.0,
+        "tp": 0,
+        "fp": 4,
+        "fn": 1
+      },
+      "valid_tests_high_med": {
+        "precision": 0.0,
+        "recall": 0.0,
+        "f1": 0.0,
+        "tp": 0,
+        "fp": 242,
+        "fn": 1
+      },
+      "predicted_file_count": 31,
+      "predicted_caller_count": 4,
+      "predicted_test_count": 243,
+      "predicted_test_count_high": 4,
+      "predicted_test_count_high_med": 242,
+      "blast_radius": "XL",
+      "risk_level": "extreme",
+      "evidence_count": 300
+    }
+  },
+  {
+    "task_id": "task-03-fastapi-status-codes",
+    "repository": "fastapi/fastapi",
+    "change_description": "Deprecate HTTP_404_NOT_FOUND alias in fastapi/status.py in favor of standard starlette status codes",
+    "ground_truth_counts": {
+      "files": 2,
+      "callers": 0,
+      "tests": 1,
+      "valid_tests": 0
+    },
+    "baseline": {
+      "latency_ms": 180.07,
+      "files": {
+        "precision": 0.0011,
+        "recall": 0.5,
+        "f1": 0.0023,
+        "tp": 1,
+        "fp": 875,
+        "fn": 1
+      },
+      "callers": {
+        "precision": 0.0,
+        "recall": 0.0,
+        "f1": 0.0,
+        "tp": 0,
+        "fp": 37,
+        "fn": 0
+      },
+      "tests": {
+        "precision": 0.0,
+        "recall": 0.0,
+        "f1": 0.0,
+        "tp": 0,
+        "fp": 488,
+        "fn": 1
+      },
+      "predicted_file_count": 876,
+      "predicted_caller_count": 37,
+      "predicted_test_count": 488
+    },
+    "aria": {
+      "latency_ms": 248.4,
+      "files": {
+        "precision": 0.1429,
+        "recall": 0.5,
+        "f1": 0.2222,
+        "tp": 1,
+        "fp": 6,
+        "fn": 1
+      },
+      "callers": {
+        "precision": 0.0,
+        "recall": 0.0,
+        "f1": 0.0,
+        "tp": 0,
+        "fp": 0,
+        "fn": 0
+      },
+      "tests": {
+        "precision": 0.0,
+        "recall": 0.0,
+        "f1": 0.0,
+        "tp": 0,
+        "fp": 0,
+        "fn": 1
+      },
+      "tests_high": {
+        "precision": 0.0,
+        "recall": 0.0,
+        "f1": 0.0,
+        "tp": 0,
+        "fp": 0,
+        "fn": 1
+      },
+      "tests_high_med": {
+        "precision": 0.0,
+        "recall": 0.0,
+        "f1": 0.0,
+        "tp": 0,
+        "fp": 0,
+        "fn": 1
+      },
+      "tests_all": {
+        "precision": 0.0,
+        "recall": 0.0,
+        "f1": 0.0,
+        "tp": 0,
+        "fp": 3,
+        "fn": 1
+      },
+      "valid_tests_high": {
+        "precision": 0.0,
+        "recall": 0.0,
+        "f1": 0.0,
+        "tp": 0,
+        "fp": 0,
+        "fn": 0
+      },
+      "valid_tests_high_med": {
+        "precision": 0.0,
+        "recall": 0.0,
+        "f1": 0.0,
+        "tp": 0,
+        "fp": 0,
+        "fn": 0
+      },
+      "predicted_file_count": 7,
+      "predicted_caller_count": 0,
+      "predicted_test_count": 3,
+      "predicted_test_count_high": 0,
+      "predicted_test_count_high_med": 0,
+      "blast_radius": "M",
+      "risk_level": "extreme",
+      "evidence_count": 24
+    }
+  },
+  {
+    "task_id": "task-04-requests-session-send",
+    "repository": "psf/requests",
+    "change_description": "Refactor Session.send method to handle custom retries and stream hooks in src/requests/sessions.py",
+    "ground_truth_counts": {
+      "files": 3,
+      "callers": 4,
+      "tests": 2,
+      "valid_tests": 1
+    },
+    "baseline": {
+      "latency_ms": 97.94,
+      "files": {
+        "precision": 0.0938,
+        "recall": 1.0,
+        "f1": 0.1714,
+        "tp": 3,
+        "fp": 29,
+        "fn": 0
+      },
+      "callers": {
+        "precision": 0.0769,
+        "recall": 0.5,
+        "f1": 0.1333,
+        "tp": 2,
+        "fp": 24,
+        "fn": 2
+      },
+      "tests": {
+        "precision": 0.0833,
+        "recall": 0.5,
+        "f1": 0.1429,
+        "tp": 1,
+        "fp": 11,
+        "fn": 1
+      },
+      "predicted_file_count": 32,
+      "predicted_caller_count": 26,
+      "predicted_test_count": 12
+    },
+    "aria": {
+      "latency_ms": 166.22,
+      "files": {
+        "precision": 0.1429,
+        "recall": 0.6667,
+        "f1": 0.2353,
+        "tp": 2,
+        "fp": 12,
+        "fn": 1
+      },
+      "callers": {
+        "precision": 0.0,
+        "recall": 0.0,
+        "f1": 0.0,
+        "tp": 0,
+        "fp": 0,
+        "fn": 4
+      },
+      "tests": {
+        "precision": 1.0,
+        "recall": 0.5,
+        "f1": 0.6667,
+        "tp": 1,
+        "fp": 0,
+        "fn": 1
+      },
+      "tests_high": {
+        "precision": 1.0,
+        "recall": 0.5,
+        "f1": 0.6667,
+        "tp": 1,
+        "fp": 0,
+        "fn": 1
+      },
+      "tests_high_med": {
+        "precision": 1.0,
+        "recall": 0.5,
+        "f1": 0.6667,
+        "tp": 1,
+        "fp": 0,
+        "fn": 1
+      },
+      "tests_all": {
+        "precision": 0.5,
+        "recall": 0.5,
+        "f1": 0.5,
+        "tp": 1,
+        "fp": 1,
+        "fn": 1
+      },
+      "valid_tests_high": {
+        "precision": 1.0,
+        "recall": 1.0,
+        "f1": 1.0,
+        "tp": 1,
+        "fp": 0,
+        "fn": 0
+      },
+      "valid_tests_high_med": {
+        "precision": 1.0,
+        "recall": 1.0,
+        "f1": 1.0,
+        "tp": 1,
+        "fp": 0,
+        "fn": 0
+      },
+      "predicted_file_count": 14,
+      "predicted_caller_count": 0,
+      "predicted_test_count": 2,
+      "predicted_test_count_high": 1,
+      "predicted_test_count_high_med": 1,
+      "blast_radius": "L",
+      "risk_level": "extreme",
+      "evidence_count": 11
+    }
+  },
+  {
+    "task_id": "task-05-requests-adapters-ssl",
+    "repository": "psf/requests",
+    "change_description": "Update HTTPAdapter.cert_verify to support system trust stores in src/requests/adapters.py",
+    "ground_truth_counts": {
+      "files": 2,
+      "callers": 2,
+      "tests": 2,
+      "valid_tests": 2
+    },
+    "baseline": {
+      "latency_ms": 26.95,
+      "files": {
+        "precision": 0.0625,
+        "recall": 1.0,
+        "f1": 0.1176,
+        "tp": 2,
+        "fp": 30,
+        "fn": 0
+      },
+      "callers": {
+        "precision": 0.0,
+        "recall": 0.0,
+        "f1": 0.0,
+        "tp": 0,
+        "fp": 13,
+        "fn": 2
+      },
+      "tests": {
+        "precision": 0.1667,
+        "recall": 1.0,
+        "f1": 0.2857,
+        "tp": 2,
+        "fp": 10,
+        "fn": 0
+      },
+      "predicted_file_count": 32,
+      "predicted_caller_count": 13,
+      "predicted_test_count": 12
+    },
+    "aria": {
+      "latency_ms": 70.05,
+      "files": {
+        "precision": 0.1818,
+        "recall": 1.0,
+        "f1": 0.3077,
+        "tp": 2,
+        "fp": 9,
+        "fn": 0
+      },
+      "callers": {
+        "precision": 0.0,
+        "recall": 0.0,
+        "f1": 0.0,
+        "tp": 0,
+        "fp": 0,
+        "fn": 2
+      },
+      "tests": {
+        "precision": 1.0,
+        "recall": 1.0,
+        "f1": 1.0,
+        "tp": 2,
+        "fp": 0,
+        "fn": 0
+      },
+      "tests_high": {
+        "precision": 1.0,
+        "recall": 0.5,
+        "f1": 0.6667,
+        "tp": 1,
+        "fp": 0,
+        "fn": 1
+      },
+      "tests_high_med": {
+        "precision": 1.0,
+        "recall": 1.0,
+        "f1": 1.0,
+        "tp": 2,
+        "fp": 0,
+        "fn": 0
+      },
+      "tests_all": {
+        "precision": 1.0,
+        "recall": 1.0,
+        "f1": 1.0,
+        "tp": 2,
+        "fp": 0,
+        "fn": 0
+      },
+      "valid_tests_high": {
+        "precision": 1.0,
+        "recall": 0.5,
+        "f1": 0.6667,
+        "tp": 1,
+        "fp": 0,
+        "fn": 1
+      },
+      "valid_tests_high_med": {
+        "precision": 0.5,
+        "recall": 0.5,
+        "f1": 0.5,
+        "tp": 1,
+        "fp": 1,
+        "fn": 1
+      },
+      "predicted_file_count": 11,
+      "predicted_caller_count": 0,
+      "predicted_test_count": 2,
+      "predicted_test_count_high": 1,
+      "predicted_test_count_high_med": 2,
+      "blast_radius": "M",
+      "risk_level": "extreme",
+      "evidence_count": 9
+    }
+  },
+  {
+    "task_id": "task-06-requests-models-response",
+    "repository": "psf/requests",
+    "change_description": "Add custom payload cache and decoding to Response.content in src/requests/models.py",
+    "ground_truth_counts": {
+      "files": 3,
+      "callers": 2,
+      "tests": 1,
+      "valid_tests": 1
+    },
+    "baseline": {
+      "latency_ms": 21.9,
+      "files": {
+        "precision": 0.0938,
+        "recall": 1.0,
+        "f1": 0.1714,
+        "tp": 3,
+        "fp": 29,
+        "fn": 0
+      },
+      "callers": {
+        "precision": 0.0,
+        "recall": 0.0,
+        "f1": 0.0,
+        "tp": 0,
+        "fp": 17,
+        "fn": 2
+      },
+      "tests": {
+        "precision": 0.0833,
+        "recall": 1.0,
+        "f1": 0.1538,
+        "tp": 1,
+        "fp": 11,
+        "fn": 0
+      },
+      "predicted_file_count": 32,
+      "predicted_caller_count": 17,
+      "predicted_test_count": 12
+    },
+    "aria": {
+      "latency_ms": 64.34,
+      "files": {
+        "precision": 0.2143,
+        "recall": 1.0,
+        "f1": 0.3529,
+        "tp": 3,
+        "fp": 11,
+        "fn": 0
+      },
+      "callers": {
+        "precision": 0.0,
+        "recall": 0.0,
+        "f1": 0.0,
+        "tp": 0,
+        "fp": 0,
+        "fn": 2
+      },
+      "tests": {
+        "precision": 1.0,
+        "recall": 1.0,
+        "f1": 1.0,
+        "tp": 1,
+        "fp": 0,
+        "fn": 0
+      },
+      "tests_high": {
+        "precision": 0.0,
+        "recall": 0.0,
+        "f1": 0.0,
+        "tp": 0,
+        "fp": 0,
+        "fn": 1
+      },
+      "tests_high_med": {
+        "precision": 1.0,
+        "recall": 1.0,
+        "f1": 1.0,
+        "tp": 1,
+        "fp": 0,
+        "fn": 0
+      },
+      "tests_all": {
+        "precision": 1.0,
+        "recall": 1.0,
+        "f1": 1.0,
+        "tp": 1,
+        "fp": 0,
+        "fn": 0
+      },
+      "valid_tests_high": {
+        "precision": 0.0,
+        "recall": 0.0,
+        "f1": 0.0,
+        "tp": 0,
+        "fp": 0,
+        "fn": 1
+      },
+      "valid_tests_high_med": {
+        "precision": 1.0,
+        "recall": 1.0,
+        "f1": 1.0,
+        "tp": 1,
+        "fp": 0,
+        "fn": 0
+      },
+      "predicted_file_count": 14,
+      "predicted_caller_count": 0,
+      "predicted_test_count": 1,
+      "predicted_test_count_high": 0,
+      "predicted_test_count_high_med": 1,
+      "blast_radius": "L",
+      "risk_level": "extreme",
+      "evidence_count": 9
+    }
+  },
+  {
+    "task_id": "task-07-aria-symbol-schema",
+    "repository": "VarshithReddy2006/ARIA",
+    "change_description": "Add visibility enum constraint to Symbol model in models/symbol.py",
+    "ground_truth_counts": {
+      "files": 4,
+      "callers": 2,
+      "tests": 2,
+      "valid_tests": 1
+    },
+    "baseline": {
+      "latency_ms": 858.37,
+      "files": {
+        "precision": 0.0053,
+        "recall": 1.0,
+        "f1": 0.0106,
+        "tp": 4,
+        "fp": 749,
+        "fn": 0
+      },
+      "callers": {
+        "precision": 0.0,
+        "recall": 0.0,
+        "f1": 0.0,
+        "tp": 0,
+        "fp": 103,
+        "fn": 2
+      },
+      "tests": {
+        "precision": 0.004,
+        "recall": 0.5,
+        "f1": 0.008,
+        "tp": 1,
+        "fp": 248,
+        "fn": 1
+      },
+      "predicted_file_count": 753,
+      "predicted_caller_count": 103,
+      "predicted_test_count": 249
+    },
+    "aria": {
+      "latency_ms": 5099.28,
+      "files": {
+        "precision": 0.0317,
+        "recall": 0.5,
+        "f1": 0.0597,
+        "tp": 2,
+        "fp": 61,
+        "fn": 2
+      },
+      "callers": {
+        "precision": 0.0,
+        "recall": 0.0,
+        "f1": 0.0,
+        "tp": 0,
+        "fp": 0,
+        "fn": 2
+      },
+      "tests": {
+        "precision": 0.0465,
+        "recall": 1.0,
+        "f1": 0.0889,
+        "tp": 2,
+        "fp": 41,
+        "fn": 0
+      },
+      "tests_high": {
+        "precision": 0.0488,
+        "recall": 1.0,
+        "f1": 0.093,
+        "tp": 2,
+        "fp": 39,
+        "fn": 0
+      },
+      "tests_high_med": {
+        "precision": 0.0465,
+        "recall": 1.0,
+        "f1": 0.0889,
+        "tp": 2,
+        "fp": 41,
+        "fn": 0
+      },
+      "tests_all": {
+        "precision": 0.0444,
+        "recall": 1.0,
+        "f1": 0.0851,
+        "tp": 2,
+        "fp": 43,
+        "fn": 0
+      },
+      "valid_tests_high": {
+        "precision": 0.0244,
+        "recall": 1.0,
+        "f1": 0.0476,
+        "tp": 1,
+        "fp": 40,
+        "fn": 0
+      },
+      "valid_tests_high_med": {
+        "precision": 0.0233,
+        "recall": 1.0,
+        "f1": 0.0455,
+        "tp": 1,
+        "fp": 42,
+        "fn": 0
+      },
+      "predicted_file_count": 63,
+      "predicted_caller_count": 0,
+      "predicted_test_count": 45,
+      "predicted_test_count_high": 41,
+      "predicted_test_count_high_med": 43,
+      "blast_radius": "XL",
+      "risk_level": "extreme",
+      "evidence_count": 59
+    }
+  },
+  {
+    "task_id": "task-08-aria-call-graph-blast-radius",
+    "repository": "VarshithReddy2006/ARIA",
+    "change_description": "Enhance CallGraphService.get_blast_radius to include depth filter and cycle detection in services/call_graph_service.py",
+    "ground_truth_counts": {
+      "files": 3,
+      "callers": 2,
+      "tests": 2,
+      "valid_tests": 0
+    },
+    "baseline": {
+      "latency_ms": 251.26,
+      "files": {
+        "precision": 0.0066,
+        "recall": 1.0,
+        "f1": 0.0131,
+        "tp": 3,
+        "fp": 451,
+        "fn": 0
+      },
+      "callers": {
+        "precision": 0.0,
+        "recall": 0.0,
+        "f1": 0.0,
+        "tp": 0,
+        "fp": 65,
+        "fn": 2
+      },
+      "tests": {
+        "precision": 0.0,
+        "recall": 0.0,
+        "f1": 0.0,
+        "tp": 0,
+        "fp": 153,
+        "fn": 2
+      },
+      "predicted_file_count": 454,
+      "predicted_caller_count": 65,
+      "predicted_test_count": 153
+    },
+    "aria": {
+      "latency_ms": 1473.23,
+      "files": {
+        "precision": 0.029,
+        "recall": 0.6667,
+        "f1": 0.0556,
+        "tp": 2,
+        "fp": 67,
+        "fn": 1
+      },
+      "callers": {
+        "precision": 0.0,
+        "recall": 0.0,
+        "f1": 0.0,
+        "tp": 0,
+        "fp": 0,
+        "fn": 2
+      },
+      "tests": {
+        "precision": 0.0,
+        "recall": 0.0,
+        "f1": 0.0,
+        "tp": 0,
+        "fp": 22,
+        "fn": 2
+      },
+      "tests_high": {
+        "precision": 0.0,
+        "recall": 0.0,
+        "f1": 0.0,
+        "tp": 0,
+        "fp": 12,
+        "fn": 2
+      },
+      "tests_high_med": {
+        "precision": 0.0,
+        "recall": 0.0,
+        "f1": 0.0,
+        "tp": 0,
+        "fp": 22,
+        "fn": 2
+      },
+      "tests_all": {
+        "precision": 0.0,
+        "recall": 0.0,
+        "f1": 0.0,
+        "tp": 0,
+        "fp": 25,
+        "fn": 2
+      },
+      "valid_tests_high": {
+        "precision": 0.0,
+        "recall": 0.0,
+        "f1": 0.0,
+        "tp": 0,
+        "fp": 12,
+        "fn": 0
+      },
+      "valid_tests_high_med": {
+        "precision": 0.0,
+        "recall": 0.0,
+        "f1": 0.0,
+        "tp": 0,
+        "fp": 22,
+        "fn": 0
+      },
+      "predicted_file_count": 69,
+      "predicted_caller_count": 0,
+      "predicted_test_count": 25,
+      "predicted_test_count_high": 12,
+      "predicted_test_count_high_med": 22,
+      "blast_radius": "XL",
+      "risk_level": "high",
+      "evidence_count": 38
+    }
+  },
+  {
+    "task_id": "task-09-aria-api-surface-status",
+    "repository": "VarshithReddy2006/ARIA",
+    "change_description": "Introduce EXPERIMENTAL lifecycle status to ApiStatus enum in models/api_surface.py",
+    "ground_truth_counts": {
+      "files": 4,
+      "callers": 2,
+      "tests": 1,
+      "valid_tests": 0
+    },
+    "baseline": {
+      "latency_ms": 213.13,
+      "files": {
+        "precision": 0.0059,
+        "recall": 1.0,
+        "f1": 0.0118,
+        "tp": 4,
+        "fp": 671,
+        "fn": 0
+      },
+      "callers": {
+        "precision": 0.0,
+        "recall": 0.0,
+        "f1": 0.0,
+        "tp": 0,
+        "fp": 75,
+        "fn": 2
+      },
+      "tests": {
+        "precision": 0.0,
+        "recall": 0.0,
+        "f1": 0.0,
+        "tp": 0,
+        "fp": 256,
+        "fn": 1
+      },
+      "predicted_file_count": 675,
+      "predicted_caller_count": 75,
+      "predicted_test_count": 256
+    },
+    "aria": {
+      "latency_ms": 1612.71,
+      "files": {
+        "precision": 0.0625,
+        "recall": 0.75,
+        "f1": 0.1154,
+        "tp": 3,
+        "fp": 45,
+        "fn": 1
+      },
+      "callers": {
+        "precision": 0.0,
+        "recall": 0.0,
+        "f1": 0.0,
+        "tp": 0,
+        "fp": 0,
+        "fn": 2
+      },
+      "tests": {
+        "precision": 0.0,
+        "recall": 0.0,
+        "f1": 0.0,
+        "tp": 0,
+        "fp": 27,
+        "fn": 1
+      },
+      "tests_high": {
+        "precision": 0.0,
+        "recall": 0.0,
+        "f1": 0.0,
+        "tp": 0,
+        "fp": 5,
+        "fn": 1
+      },
+      "tests_high_med": {
+        "precision": 0.0,
+        "recall": 0.0,
+        "f1": 0.0,
+        "tp": 0,
+        "fp": 27,
+        "fn": 1
+      },
+      "tests_all": {
+        "precision": 0.0,
+        "recall": 0.0,
+        "f1": 0.0,
+        "tp": 0,
+        "fp": 30,
+        "fn": 1
+      },
+      "valid_tests_high": {
+        "precision": 0.0,
+        "recall": 0.0,
+        "f1": 0.0,
+        "tp": 0,
+        "fp": 5,
+        "fn": 0
+      },
+      "valid_tests_high_med": {
+        "precision": 0.0,
+        "recall": 0.0,
+        "f1": 0.0,
+        "tp": 0,
+        "fp": 27,
+        "fn": 0
+      },
+      "predicted_file_count": 48,
+      "predicted_caller_count": 0,
+      "predicted_test_count": 30,
+      "predicted_test_count_high": 5,
+      "predicted_test_count_high_med": 27,
+      "blast_radius": "XL",
+      "risk_level": "high",
+      "evidence_count": 54
+    }
+  },
+  {
+    "task_id": "task-10-aria-impact-engine-bucketing",
+    "repository": "VarshithReddy2006/ARIA",
+    "change_description": "Modify blast radius category bucketing (XS, S, M, L, XL) and threshold weights in services/impact_analysis_service.py",
+    "ground_truth_counts": {
+      "files": 3,
+      "callers": 1,
+      "tests": 2,
+      "valid_tests": 2
+    },
+    "baseline": {
+      "latency_ms": 189.36,
+      "files": {
+        "precision": 0.0062,
+        "recall": 0.6667,
+        "f1": 0.0122,
+        "tp": 2,
+        "fp": 323,
+        "fn": 1
+      },
+      "callers": {
+        "precision": 0.0,
+        "recall": 0.0,
+        "f1": 0.0,
+        "tp": 0,
+        "fp": 43,
+        "fn": 1
+      },
+      "tests": {
+        "precision": 0.0088,
+        "recall": 0.5,
+        "f1": 0.0172,
+        "tp": 1,
+        "fp": 113,
+        "fn": 1
+      },
+      "predicted_file_count": 325,
+      "predicted_caller_count": 43,
+      "predicted_test_count": 114
+    },
+    "aria": {
+      "latency_ms": 1310.61,
+      "files": {
+        "precision": 0.0164,
+        "recall": 0.3333,
+        "f1": 0.0312,
+        "tp": 1,
+        "fp": 60,
+        "fn": 2
+      },
+      "callers": {
+        "precision": 0.0,
+        "recall": 0.0,
+        "f1": 0.0,
+        "tp": 0,
+        "fp": 0,
+        "fn": 1
+      },
+      "tests": {
+        "precision": 0.1053,
+        "recall": 1.0,
+        "f1": 0.1905,
+        "tp": 2,
+        "fp": 17,
+        "fn": 0
+      },
+      "tests_high": {
+        "precision": 0.2222,
+        "recall": 1.0,
+        "f1": 0.3636,
+        "tp": 2,
+        "fp": 7,
+        "fn": 0
+      },
+      "tests_high_med": {
+        "precision": 0.1053,
+        "recall": 1.0,
+        "f1": 0.1905,
+        "tp": 2,
+        "fp": 17,
+        "fn": 0
+      },
+      "tests_all": {
+        "precision": 0.0909,
+        "recall": 1.0,
+        "f1": 0.1667,
+        "tp": 2,
+        "fp": 20,
+        "fn": 0
+      },
+      "valid_tests_high": {
+        "precision": 0.2222,
+        "recall": 1.0,
+        "f1": 0.3636,
+        "tp": 2,
+        "fp": 7,
+        "fn": 0
+      },
+      "valid_tests_high_med": {
+        "precision": 0.1053,
+        "recall": 1.0,
+        "f1": 0.1905,
+        "tp": 2,
+        "fp": 17,
+        "fn": 0
+      },
+      "predicted_file_count": 61,
+      "predicted_caller_count": 0,
+      "predicted_test_count": 22,
+      "predicted_test_count_high": 9,
+      "predicted_test_count_high_med": 19,
+      "blast_radius": "XL",
+      "risk_level": "extreme",
+      "evidence_count": 33
+    }
+  }
+]

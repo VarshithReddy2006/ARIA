@@ -65,9 +65,10 @@ This document describes the production architecture of ARIA v1.5.0, organized ar
              ▼
   ┌──────────────────────────────────────────────────────┐
   │                 LLM Reasoning Layer                  │
-  │  Primary: Gemini 2.5 Flash (google-genai SDK)        │
-  │  Fallback: DeepSeek V4 Flash (NVIDIA NIM)            │
-  │  Circuit Breaker · Exponential Backoff               │
+  │  Primary: Gemini 3.1 Flash Lite (google-genai SDK)   │
+  │  Secondary: DeepSeek V4 Flash (NVIDIA NIM)           │
+  │  Fallbacks: Llama 3.2 11B Vision, MiniMax M3 (NVIDIA)│
+  │  Circuit Breaker · Token-Aware Failover              │
   │  Startup Health Checks · Error Classification        │
   └──────────────────────────────────────────────────────┘
 ```
@@ -235,31 +236,37 @@ The chat pipeline is implemented in `services/chat/retrieval_pipeline.py`. The r
 graph TD
     Request[ChatRequest repo + message + history + session_id]
     CM[ConversationMemory pronoun resolution entity tracking]
-    ID[IntentDetector rule-based 9 intents zero LLM calls]
+    Gating[Deterministic Gating symbol/path resolution vs semantic]
     IR[IntentRouter dispatch to structured services]
     SI[Structured Intelligence architecture summary symbol defs etc]
-    RET[Retrieval top-15 BGE vectors reranked to top-5]
+    RET[Retrieval deterministic direct load or top-15 BGE reranked to top-5]
     CB[ContextBuilder token budget 3k-5k tokens priority slots]
-    PM[ProviderManager primary then fallback]
-    G[GeminiProvider 2.5 Flash]
-    D[DeepSeekProvider V4 Flash]
+    PM[ProviderManager candidate priority failover]
+    G[GeminiProvider 3.1 Flash Lite - Priority 1]
+    D[DeepSeekProvider V4 Flash - Priority 2]
+    F1[NVIDIA Fallback Llama 3.2 11B - Priority 3]
+    F2[NVIDIA Fallback MiniMax M3 - Priority 4]
     FB[FallbackRenderer no LLM structured response]
     OBS[Observability CHAT_PIPELINE log line]
     CMU[ConversationMemory update entities files]
     Stream[SSE token stream to client]
 
     Request-->CM
-    CM-->ID
-    ID-->IR
+    CM-->Gating
+    Gating-->IR
     IR-->SI
     SI-->CB
     RET-->CB
     CB-->PM
     PM-->G
     PM-->D
+    PM-->F1
+    PM-->F2
     PM-->FB
     G-->OBS
     D-->OBS
+    F1-->OBS
+    F2-->OBS
     FB-->OBS
     OBS-->CMU
     CMU-->Stream
@@ -289,7 +296,7 @@ sequenceDiagram
     participant Router as chat.py
     participant Pipeline as RetrievalPipeline
     participant PM as ProviderManager
-    participant Provider as Gemini/DeepSeek
+    participant Provider as Gemini/DeepSeek/NVIDIA Fallbacks
 
     Client->>Router: POST /api/chat
     Router->>Pipeline: retrieve_stream(repo, question, session_id)
@@ -302,13 +309,18 @@ sequenceDiagram
         Router-->>Client: data: {"text": "..."}
     end
     Pipeline-->>Client: data: {"sources": [...], "confidence": N, "status": "done"}
-    Note over PM: If 0 tokens yielded → safe to retry with next provider
+    Note over PM: If 0 tokens yielded → safe to failover to next candidate
     Note over PM: If tokens already yielded → NEVER retry (prevents duplicate output)
 ```
 
 ---
 
-## Retrieval Pipeline
+## Retrieval Pipeline & Grounding
+
+1. **Deterministic Retrieval Gating**: Explicit file paths, symbol names, functions, snake_case tokens, and backtick expressions resolve directly to indexed source files/symbols without relying on ambiguous embeddings or letting common English verbs hijack deterministic lookups.
+2. **Semantic Retrieval**: Broad conversational queries utilize dense embeddings (`BAAI/bge-small-en-v1.5`) with asymmetric query prefixing and reranking.
+3. **Source Code Priority**: Executable source files receive highest priority (Tier 1, weight 1.0) over generated documentation, READMEs, or audits to avoid grounding on historical/stale reports.
+4. **Citation Verification**: Grounded citations are strictly verified against actual repository paths; nonexistent files are explicitly rejected.
 
 ### Tier Weights
 
@@ -336,12 +348,20 @@ Documents are indexed without any prefix (asymmetric design).
 
 ## Provider Manager & Failover
 
-`services/chat/provider_manager.py` manages all LLM calls with:
+`services/chat/provider_manager.py` orchestrates LLM calls across candidate providers:
 
-1. **Priority ordering**: Primary provider tried first; secondary as fallback
-2. **Circuit breaker**: Opens after 3 failures, retries after 60 s (CLOSED → OPEN → HALF_OPEN → CLOSED)
-3. **Streaming safety**: 0 tokens yielded → safe retry; tokens already yielded → never retry (prevents duplicate output in the SSE stream)
-4. **Timeout enforcement**: Gemini 30 s per attempt (3 retries); DeepSeek 120 s per attempt (2 retries)
+1. **Candidate Priority Ordering**:
+   - Priority 1: `gemini` (`gemini-3.1-flash-lite` via `google-genai==2.22.0`)
+   - Priority 2: `deepseek` (`deepseek-ai/deepseek-v4-flash-0731` via NVIDIA NIM)
+   - Priority 3: `nvidia_fallback_llama_3_2_11b_vision_instruct` (`meta/llama-3.2-11b-vision-instruct` via NVIDIA NIM)
+   - Priority 4: `nvidia_fallback_minimax_m3` (`minimaxai/minimax-m3` via NVIDIA NIM)
+2. **Per-Provider Circuit Breaker**: Tracks `CLOSED`, `OPEN`, `HALF_OPEN` states. Opens after 3 consecutive failures; cools down for 60s before allowing a trial request.
+3. **Token-Aware Failover**: If a provider fails when 0 tokens have been emitted, failover immediately advances to the next candidate in priority order. Once tokens have been yielded, failover ceases to prevent corrupting the stream.
+4. **Configured Timeout Boundaries**:
+   - `llm_connect_timeout`: 10.0s
+   - `llm_read_timeout`: 60.0s (resilience boundary against upstream NVIDIA queueing/latency)
+   - `llm_total_timeout`: 60.0s
+5. **Observability & Diagnostics**: Error classification via `ProviderErrorType` (Rate Limit, Auth, Timeout, Overload, Service Unavailable) without secret credential leakage.
 
 ```mermaid
 stateDiagram-v2
@@ -469,7 +489,7 @@ All properties use `AnalysisCache` for in-process caching with schema versioning
 {
   "backend": "online",
   "llm_provider": "gemini",
-  "llm_model": "gemini-2.5-flash",
+  "llm_model": "gemini-3.1-flash-lite",
   "embedding_provider": "BAAI/bge-small-en-v1.5",
   "vector_db": "chromadb",
   "status": "healthy"

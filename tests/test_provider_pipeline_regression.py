@@ -50,7 +50,7 @@ def _make_mock_chroma():
 
 @pytest.mark.anyio
 class TestProviderPipelineRegression:
-    # 1. Both Gemini and DeepSeek register when configured
+    # 1. Gemini and DeepSeek (along with secondary NVIDIA fallbacks) register when configured
     async def test_both_providers_register_when_configured(self):
         test_settings = Settings(
             LLM_PROVIDER="gemini",
@@ -64,7 +64,33 @@ class TestProviderPipelineRegression:
         names = [p["name"] for p in status]
         assert "gemini" in names
         assert "deepseek" in names
-        assert len(status) == 2
+        assert "nvidia_fallback_llama_3_2_11b_vision_instruct" in names
+        assert "nvidia_fallback_minimax_m3" in names
+
+        # Verify strict priority ordering across all registered providers
+        gemini_idx = names.index("gemini")
+        deepseek_idx = names.index("deepseek")
+        llama_idx = names.index("nvidia_fallback_llama_3_2_11b_vision_instruct")
+        minimax_idx = names.index("nvidia_fallback_minimax_m3")
+
+        assert gemini_idx == 0
+        assert gemini_idx < deepseek_idx < llama_idx < minimax_idx
+
+        status_by_name = {p["name"]: p for p in status}
+        assert (
+            status_by_name["gemini"]["priority"]
+            < status_by_name["deepseek"]["priority"]
+        )
+        assert (
+            status_by_name["deepseek"]["priority"]
+            < status_by_name["nvidia_fallback_llama_3_2_11b_vision_instruct"][
+                "priority"
+            ]
+        )
+        assert (
+            status_by_name["nvidia_fallback_llama_3_2_11b_vision_instruct"]["priority"]
+            < status_by_name["nvidia_fallback_minimax_m3"]["priority"]
+        )
 
     # 2. Gemini succeeds -> Gemini response returned
     async def test_gemini_succeeds_returns_gemini_response(self):

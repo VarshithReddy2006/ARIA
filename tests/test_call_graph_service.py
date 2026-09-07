@@ -137,7 +137,8 @@ class TestCallSiteExtraction:
         sites = self.svc._find_call_sites(
             self._parse("python", PYTHON_FIXTURE), "python"
         )
-        for _, line, _ in sites:
+        for site in sites:
+            line = site[2] if len(site) == 4 else site[1]
             assert line >= 1
 
     def test_no_calls_in_empty_file(self):

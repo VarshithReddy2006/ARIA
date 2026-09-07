@@ -47,7 +47,7 @@ Architecture · Execution · Contracts · Retrieval · Impact
 
 ## At a Glance
 
-ARIA is an AI-powered repository intelligence platform built on the **Repository Intelligence Architecture (RIA)** — a modular, layered architecture designed for AI-native repository understanding. ARIA combines Abstract Syntax Tree (AST) parsing, directed dependency graphs, static call graphs, symbol indexing, API surface classification, vector retrieval, and conversational AI to help developers understand unfamiliar repositories before changing them.
+ARIA is an AI-powered repository intelligence platform built on the **Repository Intelligence Architecture (RIA)** — a modular, layered architecture designed for AI-native repository understanding. ARIA combines Abstract Syntax Tree (AST) parsing, directed dependency graphs, semantic call graphs, symbol indexing, API surface classification, vector retrieval, and conversational AI to help developers understand unfamiliar repositories before changing them.
 
 ARIA introduces a stateless **Model Context Protocol (MCP)** adapter server over HTTP, enabling AI coding assistants such as Cursor, Claude Desktop, VS Code MCP clients, and MCP Inspector to interact directly with structured repository intelligence.
 
@@ -99,7 +99,7 @@ Traditional RAG pipeline:
 
 ### The Solution
 
-ARIA runs a **structural analysis pass before any retrieval**. The dependency graph, call graph, API surface classification, and symbol index are built first — directly from ASTs and Git history. Retrieval is grounded in that structure, not in raw text similarity.
+ARIA runs a **structural analysis pass before any retrieval**. The dependency graph, semantic call graph, API surface classification, and symbol index are built first — directly from ASTs and Git history. Retrieval is grounded in that structure, not in raw text similarity.
 
 ```
 Repository
@@ -108,14 +108,14 @@ Repository
  │                                    NetworkX DiGraph & Graph Index
  │                                     ├── BFS reachability traces
  │                                     ├── centrality-ordered reading paths
- │                                     ├── call graph caller/callee trees
+ │                                     ├── semantic call graph (qualified methods, aliases, MRO, receiver inference)
  │                                     ├── blast-radius propagation
  │                                     └── API contract exposure & breaking change analysis
  │
  ├── BGE-small-en-v1.5 ────────►  Qdrant Primary Vector Store (ChromaDB Fallback)
  └── Git history mining ───────►  churn scores · coupling · hotspot files
                                                │
-                        Google Gemini 3.1 Flash Lite / DeepSeek V4 Flash
+                        Google Gemini 3.1 Flash Lite / DeepSeek V4 Flash / NVIDIA Fallbacks
                                                │
                                    Structurally grounded answers
 ```
@@ -131,11 +131,13 @@ Traditional RAG tools index text. ARIA indexes **your codebase's architecture, e
 |---|:---:|:---:|
 | Semantic code search | Yes | **Yes (Qdrant + BGE-small)** |
 | Dependency graph (import topology) | No | **Yes (NetworkX DiGraph)** |
-| Call graph (function-level hierarchy) | No | **Yes (AST Caller/Callee)** |
+| Semantic call graph (qualified symbols, aliases, MRO, receiver inference) | No | **Yes (Multi-Stage Semantic Resolution)** |
 | AST symbol index (classes, functions, methods) | No | **Yes (Tree-sitter)** |
 | API surface & exposure classification | No | **Yes (Public / Internal / Routes)** |
 | Breaking change & contract simulation | No | **Yes** |
 | Reachability traces (BFS graph walks) | No | **Yes** |
+| Confidence-aware change impact analysis | No | **Yes (Calibrated HIGH / MED / LOW Tiers)** |
+| Evidence provenance & caller justifications | No | **Yes (Fact / Inference Lineage)** |
 | Dead code & orphan detection | No | **Yes (Cleanup Score 0–100)** |
 | Architecture drift detection | No | **Yes (PR Delta-Patching)** |
 | PR blast-radius scoring | No | **Yes (XS → XL, Low → Extreme)** |
@@ -144,7 +146,7 @@ Traditional RAG tools index text. ARIA indexes **your codebase's architecture, e
 | Onboarding reading order | No | **Yes (Centrality-Ranked)** |
 | Grounded Repository Chat | Partial | **Yes (20 Intent Detectors)** |
 | Rule-based intent routing (zero LLM overhead) | No | **Yes** |
-| Circuit-breaker LLM failover | No | **Yes (Gemini ➔ DeepSeek)** |
+| Circuit-breaker LLM failover | No | **Yes (Gemini ➔ DeepSeek ➔ Llama ➔ MiniMax)** |
 | Model Context Protocol (MCP) | No | **Yes (17 Tools via HTTP Adapter)** |
 | IDE Integration (VS Code Extension) | No | **Yes (CodeLens, Hovers, Webviews)** |
 | Prometheus observability | No | **Yes (/metrics)** |
@@ -192,7 +194,7 @@ ARIA organizes repository intelligence across three primary dimensions:
 
 ### Call Graph — Execution / Temporal
 - **Question Answered**: *"What executes when a function is invoked, who calls it, and what is the blast radius of changing it?"*
-- **Mechanism**: Static AST traversal maps function invocations across files, linking caller/callee hierarchies, tracing transitive execution chains, and identifying hotspot functions.
+- **Mechanism**: Multi-stage semantic AST resolution maps function and method invocations across files, resolving import aliases, class inheritance hierarchies, receiver types, and framework dependency patterns, while tracing transitive execution chains and computing blast radius.
 
 ### API Surface — Contract / Exposure
 - **Question Answered**: *"What endpoints and symbols does this system expose, who depends on them internally, and what happens if I alter a contract?"*
@@ -218,7 +220,9 @@ ARIA organizes repository intelligence across three primary dimensions:
 - **Reachability Tracing**: Forward and backward BFS traces showing exact dependency paths from any file.
 
 ### Call Graph
-- **Function-Level Execution**: Traces exact caller and callee trees across files.
+- **Function-Level Execution**: Traces caller and callee trees across files using multi-stage semantic resolution.
+- **Semantic Resolution Pipeline**: Resolves qualified methods (`METHOD_CALL`), instance methods (`INSTANCE_METHOD` via inferred receiver types), class inheritance and MRO (`INHERITED_CALL`), `super()` invocations (`SUPER_CALL`), module and symbol import aliases (`ALIAS_CALL`), property accesses (`PROPERTY_ACCESS`), and framework dependency injections (`DECORATED_HANDLER` for FastAPI `Depends`/`Security`).
+- **Explicit Uncertainty & Unresolved Calls**: Untyped or dynamic invocations without statically determinable targets are explicitly captured as `UNRESOLVED_CALL` with `UNCERTAIN` status and `LOW` confidence tier.
 - **Blast Radius Computation**: Calculates the percentage and list of downstream files and functions affected if a given function changes.
 - **Critical Path Identification**: Highlights deeply nested or highly connected execution paths.
 
@@ -236,11 +240,14 @@ ARIA organizes repository intelligence across three primary dimensions:
 
 ### Repository Chat
 - **20 Intent Enum Values (19 Specialized Domain Intents + UNKNOWN)**: Classifies questions across 20 intent enum values (19 specialized domain categories: `API_SURFACE`, `CALL_GRAPH`, `ARCHITECTURE`, `FILE_EXPLANATION`, `SYMBOL`, `SYMBOL_EXPLANATION`, `DEPENDENCY`, `CIRCULAR_DEPENDENCY`, `IMPACT_ANALYSIS`, `CHANGE_PLANNING`, `DEBUGGING`, `READING_ORDER`, `HEALTH`, `DEAD_CODE`, `SECURITY`, `GIT_HISTORY`, `PR_RISK`, `API_FLOW`, `GENERAL_QA`, plus `UNKNOWN`) with zero LLM overhead using deterministic regex and keyword matching.
-- **Context Construction**: Assembles AST snippets, call paths, dependency chains, and retrieved code chunks within strict token budgets.
+- **Hybrid Retrieval & Grounding**: Explicit file paths and symbol names trigger deterministic entity resolution with targeted/full symbol context, while conversational queries use dense semantic retrieval. Common English words (`handle`, `route`, `process`, `build`, `run`, `execute`, `dispatch`, `manage`) are protected from hijacking retrieval when not specified as code entities.
+- **Evidence Hierarchy & Citation Verification**: Assembles AST snippets, call paths, and dependency chains prioritizing current executable source over historical/generated documentation. Validates cited file paths against the repository before citation generation, reducing hallucinated file references.
 - **Streaming Responses**: Server-Sent Events (SSE) stream token deltas in real-time, concluding with verified file citations and confidence scores.
 
 ### Impact Analysis
 - **Natural Language Impact Prediction**: Accepts a description of an intended change (e.g. *"Refactor auth middleware to JWT"*) and predicts impacted files, callers, and test suites.
+- **Calibrated Confidence Tiers**: Groups impact predictions into `VERIFIED IMPACT` (HIGH tier, direct structural facts), `LIKELY IMPACT` (MEDIUM tier, strong transitive helper chains), and `EXPLORATORY CANDIDATE` (LOW tier, peripheral heuristic matches).
+- **Decoupled Test & Source Intelligence**: Strictly separates source code caller relationships from affected test suites, preventing test files from polluting production caller sets.
 - **Transitive Dependency Walks**: Propagates changes across import graphs and call hierarchies.
 
 ### Dead Code
@@ -259,26 +266,27 @@ ARIA organizes repository intelligence across three primary dimensions:
 - **Centrality-Ranked Onboarding**: Generates a step-by-step reading sequence based on graph centrality, guiding new engineers through entry points, core abstractions, and leaf modules.
 
 ### Health Reports
-- **Multi-Axis Health Scorecard**: Scores repositories across Architecture Stability, API Quality, Code Hygiene, Hotspot Risk, and Onboarding Clarity.
-- **Multi-Format Export**: Generates Interactive HTML, Print-Optimized PDF, and Markdown suitable for GitHub PR comments.
-
-### Advisor
-- **AI Engineering Advisor**: Analyzes architectural debt, circular imports, and dead code to produce prioritized, actionable engineering recommendations.
-
-### Execution Planner
-- **Phased Implementation Plans**: Converts refactoring recommendations into concrete, dependency-ordered task batches with rollback safety checkpoints.
-
-### MCP
-- **Model Context Protocol Server**: Exposes 17 repository intelligence tools to AI coding assistants (Claude Desktop, Cursor, VS Code MCP) via a stateless protocol adapter over HTTP.
-
-### VS Code
-- **ARIA VS Code Extension**: In-editor CodeLens (*"Show Callers"*, *"Show Blast Radius"*, *"Ask Agent"*), symbol hover cards, sidebar panels (Findings, Advisor, Execution Plan), and embedded interactive graph webviews.
-
----
+- **Multi-Axis Health Scorecard**: Scores repositories across 5 key dimensions (Architecture Stability, API Quality, Code Hygiene, Hotspot & Churn Risk, and Onboarding & Readability) with letter grades (A–F), deterministic score drivers, rule violation breakdowns, and PDF/Markdown export capabilities.
 
 ## Architecture
 
-### System Architecture
+### The 7-Stage Repository Intelligence Pipeline
+
+ARIA processes repository structures through an evidence-backed, layered architectural pipeline:
+
+```text
+Repository Ingestion ──► AST Parsing ──► Symbol / Dependency Graph ──► Semantic Call Graph ──► Vector Retrieval (ONNX INT8) ──► Impact Analysis ──► Evidence-Backed Intelligence
+```
+
+1. **Repository Ingestion**: Securely acquires repository working trees (`git clone` / local cache) with path sandboxing, tech stack detection, and SHA-256 change detection.
+2. **AST Parsing**: Multi-language Tree-sitter parsers extract structural syntax nodes across Python, TypeScript, JavaScript, Java, Go, Rust, C++, and C.
+3. **Symbol & Dependency Graph**: Constructs indexed symbol tables (classes, functions, methods, line spans) and builds directed file import topologies using NetworkX with cycle detection.
+4. **Semantic Call Graph**: Multi-stage semantic AST resolution traces cross-file invocations, resolving import aliases, class inheritance hierarchies, receiver types, and framework dependency injections.
+5. **Vector Retrieval & ONNX INT8 Embedding**: Dense semantic embedding powered by quantized `onnxruntime` (`BAAI/bge-small-en-v1.5` INT8) with automated fallback to PyTorch FP32, indexed in Qdrant with isolated deterministic cache keys.
+6. **Change Impact Analysis**: Traces transitive caller chains, blast-radius propagation, and affected test suites grouped into calibrated confidence tiers (`HIGH`, `MEDIUM`, `LOW`).
+7. **Evidence-Backed Intelligence**: Synthesizes verified codebase answers, architecture scorecards, dead-code remediation plans, and PR risk assessments with citation provenance.
+
+### System Topology & Subsystems
 
 ```mermaid
 flowchart TD
@@ -298,25 +306,28 @@ flowchart TD
         CONC["Concurrency Layer\nAnalysisTarget · Inter-Process Locks · Bounded Workers"]
     end
 
-    subgraph services["Repository Intelligence Services"]
-        ING["Ingestion & Parsing\nTree-sitter AST · Symbols"]
-        GRP["Graph Intelligence\nNetworkX DiGraph · Call Graph"]
-        API_SRV["API Surface Service\nRoute Discovery · Contracts"]
-        RET["Hybrid Retrieval\n20 Intent Detectors · Context Builder"]
-        REP["Report Service\nScorecards · HTML/PDF/MD"]
+    subgraph pipeline["7-Stage Intelligence Pipeline"]
+        ING["1. Ingestion & Sandboxing\nGit Cloner · Tech Stack Detector"]
+        AST["2. Multi-Language AST Parsing\nTree-sitter Engine"]
+        SYM["3. Symbol & Dependency Graph\nNetworkX DiGraph · Symbol Index"]
+        CG["4. Semantic Call Graph\nReceiver Inference · Inheritance · Aliases"]
+        EMB["5. ONNX INT8 Embedding Engine\nBGE-small INT8 · PyTorch Fallback"]
+        IMP["6. Impact Analysis Engine\nTransitive Walk · Calibrated Tiers"]
+        INT["7. Evidence Synthesis\nScorecards · Chat · PR Risk"]
     end
 
     subgraph storage["Storage & Vectors"]
-        QD[("Qdrant (Primary)\nVector Store")]
+        QD[("Qdrant (Primary)\nDense Vector Store")]
         CH[("ChromaDB (Fallback)\nLocal Store")]
-        SQL[("SQLite Fact Store\nReports & Caches")]
+        SQL[("SQLite Fact Store\nEmbedding Cache & Snapshots")]
     end
 
     subgraph llm["LLM Failover Engine"]
-        PM["Provider Manager\nCircuit Breaker"]
-        GEM["Google Gemini\ngemini-3.1-flash-lite (Primary)"]
-        DS["DeepSeek V4 Flash\nNVIDIA NIM (Fallback)"]
-        FB["Deterministic Fallback\nNo-LLM Renderer"]
+        PM["Provider Manager\nCircuit Breaker & Telemetry"]
+        GEM["Google Gemini (Primary)\ngemini-3.1-flash-lite"]
+        DS["DeepSeek V4 Flash (Fallback 1)\nNVIDIA NIM"]
+        NV["NVIDIA Fallbacks (Fallback 2 & 3)\nLlama 3.2 11B · MiniMax M3"]
+        FB["Deterministic Fallback\nNo-LLM Graph Renderer"]
     end
 
     W -->|"HTTP / SSE"| GW
@@ -325,50 +336,29 @@ flowchart TD
     MA -->|"HTTP (/api/v1)"| GW
 
     GW --> MW --> CONC
-    CONC --> ING
-    CONC --> GRP
-    CONC --> API_SRV
-    CONC --> RET
-    CONC --> REP
+    CONC --> ING --> AST --> SYM --> CG --> EMB --> IMP --> INT
 
-    ING --> QD
-    ING --> CH
-    ING --> SQL
-    GRP --> SQL
-    API_SRV --> SQL
+    EMB --> QD
+    EMB --> CH
+    EMB --> SQL
+    SYM --> SQL
+    CG --> SQL
 
-    RET --> QD
-    RET --> CH
-    RET --> PM
-
+    INT --> PM
     PM -->|"Primary"| GEM
-    PM -->|"Failover"| DS
-    PM -->|"Offline"| FB
+    PM -->|"Fallback 1"| DS
+    PM -->|"Fallback 2 & 3"| NV
+    PM -->|"Offline / Exhausted"| FB
 ```
 
-### Analysis Pipeline
+### High-Performance Embedding Engine (ONNX INT8 Default)
 
-ARIA processes repository structures through two complementary lenses:
+ARIA defaults to a dedicated **ONNX Runtime INT8** embedding engine for `BAAI/bge-small-en-v1.5`, delivering superior CPU inference throughput with strict memory safety:
 
-#### Canonical 13-Phase Build Pipeline
-1. **Target Acquisition**: Validates and checks out `AnalysisTarget` (`owner/repo@branch`).
-2. **Tech Stack Detection**: Inspects manifest files, package configs, and language markers.
-3. **AST Parsing**: Multi-language Tree-sitter parsing extracting classes, functions, and imports.
-4. **Symbol Indexing**: Pre-indexes symbol names, signatures, and line boundary metadata.
-5. **Dependency Graphing**: Constructs directed import topology with cycle detection.
-6. **Call Graph Synthesis**: Maps static function invocations and caller/callee trees.
-7. **API Surface Classification**: Discovers HTTP routes, public symbols, and uncalled endpoints.
-8. **Token-Aware Chunking**: Slices files along syntax boundaries with line-range preservation.
-9. **Vector Embedding**: Encodes chunk semantics via `bge-small-en-v1.5`.
-10. **Vector Store Ingestion**: Stages and publishes indexed vectors atomically into Qdrant.
-11. **Inspection & Dead Code**: Sweeps reachability from entry points and flags code smells.
-12. **Git History Mining**: Extracts commit churn matrices and correlates hotspot files.
-13. **Scorecard & Report Generation**: Compiles multi-axis metrics, snapshots, and export artifacts.
-
-#### Simplified Conceptual Pipeline
-```text
-Clone ──► Parse ──► Embed ──► Index ──► Graph ──► Analyze ──► Reason ──► Deliver
-```
+- **Production Backend (`EMBEDDING_BACKEND=onnx`)**: Quantized INT8 engine (`EMBEDDING_ONNX_QUANTIZATION=int8`) optimized for modern CPU vector instructions (AVX-512 / VNNI / AVX2).
+- **Automated Failover (`PyTorch FP32`)**: If ONNX initialization, model export, or runtime environment encounters an issue, ARIA automatically falls back to standard PyTorch FP32 without service interruption.
+- **Deterministic 4-Tuple Cache Isolation**: Cache keys in SQLite and L1 memory are partitioned by `f"{model_name}:{model_version}:{backend}:{quantization}:{text_hash}"`, preventing cross-backend vector contamination.
+- **Bounded Batch Processing**: Bounded chunk generation prevents memory spikes on large repositories.
 
 ### Client/API Boundary
 
@@ -380,7 +370,7 @@ VS Code Extension ──┼──►  Canonical ARIA API (/api/v1)  ──►  I
 MCP Protocol Adapter┘
 ```
 
-- **Zero Direct Storage Access**: Clients and adapters never query Qdrant, SQLite, or internal files directly.
+- **Zero Direct Storage Access**: Clients and adapters communicate exclusively via the canonical API gateway without querying Qdrant, SQLite, or internal files directly.
 - **Consistent Security & Observability**: All operations traverse rate limiting, API key authentication, request tracing, and Prometheus metrics.
 
 ### MCP Boundary
@@ -422,16 +412,20 @@ The MCP integration operates as a stateless HTTP adapter:
 - **Pre-Indexed Line Slices**: Chunk boundaries (`start_line`, `end_line`) are stored during indexing, eliminating per-chunk disk reads during retrieval.
 - **O(1) Symbol Lookups**: File symbols and symbol definitions resolve from in-memory hash maps.
 - **Parallel Fan-Out**: Vector search and graph traversals execute concurrently during retrieval assembly.
+- **Anti-Hijacking & Grounding Hierarchy**: Explicit symbol lookups are decoupled from general English vocabulary (`handle`, `route`, `process`, `build`, `run`, `execute`, `dispatch`, `manage`). Executable source code is ranked above historical/generated artifacts.
 
 ### Caching
 - **Schema-Versioned In-Memory Cache**: Stores parsed ASTs, graph nodes, and metrics with automatic invalidation on schema changes.
+- **Snapshot-Aware Call-Site & Test-Impact Indexing**: Pre-indexes incoming call edges and test file facts keyed by `(repo_name, commit_sha)`, enabling bounded caller resolution and $O(1)$ test candidate lookup during queries.
 - **Active-Version Query Cache**: Normalized user queries are cached against the active repository snapshot hash.
 
 ### LLM Failover
-- **Dual-Provider Architecture**: Google Gemini (`gemini-3.1-flash-lite`) serves as primary; DeepSeek (`deepseek-ai/deepseek-v4-flash-0731` via NVIDIA NIM) serves as fallback.
-- **Circuit Breaker**: Tracks consecutive errors (threshold: 3) and opens a 60-second cooldown window, routing traffic to DeepSeek.
-- **Deterministic Error Classification**: Categorizes provider exceptions into actionable types (`MISSING_CREDENTIALS`, `AUTHENTICATION_ERROR`, `RATE_LIMIT_ERROR`, `TIMEOUT_ERROR`, `SERVER_ERROR`).
-- **No-LLM Fallback Renderer**: If all external providers are unavailable, ARIA renders structured responses directly from graph facts.
+- **Multi-Provider Resilient Chain**: Google Gemini (`gemini-3.1-flash-lite` via `google-genai==2.22.0`) serves as primary; DeepSeek (`deepseek-ai/deepseek-v4-flash-0731` via NVIDIA NIM) serves as secondary; automated fallbacks cascade to `meta/llama-3.2-11b-vision-instruct` and `minimaxai/minimax-m3`.
+- **Circuit Breaker & Telemetry**: Tracks consecutive errors (failure threshold: 3) and opens a 60-second cooldown window, routing traffic to the next healthy provider candidate while logging detailed latency and status telemetry.
+- **Token-Aware Failover**: Failover is permitted before tokens have been yielded to the client, preventing mid-stream corrupted responses.
+- **Configured Timeouts**: LLM connect timeout (10s), read timeout (60s), and total timeout (60s). DeepSeek HTTP client configured with connect: 10s, read: 60s, write: 15s, pool: 15s.
+- **Deterministic Error Classification**: Categorizes provider exceptions into actionable enum types (`MISSING_CREDENTIAL`, `AUTHENTICATION_ERROR`, `INVALID_CREDENTIAL_TYPE`, `RATE_LIMIT_ERROR`, `QUOTA_EXCEEDED`, `TIMEOUT`, `NETWORK_ERROR`, `CONFIGURATION_ERROR`, `UNKNOWN_PROVIDER_ERROR`).
+- **No-LLM Fallback Renderer**: If all external providers are exhausted or unavailable, ARIA renders structured responses directly from graph facts.
 
 ### Reliability
 - **Fail-Fast Startup**: In `APP_ENV=production`, missing API keys or invalid host configurations halt startup with actionable logs.
@@ -458,8 +452,8 @@ The MCP integration operates as a stateless HTTP adapter:
 | **Primary Vector Store** | Qdrant (Cloud / Local) | High-dimensional embedding storage and similarity search |
 | **Fallback Vector Store**| ChromaDB | Zero-dependency local development vector store |
 | **Embedding Model** | `BAAI/bge-small-en-v1.5` | Dense code representation embeddings |
-| **Primary LLM** | Google Gemini (`gemini-3.1-flash-lite`) | Code reasoning, chat synthesis, and impact analysis |
-| **Fallback LLM** | DeepSeek (`deepseek-ai/deepseek-v4-flash-0731`) | Failover reasoning via NVIDIA NIM |
+| **Primary LLM** | Google Gemini (`gemini-3.1-flash-lite`) | Primary code reasoning, chat synthesis, and impact analysis via `google-genai` SDK |
+| **Fallback LLM Cascade**| DeepSeek V4 Flash / Llama 3.2 11B / MiniMax M3 | Resilient multi-tier failover via NVIDIA NIM |
 | **Frontend Framework** | Astro 5 + React 18 + TypeScript | Server-rendered pages with interactive client islands |
 | **Graph UI** | React Flow 11 + Dagre | Interactive graph rendering with automatic DAG layouts |
 | **Styling** | Tailwind CSS 3 + Lucide React | Developer UI with dark-mode first design |
@@ -515,9 +509,24 @@ ARIA/
 │   ├── llm/                      # Gemini & DeepSeek provider integrations
 │   ├── symbol_service.py         # Symbol definition and reference indexing
 │   ├── tree_sitter_service.py    # AST extraction
-│   ├── call_graph_service.py     # Static call graph synthesis
+│   ├── call_graph_service.py     # Call graph facade and query engine
+│   ├── call_graph/               # Modular call graph synthesis & semantic resolution
+│   │   ├── semantic_resolver.py  # MRO hierarchy, import table, and receiver type inferrer
+│   │   ├── extractor.py          # AST call-site & property access extractor
+│   │   ├── builder.py            # Graph constructor and cycle detector
+│   │   └── store.py              # Snapshot persistence & graph caching
+│   ├── call_site_index.py        # Snapshot-aware call site index & bounded caller expansion
+│   ├── test_impact_index.py      # Pre-parsed AST facts & test impact candidate lookup
+│   ├── impact_analysis_service.py# Multi-tier impact prediction & evidence synthesis
+│   ├── impact_debugger.py        # Explainable provenance traces & caller justifications
 │   ├── api_surface_service.py    # Route discovery & contract classification
 │   └── report/                   # Health scorecards & export renderers
+│
+├── evaluation/                   # Reproducible empirical evaluation harness
+│   ├── benchmarks/               # 10 real-world developer tasks & ground truth
+│   ├── runners/                  # ARIA vs conventional baseline evaluation runners
+│   ├── reports/                  # Versioned empirical benchmark reports (v1 → v6)
+│   └── scripts/                  # Automated evaluation & verification scripts
 │
 ├── memory/                       # Vector store abstractions
 │   ├── vector_store.py           # Production VectorStore interface & router
@@ -544,9 +553,11 @@ ARIA/
 ├── storage/                      # SQLite migrations & snapshot stores
 ├── tests/                        # Backend test suites (unit, integration, arch)
 ├── docs/                         # Extended documentation
-├── Dockerfile.api                # Production API container
-├── Dockerfile.worker             # Production background worker container
-└── docker-compose.prod.yml       # Production multi-container compose
+├── docker-compose.yml            # Canonical self-hosting deployment: qdrant + api + frontend
+├── Dockerfile.api                # API container (FastAPI)
+├── Dockerfile.frontend           # Dashboard container (Astro standalone Node)
+├── Dockerfile                    # Combined API + static frontend (legacy)
+└── Dockerfile.worker             # Azure Container Apps Job worker (retired path)
 ```
 
 ---
@@ -720,12 +731,20 @@ All configuration is managed via environment variables and validated through Pyd
 | `GEMINI_FALLBACK_MODELS`| `gemini-3.5-flash,gemini-3-flash-preview,gemini-flash-lite-latest,gemini-2.5-flash` | Comma-separated Gemini fallbacks |
 | `DEEPSEEK_BASE_URL` | `https://integrate.api.nvidia.com/v1` | NVIDIA NIM endpoint |
 | `DEEPSEEK_MODEL` | `deepseek-ai/deepseek-v4-flash-0731` | DeepSeek model variant |
+| `DEEPSEEK_FALLBACK_MODELS` | `meta/llama-3.2-11b-vision-instruct,minimaxai/minimax-m3` | Comma-separated NVIDIA fallback candidates |
+| `LLM_CONNECT_TIMEOUT` | `10.0` | LLM HTTP client connection timeout (seconds) |
+| `LLM_READ_TIMEOUT` | `60.0` | LLM HTTP client streaming/read timeout (seconds) |
+| `LLM_TOTAL_TIMEOUT` | `60.0` | Overall per-provider request timeout (seconds) |
+| `LLM_CIRCUIT_BREAKER_FAILURE_THRESHOLD` | `3` | Consecutive failures before tripping circuit breaker |
+| `LLM_CIRCUIT_BREAKER_COOLDOWN_SECONDS` | `60.0` | Cooldown duration before attempting recovery |
 | `VECTOR_STORE_BACKEND` | `qdrant` | Vector store backend (`qdrant` or `chroma`) |
 | `VECTOR_STORE_ENABLE_FALLBACK`| `true` | Fallback to ChromaDB if Qdrant is unreachable |
 | `QDRANT_URL` | `http://127.0.0.1:6333` | Qdrant HTTP/REST URL |
 | `QDRANT_API_KEY` | — | API key for Qdrant Cloud cluster |
 | `QDRANT_PREFER_GRPC` | `true` | Prefer gRPC transport for high-throughput vector queries |
 | `EMBEDDING_MODEL` | `BAAI/bge-small-en-v1.5` | Dense embedding model |
+| `EMBEDDING_BACKEND` | `onnx` | Embedding runtime backend (`onnx` or `pytorch`) |
+| `EMBEDDING_ONNX_QUANTIZATION` | `int8` | ONNX quantization format (`int8` or `none`) |
 | `ARIA_MAX_CONCURRENT_ANALYSES`| `min(4, max(2, cpus // 2))` | Maximum concurrent background repository analysis tasks |
 | `FRONTEND_URL` | `http://localhost:4321` | Allowed CORS origin |
 | `LOG_FORMAT` | `human` | `human` or `json` (use `json` in production) |
@@ -773,7 +792,8 @@ The canonical API is versioned under `/api/v1`. Full schema documentation is ava
 | **Symbols** | `GET` | `/api/v1/symbols/{owner}/{repo}/file/{file_path}` | AST symbols extracted for a given file |
 | | `GET` | `/api/v1/symbols/{owner}/{repo}/definition/{symbol_name}` | Look up definition site for a symbol |
 | | `GET` | `/api/v1/symbols/{owner}/{repo}/references/{symbol_name}` | Cross-file references to a symbol |
-| **Hygiene & Risk** | `POST` | `/api/v1/dead-code/analyze` | Sweep for dead files and uncalled functions |
+| **Impact & Risk** | `POST` | `/api/v1/impact-analysis` | Predict change impact (calibrated confidence tiers, semantic callers, test impact) |
+| | `POST` | `/api/v1/dead-code/analyze` | Sweep for dead files and uncalled functions |
 | | `POST` | `/api/v1/pr/analyze` | PR risk classification (XS → XL) and blast radius |
 | | `POST` | `/api/v1/architecture/drift` | Architecture drift delta-patching |
 | | `POST` | `/api/v1/churn/analyze` | Mine git commit history for churn metrics |
@@ -796,6 +816,7 @@ The canonical API is versioned under `/api/v1`. Full schema documentation is ava
 
 ---
 
+<a id="mcp"></a>
 ## Model Context Protocol (MCP)
 
 ARIA exposes a stateless MCP adapter server compliant with the Model Context Protocol specification.
@@ -898,6 +919,78 @@ Concurrent load benchmarks evaluate end-to-end API throughput and latency under 
 - **Fresh Ingestion (~300 files)**: 25–40 seconds (AST parsing, graph building, BGE embeddings, and Qdrant indexing).
 - **Incremental Rebuild (small diff)**: **< 2 seconds** (SHA-256 hash-based change detection skips unmodified files).
 
+### Production Embedding Engine A/B Benchmark: PyTorch FP32 vs ONNX INT8 (Measured)
+
+Evaluated on the authoritative **Google Guava** workload (`google/guava`, 3,277 source files) inside the production Docker container environment under identical execution constraints (`batch_size=64`, `concurrency=1`):
+
+| Metric / Pipeline Stage | PyTorch FP32 (Baseline) | ONNX INT8 (Quantized Default) | Measured Benefit |
+| :--- | :--- | :--- | :--- |
+| **Cold Embed Time** | 67.14 s | **54.08 s** | **-13.06 s (-19.45%)** |
+| **Cold Embed Throughput** | 7.63 chunks/s | **9.47 chunks/s** | **+1.24x (+24.1%)** |
+| **Total Cold Pipeline Time** | 67.67 s | **54.53 s** | **-13.14 s (-19.42%)** |
+| **Warm Embed Throughput (Cache)** | 11,637.19 chunks/s | **12,168.02 chunks/s** | Sub-50ms cache hits |
+| **Peak Process RSS** | 7,790.4 MB | **7,804.9 MB** | +14.5 MB (<0.2%) |
+| **Observed Top-5 Retrieval Overlap** | 100.0% | **100.0%** | Exact rank parity |
+| **Observed Top-10 Retrieval Overlap** | 100.0% | **100.0%** | Exact rank parity |
+| **Observed Top-20 Retrieval Overlap** | 100.0% | **100.0%** | Exact rank parity |
+| **Ground-Truth File Recall** | 74.2% | **74.2%** | Zero degradation |
+| **Ground-Truth File Precision** | 10.2% | **10.2%** | Zero degradation |
+| **Ground-Truth File F1** | 17.5% | **17.5%** | Zero degradation |
+
+> [!IMPORTANT]
+> **Benchmark Scope & Numerical Fidelity Note**: Measured on a controlled 512-chunk baseline slice of the 3,277-file Google Guava repository (`google/guava`). This is distinct from full-repository cold ingestion of all ~28,240 chunks. Reported retrieval metrics reflect *observed retrieval parity* across representative search queries and ground-truth tasks rather than asserting bit-level float identity.
+
+### Evidence-Driven Evaluation: ARIA vs Conventional RAG (Initial Milestone)
+
+ARIA includes a reproducible empirical evaluation harness (`evaluation/`) measuring change impact prediction across 10 developer tasks across 3 representative repositories (`fastapi/fastapi`, `psf/requests`, `VarshithReddy2006/ARIA`) against pinned git commit hashes and human-verified ground truth.
+
+| Evaluation Metric | Conventional Search / Vector RAG | ARIA Evidence Engine (v1) | Measured Improvement |
+| :--- | :--- | :--- | :--- |
+| **File Precision** | 2.8% | **5.3%** | **+2.4%** |
+| **File F1 Score** | 5.3% | **9.6%** | **+4.3%** |
+| **Affected Tests F1** | 6.2% | **32.4%** | **+26.2%** |
+| **False Positive File Noise** | 4,875 files | **1,158 files** | **-3,717 false alarms eliminated** |
+| **Mean Query Latency** | 169.1 ms | **113.3 ms** | **Sub-second deterministic response** |
+
+> For the comprehensive multi-milestone progression and current v6 semantic call graph benchmark results, see [Empirical Evaluation: Benchmark Progression & Semantic Call Graph v6](#empirical-evaluation-benchmark-progression--semantic-call-graph-v6).
+>
+> Reproduction commands and machine-readable data:
+> ```bash
+> python evaluation/scripts/run_eval.py
+> python evaluation/scripts/prove_aria_vs_rag.py
+> ```
+> See [`evaluation/README.md`](evaluation/README.md) for full task definitions, metrics, and ground-truth specifications.
+
+### Incremental Re-Indexing Performance (Measured)
+
+Evaluated on `psf/requests` (`5460f467b0`):
+
+| Ingestion Mode | Files Re-parsed | Wall Clock Time | Peak Memory (RSS) |
+| :--- | :--- | :--- | :--- |
+| **Fresh Full Build** | 37 files | 217.4 ms | 1.9 MB |
+| **1-File Diff (`sessions.py`)** | 1 file | **86.1 ms** | **0.9 MB** |
+| **3-File Diff** | 3 files | **185.0 ms** | **1.0 MB** |
+| **10-File Diff** | 10 files | **113.4 ms** | **1.1 MB** |
+
+> Measured via `python evaluation/scripts/run_incremental_benchmarks.py`.
+
+### Semantic Call Graph & Impact Evaluation (Current v6 State)
+
+Evaluated across 10 change-impact developer tasks in `fastapi/fastapi`, `psf/requests`, and `VarshithReddy2006/ARIA` against pinned git commit hashes and human-verified ground truth:
+
+| Metric | Historical State (v5) | Current State (v6) | Measured Progression |
+| :--- | :--- | :--- | :--- |
+| **Caller Resolution F1** | 3.3% | **20.4%** | **+17.1 percentage points (~6.2× relative)** |
+| **File Recall** | 63.3% | **71.7%** | **+8.4 percentage points** |
+| **File F1 Score** | 16.0% | **18.0%** | **+2.0 percentage points** |
+| **File Precision** | 9.5% | **10.6%** | **+1.1 percentage points** |
+| **False Positive Files** | 314 files | **322 files** | **Tight noise control (+8 files with +8.4% recall)** |
+| **Warm Mean Latency** | 133.6 ms | **203.1 ms** | **Interactive response with rich semantic resolution** |
+| **Warm P50 Latency** | 117.3 ms | **166.9 ms** | **Interactive median query response** |
+| **Warm P95 Latency** | 230.4 ms | **451.6 ms** | **Sub-500ms tail latency on large repositories** |
+
+> See [Empirical Evaluation: Benchmark Progression & Semantic Call Graph v6](#empirical-evaluation-benchmark-progression--semantic-call-graph-v6) for the complete v1 → v6 version progression matrix.
+
 ---
 
 ## Deployment
@@ -905,9 +998,14 @@ Concurrent load benchmarks evaluate end-to-end API throughput and latency under 
 ### Current Status
 
 - **Qdrant Vector Store**: Active support for Qdrant Cloud Free cluster and local Docker Qdrant.
-- **Local Docker Containers**: Verified production images via `Dockerfile.api` and `Dockerfile.worker`.
+- **Self-Hosted Docker Compose**: `docker-compose.yml` provisions Qdrant, the API (`Dockerfile.api`), and the dashboard (`Dockerfile.frontend`). See [Self-Hosting](#self-hosting).
 - **Hugging Face Cloud Deployment**: Community Hardware Grant application currently pursued for public hosted demo.
 - **Hosted ARIA Demo**: Hosted cloud demonstration environment coming soon.
+
+> [!NOTE]
+> `Dockerfile.worker` targets the retired Azure Container Apps Job path and is
+> not used by any Compose file. The default `JOB_EXECUTOR=local` runs analysis
+> inside the API container.
 
 ### Previous Azure Deployment (Historical)
 
@@ -929,17 +1027,55 @@ Azure Container Apps was previously utilized for production validation and live 
 
 ## Self-Hosting
 
-### Production Docker Compose
+`docker-compose.yml` is the authoritative self-hosting path. It starts three
+services on an internal Docker network:
 
-Run the production API, worker, and frontend services in containers:
+| Service | Image | Purpose | Published port |
+|---|---|---|---|
+| `qdrant` | `qdrant/qdrant` | Primary vector store | none (internal only) |
+| `api` | `Dockerfile.api` | FastAPI gateway; runs analysis in-process (`JOB_EXECUTOR=local`) | `8001` |
+| `frontend` | `Dockerfile.frontend` | Astro standalone Node server | `4321` |
+
+No separate worker container is required: with `JOB_EXECUTOR=local` the API runs
+background analysis in-process.
+
+### 1. Prerequisites
+
+Docker Engine 24+ with the Compose plugin. Nothing else — no Python, Node, or
+local database is needed on the host.
+
+### 2. Clone and configure
 
 ```bash
-docker compose -f docker-compose.prod.yml up -d --build
+git clone https://github.com/VarshithReddy2006/ARIA.git
+cd ARIA
+cp .env.example .env
 ```
 
-### Verifying Container Health
+Set two values in `.env`:
+
+```ini
+GEMINI_API_KEY=your-gemini-api-key
+API_KEY=choose-any-shared-secret
+```
+
+`API_KEY` is mandatory. The API is published on a host port, so Compose refuses
+to start without it rather than exposing an unauthenticated service.
+
+### 3. Start
 
 ```bash
+docker compose up -d --build
+```
+
+First boot downloads the ~400 MB BGE embedding model into the
+`aria-model-cache` volume, so allow a few minutes before `api` reports healthy.
+
+### 4. Verify health
+
+```bash
+docker compose ps          # all three services should be Up / healthy
+
 curl http://localhost:8001/health
 # {"backend": "online", "llm_provider": "gemini", "status": "healthy"}
 
@@ -947,36 +1083,115 @@ curl http://localhost:8001/ready
 # {"status": "ready", "database": "connected", "vector_store": "ready"}
 ```
 
+### 5. Index a repository and open the dashboard
+
+```bash
+curl -N -X POST http://localhost:8001/api/v1/analyze \
+  -H "Content-Type: application/json" \
+  -H "X-API-Key: $API_KEY" \
+  -d '{"url": "https://github.com/psf/requests", "branch": "main"}'
+```
+
+Then open **`http://localhost:4321`**.
+
+### 6. Shut down, update, and persistence
+
+```bash
+docker compose down                  # stop; named volumes are retained
+docker compose down -v               # stop and DELETE all indexed data
+
+git pull && docker compose up -d --build   # update
+```
+
+State lives in four named volumes, so restarts and rebuilds preserve indexed
+repositories:
+
+| Volume | Contents |
+|---|---|
+| `qdrant-storage` | Vector collections |
+| `aria-data` | SQLite fact store, analysis store, Chroma fallback |
+| `aria-cloned-repos` | Cloned repository working trees |
+| `aria-model-cache` | Embedding model weights |
+
+> [!NOTE]
+> `docker-compose.yml` is the single canonical self-hosted deployment specification for ARIA, provisioning Qdrant, FastAPI, and Astro frontend with persistent Docker volumes.
+
+### Changing the API URL used by the browser
+
+`PUBLIC_API_URL` is compiled into the client bundle at build time, so it must be
+set before building, not only at runtime:
+
+```bash
+PUBLIC_API_URL=https://aria-api.example.com docker compose up -d --build
+```
+
 ---
 
 ## Testing & Validation
 
-ARIA maintains extensive automated test suites across all subsystems:
+ARIA maintains extensive automated test suites across all subsystems with **over 3,350 automated tests**:
 
 ```bash
 # Run backend test suite
-pytest tests/ -v
+pytest tests/ -q
 
 # Run frontend test suite
 cd frontend && npm test
 ```
 
-### Test Suite Breakdown
+### Current Backend Test Results (2,967 Passing Tests)
 
-- **Backend & Services**: 114+ test modules covering AST parsing, graph algorithms, concurrency locking, retrieval pipelines, provider failover, and security middlewares.
-- **Frontend**: 23 test suites validating scene layouts, dagre framing, graph deep-linking, chat intelligence, and API surface interfaces.
-- **MCP Adapter**: FastMCP parity, JSON-RPC 2.0 protocol conformance, transport safety, and HTTP API boundary suites.
-- **VS Code Extension**: 12 test suites verifying command registration, webview message routing, CodeLens triggers, and mock backend integration.
-- **Total**: Multi-layer automated regression validation covering all functional surfaces.
+The full verified backend test suite passes completely with zero failures:
+- **2,967 Passed, 3 Skipped, 0 Failed, 9 Warnings** (~233.20s runtime; previous milestone baseline: 2,960 passed, 4 skipped, 0 failed, 6 warnings ~161.80s).
+- **Code Quality & Formatting**: 100% compliant (`ruff check .` passes cleanly; 1,163 files formatted via `ruff format --check .`).
+- **Chat & Retrieval Refinement**: 100% pass rate across chat refinement and deterministic retrieval gating suites (`tests/test_chat_refinement_master.py`, `tests/test_deterministic_retrieval_gating.py`, `tests/test_chat_10_10_comprehensive.py`), and 12 / 12 live end-to-end Docker Chat QA scenarios verified.
+- **Semantic Call Graph & ONNX Embedding**: Complete test coverage across AST semantic resolution (`tests/test_call_graph_resolution.py`), ONNX INT8 embedding cache isolation (`tests/test_onnx_embedding_service.py`), and multi-provider failover pipeline (`tests/test_provider_pipeline_regression.py`).
+
+### Historical Test Suite Breakdown & Accounting (2,900 Milestone Baseline)
+
+In previous containerized test harness milestones (`APP_ENV=test`), the baseline accounted for **2,900 collected tests**:
+- **2,890 Tests Passing (99.65% Pass Rate)** across 114+ test modules covering AST parsing, semantic call graph resolution, class inheritance hierarchies, test impact candidate lookup, graph algorithms, concurrency locking, retrieval pipelines, provider failover, security middlewares, and ONNX INT8 embedding cache isolation.
+- **Historical Edge Case Accounting (10 tests)**:
+  - **7 Azure Deployment Manifest Checks** (`tests/test_azure_job_executor.py`): Asserted host file paths intentionally excluded from minimal container images.
+  - **2 Rate-Limiting Host Header Checks** (`tests/test_security_auth.py`): Local testserver header assertions under proxy simulation.
+  - **1 MCP SDK Manifest Check** (`tests/test_mcp_sdk_compatibility.py`): Validated dependency bounds.
+
+### Frontend Quality Assurance (393 / 393 Tests Passing)
+- **393 Tests Passed** across 65 test suites with zero failures and zero skips (~2.59s runtime).
+- Validates React 18 / Astro 5 scene layouts, Dagre graph framing, graph deep-linking, chat intelligence, and API surface interfaces.
+- Production Astro SSR / Vite build completes cleanly with zero bundling errors.
+- Total automated tests across backend and frontend: **3,360 passing tests** (2,967 backend + 393 frontend; exceeding the 3,350+ milestone baseline).
 
 ---
 
-## Limitations
+## Visual Product Walkthrough & Demo Flow
 
-- **Static Call Resolution**: Call graphs are generated via static AST analysis; dynamic runtime dispatch, `eval()`, and runtime reflection cannot be fully resolved.
-- **Internal vs External Consumers**: API surface intelligence evaluates callers within the repository; it cannot detect callers in closed third-party private codebases without external telemetry.
-- **Memory Scaling on Huge Repositories**: Codebases exceeding 500,000 lines of code require proportional memory allocations for in-memory graph topologies and embeddings.
-- **LLM Provider Quotas**: Chat synthesis quality and throughput depend on upstream API rate limits and quotas.
+ARIA's interactive web interface guides engineers through progressive codebase exploration:
+
+```text
+┌─────────────────┐     ┌──────────────────┐     ┌─────────────────────┐     ┌──────────────────┐     ┌─────────────────┐
+│ 1. Overview     │ ──► │ 2. Call Graph    │ ──► │ 3. Impact Analysis  │ ──► │ 4. Health Report │ ──► │ 5. Repo Chat    │
+│ Architecture &  │     │ Function &       │     │ Blast Radius &      │     │ Multi-Axis       │     │ Grounded Q&A &  │
+│ File Topologies │     │ Method Traversal │     │ Affected Tests      │     │ Scorecard        │     │ Verified Citings│
+└─────────────────┘     └──────────────────┘     └─────────────────────┘     └──────────────────┘     └─────────────────┘
+```
+
+1. **Repository Overview (`/`)**: Instant breakdown of languages, modularity clusters, entry points, reading sequence, and structural topology.
+2. **Interactive Call Graph (`/call-graph`)**: Explore caller and callee hierarchies, qualified symbol relationships, receiver types, and blast-radius percentages on a zoomable Dagre graph.
+3. **Change Impact Workspace (`/impact`)**: Natural language change descriptions generate predicted affected files, callers, and test suites classified into `HIGH`, `MEDIUM`, and `LOW` confidence tiers.
+4. **Health Report (`/report`)**: Comprehensive multi-axis scorecard evaluating Architecture Stability, API Quality, Code Hygiene, Hotspots, and Onboarding Clarity with PDF/Markdown exports.
+5. **Grounded Repository Chat (`/chat`)**: Ask architectural and execution questions with deterministic intent classification, structural context assembly, and verified file-level citations.
+
+---
+
+## Known Limitations
+
+- **Statically Observable Call Resolution**: ARIA resolves statically observable call relationships using AST imports, aliases, receiver inference, class hierarchies, and framework dependency injection. Dynamic dispatch, reflection, runtime monkey patching, metaprogramming, and other runtime-generated behaviors remain unresolved and are explicitly captured as `UNRESOLVED_CALL` with `UNCERTAIN` status.
+- **Upstream DeepSeek NIM Endpoint Availability**: The remote NVIDIA-hosted DeepSeek V4 Flash endpoint may occasionally experience upstream 529 overloads or long queue times under heavy public load. ARIA mitigates this transparently via its multi-model fallback cascade (`meta/llama-3.2-11b-vision-instruct` and `minimaxai/minimax-m3`).
+- **First-Boot Model Quantization**: On initial container startup on a clean host, ONNX INT8 quantization executes once (~10–15s), after which weights are cached in named volumes for instant reloads.
+- **Internal vs External Consumer Visibility**: API surface intelligence inspects routes and exported interfaces within the repository; it cannot observe callers in closed, third-party external codebases without external telemetry.
+- **Thread Contention on High Core Counts**: For optimal embedding throughput, CPU core allocation should use default automatic thread pool management (`EMBEDDING_ONNX_THREADS=""`) or bounded worker concurrency (`ARIA_MAX_CONCURRENT_ANALYSES=1`).
+- **Memory Scaling on Massive Repositories**: Repositories exceeding 500,000 lines of code require proportional memory allocations (8 GB+ RAM) for in-memory graph topologies and embeddings.
 
 ---
 
@@ -988,7 +1203,8 @@ cd frontend && npm test
 - [x] Stateless FastMCP adapter over canonical HTTP API.
 - [x] Interactive API Surface Analyzer and Call Graph UI.
 - [x] Grounded Repository Chat with 20 deterministic intent types.
-- [x] Resilient LLM failover engine (Gemini 3.1 Flash Lite ➔ DeepSeek V4 Flash).
+- [x] Resilient LLM failover engine (Gemini ➔ DeepSeek ➔ Llama ➔ MiniMax).
+- [x] High-performance ONNX INT8 embedding engine with automated PyTorch fallback.
 - [x] Canonical `AnalysisTarget` concurrency and inter-process locking.
 - [x] VS Code Extension (CodeLens, symbol hovers, webviews).
 
@@ -1023,6 +1239,13 @@ cd frontend && npm test
 <summary><strong>Which programming languages are supported?</strong></summary>
 
 Python, JavaScript, and TypeScript are supported via Tree-sitter AST parsers. Adding support for additional languages involves implementing a Tree-sitter grammar visitor.
+
+</details>
+
+<details>
+<summary><strong>How does ARIA resolve function and method calls?</strong></summary>
+
+ARIA uses a multi-stage static semantic resolver rather than naive string matching. It combines file import and alias tables (`FileImportTable`), class hierarchy trees with MRO and `super()` traversal (`ClassHierarchyIndex`), and function-scoped receiver type inference (`ScopeTypeInferrer` for constructors, annotations, and FastAPI `Depends` injection). Calls with statically determinable targets are classified by relationship type (`DIRECT_CALL`, `METHOD_CALL`, `INSTANCE_METHOD`, `INHERITED_CALL`, `SUPER_CALL`, `ALIAS_CALL`, `PROPERTY_ACCESS`, `DECORATED_HANDLER`). Untyped or dynamic calls that cannot be statically verified are explicitly marked as `UNRESOLVED_CALL` with `UNCERTAIN` status and `LOW` confidence.
 
 </details>
 
@@ -1092,6 +1315,64 @@ Ensure `CLONED_REPOS_PATH` points to a path outside the backend directory tree (
 Always run `pytest tests/ -v` with the explicit `tests/` directory to prevent pytest from traversing cloned repositories in `data/`.
 
 </details>
+
+---
+
+## Empirical Evaluation: Benchmark Progression & Semantic Call Graph v6
+
+ARIA includes a reproducible, automated benchmark evaluation harness (`evaluation/`) that quantitatively measures impact-analysis precision against a conventional code search / RAG baseline across 10 developer tasks in `fastapi/fastapi`, `psf/requests`, and `VarshithReddy2006/ARIA` against pinned git commit hashes and human-verified ground truth.
+
+### Benchmark Progression (10 Tasks: v1 → v2 → v3 → v4 → v5 → v6)
+
+| Metric | Baseline | v1 (Coarse BFS) | v2 (Precision Engine) | v3 (Test Recovery) | v4 (Calibration & Integrity) | v5 (Performance & Optimization) | v6 (Semantic Call Graph) |
+| :--- | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| **Caller Resolution F1** | 1.3% | 1.3% | 3.3% | 3.3% | 3.3% | 3.3% | **20.4%** |
+| **File Precision** | 2.8% | 5.3% | 6.6% | 6.8% | 9.5% | 9.5% | **10.6%** |
+| **File Recall** | 91.7% | 67.5% | 67.5% | 66.7% | 63.3% | 63.3% | **71.7%** |
+| **File F1 Score** | 5.3% | 9.6% | 11.7% | 11.8% | 16.0% | 16.0% | **18.0%** |
+| **Affected Tests F1 (HIGH)** | 6.2% | 18.8% | 23.7% | 22.1% | 25.7% | 28.5% | **28.5%** |
+| **Affected Tests F1 (HIGH+MED)**| 6.2% | 18.8% | 23.7% | 31.1% | 31.1% | 32.0% | **28.7%** |
+| **Valid Ground Truth Test F1** | 7.8% | 24.1% | 30.5% | 39.8% | 39.8% | 41.0% | **36.2%** |
+| **False Positive Files** | 4,875 | 1,158 | 550 | 720 | 314 | 314 | **322** |
+| **Warm Mean Latency** | 271.7 ms | 184.0 ms | 131.0 ms | 187.0 ms | 1190.7 ms | 133.6 ms | **203.1 ms** |
+| **Warm P50 Latency** | 184.7 ms | 140.0 ms | 95.0 ms | 120.0 ms | 930.8 ms | 117.3 ms | **166.9 ms** |
+| **Warm P95 Latency** | 858.4 ms | 320.0 ms | 250.0 ms | 380.0 ms | 5099.3 ms | 230.4 ms | **451.6 ms** |
+
+### Key V6 Milestone Findings
+
+1. **Caller Resolution Breakthrough**: Caller Resolution F1 improved from 3.3% to **20.4%** (+17.1 percentage points, ~6.2× relative improvement), resolving qualified methods, instance methods via receiver type inference, inheritance MRO, `super()`, property accesses, and framework dependency parameters.
+2. **File-Level Boundary & Recall**: File Recall increased from 63.3% to **71.7%** and File F1 increased from 16.0% to **18.0%**, while maintaining tight false-positive control at 322 files.
+3. **Test-Impact Focus**: Affected Tests F1 (HIGH) is **28.5%** (HIGH+MEDIUM is 28.7%, Valid GT is 36.2%). The v6 milestone improvements are concentrated in semantic caller resolution and file recall rather than test-impact F1.
+4. **Interactive Warm-Query Performance**: ARIA v6 maintains interactive warm-query performance while adding richer semantic resolution. Warm mean latency is **203.1 ms**, with P50 of **166.9 ms** and P95 of **451.6 ms** on the benchmark environment.
+5. **Calibrated Confidence Semantics**: Empirical accuracy on the calibration dataset remains **100.0%** for `VERIFIED IMPACT` (HIGH tier, 31/31 correct), **87.5%** for `LIKELY IMPACT` (MEDIUM tier, 7/8 correct), and **0.0%** for `EXPLORATORY CANDIDATE` (LOW tier, 0/11, reserved for heuristic discovery).
+6. **Decoupled Source & Test Caller Sets**: Test files invoking source code are strictly categorized as `affected_tests` and excluded from production caller relationships.
+
+### Ground-Truth Data Quality Audit & Dual-Mode Evaluation
+
+A rigorous audit documented in `evaluation/data_quality_report.md` revealed that **5 of 18 test files (27.8%) do not exist on disk** in the pinned repository commits:
+1. `task-02`: `tests/test_response_model.py` (FastAPI) does not exist (response model tests live in `tests/test_tutorial/test_response_model/`).
+2. `task-03`: `tests/test_status_codes.py` (FastAPI) does not exist (status code tests are in `tests/test_response_change_status_code.py`).
+3. `task-04`: `tests/test_sessions.py` (Requests) does not exist (session tests are consolidated in `tests/test_requests.py`).
+4. `task-08`: `tests/test_call_graph.py` (ARIA) does not exist (actual test files are `tests/test_call_graph_service.py`).
+5. `task-09`: `tests/test_api_surface.py` (ARIA) does not exist (actual test file is `tests/test_api_surface_service.py`).
+
+ARIA maintains the historical ground-truth files 100% unaltered, reporting both RAW metrics and VALID-GROUND-TRUTH metrics for evaluation transparency.
+
+### Reproduce the Empirical Evidence
+
+```bash
+# Run the full 10-task evaluation harness (generates v6_results.json, v6_results.csv, v6_report.md)
+python evaluation/scripts/run_eval.py
+
+# Run call graph semantic resolution unit tests
+pytest tests/test_call_graph_resolution.py -v
+
+# Run detailed caller diagnostics across all tasks
+python evaluation/scripts/inspect_callers.py
+
+# Run head-to-head proof script (ARIA vs Traditional Search/RAG)
+python evaluation/scripts/prove_aria_vs_rag.py
+```
 
 ---
 

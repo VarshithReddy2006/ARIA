@@ -349,7 +349,11 @@ class TestAllMCPToolsAPIDelegation:
             assert "auth.py" in res
             mock_client.post.assert_called_once_with(
                 "/api/v1/impact-analysis",
-                json={"repo": "org/alpha", "issue": "Update jwt key"},
+                json={
+                    "repo": "org/alpha",
+                    "issue": "Update jwt key",
+                    "operating_mode": "BALANCED",
+                },
             )
 
     def test_tool_get_api_surface(self, registered_tools, mock_client):

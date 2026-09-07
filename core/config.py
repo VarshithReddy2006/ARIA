@@ -15,6 +15,8 @@ from pydantic_settings import BaseSettings, SettingsConfigDict  # noqa: E402
 
 class Settings(BaseSettings):
     model_config = SettingsConfigDict(
+        env_file=".env",
+        env_file_encoding="utf-8",
         populate_by_name=True,
         extra="ignore",
         case_sensitive=False,
@@ -47,15 +49,20 @@ class Settings(BaseSettings):
     deepseek_model: str = Field(
         "deepseek-ai/deepseek-v4-flash-0731", alias="DEEPSEEK_MODEL"
     )
+    deepseek_fallback_models: str = Field(
+        "meta/llama-3.2-11b-vision-instruct,minimaxai/minimax-m3",
+        alias="DEEPSEEK_FALLBACK_MODELS",
+    )
     gemini_api_key: Optional[str] = Field(None, alias="GEMINI_API_KEY")
     gemini_model: str = Field("gemini-3.1-flash-lite", alias="GEMINI_MODEL")
     gemini_fallback_models: str = Field(
         "gemini-3.5-flash,gemini-3-flash-preview,gemini-flash-lite-latest,gemini-2.5-flash",
         alias="GEMINI_FALLBACK_MODELS",
     )
+    gemini_thinking_budget: Optional[int] = Field(0, alias="GEMINI_THINKING_BUDGET")
 
     llm_connect_timeout: float = Field(10.0, alias="LLM_CONNECT_TIMEOUT")
-    llm_read_timeout: float = Field(45.0, alias="LLM_READ_TIMEOUT")
+    llm_read_timeout: float = Field(60.0, alias="LLM_READ_TIMEOUT")
     llm_total_timeout: float = Field(60.0, alias="LLM_TOTAL_TIMEOUT")
     llm_circuit_breaker_cooldown_seconds: float = Field(
         60.0, alias="LLM_CIRCUIT_BREAKER_COOLDOWN_SECONDS"
@@ -65,6 +72,11 @@ class Settings(BaseSettings):
     )
 
     embedding_model: str = Field("BAAI/bge-small-en-v1.5", alias="EMBEDDING_MODEL")
+    embedding_backend: str = Field("onnx", alias="EMBEDDING_BACKEND")
+    embedding_onnx_quantization: str = Field(
+        "int8", alias="EMBEDDING_ONNX_QUANTIZATION"
+    )
+    embedding_onnx_threads: Optional[int] = Field(None, alias="EMBEDDING_ONNX_THREADS")
     embedding_batch_size: int = Field(64, alias="EMBEDDING_BATCH_SIZE")
     embedding_encode_batch_size: int = Field(64, alias="EMBEDDING_ENCODE_BATCH_SIZE")
     embedding_cache_size: int = Field(50000, alias="EMBEDDING_CACHE_SIZE")
@@ -134,9 +146,48 @@ class Settings(BaseSettings):
         cpu_cnt = os.cpu_count() or 2
         return min(4, max(2, cpu_cnt // 2))
 
-    model_config = SettingsConfigDict(
-        env_file=".env", env_file_encoding="utf-8", extra="ignore"
+    def __getattr__(self, item: str) -> Any:
+        """Allow case-insensitive and alias-based attribute access (e.g. settings.GEMINI_API_KEY)."""
+        if item.startswith("_"):
+            raise AttributeError(
+                f"'{type(self).__name__}' object has no attribute '{item}'"
+            )
+
+        lower_item = item.lower()
+        if lower_item in self.__dict__:
+            return self.__dict__[lower_item]
+
+        for field_name, field_info in self.model_fields.items():
+            if field_info.alias and field_info.alias.lower() == lower_item:
+                return getattr(self, field_name)
+            if field_name.lower() == lower_item:
+                return getattr(self, field_name)
+
+        raise AttributeError(
+            f"'{type(self).__name__}' object has no attribute '{item}'"
+        )
+
+    def __getitem__(self, item: str) -> Any:
+        """Allow dict-like access: settings['GEMINI_API_KEY'] or settings['gemini_api_key']."""
+        try:
+            return getattr(self, item)
+        except AttributeError:
+            raise KeyError(item)
+
+    @field_validator(
+        "embedding_onnx_threads",
+        "worker_count",
+        "aria_workers",
+        "web_concurrency",
+        "aria_max_concurrent_analyses",
+        "qdrant_grpc_port",
+        mode="before",
     )
+    @classmethod
+    def empty_str_to_none_int(cls, v: Any) -> Any:
+        if v == "" or v is None:
+            return None
+        return v
 
     @field_validator(
         "api_key",
@@ -241,14 +292,34 @@ class Settings(BaseSettings):
             app_env = info.data.get("app_env", "development")
         if isinstance(v, str) and v.strip():
             val = v.strip()
-            if val == "/app/data/repo_understanding.db":
-                return "/tmp/repo_understanding.db"
+            # Explicitly configured absolute paths must be preserved exactly.
+            # (e.g. /app/data/repo_understanding.db in Docker persistent volume)
+            if os.path.isabs(val):
+                db_dir = os.path.dirname(val)
+                if db_dir:
+                    try:
+                        os.makedirs(db_dir, exist_ok=True)
+                    except OSError:
+                        pass
+                return val
+
+            # Default relative path in production falls back to /tmp/repo_understanding.db
             if (
                 val == "data/repo_understanding.db"
                 and str(app_env).lower() == "production"
             ):
                 return "/tmp/repo_understanding.db"
+
+            # Relative path: create parent directory if possible and return
+            db_dir = os.path.dirname(os.path.abspath(val))
+            if db_dir:
+                try:
+                    os.makedirs(db_dir, exist_ok=True)
+                except OSError:
+                    pass
             return val
+
+        # Fallback when unset
         if str(app_env).lower() == "production":
             return "/tmp/repo_understanding.db"
         return "data/repo_understanding.db"

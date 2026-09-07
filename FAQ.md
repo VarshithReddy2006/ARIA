@@ -13,15 +13,19 @@ This document answers common technical questions about the ARIA architecture.
 ---
 
 ### Q: How does deterministic retrieval work?
-**A**: When a user queries the chatbot (e.g. "Where is the `run_migrations` function defined?"), the system first runs a local **Intent Router** (rule-based keyword classifier) to detect if the query is a symbol lookup. If so, it queries the SQLite AST index directly instead of using semantic search. This guarantees that symbol queries are 100% accurate, eliminating LLM hallucinations.
+**A**: When a user queries the chatbot (e.g. "Where is the `run_migrations` function defined?" or "Explain backend/api.py"), the system first evaluates **Deterministic Gating**:
+1. Explicit file paths, symbol names, functions, snake_case tokens, and backtick expressions resolve directly against the symbol index and file manifest.
+2. Common conversational English verbs (e.g. "handle", "build") are protected from hijacking deterministic resolution.
+3. If no explicit entity is targeted, the query smoothly transitions to hybrid semantic retrieval with BGE embeddings, ensuring accurate grounding with zero hallucination.
 
 ---
 
 ### Q: How does provider failover work?
-**A**: During server initialization, the **ProviderManager** validates configured LLM credentials:
-1. It sends lightweight validation checks to Google AI Studio and NVIDIA NIM.
-2. If the primary provider (Gemini) fails, it updates its routing state to fallback mode.
-3. All subsequent chatbot prompts are routed to the fallback provider (DeepSeek V4) until Gemini is validated as healthy again.
+**A**: During runtime orchestration, the **ProviderManager** manages configured candidate providers in priority order:
+1. **Priority Chain**: Gemini 3.1 Flash Lite (Primary) → DeepSeek V4 Flash NIM (Secondary) → NVIDIA Llama 3.2 11B Vision → NVIDIA MiniMax M3.
+2. **Circuit Breakers**: Each provider is guarded by an individual circuit breaker (`CLOSED`, `OPEN`, `HALF_OPEN`) with a 60s recovery cooldown.
+3. **Token-Aware Failover**: If a provider fails when 0 tokens have been emitted, failover immediately advances to the next healthy candidate in the chain. Once tokens have been yielded, failover ceases to prevent stream corruption.
+4. **Resilience Boundaries**: Configured timeouts (e.g., `LLM_READ_TIMEOUT=60.0`) guard against upstream NVIDIA queueing delays.
 
 ---
 

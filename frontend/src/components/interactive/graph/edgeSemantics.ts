@@ -16,20 +16,20 @@
 
 /** Tones. Kept literal so a test can assert the mapping. */
 export const EDGE_TONE = {
-  /** A traced dependency path. */
-  path: '#f43f5e',
-  /** Something the focused entity reaches: a dependency, or a callee. */
+  /** A traced execution path. */
+  path: '#818cf8',
+  /** Something the focused entity reaches: a callee, or an outgoing call. */
   outgoing: '#818cf8',
-  /** Something that reaches the focused entity: a dependent, or a caller. */
-  incoming: '#34d399',
+  /** Something that reaches the focused entity: an entry, or a caller. */
+  incoming: '#2dd4bf',
   /** A cycle, or mutual recursion. */
   cyclic: '#f59e0b',
   /** A call the analyser could not resolve to a single target. */
   ambiguous: '#f59e0b',
   /** Present but not part of the current focus. */
-  inactive: '#27272a',
+  inactive: '#1f1f23',
   /** No selection anywhere — the resting state of the topology. */
-  idle: '#3f3f46',
+  idle: '#27272a',
 } as const;
 
 /** Dash patterns. Distinct enough to read apart at 1x zoom. */
@@ -243,12 +243,16 @@ export function resolveDependencyEdgeStyle(flags: DependencyEdgeFlags): EdgeVisu
     return {
       stroke: EDGE_TONE.inactive,
       strokeWidth: 1,
-      opacity: 0.1,
+      opacity: 0.06,
       dash: EDGE_DASH.solid,
       bothEnds: false,
     };
   }
 
+  // Resting state: nothing is selected, so the topology *is* the content and
+  // must stay legible. Kept above the 0.3 readability floor asserted in
+  // tests/graphEdgeSemantics.test.ts — do not lower without revisiting that
+  // contract. The deeper recede belongs to the `hasActive` branch above.
   return {
     stroke: idleTone ?? EDGE_TONE.idle,
     strokeWidth: 1.2,
@@ -330,12 +334,13 @@ export function resolveCallEdgeStyle(flags: CallEdgeFlags): EdgeVisual {
     return {
       stroke: EDGE_TONE.inactive,
       strokeWidth: 1,
-      opacity: 0.1,
+      opacity: 0.06,
       dash: EDGE_DASH.solid,
       bothEnds: false,
     };
   }
 
+  // Resting state: see the readability note in resolveDependencyEdgeStyle.
   return {
     stroke: EDGE_TONE.idle,
     strokeWidth: 1.2,

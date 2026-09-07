@@ -79,7 +79,7 @@ export const GraphBreadcrumbNav: React.FC = () => {
         onClick={() => setFocusMode(!focusMode)}
         className={`flex items-center gap-1.5 px-2.5 py-1 rounded border text-[10px] font-bold transition-all shrink-0 ${
           focusMode
-            ? 'bg-emerald-500/20 border-emerald-500 text-emerald-400 shadow-sm'
+            ? 'bg-primary/15 border-primary/40 text-primary shadow-sm'
             : 'bg-canvas border-border/70 text-text-muted hover:text-text'
         }`}
         title="Focus Mode hides nodes outside current selection neighborhood"

@@ -33,7 +33,9 @@ Thank you for contributing! This guide covers the repository structure, coding s
   ```
 - **Configuration Access**: Always fetch environment settings via the Pydantic settings singleton:
   ```python
-  from backend.settings import settings
+  from core.config import get_settings
+
+  settings = get_settings()
   # Do not use direct os.environ.get() inside services!
   ```
 - **Logging**: Use standard module-level logger:
@@ -76,9 +78,9 @@ Before opening a pull request, run this checklist locally:
 
 ### Step 1: Run Python Tests
 ```bash
-pytest tests/
+pytest -q
 ```
-- Ensure all 794 tests pass.
+- Ensure all test cases pass with zero failures.
 - Write unit tests under the `/tests` directory for any new parsing or retrieval logic.
 
 ### Step 2: Format & Lint Python
@@ -93,12 +95,12 @@ cd frontend
 npm run lint
 npm run build
 ```
-- Verify that the Astro static build finishes with **zero errors**.
+- Verify that the frontend build finishes with **zero errors**.
 
 ---
 
 ## 5. Pull Request Guidelines
 
 1. **Keep PRs focused**: Do not mix structural refactoring with new feature additions in the same branch.
-2. **Sync documentation**: If you change configuration properties (in `backend/settings.py` or `.env.example`), update the variables reference in `INSTALLATION.md`.
+2. **Sync documentation**: If you change configuration properties (in `core/config.py` or `.env.example`), update the variables reference in `INSTALLATION.md`.
 3. **No regressions**: Verify that the production build executes cleanly before requesting code review.

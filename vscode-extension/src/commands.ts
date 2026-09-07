@@ -450,22 +450,100 @@ export function registerCommands(
       async (args: { owner: string; repo: string; functionId: string }) => {
         await withProgress('Computing blast radius…', async () => {
           try {
-            const result = await client.getBlastRadius(args.owner, args.repo, args.functionId);
+            const [blast, impact] = await Promise.all([
+              client.getBlastRadius(args.owner, args.repo, args.functionId),
+              client.getImpactAnalysis(`${args.owner}/${args.repo}`, `Modify ${args.functionId}`).catch(() => null),
+            ]);
             const lines = [
-              `Blast Radius for: ${args.functionId}`,
-              `Risk Level: ${result.risk_level.toUpperCase()}`,
-              `Affected Functions: ${result.affected_functions.length}`,
-              `Affected Files: ${result.affected_files.length}`,
-              `Max Propagation Depth: ${result.depth}`,
+              `═══════════════════════════════════════════════════════════════`,
+              `  ARIA BLAST RADIUS REPORT: ${args.functionId}`,
+              `═══════════════════════════════════════════════════════════════`,
+              `Risk Level:            ${(impact?.risk_level ?? blast.risk_level ?? 'medium').toUpperCase()}`,
+              `Blast Radius Category: ${impact?.blast_radius_category ?? (blast.affected_files.length > 12 ? 'L' : blast.affected_files.length > 5 ? 'M' : 'S')}`,
+              `Verified Impacts:      ${impact?.verified_impact_count ?? blast.affected_files.length}`,
+              `Likely Impacts:        ${impact?.likely_impact_count ?? 0}`,
+              `Candidates:            ${impact?.candidate_count ?? 0}`,
+              `Direct Callers:        ${impact?.direct_callers?.length ?? 'Indexed in call graph'}`,
+              `Reachable API Routes:  ${impact?.api_exposure?.public_routes?.length ?? 0}`,
+              `Affected Test Files:   ${impact?.affected_tests?.length ?? 0}`,
+              `Architecture Layers:   ${impact?.architecture_boundaries?.join(', ') || 'Within module'}`,
+              `Max Propagation Depth: ${blast.depth}`,
               '',
-              'Affected Files:',
-              ...result.affected_files.map((f) => `  • ${f}`),
+              '── Supporting Structural Evidence ─────────────────────────────',
+              ...(impact?.evidence_items && impact.evidence_items.length > 0
+                ? impact.evidence_items.slice(0, 8).map((ev) => `  [${ev.kind}] ${ev.statement}${ev.source_reference ? ` (${ev.source_reference})` : ''}`)
+                : ['  • Deterministic call graph edges traced without LLM hallucination.']),
+              '',
+              '── Affected Files ─────────────────────────────────────────────',
+              ...blast.affected_files.map((f) => `  • ${f}`),
             ];
+            if (impact?.affected_tests && impact.affected_tests.length > 0) {
+              lines.push('', '── Affected Tests ─────────────────────────────────────────────');
+              for (const t of impact.affected_tests) {
+                lines.push(`  • ${t.test_file} (${t.impact_type}) — ${t.reason}`);
+              }
+            }
+            if (impact?.implementation_order && impact.implementation_order.length > 0) {
+              lines.push('', '── Recommended Implementation Sequence ────────────────────────');
+              for (const step of impact.implementation_order) {
+                lines.push(`  ${step}`);
+              }
+            }
             const panel = OutputChannelService.showAndClear('Blast Radius');
             panel.appendLine(lines.join('\n'));
           } catch (err) {
             void vscode.window.showErrorMessage(
               `Blast radius failed: ${extractErrorMessage(err)}`
+            );
+          }
+        });
+      }
+    )
+  );
+
+  // ── Show API Exposure (invoked by CodeLens & Palette) ─────────────────
+  context.subscriptions.push(
+    vscode.commands.registerCommand(
+      'repoIntelligence.showApiExposure',
+      async (args?: { owner?: string; repo?: string; symbol?: string }) => {
+        const repoStr = args?.owner && args?.repo ? `${args.owner}/${args.repo}` : (await pickOrGetActiveRepo('Select repository'));
+        if (!repoStr) { return; }
+        const [owner, repo] = repoStr.split('/', 2);
+        await withProgress('Fetching API exposure…', async () => {
+          try {
+            const surface = await client.getAPISurface(owner, repo);
+            const publicRoutes = surface.symbols.filter((s) => s.api_kind === 'route' && s.visibility === 'public');
+            const exportedSyms = surface.symbols.filter((s) => s.visibility === 'public');
+            const deprecated = surface.symbols.filter((s) => s.status === 'deprecated');
+
+            const lines = [
+              `═══════════════════════════════════════════════════════════════`,
+              `  ARIA API SURFACE EXPOSURE: ${owner}/${repo}`,
+              `═══════════════════════════════════════════════════════════════`,
+              `Total Symbols:       ${surface.stats.total_symbols}`,
+              `Public Symbols:      ${surface.stats.public_count}`,
+              `Internal Symbols:    ${surface.stats.internal_count}`,
+              `Exposed Routes:      ${publicRoutes.length}`,
+              `Deprecated Symbols:  ${deprecated.length}`,
+              `Orphan Public APIs:  ${surface.stats.orphan_public_count}`,
+              '',
+              '── Public HTTP Routes ─────────────────────────────────────────',
+              ...publicRoutes.slice(0, 20).map((r) => `  • [ROUTE] ${r.qualified} (${r.file_path}:${r.line_number})`),
+              '',
+              '── Exported Interfaces ────────────────────────────────────────',
+              ...exportedSyms.slice(0, 25).map((s) => `  • [${s.symbol_type.toUpperCase()}] ${s.qualified} (${s.file_path}:${s.line_number})`),
+            ];
+            if (deprecated.length > 0) {
+              lines.push('', '── Deprecated Interfaces ──────────────────────────────────────');
+              for (const d of deprecated) {
+                lines.push(`  • ${d.qualified} in ${d.file_path}:${d.line_number}`);
+              }
+            }
+            const panel = OutputChannelService.showAndClear('API Exposure');
+            panel.appendLine(lines.join('\n'));
+          } catch (err) {
+            void vscode.window.showErrorMessage(
+              `API exposure failed: ${extractErrorMessage(err)}`
             );
           }
         });
@@ -729,10 +807,13 @@ export function registerCommands(
       async (args: { owner: string; repo: string; filePath: string; symbol: any; functionId: string }) => {
         const picked = await vscode.window.showQuickPick(
           [
-            { label: '$(comment-discussion) Ask Repository', id: 'ask' },
-            { label: '$(book) Reading Path', id: 'readingPath' },
-            { label: '$(pulse) Blast Radius', id: 'blastRadius' },
+            { label: '$(arrow-left) Show Callers', id: 'callers' },
+            { label: '$(arrow-right) Show Callees', id: 'callees' },
+            { label: '$(pulse) Show Blast Radius', id: 'blastRadius' },
+            { label: '$(globe) Show API Exposure', id: 'apiExposure' },
+            { label: '$(comment-discussion) Ask ARIA', id: 'ask' },
             { label: '$(beaker) Impact Analysis', id: 'impact' },
+            { label: '$(book) Reading Path', id: 'readingPath' },
             { label: '$(lightbulb) Advisor', id: 'advisor' },
             { label: '$(history) Timeline', id: 'timeline' }
           ],
@@ -741,6 +822,15 @@ export function registerCommands(
         if (!picked) { return; }
 
         switch (picked.id) {
+          case 'callers':
+            void vscode.commands.executeCommand('repoIntelligence.showCallers', { owner: args.owner, repo: args.repo, functionId: args.functionId });
+            break;
+          case 'callees':
+            void vscode.commands.executeCommand('repoIntelligence.showCallees', { owner: args.owner, repo: args.repo, functionId: args.functionId });
+            break;
+          case 'apiExposure':
+            void vscode.commands.executeCommand('repoIntelligence.showApiExposure', { owner: args.owner, repo: args.repo, symbol: args.symbol.qualified });
+            break;
           case 'ask':
             void vscode.commands.executeCommand('repoIntelligence.showRepositoryChat');
             break;

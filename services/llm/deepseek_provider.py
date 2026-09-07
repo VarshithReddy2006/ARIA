@@ -21,7 +21,7 @@ _DEFAULT_MAX_RETRIES = (
 )
 _DEFAULT_INITIAL_DELAY = 2.0
 _DEFAULT_BACKOFF_FACTOR = 2.0
-_DEFAULT_TIMEOUT = 45.0
+_DEFAULT_TIMEOUT = 60.0
 _HEALTH_CHECK_TIMEOUT = 10.0  # /models is cheap
 
 
@@ -59,17 +59,43 @@ class DeepSeekProvider(BaseLLMProvider):
 
         self.model = resolved_model
         self.max_retries = max_retries
+        self.connect_timeout = (
+            getattr(current_settings, "llm_connect_timeout", 10.0) or 10.0
+        )
         self.timeout = (
             timeout
             if timeout != _DEFAULT_TIMEOUT
             else (current_settings.llm_read_timeout or _DEFAULT_TIMEOUT)
         )
-        self.connect_timeout = current_settings.llm_connect_timeout or 10.0
 
-        if not self.api_key:
-            logger.warning(
-                "DEEPSEEK_API_KEY is not set — requests to NVIDIA NIM will be rejected."
+    _client: Optional[httpx.AsyncClient] = None
+    connect_timeout: float = 10.0
+
+    async def _get_client(self) -> httpx.AsyncClient:
+        """Return cached httpx.AsyncClient with connection pooling."""
+        client = getattr(self, "_client", None)
+        if client is None or getattr(client, "is_closed", False):
+            connect_timeout = getattr(self, "connect_timeout", 10.0)
+            timeout_val = getattr(self, "timeout", _DEFAULT_TIMEOUT)
+            timeout_cfg = httpx.Timeout(
+                connect=connect_timeout,
+                read=timeout_val,
+                write=15.0,
+                pool=15.0,
             )
+            limits = httpx.Limits(
+                max_keepalive_connections=20, max_connections=50, keepalive_expiry=60.0
+            )
+            client = httpx.AsyncClient(timeout=timeout_cfg, limits=limits)
+            self._client = client
+        return client
+
+    async def aclose(self) -> None:
+        """Close underlying HTTP client session."""
+        client = getattr(self, "_client", None)
+        if client is not None and not getattr(client, "is_closed", False):
+            await client.aclose()
+            self._client = None
 
     # ------------------------------------------------------------------
     # Health check
@@ -110,9 +136,11 @@ class DeepSeekProvider(BaseLLMProvider):
         t0 = time.perf_counter()
         url = f"{self.base_url}/models"
         try:
-            async with httpx.AsyncClient(timeout=_HEALTH_CHECK_TIMEOUT) as client:
-                response = await client.get(url, headers=self._headers())
-                response.raise_for_status()
+            client = await self._get_client()
+            response = await client.get(
+                url, headers=self._headers(), timeout=_HEALTH_CHECK_TIMEOUT
+            )
+            response.raise_for_status()
 
             latency_ms = (time.perf_counter() - t0) * 1000
             logger.info(
@@ -286,11 +314,8 @@ class DeepSeekProvider(BaseLLMProvider):
         }
 
         try:
-            timeout_cfg = httpx.Timeout(
-                connect=self.connect_timeout, read=self.timeout, write=15.0, pool=15.0
-            )
-            async with httpx.AsyncClient(timeout=timeout_cfg) as client:
-                response = await self._post_with_retry(client, payload)
+            client = await self._get_client()
+            response = await self._post_with_retry(client, payload)
         except Exception as exc:
             error = classify_deepseek_error(exc, "deepseek")
             logger.error(
@@ -346,104 +371,94 @@ class DeepSeekProvider(BaseLLMProvider):
             first_token = True
 
             try:
-                timeout_cfg = httpx.Timeout(
-                    connect=self.connect_timeout,
-                    read=self.timeout,
-                    write=15.0,
-                    pool=15.0,
-                )
-                async with httpx.AsyncClient(timeout=timeout_cfg) as client:
-                    async with client.stream(
-                        "POST", url, json=payload, headers=self._headers()
-                    ) as response:
-                        if (
-                            response.status_code in _RETRY_STATUS_CODES
-                            and attempt < self.max_retries - 1
-                        ):
-                            logger.warning(
-                                "DeepSeek stream returned %s (attempt %d/%d). Retrying in %.1fs…",
-                                response.status_code,
-                                attempt + 1,
-                                self.max_retries,
-                                delay,
-                            )
-                            await asyncio.sleep(delay)
-                            delay *= _DEFAULT_BACKOFF_FACTOR
+                client = await self._get_client()
+                async with client.stream(
+                    "POST", url, json=payload, headers=self._headers()
+                ) as response:
+                    if (
+                        response.status_code in _RETRY_STATUS_CODES
+                        and attempt < self.max_retries - 1
+                    ):
+                        logger.warning(
+                            "DeepSeek stream returned %s (attempt %d/%d). Retrying in %.1fs…",
+                            response.status_code,
+                            attempt + 1,
+                            self.max_retries,
+                            delay,
+                        )
+                        await asyncio.sleep(delay)
+                        delay *= _DEFAULT_BACKOFF_FACTOR
+                        continue
+                    response.raise_for_status()
+
+                    async for line in response.aiter_lines():
+                        if not line or not line.startswith("data:"):
                             continue
-                        response.raise_for_status()
+                        raw = line[len("data:") :].strip()
+                        if not raw or raw == "[DONE]":
+                            break
+                        try:
+                            import json
 
-                        async for line in response.aiter_lines():
-                            if not line or not line.startswith("data:"):
+                            chunk = json.loads(raw)
+                            choices = chunk.get("choices", [])
+                            if not choices:
                                 continue
-                            raw = line[len("data:") :].strip()
-                            if not raw or raw == "[DONE]":
-                                break
-                            try:
-                                import json
 
-                                chunk = json.loads(raw)
-                                choices = chunk.get("choices", [])
-                                if not choices:
-                                    continue
+                            choice = choices[0]
+                            finish_reason = choice.get("finish_reason") or finish_reason
+                            delta = choice.get("delta", {})
+                            message = choice.get("message", {})
 
-                                choice = choices[0]
-                                finish_reason = (
-                                    choice.get("finish_reason") or finish_reason
-                                )
-                                delta = choice.get("delta", {})
-                                message = choice.get("message", {})
+                            # Extract text across all supported payload formats
+                            text = ""
+                            source = ""
 
-                                # Extract text across all supported payload formats
-                                text = ""
-                                source = ""
+                            if isinstance(delta, dict) and delta.get("content"):
+                                text = delta["content"]
+                                source = "delta.content"
+                            elif isinstance(delta, dict) and delta.get(
+                                "reasoning_content"
+                            ):
+                                text = delta["reasoning_content"]
+                                source = "delta.reasoning_content"
+                            elif isinstance(delta, dict) and delta.get("reasoning"):
+                                text = delta["reasoning"]
+                                source = "delta.reasoning"
+                            elif choice.get("text"):
+                                text = choice["text"]
+                                source = "choices[].text"
+                            elif isinstance(message, dict) and message.get("content"):
+                                text = message["content"]
+                                source = "message.content"
 
-                                if isinstance(delta, dict) and delta.get("content"):
-                                    text = delta["content"]
-                                    source = "delta.content"
-                                elif isinstance(delta, dict) and delta.get(
-                                    "reasoning_content"
-                                ):
-                                    text = delta["reasoning_content"]
-                                    source = "delta.reasoning_content"
-                                elif isinstance(delta, dict) and delta.get("reasoning"):
-                                    text = delta["reasoning"]
-                                    source = "delta.reasoning"
-                                elif choice.get("text"):
-                                    text = choice["text"]
-                                    source = "choices[].text"
-                                elif isinstance(message, dict) and message.get(
-                                    "content"
-                                ):
-                                    text = message["content"]
-                                    source = "message.content"
-
-                                if text:
-                                    if first_token:
-                                        first_token = False
-                                        elapsed_ms = (time.perf_counter() - t0) * 1000
-                                        logger.info(
-                                            "FIRST_TOKEN provider=deepseek model=%s latency_ms=%.1f source=%s",
-                                            self.model,
-                                            elapsed_ms,
-                                            source,
-                                        )
-
-                                    tokens_yielded += 1
-                                    completion_text += text
-                                    logger.debug(
-                                        "STREAM_CHUNK provider=deepseek source=%s text_len=%d",
+                            if text:
+                                if first_token:
+                                    first_token = False
+                                    elapsed_ms = (time.perf_counter() - t0) * 1000
+                                    logger.info(
+                                        "FIRST_TOKEN provider=deepseek model=%s latency_ms=%.1f source=%s",
+                                        self.model,
+                                        elapsed_ms,
                                         source,
-                                        len(text),
                                     )
-                                    yield text
 
-                            except Exception as parse_exc:
+                                tokens_yielded += 1
+                                completion_text += text
                                 logger.debug(
-                                    "DeepSeek stream parse error on chunk '%s': %s",
-                                    raw[:50],
-                                    parse_exc,
+                                    "STREAM_CHUNK provider=deepseek source=%s text_len=%d",
+                                    source,
+                                    len(text),
                                 )
-                                continue
+                                yield text
+
+                        except Exception as parse_exc:
+                            logger.debug(
+                                "DeepSeek stream parse error on chunk '%s': %s",
+                                raw[:50],
+                                parse_exc,
+                            )
+                            continue
 
                 # Stream completed HTTP iteration — validate non-empty completion text
                 if completion_text.strip() == "":

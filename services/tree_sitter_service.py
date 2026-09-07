@@ -24,7 +24,7 @@ from typing import Any, Dict, List, Optional, Tuple
 
 
 import threading
-
+from core.file_classifier import CANONICAL_IGNORED_DIRS
 
 logger = logging.getLogger(__name__)
 
@@ -283,18 +283,7 @@ class TreeSitterService:
 
     # ------------------------------------------------------------------
 
-    _IGNORED_DIRS = {
-        "node_modules",
-        ".git",
-        "dist",
-        "build",
-        ".next",
-        "venv",
-        "__pycache__",
-        ".venv",
-        ".tox",
-        "coverage",
-    }
+    _IGNORED_DIRS = CANONICAL_IGNORED_DIRS
 
     def _parse_from_disk(self, repo_path: str) -> List[Dict[str, Any]]:
 

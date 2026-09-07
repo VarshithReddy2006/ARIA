@@ -523,7 +523,7 @@ Retrieve individual panel snapshots using these sub-routes (available with root,
     "status": "healthy",
     "backend": "online",
     "llm_provider": "gemini",
-    "llm_model": "gemini-2.5-flash",
+    "llm_model": "gemini-3.1-flash-lite",
     "embedding_provider": "BAAI/bge-small-en-v1.5",
     "vector_db": "chromadb"
   }

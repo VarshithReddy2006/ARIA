@@ -13,42 +13,13 @@ import RepositoryHistory from '../components/landing/RepositoryHistory';
 import GroundedRetrieval from '../components/landing/GroundedRetrieval';
 import ReadingPath from '../components/landing/ReadingPath';
 import AnalysisPipeline from '../components/landing/AnalysisPipeline';
+import ProductDemo from '../components/landing/ProductDemo';
 import RepositoryAnalyzer from '../components/landing/RepositoryAnalyzer';
 
-import { TECHNOLOGY } from '../components/landing/data';
+import CosmicNeuralCanvas from '../components/landing/CosmicNeuralCanvas';
+import CommandPalette from '../components/landing/CommandPalette';
+import { TECHNOLOGY, CAPABILITY_MAP } from '../components/landing/data';
 import { scene, type SceneId } from '../components/landing/sceneModel';
-
-/**
- * The ARIA landing page: twelve cinematic scenes, not a long document.
- *
- * ── Presentation model ─────────────────────────────────────────────────────
- *
- * Every scene is a tall scroll space (`[data-stage]`) containing exactly one
- * `.scene-stage`, which is `position: sticky`. The stage holds the viewport while
- * its scroll space passes, so the scene occupies the frame, dissolves, and the
- * next scene is created in the same place. Scroll distance is per scene, from the
- * shared model — a typographic statement needs one viewport, the five-stage
- * structural transformation needs nearly three.
- *
- * The narrative, chapters, components, graph semantics, illustrative disclosures
- * and accessibility mirrors are unchanged. This is a presentation change: the same
- * story, staged.
- *
- * ── Two things worth knowing before editing ────────────────────────────────
- *
- * 1. A pinned stage is one viewport tall, and a reader cannot scroll inside a
- *    pinned frame. The director therefore measures each stage and turns pinning
- *    OFF for any scene whose content does not fit, so no content is ever clipped
- *    or unreachable. Keep stage content close to one viewport where you can.
- *
- * 2. `data-create` sequences a scene's construction and must go on wrappers, never
- *    on an element that already carries `data-reveal` — both drive opacity, and
- *    stacking them lets the later stylesheet rule silently win.
- *
- * The seam statements that used to sit between chapters now open the scene they
- * introduce, so each scene is self-contained rather than depending on a strip of
- * page above it that a pinned frame would never show.
- */
 
 /** Scroll duration for a scene, in viewport heights, straight from the model. */
 const vh = (id: SceneId) => scene(id).vh;
@@ -59,6 +30,12 @@ const dur = (id: SceneId) => `--scene-vh:${vh(id)};--scene-vh-compact:${vhc(id)}
 ---
 
 <Layout title="ARIA — Understand any codebase">
+  {/* Interactive mouse-attracted neural constellation canvas */}
+  <CosmicNeuralCanvas client:load />
+
+  {/* Interactive ⌘K Command Palette & Universal Symbol Search */}
+  <CommandPalette client:load />
+
   <StoryBackdrop />
   {/*
     The transition bridge layer. Sits above the scenes; every graphic in it is
@@ -122,6 +99,15 @@ const dur = (id: SceneId) => `--scene-vh:${vh(id)};--scene-vh-compact:${vhc(id)}
           lead="Thousands of files hide relationships that are difficult to see, trace, and reason about."
           class="max-w-5xl"
         />
+
+        <div class="mt-8 flex flex-wrap items-center gap-4 text-xs font-mono" data-reveal="fade" style="--reveal-delay:400ms">
+          <span class="px-2.5 py-1 border border-[#20242D] bg-[#080A0F] text-[#F4F5F7] tracking-wider uppercase font-semibold">
+            01 — THE PREMISE
+          </span>
+          <span class="text-[#737DFF] tracking-wider uppercase font-semibold">
+            NEXT → STRUCTURAL TRANSFORMATION
+          </span>
+        </div>
       </div>
     </div>
   </section>
@@ -316,57 +302,122 @@ const dur = (id: SceneId) => `--scene-vh:${vh(id)};--scene-vh-compact:${vhc(id)}
     </div>
   </section>
 
-  <!-- ══ SCENE 10 · TECHNICAL SPECIFICATION ═════════════════════════════════
-       An engineering specification, not a logo wall. -->
+  <!-- ══ SCENE 09b · FORENSIC PRODUCT INVESTIGATION ═════════════════════════ -->
+  <section
+    id="demo"
+    data-stage="pipeline"
+    data-pin="off"
+    style={dur('pipeline')}
+    aria-labelledby="demo-heading"
+  >
+    <div class="scene-stage">
+      <div class="story-shell story-shell--wide" data-create>
+        <p class="flex flex-wrap items-baseline gap-x-4 gap-y-1">
+          <span class="mono-label">PIPELINE → INVESTIGATION</span>
+          <span class="text-[13px] text-text-muted">Simulated change traced live through ARIA's dependency graph.</span>
+        </p>
+      </div>
+
+      <div class="story-shell story-shell--wide mt-3 sm:mt-4" data-create>
+        <ChapterHeading
+          headingId="demo-heading"
+          marker="09 — FORENSIC INVESTIGATION"
+          lines={['Simulated change.', 'Deterministic proof.']}
+          dimFrom={1}
+          lead="Inspect how ARIA resolves syntax tokens, traverses callers, isolates blast radius, and issues review actions before the merge."
+          size="compact"
+          class="max-w-4xl"
+        />
+      </div>
+
+      <div class="story-shell story-shell--wide mt-4 sm:mt-5" data-create>
+        <ProductDemo client:visible={{ rootMargin: '300px' }} />
+      </div>
+    </div>
+  </section>
+
+  <!-- ══ SCENE 10 · CAPABILITIES & SPECIFICATION ════════════════════════════ -->
   <section
     id="technology"
     data-stage="technology"
     data-pin="on"
     style={dur('technology')}
-    aria-label="Technology specification"
+    aria-label="Capabilities and technology specification"
   >
     <div class="scene-stage">
       <div class="story-shell">
         <div data-create>
-          <div class="chapter-rule mb-10 sm:mb-14" data-reveal="fade">
+          <div class="chapter-rule mb-8 sm:mb-12" data-reveal="fade">
             <span class="mono-label mono-label-accent whitespace-nowrap">09 — TECHNOLOGY</span>
           </div>
         </div>
 
+        {/* Section 16: Compact Capability Summary */}
+        {/* Section 16: Compact Capability Summary */}
+        <div class="mb-14" data-create>
+          <div class="flex items-center gap-2 mb-6">
+            <span class="w-2 h-2 rounded-full bg-indigo-400 shadow-[0_0_8px_rgba(129,140,248,0.8)] animate-pulse" />
+            <span class="text-[11px] font-mono text-indigo-400 uppercase tracking-[0.2em] font-bold">
+              PLATFORM CAPABILITIES
+            </span>
+          </div>
+          <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-4">
+            {CAPABILITY_MAP.map((group, gi) => (
+              <div
+                key={group.domain}
+                data-reveal
+                style={`--reveal-delay:${gi * 80}ms`}
+                class="p-4 rounded-xl bg-gradient-to-b from-[#0D1220]/80 to-[#070A12]/90 border border-white/[0.08] hover:border-indigo-500/40 hover:shadow-[0_8px_30px_rgba(99,102,241,0.15)] hover:-translate-y-0.5 transition-all duration-300"
+              >
+                <div class="font-mono text-xs font-bold text-white tracking-[0.16em] uppercase mb-3 pb-2 border-b border-white/[0.08] flex items-center justify-between">
+                  <span>{group.domain}</span>
+                  <span class="w-1 h-1 rounded-full bg-indigo-400" />
+                </div>
+                <ul class="space-y-2">
+                  {group.items.map((item, ii) => (
+                    <li key={ii} class="font-mono text-[11px] text-[#CBD5E1] leading-snug flex items-start gap-1.5">
+                      <span class="text-indigo-400 text-[10px] mt-0.5 font-bold">›</span>
+                      <span>{item}</span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* Underlying Engine Datasheet */}
         <div class="grid grid-cols-1 md:grid-cols-3 gap-x-10 gap-y-10" data-create>
           {TECHNOLOGY.map((column, ci) => (
-            <div class="md:hair-l md:first:border-l-0 md:pl-10 md:first:pl-0">
+            <div class="p-6 rounded-2xl bg-[#080B12]/60 border border-white/[0.06] backdrop-blur-xl">
               <div
-                class="flex items-baseline justify-between mb-5 pb-3 hair-b"
+                class="flex items-baseline justify-between mb-5 pb-3 border-b border-white/[0.08]"
                 data-reveal
                 style={`--reveal-delay:${ci * 120}ms`}
               >
-                <h3 class="font-mono text-sm font-bold tracking-[0.2em] text-text uppercase">
+                <h3 class="font-mono text-sm font-bold tracking-[0.2em] text-white uppercase flex items-center gap-2">
+                  <span class="w-1.5 h-1.5 rounded-full bg-indigo-400" />
                   {column.column}
                 </h3>
-                <span class="mono-label">{String(column.items.length).padStart(2, '0')}</span>
+                <span class="mono-label text-indigo-400 font-bold">{String(column.items.length).padStart(2, '0')}</span>
               </div>
 
-              <ul>
-                {/*
-                  Each row is a datasheet line: index, entry, and a measured gutter
-                  naming its position in the group.
-                */}
+              <ul class="space-y-1">
                 {column.items.map((item, ii) => (
                   <li
                     data-reveal
                     style={`--reveal-delay:${ci * 120 + 140 + ii * 80}ms`}
-                    class="spec-item flex items-baseline gap-4 py-2.5 hair-b last:border-b-0 group px-3 -mx-3 transition-colors duration-300 hover:bg-white/[0.018]"
+                    class="spec-item flex items-baseline gap-4 py-2.5 px-3 rounded-lg border-b border-white/[0.04] last:border-b-0 group transition-all duration-300 hover:bg-white/[0.03]"
                   >
-                    <span class="mono-label shrink-0" style="letter-spacing:0.18em">
+                    <span class="mono-label text-[10px] text-[#64748B] shrink-0 font-bold" style="letter-spacing:0.18em">
                       {String(ii + 1).padStart(2, '0')}
                     </span>
                     <span
-                      class="font-mono text-[13px] text-text-muted group-hover:text-text transition-colors duration-300 flex-1 min-w-0"
+                      class="font-mono text-[12px] text-[#CBD5E1] group-hover:text-white transition-colors duration-300 flex-1 min-w-0"
                     >
                       {item}
                     </span>
-                    <span class="spec-gutter shrink-0 tabular-nums">
+                    <span class="mono-detail text-[10px] text-[#64748B] shrink-0 tabular-nums">
                       {String(ii + 1).padStart(2, '0')}/{String(column.items.length).padStart(2, '0')}
                     </span>
                   </li>
@@ -376,7 +427,7 @@ const dur = (id: SceneId) => `--scene-vh:${vh(id)};--scene-vh-compact:${vhc(id)}
           ))}
         </div>
 
-        <p class="mono-detail mt-10 pt-5 hair-t max-w-2xl" data-reveal>
+        <p class="mono-detail mt-10 pt-5 border-t border-white/[0.07] max-w-2xl text-[#94A3B8]" data-reveal>
           No inference where a parser will do. Language detection, symbol extraction and graph
           computation are deterministic; models are used only to describe what the graph already
           proves.
@@ -402,27 +453,22 @@ const dur = (id: SceneId) => `--scene-vh:${vh(id)};--scene-vh-compact:${vhc(id)}
           preserveAspectRatio="xMidYMid slice"
           fill="none"
         >
-          <g stroke="rgba(94,106,210,0.13)" stroke-width="1">
+          <g stroke="rgba(129,140,248,0.2)" stroke-width="1">
             <path d="M-80 300 L360 470 L820 340 L1520 520" />
             <path d="M-80 700 L300 560 L780 740 L1520 600" />
             <path d="M180 -40 L360 470 L470 940" />
             <path d="M980 -40 L820 340 L1080 940" />
           </g>
-          <g fill="rgba(94,106,210,0.3)">
-            <circle cx="360" cy="470" r="2.5" />
-            <circle cx="820" cy="340" r="2.5" />
-            <circle cx="300" cy="560" r="2" />
-            <circle cx="780" cy="740" r="2" />
+          <g fill="rgba(129,140,248,0.6)">
+            <circle cx="360" cy="470" r="3" />
+            <circle cx="820" cy="340" r="3" />
+            <circle cx="300" cy="560" r="2.5" />
+            <circle cx="780" cy="740" r="2.5" />
           </g>
         </svg>
       </div>
 
       <div class="story-shell relative">
-        {/*
-          Vocabulary: horizontal wipe, line by line. The inner span is what gets
-          clipped — clipping the observed element makes it invisible to the
-          IntersectionObserver that is supposed to reveal it.
-        */}
         <p class="display-1 text-text type-scroll" data-type-scroll data-create>
           <span class="block" data-reveal="line-clip" style="--reveal-delay:0ms"><span>Stop</span></span>
           <span class="block" data-reveal="line-clip" style="--reveal-delay:150ms"><span>reading</span></span>
@@ -430,20 +476,39 @@ const dur = (id: SceneId) => `--scene-vh:${vh(id)};--scene-vh-compact:${vhc(id)}
         </p>
 
         <span
-          class="block h-px w-full max-w-md my-4 sm:my-6 bg-gradient-to-r from-primary/60 to-transparent"
+          class="block h-px w-full max-w-md my-4 sm:my-6 bg-gradient-to-r from-indigo-500/80 via-sky-400/50 to-transparent shadow-[0_0_8px_rgba(99,102,241,0.5)]"
           data-reveal="rule"
           style="--reveal-delay:480ms"
           aria-hidden="true"
         ></span>
 
-        {/*
-          Vocabulary: luminance emergence. The words are already in position and
-          brighten out of the canvas — which is precisely what the sentence claims.
-        */}
         <p class="display-2" data-create>
           <span class="block is-dim" data-reveal="line-lumen" style="--reveal-delay:600ms">Let ARIA</span>
           <span class="block" data-reveal="line-lumen" style="--reveal-delay:800ms">map it first.</span>
         </p>
+
+        {/* Direct Action CTAs */}
+        <div class="mt-8 sm:mt-10 flex flex-wrap items-center gap-4" data-reveal="fade" style="--reveal-delay:950ms">
+          <a
+            href="/analysis"
+            class="cta-light-sweep relative group inline-flex items-center gap-2.5 px-6 py-3 rounded-lg border border-[#818CF8]/50 bg-gradient-to-r from-[#131A2E] to-[#0A0D14] hover:border-[#A5B4FC] text-white font-mono text-xs font-bold tracking-wider transition-all duration-300 shadow-[0_0_24px_rgba(129,140,248,0.25)] hover:shadow-[0_0_36px_rgba(129,140,248,0.45)] hover:-translate-y-0.5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#818CF8]"
+          >
+            <span class="relative z-10 tracking-widest font-mono">OPEN ARIA</span>
+            <span class="relative z-10 text-[#818CF8] group-hover:text-white group-hover:translate-x-1 transition-all duration-300">→</span>
+          </a>
+          <a
+            href="https://github.com/VarshithReddy2006/ARIA"
+            target="_blank"
+            rel="noopener noreferrer"
+            class="inline-flex items-center gap-2 px-5 py-3 rounded-lg border border-white/[0.08] bg-[#0A0D14]/80 hover:bg-[#0D1220] hover:border-white/[0.18] text-[#CBD5E1] hover:text-white font-mono text-xs tracking-wider transition-all duration-200 backdrop-blur-xl shadow-md hover:-translate-y-0.5 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-[#818CF8]"
+          >
+            <span>VIEW SOURCE</span>
+            <span class="text-[#94A3B8] group-hover:text-white transition-colors">↗</span>
+          </a>
+          <span class="font-mono text-[11px] text-[#64748B] ml-2">
+            SELF-HOSTED · OPEN SOURCE · MIT LICENSE
+          </span>
+        </div>
       </div>
     </div>
   </section>
@@ -459,10 +524,6 @@ const dur = (id: SceneId) => `--scene-vh:${vh(id)};--scene-vh-compact:${vhc(id)}
   >
     <div class="scene-stage">
       <div class="story-shell">
-        {/*
-          The command surface resolves in layers: the chapter is named, then the
-          invitation, then the field itself. The system should read as waiting.
-        */}
         <div data-create>
           <ChapterHeading
             headingId="analyze-heading"

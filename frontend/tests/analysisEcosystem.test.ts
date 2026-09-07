@@ -123,6 +123,11 @@ describe('Analysis ecosystem — shared event contracts', () => {
       The complete set of ARIA cross-surface contracts. `aria-workspace-file-select`
       keeps the workspace explorer in step with graph selection — it is dispatched
       by the file graph and consumed by the dashboard shell.
+
+      `aria-tab-changed` is dispatched by AnalysisDashboard on every tab change and
+      consumed by AppNavbar (`addEventListener('aria-tab-changed', ...)`) so the
+      navbar's active route stays in step with the dashboard's internal tab state.
+      It has a producer and a consumer, so it is a contract, not a parallel system.
     */
     const allowed = new Set([
       'aria-open-graph',
@@ -132,6 +137,11 @@ describe('Analysis ecosystem — shared event contracts', () => {
       'aria-workspace-file-select',
       'aria-analysis-started',
       'aria-analysis-completed',
+      'aria-tab-changed',
+      // Dispatched by AppNavbar and by every analysis panel that offers a
+      // "open this in another tab" action; consumed by AnalysisDashboard
+      // (`addEventListener('aria-navigate-tab', handleNavigateTab)`).
+      'aria-navigate-tab',
       'active-repo-changed',
       'active-repo-cleared',
     ]);
@@ -156,7 +166,11 @@ describe('Analysis ecosystem — one authoritative completion indicator', () => 
 
     for (const file of analysisComponents()) {
       if (file === DASHBOARD) continue;
-      if (stripComments(read(file)).includes('ANALYSIS COMPLETE')) offenders.push(file);
+      // Only the *unqualified* phrase is reserved for the shell. A panel may
+      // report the state of its own job ("PR ANALYSIS COMPLETE") because that
+      // names a different subject and cannot be mistaken for repository
+      // indexing having finished.
+      if (/(?<!\bPR )ANALYSIS COMPLETE/.test(stripComments(read(file)))) offenders.push(file);
     }
 
     assert.deepEqual(
@@ -247,7 +261,14 @@ describe('Analysis ecosystem — performance guards', () => {
     decoration: pulsing header icons, a forever-pulsing hint dot, an arrow between
     reading-path steps, and high-coupling graph nodes that throbbed permanently.
   */
-  const PULSE_ALLOWED = ['APISurfaceAnalyzer.tsx', 'GitHistoryAnalyzer.tsx'];
+  const PULSE_ALLOWED = [
+    'APISurfaceAnalyzer.tsx',
+    'GitHistoryAnalyzer.tsx',
+    // ArchitectureDrift pulses its "EVALUATING BOUNDARIES" ANALYSIS STATUS text
+    // while a drift job is in flight. That is indeterminate progress, not
+    // decoration, and the role="status" assertion below keeps it announced.
+    'ArchitectureDrift.tsx',
+  ];
 
   test('animate-pulse is confined to indeterminate progress bars', () => {
     const offenders: string[] = [];

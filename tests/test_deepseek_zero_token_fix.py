@@ -62,9 +62,12 @@ class MockStreamProvider(BaseLLMProvider):
 def _create_mock_async_client(mock_lines: list[str]):
     """Helper to mock httpx.AsyncClient with async context manager stream."""
 
-    async def mock_aiter_lines():
-        for line in mock_lines:
-            yield line
+    def mock_aiter_lines():
+        async def _gen():
+            for line in mock_lines:
+                yield line
+
+        return _gen()
 
     mock_resp = MagicMock()
     mock_resp.status_code = 200
@@ -77,12 +80,10 @@ def _create_mock_async_client(mock_lines: list[str]):
 
     mock_client = MagicMock()
     mock_client.stream = MagicMock(return_value=mock_stream_ctx)
+    mock_client.is_closed = False
+    mock_client.aclose = AsyncMock()
 
-    mock_async_client_ctx = MagicMock()
-    mock_async_client_ctx.__aenter__ = AsyncMock(return_value=mock_client)
-    mock_async_client_ctx.__aexit__ = AsyncMock(return_value=None)
-
-    return MagicMock(return_value=mock_async_client_ctx)
+    return MagicMock(return_value=mock_client)
 
 
 @pytest.mark.asyncio

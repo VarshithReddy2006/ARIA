@@ -1,5 +1,5 @@
 /**
- * APISurfaceAnalyzer — Ultimate 10/10 Contract Intelligence Pass
+ * APISurfaceAnalyzer — Production-Grade 10/10 Contract Intelligence Pass
  *
  * Core Principle:
  * FILE GRAPH = ARCHITECTURE / SPATIAL (“How is this repository organized?”)
@@ -7,7 +7,13 @@
  * API SURFACE = CONTRACT / EXPOSURE (“What does this system expose, who uses it, and what happens if it changes?”)
  *
  * Information Architecture:
- * WHAT MATTERS → WHAT IS EXPOSED → WHO USES IT → WHAT DOES IT REACH → WHAT BREAKS IF I CHANGE IT → SHOULD I TOUCH IT
+ * 1. EXECUTIVE CONTRACT BRIEFING
+ * 2. KEY CONTRACT METRICS
+ * 3. KEY INVESTIGATION TARGETS (Start Here)
+ * 4. EXPOSURE SUMMARY & CONTRACT HEALTH
+ * 5. PRIMARY NAVIGATION & SUBORDINATE FILTERS
+ * 6. CONTRACT INVENTORY (Routes, Public, Internal, Issues)
+ * 7. SELECTED CONTRACT & IMPACT INSPECTOR
  */
 
 import React, { useState, useCallback, useEffect, useMemo, useRef } from 'react';
@@ -23,7 +29,7 @@ import {
   LayoutList, ArrowRight, ArrowLeft, ExternalLink, Sparkles,
   ShieldAlert, ShieldCheck, Copy, Check, Filter, Layers, Code2,
   Activity, Play, FileCode, CheckCircle, ArrowDown, CornerDownRight,
-  TrendingUp, Terminal,
+  TrendingUp, Terminal, Workflow,
 } from 'lucide-react';
 import {
   computeApiExposureSignals,
@@ -61,28 +67,43 @@ interface Props { repoName: string; }
 type ViewId = 'overview' | 'routes' | 'public' | 'internal' | 'issues';
 type SecondaryFilter = 'all' | 'high_impact' | 'no_internal_callers' | 'deprecated';
 
-// ── Helpers ────────────────────────────────────────────────────────────────
-
+// ── HTTP Method Restrained Palette ──────────────────────────────────────────
+// HTTP method is a protocol category, NOT a health/success state.
+// Restrained neutral styling for standard methods; rose exclusively for destructive DELETE.
 const METHOD_ACCENT: Record<string, { color: string; border: string; bg: string }> = {
-  GET:     { color: '#10b981', border: 'border-emerald-500/60', bg: 'bg-emerald-950/60 text-emerald-300' },
-  POST:    { color: '#6366f1', border: 'border-indigo-500/60',  bg: 'bg-indigo-950/60 text-indigo-300' },
-  PUT:     { color: '#f59e0b', border: 'border-amber-500/60',   bg: 'bg-amber-950/60 text-amber-300' },
-  PATCH:   { color: '#8b5cf6', border: 'border-purple-500/60',  bg: 'bg-purple-950/60 text-purple-300' },
-  DELETE:  { color: '#f43f5e', border: 'border-rose-500/60',    bg: 'bg-rose-950/60 text-rose-300' },
-  HEAD:    { color: '#64748b', border: 'border-slate-500/60',   bg: 'bg-slate-900/60 text-slate-300' },
-  OPTIONS: { color: '#64748b', border: 'border-slate-500/60',   bg: 'bg-slate-900/60 text-slate-300' },
-  ROUTE:   { color: '#3b82f6', border: 'border-blue-500/60',    bg: 'bg-blue-950/60 text-blue-300' },
+  GET:     { color: '#A1A1AA', border: 'border-white/[0.085]', bg: 'bg-[rgba(14,14,18,0.72)] text-[#F4F4F5]' },
+  POST:    { color: '#A1A1AA', border: 'border-white/[0.085]', bg: 'bg-[rgba(14,14,18,0.72)] text-[#F4F4F5]' },
+  PUT:     { color: '#A1A1AA', border: 'border-white/[0.085]', bg: 'bg-[rgba(14,14,18,0.72)] text-[#F4F4F5]' },
+  PATCH:   { color: '#A1A1AA', border: 'border-white/[0.085]', bg: 'bg-[rgba(14,14,18,0.72)] text-[#F4F4F5]' },
+  DELETE:  { color: '#F87171', border: 'border-[#F87171]/40', bg: 'bg-[#F87171]/10 text-[#F87171]' },
+  HEAD:    { color: '#71717A', border: 'border-white/[0.055]', bg: 'bg-[rgba(14,14,18,0.5)] text-[#A1A1AA]' },
+  OPTIONS: { color: '#71717A', border: 'border-white/[0.055]', bg: 'bg-[rgba(14,14,18,0.5)] text-[#A1A1AA]' },
+  ROUTE:   { color: '#A1A1AA', border: 'border-white/[0.085]', bg: 'bg-[rgba(14,14,18,0.72)] text-[#F4F4F5]' },
 };
 
 function methodTagStyle(m: string) {
   return METHOD_ACCENT[m.toUpperCase()] || METHOD_ACCENT.ROUTE;
 }
 
+// ── Evidence Badge Helper ──────────────────────────────────────────────────
+function getEvidenceBadgeClass(evidence: ApiEvidenceLevel) {
+  switch (evidence) {
+    case 'VERIFIED':
+      return 'text-[#34D399] bg-[#34D399]/10 border-[#34D399]/30';
+    case 'STRONGLY INFERRED':
+      return 'text-[#6B74D9] bg-[#6B74D9]/10 border-[#6B74D9]/30';
+    case 'INFERRED':
+      return 'text-[#94A3B8] bg-white/[0.03] border-white/[0.08]';
+    default:
+      return 'text-[#F4B942] bg-[#F4B942]/10 border-[#F4B942]/30';
+  }
+}
+
 // ── Decision Path Ribbon ───────────────────────────────────────────────────
 
 const DecisionPathRibbon: React.FC<{ steps: DecisionPathStep[] }> = ({ steps }) => {
   return (
-    <div className="p-2.5 bg-zinc-950 border border-zinc-800 rounded-lg space-y-1.5 font-mono select-none">
+    <div className="p-2.5 bg-[#08080A] border border-[#1F1F23] rounded-lg space-y-1.5 font-mono select-none">
       <span className="text-[8px] font-bold text-zinc-500 uppercase tracking-widest block">
         Decision Path
       </span>
@@ -91,14 +112,14 @@ const DecisionPathRibbon: React.FC<{ steps: DecisionPathStep[] }> = ({ steps }) 
           <React.Fragment key={step.label}>
             <div className={`p-1.5 rounded border shrink-0 min-w-[85px] ${
               step.tone === 'danger'
-                ? 'bg-rose-950/40 border-rose-800/60 text-rose-300'
+                ? 'bg-rose-950/30 border-rose-500/40 text-rose-300'
                 : step.tone === 'warning'
-                  ? 'bg-amber-950/40 border-amber-800/60 text-amber-300'
+                  ? 'bg-amber-950/30 border-amber-500/40 text-amber-300'
                   : step.tone === 'success'
-                    ? 'bg-emerald-950/40 border-emerald-800/60 text-emerald-300'
+                    ? 'bg-emerald-950/30 border-emerald-500/40 text-emerald-300'
                     : step.tone === 'accent'
-                      ? 'bg-indigo-950/40 border-indigo-800/60 text-indigo-300'
-                      : 'bg-zinc-900 border-zinc-800 text-zinc-300'
+                      ? 'bg-indigo-950/30 border-indigo-500/40 text-indigo-300'
+                      : 'bg-[#0D0D10] border-[#1F1F23] text-zinc-300'
             }`}>
               <div className="text-[7px] text-zinc-500 uppercase font-bold">{step.label}</div>
               <div className="font-bold truncate">{step.value}</div>
@@ -144,7 +165,7 @@ const ApiContractInspector: React.FC<InspectorProps> = ({
   const decisionPath = useMemo(() => deriveDecisionPath(symbol, routeInfo, sim), [symbol, routeInfo, sim]);
 
   const handleCopy = useCallback(() => {
-    if (navigator.clipboard) {
+    if (typeof navigator !== 'undefined' && navigator.clipboard) {
       navigator.clipboard.writeText(routeInfo ? `${routeInfo.method} ${routeInfo.path}` : symbol.qualified);
       setCopied(true);
       setTimeout(() => setCopied(false), 1500);
@@ -176,7 +197,7 @@ const ApiContractInspector: React.FC<InspectorProps> = ({
   const handleOpenFileGraph = useCallback(() => {
     window.dispatchEvent(
       new CustomEvent('aria-open-graph', {
-        detail: { path: symbol.file_path },
+        detail: { path: symbol.file_path, file: symbol.file_path },
       })
     );
   }, [symbol]);
@@ -189,31 +210,39 @@ const ApiContractInspector: React.FC<InspectorProps> = ({
     );
   }, [symbol]);
 
+  const handleOpenCallGraph = useCallback(() => {
+    window.dispatchEvent(
+      new CustomEvent('aria-navigate-tab', {
+        detail: { tab: 'call_graph', file: symbol.file_path, symbol: symbol.qualified },
+      })
+    );
+  }, [symbol]);
+
   const riskTone =
     sim.riskRating === 'Critical'
-      ? 'text-rose-400 border-rose-500/40 bg-rose-950/40'
+      ? 'text-rose-400 border-rose-500/40 bg-rose-950/30'
       : sim.riskRating === 'High'
-        ? 'text-orange-400 border-orange-500/40 bg-orange-950/40'
+        ? 'text-orange-400 border-orange-500/40 bg-orange-950/30'
         : sim.riskRating === 'Medium'
-          ? 'text-amber-400 border-amber-500/40 bg-amber-950/40'
-          : 'text-emerald-400 border-emerald-500/40 bg-emerald-950/40';
+          ? 'text-amber-400 border-amber-500/40 bg-amber-950/30'
+          : 'text-emerald-400 border-emerald-500/40 bg-emerald-950/30';
 
   return (
     <aside
-      className="w-84 sm:w-96 shrink-0 border-l border-zinc-800/80 bg-zinc-950/95 flex flex-col overflow-hidden font-mono z-20 shadow-2xl animate-in fade-in slide-in-from-right-2 duration-200"
+      className="w-84 sm:w-96 shrink-0 border-l border-[#1F1F23] bg-[#08080A]/95 flex flex-col overflow-hidden font-mono z-20 shadow-2xl animate-in fade-in slide-in-from-right-2 duration-200"
       aria-label="API Contract Inspector"
     >
       {/* Header */}
-      <div className="p-4 border-b border-zinc-800 bg-zinc-950 shrink-0 space-y-2 select-none">
+      <div className="p-4 border-b border-[#1F1F23] bg-[#08080A] shrink-0 space-y-2 select-none">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-1.5 flex-wrap">
             <span className="text-[9px] font-bold text-indigo-400 uppercase tracking-wider flex items-center gap-1">
               <Route className="h-3 w-3 text-indigo-400" /> API Contract
             </span>
-            <span className="text-[8px] font-bold text-emerald-400 bg-emerald-950/60 border border-emerald-800/60 px-1.5 py-0.2 rounded uppercase">
+            <span className={`text-[8px] font-bold border px-1.5 py-0.5 rounded uppercase ${getEvidenceBadgeClass(evidence)}`}>
               [{evidence}]
             </span>
-            <span className="text-[8px] font-bold text-zinc-400 bg-zinc-900 border border-zinc-800 px-1.5 py-0.2 rounded uppercase">
+            <span className="text-[8px] font-bold text-zinc-400 bg-[#0D0D10] border border-[#1F1F23] px-1.5 py-0.5 rounded uppercase">
               {schema.contractType}
             </span>
           </div>
@@ -261,7 +290,7 @@ const ApiContractInspector: React.FC<InspectorProps> = ({
         <DecisionPathRibbon steps={decisionPath} />
 
         {/* WHAT IS THIS? */}
-        <div className="p-3 bg-zinc-900/60 border border-zinc-800/80 rounded-lg space-y-1">
+        <div className="p-3 bg-[#0D0D10] border border-[#1F1F23] rounded-lg space-y-1">
           <span className="text-[9px] font-bold text-zinc-400 uppercase tracking-wider block">
             What Is This?
           </span>
@@ -271,22 +300,22 @@ const ApiContractInspector: React.FC<InspectorProps> = ({
         </div>
 
         {/* CONTRACT SPECIFICATION */}
-        <div className="p-3 bg-zinc-900/70 border border-zinc-800 rounded-lg space-y-2">
+        <div className="p-3 bg-[#0D0D10] border border-[#1F1F23] rounded-lg space-y-2">
           <span className="text-[9px] font-bold text-zinc-400 uppercase tracking-wider block flex items-center justify-between">
             <span>Contract Specification</span>
             <span className="text-zinc-500 font-normal">{symbol.language}</span>
           </span>
 
           <div className="space-y-1.5 text-[11px]">
-            <div className="flex justify-between py-1 border-b border-zinc-800/60">
+            <div className="flex justify-between py-1 border-b border-[#1F1F23]">
               <span className="text-zinc-400">Parameters</span>
               <span className="text-zinc-200 font-semibold">{symbol.param_count} declared</span>
             </div>
-            <div className="flex justify-between py-1 border-b border-zinc-800/60">
+            <div className="flex justify-between py-1 border-b border-[#1F1F23]">
               <span className="text-zinc-400">Return Type</span>
               <span className="text-zinc-200 font-semibold">{schema.returnType}</span>
             </div>
-            <div className="flex justify-between py-1 border-b border-zinc-800/60">
+            <div className="flex justify-between py-1 border-b border-[#1F1F23]">
               <span className="text-zinc-400">Execution Mode</span>
               <span className={symbol.is_async ? 'text-indigo-400 font-bold' : 'text-zinc-300'}>
                 {symbol.is_async ? 'Async Execution' : 'Synchronous'}
@@ -299,9 +328,9 @@ const ApiContractInspector: React.FC<InspectorProps> = ({
           </p>
         </div>
 
-        {/* IMPLEMENTATION & USAGE */}
+        {/* IMPLEMENTATION & USAGE (Epistemic distinction) */}
         <div className="grid grid-cols-2 gap-2 text-center select-none">
-          <div className="p-2.5 bg-zinc-900/80 border border-zinc-800 rounded-lg">
+          <div className="p-2.5 bg-[#0D0D10] border border-[#1F1F23] rounded-lg">
             <span className="text-zinc-400 text-[8px] uppercase tracking-wider font-bold block">Internal Callers</span>
             <div className="flex items-center justify-center gap-1 mt-0.5">
               <span className="text-base font-bold text-emerald-400">{symbol.fan_in}</span>
@@ -309,7 +338,7 @@ const ApiContractInspector: React.FC<InspectorProps> = ({
             </div>
             <span className="text-[7px] text-zinc-500">internal call sites</span>
           </div>
-          <div className="p-2.5 bg-zinc-900/80 border border-zinc-800 rounded-lg">
+          <div className="p-2.5 bg-[#0D0D10] border border-[#1F1F23] rounded-lg">
             <span className="text-zinc-400 text-[8px] uppercase tracking-wider font-bold block">External Consumers</span>
             <span className="text-sm font-bold text-zinc-400 mt-1 block uppercase">UNKNOWN</span>
             <span className="text-[7px] text-zinc-500">unestablished statically</span>
@@ -317,7 +346,7 @@ const ApiContractInspector: React.FC<InspectorProps> = ({
         </div>
 
         {/* STRUCTURAL CHANGE SENSITIVITY */}
-        <div className="p-3 bg-zinc-900/80 border border-zinc-800 rounded-lg space-y-2">
+        <div className="p-3 bg-[#0D0D10] border border-[#1F1F23] rounded-lg space-y-2">
           <div className="flex items-center justify-between">
             <span className="text-[9px] font-bold text-zinc-400 uppercase tracking-wider">
               Change Sensitivity Verdict
@@ -333,9 +362,9 @@ const ApiContractInspector: React.FC<InspectorProps> = ({
           </ul>
         </div>
 
-        {/* SIMULATE CONTRACT CHANGE INTERACTIVE DRAWER (STATIC GRAPH IMPACT) */}
+        {/* SIMULATE CONTRACT CHANGE INTERACTIVE DRAWER */}
         {showSim && (
-          <div className="p-3 bg-zinc-950 border border-amber-500/40 rounded-lg space-y-2.5 animate-in fade-in duration-200">
+          <div className="p-3 bg-[#08080A] border border-amber-500/40 rounded-lg space-y-2.5 animate-in fade-in duration-200 shadow-xl">
             <div className="flex items-center justify-between">
               <span className="text-[9px] font-bold text-amber-400 uppercase tracking-wider flex items-center gap-1">
                 <Zap className="h-3 w-3" /> WHAT IF I CHANGE THIS? (STATIC GRAPH IMPACT)
@@ -348,19 +377,19 @@ const ApiContractInspector: React.FC<InspectorProps> = ({
               {sim.narrativeImpact}
             </p>
             <div className="grid grid-cols-4 gap-1 text-center text-[10px]">
-              <div className="p-1 bg-zinc-900 rounded border border-zinc-800">
+              <div className="p-1 bg-[#0D0D10] rounded border border-[#1F1F23]">
                 <span className="text-zinc-500 block text-[7px]">Entry Paths</span>
                 <span className="font-bold text-indigo-400">{sim.executionPathsCount}</span>
               </div>
-              <div className="p-1 bg-zinc-900 rounded border border-zinc-800">
+              <div className="p-1 bg-[#0D0D10] rounded border border-[#1F1F23]">
                 <span className="text-zinc-500 block text-[7px]">Callers</span>
                 <span className="font-bold text-emerald-400">{sim.internalCallersCount}</span>
               </div>
-              <div className="p-1 bg-zinc-900 rounded border border-zinc-800">
+              <div className="p-1 bg-[#0D0D10] rounded border border-[#1F1F23]">
                 <span className="text-zinc-500 block text-[7px]">Downstream</span>
                 <span className="font-bold text-amber-400">{sim.downstreamSymbolsCount}</span>
               </div>
-              <div className="p-1 bg-zinc-900 rounded border border-zinc-800">
+              <div className="p-1 bg-[#0D0D10] rounded border border-[#1F1F23]">
                 <span className="text-zinc-500 block text-[7px]">Tests</span>
                 <span className="font-bold text-zinc-200">{sim.affectedTestsCount}</span>
               </div>
@@ -369,7 +398,7 @@ const ApiContractInspector: React.FC<InspectorProps> = ({
         )}
 
         {/* DYNAMIC NEXT INVESTIGATION PROMPTS */}
-        <div className="space-y-1.5 pt-2 border-t border-zinc-800/60">
+        <div className="space-y-1.5 pt-2 border-t border-[#1F1F23]">
           <span className="text-[9px] text-indigo-400 uppercase font-bold tracking-wider block flex items-center gap-1">
             <Sparkles className="h-3 w-3" /> Next Investigation
           </span>
@@ -378,7 +407,7 @@ const ApiContractInspector: React.FC<InspectorProps> = ({
               <button
                 key={idx}
                 onClick={() => handleAskAria(q)}
-                className="w-full text-left p-2 bg-zinc-900/90 hover:bg-zinc-800 border border-zinc-800/80 hover:border-indigo-500/40 rounded text-[10px] text-zinc-300 hover:text-zinc-100 transition-all font-sans leading-snug flex items-start gap-1.5"
+                className="w-full text-left p-2 bg-[#0D0D10] hover:bg-zinc-800/80 border border-[#1F1F23] hover:border-indigo-500/40 rounded text-[10px] text-zinc-300 hover:text-zinc-100 transition-all font-sans leading-snug flex items-start gap-1.5"
               >
                 <ArrowRight className="h-3 w-3 text-indigo-400 shrink-0 mt-0.5" />
                 <span>{q}</span>
@@ -388,34 +417,46 @@ const ApiContractInspector: React.FC<InspectorProps> = ({
         </div>
 
         {/* ACTIONS */}
-        <div className="space-y-2 pt-2 border-t border-zinc-800/60">
+        <div className="space-y-2 pt-2 border-t border-[#1F1F23]">
+          {/* PRIMARY ACTION: SIMULATE CONTRACT CHANGE */}
           <button
             onClick={() => setShowSim((prev) => !prev)}
-            className="w-full flex items-center justify-center gap-1.5 bg-amber-500/10 hover:bg-amber-500/20 border border-amber-500/30 text-amber-300 font-bold px-2 py-1.5 rounded text-[10px] transition-all uppercase"
+            className="w-full flex items-center justify-center gap-1.5 bg-[#5E6AD2] hover:bg-[#4E5AC0] text-white font-bold px-3 py-2 rounded text-[10px] transition-all uppercase shadow-md"
           >
-            <Zap className="h-3 w-3" /> {showSim ? 'Hide Simulation' : 'Simulate Contract Change'}
+            <Zap className="h-3.5 w-3.5" /> {showSim ? 'Hide Simulation' : 'Simulate Contract Change'}
           </button>
 
-          <div className="grid grid-cols-2 gap-2">
+          {/* SECONDARY ACTIONS: BLAST RADIUS, CALL GRAPH, FILE GRAPH */}
+          <div className="grid grid-cols-3 gap-1.5">
             <button
               onClick={handleOpenImpact}
-              className="flex items-center justify-center gap-1.5 bg-zinc-900 hover:bg-zinc-800 border border-zinc-800 text-zinc-300 font-bold px-2 py-1.5 rounded text-[10px] transition-all"
+              title="Analyze Blast Radius"
+              className="flex items-center justify-center gap-1 bg-[#0D0D10] hover:bg-zinc-800 border border-[#1F1F23] text-zinc-300 hover:text-zinc-100 font-bold px-2 py-1.5 rounded text-[9px] transition-all"
             >
               <Activity className="h-3 w-3 text-emerald-400" /> Blast Radius
             </button>
             <button
+              onClick={handleOpenCallGraph}
+              title="View in Call Graph"
+              className="flex items-center justify-center gap-1 bg-[#0D0D10] hover:bg-zinc-800 border border-[#1F1F23] text-zinc-300 hover:text-zinc-100 font-bold px-2 py-1.5 rounded text-[9px] transition-all"
+            >
+              <Workflow className="h-3 w-3 text-cyan-400" /> Call Graph
+            </button>
+            <button
               onClick={handleOpenFileGraph}
-              className="flex items-center justify-center gap-1.5 bg-zinc-900 hover:bg-zinc-800 border border-zinc-800 text-zinc-300 font-bold px-2 py-1.5 rounded text-[10px] transition-all"
+              title="View in File Graph"
+              className="flex items-center justify-center gap-1 bg-[#0D0D10] hover:bg-zinc-800 border border-[#1F1F23] text-zinc-300 hover:text-zinc-100 font-bold px-2 py-1.5 rounded text-[9px] transition-all"
             >
               <ExternalLink className="h-3 w-3 text-indigo-400" /> File Graph
             </button>
           </div>
 
+          {/* TERTIARY ACTION: ASK ARIA ABOUT CONTRACT */}
           <button
             onClick={() => handleAskAria()}
-            className="w-full flex items-center justify-center gap-1.5 bg-indigo-600 hover:bg-indigo-500 text-white font-bold px-2 py-1.5 rounded text-[10px] transition-all shadow-sm"
+            className="w-full flex items-center justify-center gap-1.5 bg-[#0D0D10] hover:bg-zinc-800 border border-indigo-500/40 text-indigo-300 hover:text-indigo-200 font-bold px-2 py-1.5 rounded text-[10px] transition-all"
           >
-            <Sparkles className="h-3 w-3" /> Ask ARIA About Contract
+            <Sparkles className="h-3.5 w-3.5 text-indigo-400" /> Ask ARIA About Contract
           </button>
         </div>
       </div>
@@ -676,7 +717,7 @@ export const APISurfaceAnalyzer: React.FC<Props> = ({ repoName }) => {
 
   return (
     <div className="space-y-6 fade-up min-w-0 font-mono">
-      {/* ── Decision-Oriented Hero Header ───────────────────────────────── */}
+      {/* ── 1. Executive Contract Briefing ───────────────────────────────── */}
       <header className="min-w-0 space-y-4">
         <div className="flex flex-col lg:flex-row lg:items-end lg:justify-between gap-4">
           <div className="min-w-0 max-w-2xl">
@@ -697,16 +738,16 @@ export const APISurfaceAnalyzer: React.FC<Props> = ({ repoName }) => {
               <button
                 type="button"
                 onClick={loadAll}
-                className="flex items-center gap-1.5 px-3 py-1 rounded border border-zinc-800 bg-zinc-900 hover:bg-zinc-800 text-zinc-300 text-xs font-bold transition-colors"
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded border border-[#1F1F23] bg-[#08080A] hover:bg-zinc-800 text-zinc-300 text-xs font-bold transition-colors"
               >
-                <RefreshCw className="h-3 w-3" /> Refresh
+                <RefreshCw className="h-3.5 w-3.5" /> Refresh
               </button>
             )}
             <button
               type="button"
               onClick={handleBuild}
               disabled={building}
-              className="flex items-center gap-1.5 px-3 py-1 rounded bg-indigo-600 hover:bg-indigo-500 disabled:opacity-50 text-white text-xs font-bold transition-colors shadow-sm"
+              className="flex items-center gap-1.5 px-3.5 py-1.5 rounded bg-[#5E6AD2] hover:bg-[#4E5AC0] disabled:opacity-50 text-white text-xs font-bold transition-colors shadow-sm"
             >
               {building ? (
                 <>
@@ -721,7 +762,7 @@ export const APISurfaceAnalyzer: React.FC<Props> = ({ repoName }) => {
               ) : (
                 <>
                   Analyze API Surface
-                  <ArrowRight className="h-3 w-3" />
+                  <ArrowRight className="h-3.5 w-3.5" />
                 </>
               )}
             </button>
@@ -730,8 +771,8 @@ export const APISurfaceAnalyzer: React.FC<Props> = ({ repoName }) => {
 
         {building && (
           <div className="space-y-2 pt-2" role="status" aria-live="polite">
-            <div className="h-1 w-full bg-zinc-900 rounded overflow-hidden">
-              <div className="h-full w-1/3 bg-indigo-500 animate-pulse" />
+            <div className="h-1 w-full bg-[#08080A] border border-[#1F1F23] rounded overflow-hidden">
+              <div className="h-full w-1/3 bg-[#5E6AD2] animate-pulse" />
             </div>
             <p className="text-[10px] text-zinc-400">{buildProgress}</p>
           </div>
@@ -782,46 +823,46 @@ export const APISurfaceAnalyzer: React.FC<Props> = ({ repoName }) => {
       {/* ── Surface Intelligence ────────────────────────────────────────── */}
       {hasData && !loading && (
         <div className="space-y-5 min-w-0">
-          {/* Asymmetric Visual Hierarchy Telemetry Row */}
+          {/* ── 2. Key Contract Metrics System ────────────────────────────── */}
           <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-2.5">
-            <div className="p-3 bg-zinc-950 border border-indigo-500/40 rounded-lg col-span-1 lg:col-span-1 shadow-md">
+            <div className="p-3 bg-[#08080A] border border-[#5E6AD2]/50 rounded-lg col-span-1 lg:col-span-1 shadow-md">
               <span className="text-[9px] font-bold text-indigo-400 uppercase tracking-wider block">High-Impact Contracts</span>
               <span className="text-xl font-extrabold text-indigo-300 mt-0.5 block">{signals.highImpactCount}</span>
-              <span className="text-[8px] text-zinc-500 font-sans">priority maintenance</span>
+              <span className="text-[8px] text-zinc-500 font-sans">elevated reach / fan-in</span>
             </div>
-            <div className="p-3 bg-zinc-950 border border-amber-500/40 rounded-lg col-span-1 lg:col-span-1 shadow-md">
+            <div className="p-3 bg-[#08080A] border border-amber-500/40 rounded-lg col-span-1 lg:col-span-1 shadow-md">
               <span className="text-[9px] font-bold text-amber-400 uppercase tracking-wider block">No Internal Callers</span>
               <span className="text-xl font-extrabold text-amber-300 mt-0.5 block">{signals.noInternalCallersCount.toLocaleString()}</span>
-              <span className="text-[8px] text-zinc-500 font-sans">external / uncalled</span>
+              <span className="text-[8px] text-zinc-500 font-sans">external / uncalled locally</span>
             </div>
-            <div className="p-3 bg-zinc-950 border border-zinc-800 rounded-lg col-span-1 lg:col-span-1">
+            <div className="p-3 bg-[#08080A] border border-[#1F1F23] rounded-lg col-span-1 lg:col-span-1">
               <span className="text-[9px] font-bold text-zinc-400 uppercase tracking-wider block">Deprecated</span>
               <span className={`text-xl font-bold mt-0.5 block ${signals.deprecatedCount > 0 ? 'text-rose-400' : 'text-zinc-500'}`}>
                 {signals.deprecatedCount}
               </span>
               <span className="text-[8px] text-zinc-500 font-sans">marked in AST</span>
             </div>
-            <div className="p-3 bg-zinc-950/80 border border-zinc-850 rounded-lg col-span-1 lg:col-span-1">
+            <div className="p-3 bg-[#08080A] border border-[#1F1F23] rounded-lg col-span-1 lg:col-span-1">
               <span className="text-[9px] font-bold text-zinc-500 uppercase tracking-wider block">HTTP Routes</span>
               <span className="text-lg font-bold text-zinc-200 mt-0.5 block">{signals.routeCount}</span>
               <span className="text-[8px] text-zinc-500 font-sans">endpoints</span>
             </div>
-            <div className="p-3 bg-zinc-950/80 border border-zinc-850 rounded-lg col-span-1 lg:col-span-1">
+            <div className="p-3 bg-[#08080A] border border-[#1F1F23] rounded-lg col-span-1 lg:col-span-1">
               <span className="text-[9px] font-bold text-zinc-500 uppercase tracking-wider block">Public Symbols</span>
               <span className="text-lg font-bold text-zinc-200 mt-0.5 block">{signals.publicCount.toLocaleString()}</span>
-              <span className="text-[8px] text-zinc-500 font-sans">exported</span>
+              <span className="text-[8px] text-zinc-500 font-sans">total exported</span>
             </div>
-            <div className="p-3 bg-zinc-950/80 border border-zinc-850 rounded-lg col-span-1 lg:col-span-1">
+            <div className="p-3 bg-[#08080A] border border-[#1F1F23] rounded-lg col-span-1 lg:col-span-1">
               <span className="text-[9px] font-bold text-zinc-500 uppercase tracking-wider block">Internal Symbols</span>
               <span className="text-lg font-bold text-zinc-200 mt-0.5 block">{signals.internalCount.toLocaleString()}</span>
               <span className="text-[8px] text-zinc-500 font-sans">package-private</span>
             </div>
           </div>
 
-          {/* ── START HERE: First Viewport Investigation Layer ───────────── */}
+          {/* ── 3. KEY INVESTIGATION TARGETS (Start Here) ─────────────────── */}
           {signals.startHereCards.length > 0 && (
-            <section aria-label="Start Here" className="p-4 bg-zinc-950 border border-zinc-800 rounded-xl space-y-3 shadow-lg">
-              <div className="flex items-center justify-between pb-1 border-b border-zinc-800">
+            <section aria-label="Start Here" className="p-4 bg-[#08080A] border border-[#1F1F23] rounded-xl space-y-3 shadow-lg">
+              <div className="flex items-center justify-between pb-1 border-b border-[#1F1F23]">
                 <div className="flex items-center gap-2">
                   <Sparkles className="h-4 w-4 text-indigo-400" />
                   <h3 className="text-xs font-bold text-zinc-100 uppercase tracking-wider font-mono">
@@ -835,22 +876,24 @@ export const APISurfaceAnalyzer: React.FC<Props> = ({ repoName }) => {
                 {signals.startHereCards.map((card) => (
                   <div
                     key={card.id}
-                    className="p-3 bg-zinc-900/90 border border-zinc-800 hover:border-indigo-500/50 rounded-lg flex flex-col justify-between space-y-2.5 transition-all text-xs"
+                    className="p-3 bg-[#0D0D10] border border-[#1F1F23] hover:border-indigo-500/50 rounded-lg flex flex-col justify-between space-y-2.5 transition-all text-xs"
                   >
                     <div className="space-y-1.5">
                       <div className="flex items-center justify-between">
                         <span className={`text-[8px] font-bold px-1.5 py-0.5 rounded border uppercase ${
                           card.badge === 'MOST IMPORTANT ROUTE'
-                            ? 'text-indigo-300 bg-indigo-950/60 border-indigo-800'
+                            ? 'text-indigo-300 bg-indigo-950/40 border-indigo-500/40'
                             : card.badge === 'MOST CONSUMED CONTRACT'
-                              ? 'text-emerald-300 bg-emerald-950/60 border-emerald-800'
+                              ? 'text-emerald-300 bg-emerald-950/40 border-emerald-500/40'
                               : card.badge === 'EXPOSURE ANOMALY'
-                                ? 'text-amber-300 bg-amber-950/60 border-amber-800'
-                                : 'text-rose-300 bg-rose-950/60 border-rose-800'
+                                ? 'text-amber-300 bg-amber-950/40 border-amber-500/40'
+                                : 'text-rose-300 bg-rose-950/40 border-rose-500/40'
                         }`}>
                           {card.badge}
                         </span>
-                        <span className="text-[8px] text-emerald-400 font-bold">[{card.evidence}]</span>
+                        <span className={`text-[8px] font-bold px-1 py-0.5 rounded border uppercase ${getEvidenceBadgeClass(card.evidence)}`}>
+                          [{card.evidence}]
+                        </span>
                       </div>
 
                       <h4 className="font-bold text-zinc-100 text-xs truncate font-mono" title={card.title}>
@@ -866,7 +909,7 @@ export const APISurfaceAnalyzer: React.FC<Props> = ({ repoName }) => {
                       </p>
                     </div>
 
-                    <div className="pt-2 border-t border-zinc-800/80 flex items-center justify-between">
+                    <div className="pt-2 border-t border-[#1F1F23] flex items-center justify-between">
                       <button
                         onClick={() => {
                           if (card.targetSymbol) {
@@ -887,108 +930,154 @@ export const APISurfaceAnalyzer: React.FC<Props> = ({ repoName }) => {
             </section>
           )}
 
-          {/* ── View Modes & Search Controller ──────────────────────────── */}
-          <div className="flex items-center justify-between gap-3 flex-wrap p-2 bg-zinc-950 border border-zinc-800 rounded-lg text-xs shadow-md">
-            {/* View tabs */}
-            <div className="flex items-center bg-zinc-900 border border-zinc-800 rounded p-0.5 text-[9px] overflow-x-auto">
-              {MODES.map(([v, label, Icon, count]) => {
-                const isActive = activeView === v;
-                return (
+          {/* ── 4. View Modes, Subordinate Filters & Search Controller ─────── */}
+          <div className="space-y-2">
+            {/* Primary View Navigation Tabs */}
+            <div className="flex items-center justify-between gap-3 flex-wrap p-2 bg-[#08080A] border border-[#1F1F23] rounded-lg text-xs shadow-md">
+              <div className="flex items-center bg-[#0D0D10] border border-[#1F1F23] rounded p-0.5 text-[10px] overflow-x-auto">
+                {MODES.map(([v, label, Icon, count]) => {
+                  const isActive = activeView === v;
+                  return (
+                    <button
+                      key={v}
+                      onClick={() => setActiveView(v)}
+                      className={`px-3.5 py-1.5 rounded transition-all font-bold whitespace-nowrap flex items-center gap-1.5 ${
+                        isActive
+                          ? 'bg-[#5E6AD2] text-white shadow-sm'
+                          : 'text-zinc-400 hover:text-zinc-200 hover:bg-zinc-800/40'
+                      }`}
+                    >
+                      <Icon className="h-3.5 w-3.5" />
+                      <span>{label}</span>
+                      {count > 0 && <span className={`text-[9px] ${isActive ? 'text-indigo-100' : 'text-zinc-500'}`}>({count})</span>}
+                    </button>
+                  );
+                })}
+              </div>
+
+              {/* Search Input */}
+              <div className="relative flex-grow max-w-xs ml-auto">
+                <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-zinc-500 pointer-events-none" />
+                <input
+                  ref={searchInputRef}
+                  type="search"
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  placeholder="Search routes, symbols, handlers…"
+                  className="w-full bg-[#0D0D10] border border-[#1F1F23] rounded pl-8 pr-8 py-1.5 text-xs font-mono focus:outline-none focus:border-[#5E6AD2] text-zinc-100 placeholder:text-zinc-600"
+                  aria-label="Search API surface"
+                />
+                {searchQuery ? (
                   <button
-                    key={v}
-                    onClick={() => setActiveView(v)}
-                    className={`px-3 py-1 rounded transition-all font-bold whitespace-nowrap flex items-center gap-1.5 ${
-                      isActive ? 'bg-indigo-600 text-white shadow-sm' : 'text-zinc-400 hover:text-zinc-200'
-                    }`}
+                    onClick={() => setSearchQuery('')}
+                    className="absolute right-2 top-1/2 -translate-y-1/2 text-zinc-400 hover:text-zinc-100"
+                    aria-label="Clear search"
                   >
-                    <Icon className="h-3 w-3" />
-                    <span>{label}</span>
-                    {count > 0 && <span className="text-[8px] opacity-70">({count})</span>}
+                    <X className="h-3.5 w-3.5" />
                   </button>
-                );
-              })}
+                ) : (
+                  <kbd className="absolute right-2 top-1/2 -translate-y-1/2 text-[9px] font-mono text-zinc-500 bg-[#08080A] border border-[#1F1F23] px-1 py-0.5 rounded pointer-events-none">
+                    /
+                  </kbd>
+                )}
+              </div>
             </div>
 
-            {/* Quick Filters */}
-            <div className="flex items-center gap-1.5 text-[9px] overflow-x-auto">
-              <button
-                onClick={() => setSecondaryFilter('all')}
-                className={`px-2 py-1 rounded border transition-all ${
-                  secondaryFilter === 'all'
-                    ? 'bg-zinc-800 border-zinc-700 text-zinc-100 font-bold'
-                    : 'border-transparent text-zinc-500 hover:text-zinc-300'
-                }`}
-              >
-                ALL
-              </button>
-              <button
-                onClick={() => setSecondaryFilter('high_impact')}
-                className={`px-2 py-1 rounded border transition-all ${
-                  secondaryFilter === 'high_impact'
-                    ? 'bg-indigo-950/60 border-indigo-800 text-indigo-300 font-bold'
-                    : 'border-transparent text-zinc-500 hover:text-zinc-300'
-                }`}
-              >
-                HIGH IMPACT
-              </button>
-              <button
-                onClick={() => setSecondaryFilter('no_internal_callers')}
-                className={`px-2 py-1 rounded border transition-all ${
-                  secondaryFilter === 'no_internal_callers'
-                    ? 'bg-amber-950/60 border-amber-800 text-amber-300 font-bold'
-                    : 'border-transparent text-zinc-500 hover:text-zinc-300'
-                }`}
-              >
-                NO INTERNAL CALLERS
-              </button>
-              <button
-                onClick={() => setSecondaryFilter('deprecated')}
-                className={`px-2 py-1 rounded border transition-all ${
-                  secondaryFilter === 'deprecated'
-                    ? 'bg-rose-950/60 border-rose-800 text-rose-300 font-bold'
-                    : 'border-transparent text-zinc-500 hover:text-zinc-300'
-                }`}
-              >
-                DEPRECATED
-              </button>
-            </div>
-
-            {/* Search Input */}
-            <div className="relative flex-grow max-w-xs ml-auto">
-              <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-zinc-500 pointer-events-none" />
-              <input
-                ref={searchInputRef}
-                type="search"
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                placeholder="Search routes, symbols, handlers…"
-                className="w-full bg-zinc-900 border border-zinc-800 rounded pl-8 pr-8 py-1 text-xs font-mono focus:outline-none focus:border-indigo-500 text-zinc-100 placeholder:text-zinc-500/70"
-                aria-label="Search API surface"
-              />
-              {searchQuery ? (
+            {/* Subordinate Secondary Filter & Controls Bar */}
+            <div className="flex items-center justify-between gap-3 flex-wrap px-3 py-1.5 bg-[#08080A]/60 border border-[#1F1F23]/60 rounded-md text-[9px]">
+              <div className="flex items-center gap-1.5 overflow-x-auto">
+                <span className="text-zinc-500 font-bold uppercase tracking-wider mr-1">FILTER:</span>
                 <button
-                  onClick={() => setSearchQuery('')}
-                  className="absolute right-2 top-1/2 -translate-y-1/2 text-zinc-400 hover:text-zinc-100"
-                  aria-label="Clear search"
+                  onClick={() => setSecondaryFilter('all')}
+                  className={`px-2 py-0.5 rounded border transition-all ${
+                    secondaryFilter === 'all'
+                      ? 'bg-zinc-800 border-zinc-700 text-zinc-100 font-bold'
+                      : 'border-transparent text-zinc-500 hover:text-zinc-300'
+                  }`}
                 >
-                  <X className="h-3.5 w-3.5" />
+                  ALL
                 </button>
-              ) : (
-                <kbd className="absolute right-2 top-1/2 -translate-y-1/2 text-[9px] font-mono text-zinc-500 bg-zinc-950 border border-zinc-800 px-1 py-0.5 rounded pointer-events-none">
-                  /
-                </kbd>
+                <button
+                  onClick={() => setSecondaryFilter('high_impact')}
+                  className={`px-2 py-0.5 rounded border transition-all ${
+                    secondaryFilter === 'high_impact'
+                      ? 'bg-indigo-950/60 border-indigo-800 text-indigo-300 font-bold'
+                      : 'border-transparent text-zinc-500 hover:text-zinc-300'
+                  }`}
+                >
+                  HIGH IMPACT
+                </button>
+                <button
+                  onClick={() => setSecondaryFilter('no_internal_callers')}
+                  className={`px-2 py-0.5 rounded border transition-all ${
+                    secondaryFilter === 'no_internal_callers'
+                      ? 'bg-amber-950/60 border-amber-800 text-amber-300 font-bold'
+                      : 'border-transparent text-zinc-500 hover:text-zinc-300'
+                  }`}
+                >
+                  NO INTERNAL CALLERS
+                </button>
+                <button
+                  onClick={() => setSecondaryFilter('deprecated')}
+                  className={`px-2 py-0.5 rounded border transition-all ${
+                    secondaryFilter === 'deprecated'
+                      ? 'bg-rose-950/60 border-rose-800 text-rose-300 font-bold'
+                      : 'border-transparent text-zinc-500 hover:text-zinc-300'
+                  }`}
+                >
+                  DEPRECATED
+                </button>
+              </div>
+
+              {activeView === 'routes' && (
+                <div className="flex items-center gap-3 ml-auto">
+                  {/* Method filter */}
+                  <div className="flex items-center gap-1">
+                    {['ALL', 'GET', 'POST', 'PUT', 'PATCH', 'DELETE'].map((m) => (
+                      <button
+                        key={m}
+                        onClick={() => setMethodFilter(m)}
+                        className={`px-1.5 py-0.5 rounded border uppercase font-bold transition-all ${
+                          methodFilter === m
+                            ? 'bg-zinc-800 border-zinc-600 text-zinc-100'
+                            : 'border-transparent text-zinc-500 hover:text-zinc-300'
+                        }`}
+                      >
+                        {m}
+                      </button>
+                    ))}
+                  </div>
+
+                  {/* Sort modes */}
+                  <div className="flex items-center gap-1 pl-2 border-l border-[#1F1F23]">
+                    <span className="text-zinc-500 font-bold uppercase">SORT:</span>
+                    {(['relevance', 'impact', 'callers', 'risk'] as RouteSortMode[]).map((mode) => (
+                      <button
+                        key={mode}
+                        onClick={() => setRouteSort(mode)}
+                        className={`px-2 py-0.5 rounded border uppercase font-bold transition-all ${
+                          routeSort === mode
+                            ? 'bg-indigo-950/80 border-indigo-700 text-indigo-300'
+                            : 'border-transparent text-zinc-500 hover:text-zinc-300'
+                        }`}
+                      >
+                        {mode}
+                      </button>
+                    ))}
+                  </div>
+                </div>
               )}
             </div>
           </div>
 
-          {/* ── Main Content Workspace + Inspector ──────────────────────── */}
-          <div className="flex border border-zinc-800/80 rounded-lg overflow-hidden bg-zinc-950 min-h-[580px] relative shadow-2xl">
+          {/* ── 5. Main Content Workspace + Inspector ──────────────────────── */}
+          <div className="flex border border-[#1F1F23] rounded-lg overflow-hidden bg-[#08080A] min-h-[580px] relative shadow-2xl">
             <div className="flex-1 min-w-0 overflow-y-auto p-4 space-y-5">
               {/* ── VIEW: OVERVIEW ────────────────────────────────────────── */}
               {activeView === 'overview' && (
                 <div className="space-y-5">
                   {/* Exposure Summary & What This Means */}
-                  <div className="p-3.5 bg-zinc-900/70 border border-indigo-500/30 rounded-lg space-y-2 text-xs">
+                  <div className="p-3.5 bg-[#0D0D10] border border-[#5E6AD2]/30 rounded-lg space-y-2 text-xs">
                     <span className="text-[9px] font-bold text-indigo-400 uppercase tracking-wider block">
                       EXPOSURE SUMMARY
                     </span>
@@ -996,7 +1085,7 @@ export const APISurfaceAnalyzer: React.FC<Props> = ({ repoName }) => {
                       {signals.exposureSummary}
                     </p>
 
-                    <div className="pt-2 border-t border-zinc-800/80 space-y-1">
+                    <div className="pt-2 border-t border-[#1F1F23] space-y-1">
                       <span className="text-[9px] font-bold text-zinc-400 uppercase tracking-wider block">
                         WHAT THIS MEANS
                       </span>
@@ -1007,7 +1096,7 @@ export const APISurfaceAnalyzer: React.FC<Props> = ({ repoName }) => {
                   </div>
 
                   {/* Contract Health Verdict */}
-                  <div className="p-3.5 bg-zinc-900/50 border border-zinc-800 rounded-lg space-y-2">
+                  <div className="p-3.5 bg-[#0D0D10] border border-[#1F1F23] rounded-lg space-y-2">
                     <div className="flex items-center justify-between">
                       <span className="text-[9px] font-bold text-zinc-400 uppercase tracking-wider">
                         CONTRACT HEALTH
@@ -1019,7 +1108,7 @@ export const APISurfaceAnalyzer: React.FC<Props> = ({ repoName }) => {
                             ? 'text-amber-300 bg-amber-950/60 border-amber-800'
                             : signals.healthDiagnosis.verdict === 'HIGH RISK'
                               ? 'text-rose-300 bg-rose-950/60 border-rose-800'
-                              : 'text-zinc-400 bg-zinc-900 border-zinc-800'
+                              : 'text-zinc-400 bg-[#08080A] border-[#1F1F23]'
                       }`}>
                         VERDICT: {signals.healthDiagnosis.verdict}
                       </span>
@@ -1035,7 +1124,7 @@ export const APISurfaceAnalyzer: React.FC<Props> = ({ repoName }) => {
                   {/* Key HTTP Routes */}
                   {signals.routes.length > 0 && (
                     <div className="space-y-2">
-                      <div className="flex items-center justify-between pb-1 border-b border-zinc-800">
+                      <div className="flex items-center justify-between pb-1 border-b border-[#1F1F23]">
                         <span className="text-xs font-bold text-indigo-400 uppercase tracking-wider flex items-center gap-1.5">
                           <Route className="h-3.5 w-3.5" /> High-Priority HTTP Routes
                         </span>
@@ -1057,8 +1146,8 @@ export const APISurfaceAnalyzer: React.FC<Props> = ({ repoName }) => {
                             }}
                             className={`p-2.5 rounded-lg border flex items-center justify-between gap-3 cursor-pointer transition-all ${
                               selectedRoute?.id === route.id
-                                ? 'bg-indigo-950/40 border-indigo-500'
-                                : 'bg-zinc-900/80 border-zinc-800 hover:border-zinc-700'
+                                ? 'bg-[#5E6AD2]/20 border-[#5E6AD2] ring-1 ring-[#5E6AD2]/50'
+                                : 'bg-[#0D0D10] border-[#1F1F23] hover:border-zinc-700'
                             }`}
                           >
                             <div className="flex items-center gap-2.5 min-w-0">
@@ -1072,8 +1161,8 @@ export const APISurfaceAnalyzer: React.FC<Props> = ({ repoName }) => {
                             </div>
 
                             <div className="flex items-center gap-2 shrink-0">
-                              <span className="text-[9px] text-emerald-400 font-bold">{route.internalCallersCount} callers</span>
-                              <span className="text-[8px] bg-zinc-800 text-zinc-400 px-1.5 py-0.5 rounded uppercase font-bold">
+                              <span className="text-[9px] text-emerald-400 font-bold">{route.internalCallersCount} caller{route.internalCallersCount === 1 ? '' : 's'}</span>
+                              <span className={`text-[8px] border px-1.5 py-0.5 rounded uppercase font-bold ${getEvidenceBadgeClass(route.evidence)}`}>
                                 [{route.evidence}]
                               </span>
                             </div>
@@ -1085,7 +1174,7 @@ export const APISurfaceAnalyzer: React.FC<Props> = ({ repoName }) => {
 
                   {/* High-Impact Contracts Summary */}
                   <div className="space-y-2">
-                    <div className="flex items-center justify-between pb-1 border-b border-zinc-800">
+                    <div className="flex items-center justify-between pb-1 border-b border-[#1F1F23]">
                       <span className="text-xs font-bold text-emerald-400 uppercase tracking-wider flex items-center gap-1.5">
                         <Globe className="h-3.5 w-3.5" /> High-Impact Public Interfaces
                       </span>
@@ -1107,8 +1196,8 @@ export const APISurfaceAnalyzer: React.FC<Props> = ({ repoName }) => {
                           }}
                           className={`p-2.5 rounded-lg border flex items-center justify-between gap-3 cursor-pointer transition-all ${
                             selectedSymbol?.qualified === sym.qualified
-                              ? 'bg-emerald-950/40 border-emerald-500'
-                              : 'bg-zinc-900/80 border-zinc-800 hover:border-zinc-700'
+                              ? 'bg-[#5E6AD2]/20 border-[#5E6AD2] ring-1 ring-[#5E6AD2]/50'
+                              : 'bg-[#0D0D10] border-[#1F1F23] hover:border-zinc-700'
                           }`}
                         >
                           <div className="min-w-0">
@@ -1117,8 +1206,8 @@ export const APISurfaceAnalyzer: React.FC<Props> = ({ repoName }) => {
                           </div>
 
                           <div className="flex items-center gap-2 shrink-0">
-                            <span className="text-[9px] text-emerald-400 font-bold">{sym.fan_in} callers</span>
-                            <span className="text-[8px] bg-zinc-800 text-zinc-400 px-1.5 py-0.5 rounded uppercase font-bold">
+                            <span className="text-[9px] text-emerald-400 font-bold">{sym.fan_in} caller{sym.fan_in === 1 ? '' : 's'}</span>
+                            <span className="text-[8px] bg-[#08080A] text-zinc-400 border border-[#1F1F23] px-1.5 py-0.5 rounded uppercase font-bold">
                               {sym.api_kind}
                             </span>
                           </div>
@@ -1132,42 +1221,6 @@ export const APISurfaceAnalyzer: React.FC<Props> = ({ repoName }) => {
               {/* ── VIEW: ROUTES ──────────────────────────────────────────── */}
               {activeView === 'routes' && (
                 <div className="space-y-4">
-                  {/* Route Controls: Method filters & Priority sorting */}
-                  <div className="flex items-center justify-between gap-3 flex-wrap pb-2 border-b border-zinc-800 text-[9px]">
-                    <div className="flex items-center gap-1 overflow-x-auto">
-                      {['ALL', 'GET', 'POST', 'PUT', 'PATCH', 'DELETE'].map((m) => (
-                        <button
-                          key={m}
-                          onClick={() => setMethodFilter(m)}
-                          className={`px-2 py-0.5 rounded border font-bold uppercase transition-all ${
-                            methodFilter === m
-                              ? 'bg-zinc-800 border-zinc-600 text-zinc-100'
-                              : 'border-zinc-800 text-zinc-500 hover:text-zinc-300'
-                          }`}
-                        >
-                          {m}
-                        </button>
-                      ))}
-                    </div>
-
-                    <div className="flex items-center gap-1.5 ml-auto">
-                      <span className="text-zinc-500 font-bold uppercase">SORT:</span>
-                      {(['relevance', 'impact', 'callers', 'risk'] as RouteSortMode[]).map((mode) => (
-                        <button
-                          key={mode}
-                          onClick={() => setRouteSort(mode)}
-                          className={`px-2 py-0.5 rounded border uppercase font-bold transition-all ${
-                            routeSort === mode
-                              ? 'bg-indigo-950 border-indigo-700 text-indigo-300'
-                              : 'border-zinc-800 text-zinc-500 hover:text-zinc-300'
-                          }`}
-                        >
-                          {mode}
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-
                   {filteredRoutes.length === 0 ? (
                     <EmptyState
                       compact
@@ -1191,10 +1244,10 @@ export const APISurfaceAnalyzer: React.FC<Props> = ({ repoName }) => {
                             }}
                             className={`p-3 rounded-lg border flex flex-col gap-2 cursor-pointer transition-all ${
                               isSelected
-                                ? 'bg-indigo-950/50 border-indigo-500 ring-1 ring-indigo-500/40'
+                                ? 'bg-[#5E6AD2]/20 border-[#5E6AD2] ring-1 ring-[#5E6AD2]/50'
                                 : isFocused
-                                  ? 'bg-zinc-900 border-zinc-700'
-                                  : 'bg-zinc-900/80 border-zinc-800 hover:border-zinc-700'
+                                  ? 'bg-[#0D0D10] border-zinc-700'
+                                  : 'bg-[#0D0D10] border-[#1F1F23] hover:border-zinc-700'
                             }`}
                           >
                             <div className="flex items-center justify-between gap-4">
@@ -1205,7 +1258,7 @@ export const APISurfaceAnalyzer: React.FC<Props> = ({ repoName }) => {
                                 <div className="min-w-0">
                                   <div className="flex items-center gap-2">
                                     <span className="text-xs font-bold text-zinc-100 truncate">{route.path}</span>
-                                    <span className="text-[8px] bg-zinc-800 text-zinc-400 px-1 py-0.2 rounded font-bold uppercase">
+                                    <span className={`text-[8px] border px-1 py-0.5 rounded font-bold uppercase ${getEvidenceBadgeClass(route.evidence)}`}>
                                       [{route.evidence}]
                                     </span>
                                   </div>
@@ -1222,7 +1275,7 @@ export const APISurfaceAnalyzer: React.FC<Props> = ({ repoName }) => {
                                 <span className={`text-[8px] px-1.5 py-0.5 rounded uppercase font-bold border ${
                                   route.impactLevel === 'HIGH IMPACT'
                                     ? 'text-indigo-300 bg-indigo-950/60 border-indigo-800'
-                                    : 'text-zinc-400 bg-zinc-900 border-zinc-800'
+                                    : 'text-zinc-400 bg-[#08080A] border-[#1F1F23]'
                                 }`}>
                                   {route.impactLevel}
                                 </span>
@@ -1230,7 +1283,7 @@ export const APISurfaceAnalyzer: React.FC<Props> = ({ repoName }) => {
                             </div>
 
                             {/* Inline "Why This Route Matters" */}
-                            <div className="text-[10px] text-zinc-400 font-sans flex items-center justify-between pt-1 border-t border-zinc-800/60">
+                            <div className="text-[10px] text-zinc-400 font-sans flex items-center justify-between pt-1 border-t border-[#1F1F23]">
                               <span className="truncate">{route.whyItMatters}</span>
                               <span className="text-indigo-400 text-[9px] font-bold uppercase shrink-0 ml-2">Inspect →</span>
                             </div>
@@ -1245,8 +1298,8 @@ export const APISurfaceAnalyzer: React.FC<Props> = ({ repoName }) => {
               {/* ── VIEW: PUBLIC ──────────────────────────────────────────── */}
               {activeView === 'public' && (
                 <div className="space-y-4">
-                  <div className="flex items-center justify-between pb-1 border-b border-zinc-800 text-xs">
-                    <span className="font-bold text-emerald-400 uppercase">Public Contract Landscape</span>
+                  <div className="flex items-center justify-between pb-1 border-b border-[#1F1F23] text-xs">
+                    <span className="font-bold text-zinc-200 uppercase">Public Contract Landscape</span>
                     <span className="text-zinc-500 text-[10px]">{publicSyms.length.toLocaleString()} exported symbols</span>
                   </div>
 
@@ -1257,7 +1310,7 @@ export const APISurfaceAnalyzer: React.FC<Props> = ({ repoName }) => {
                     </span>
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-2.5">
                       {publicModuleGroups.slice(0, 4).map((mod) => (
-                        <div key={mod.moduleName} className="p-3 bg-zinc-900/70 border border-zinc-800 rounded-lg space-y-2">
+                        <div key={mod.moduleName} className="p-3 bg-[#0D0D10] border border-[#1F1F23] rounded-lg space-y-2">
                           <div className="flex items-center justify-between">
                             <span className="text-xs font-bold text-zinc-200">{mod.moduleName}</span>
                             <span className="text-[9px] text-emerald-400 font-bold">{mod.publicCount} public symbols</span>
@@ -1273,7 +1326,7 @@ export const APISurfaceAnalyzer: React.FC<Props> = ({ repoName }) => {
                                 className="w-full text-left flex items-center justify-between text-[10px] text-zinc-400 hover:text-zinc-100 p-1 hover:bg-zinc-800/80 rounded transition-all"
                               >
                                 <span className="truncate">{shortSymbolName(s.qualified)}()</span>
-                                <span className="text-emerald-400 font-bold shrink-0">{s.fan_in} callers</span>
+                                <span className="text-emerald-400 font-bold shrink-0">{s.fan_in} caller{s.fan_in === 1 ? '' : 's'}</span>
                               </button>
                             ))}
                           </div>
@@ -1283,7 +1336,7 @@ export const APISurfaceAnalyzer: React.FC<Props> = ({ repoName }) => {
                   </div>
 
                   {/* Progressive Disclosure for Deep Inventory */}
-                  <div className="pt-3 border-t border-zinc-800 space-y-3">
+                  <div className="pt-3 border-t border-[#1F1F23] space-y-3">
                     <div className="flex items-center justify-between">
                       <span className="text-[9px] font-bold text-zinc-400 uppercase tracking-wider">
                         Public Inventory
@@ -1308,8 +1361,8 @@ export const APISurfaceAnalyzer: React.FC<Props> = ({ repoName }) => {
                             }}
                             className={`p-2.5 rounded-lg border flex items-center justify-between gap-3 cursor-pointer transition-all ${
                               selectedSymbol?.qualified === sym.qualified
-                                ? 'bg-emerald-950/40 border-emerald-500'
-                                : 'bg-zinc-900/80 border-zinc-800 hover:border-zinc-700'
+                                ? 'bg-[#5E6AD2]/20 border-[#5E6AD2] ring-1 ring-[#5E6AD2]/50'
+                                : 'bg-[#0D0D10] border-[#1F1F23] hover:border-zinc-700'
                             }`}
                           >
                             <div className="min-w-0">
@@ -1318,8 +1371,8 @@ export const APISurfaceAnalyzer: React.FC<Props> = ({ repoName }) => {
                             </div>
 
                             <div className="flex items-center gap-2 shrink-0 text-[10px]">
-                              <span className="text-emerald-400 font-bold">{sym.fan_in} callers</span>
-                              <span className="text-[8px] bg-zinc-800 text-zinc-400 px-1.5 py-0.5 rounded uppercase font-bold">
+                              <span className="text-emerald-400 font-bold">{sym.fan_in} caller{sym.fan_in === 1 ? '' : 's'}</span>
+                              <span className="text-[8px] bg-[#08080A] text-zinc-400 border border-[#1F1F23] px-1.5 py-0.5 rounded uppercase font-bold">
                                 {sym.api_kind}
                               </span>
                             </div>
@@ -1334,8 +1387,8 @@ export const APISurfaceAnalyzer: React.FC<Props> = ({ repoName }) => {
               {/* ── VIEW: INTERNAL ────────────────────────────────────────── */}
               {activeView === 'internal' && (
                 <div className="space-y-4">
-                  <div className="flex items-center justify-between pb-1 border-b border-zinc-800 text-xs">
-                    <span className="font-bold text-blue-400 uppercase">Internal Implementation Surface</span>
+                  <div className="flex items-center justify-between pb-1 border-b border-[#1F1F23] text-xs">
+                    <span className="font-bold text-zinc-300 uppercase">Internal Implementation Surface</span>
                     <span className="text-zinc-500 text-[10px]">{internalSyms.length.toLocaleString()} package-private symbols</span>
                   </div>
 
@@ -1358,8 +1411,8 @@ export const APISurfaceAnalyzer: React.FC<Props> = ({ repoName }) => {
                           }}
                           className={`p-2.5 rounded-lg border flex items-center justify-between gap-3 cursor-pointer transition-all ${
                             selectedSymbol?.qualified === sym.qualified
-                              ? 'bg-blue-950/40 border-blue-500'
-                              : 'bg-zinc-900/80 border-zinc-800 hover:border-zinc-700'
+                              ? 'bg-[#5E6AD2]/20 border-[#5E6AD2] ring-1 ring-[#5E6AD2]/50'
+                              : 'bg-[#0D0D10] border-[#1F1F23] hover:border-zinc-700'
                           }`}
                         >
                           <div className="min-w-0">
@@ -1368,8 +1421,8 @@ export const APISurfaceAnalyzer: React.FC<Props> = ({ repoName }) => {
                           </div>
 
                           <div className="flex items-center gap-2 shrink-0 text-[10px]">
-                            <span className="text-blue-400 font-bold">{sym.fan_in} callers</span>
-                            <span className="text-[8px] bg-zinc-800 text-zinc-400 px-1.5 py-0.5 rounded uppercase font-bold">
+                            <span className="text-zinc-300 font-bold">{sym.fan_in} caller{sym.fan_in === 1 ? '' : 's'}</span>
+                            <span className="text-[8px] bg-[#08080A] text-zinc-400 border border-[#1F1F23] px-1.5 py-0.5 rounded uppercase font-bold">
                               {sym.api_kind}
                             </span>
                           </div>
@@ -1379,7 +1432,7 @@ export const APISurfaceAnalyzer: React.FC<Props> = ({ repoName }) => {
                   </div>
 
                   {/* Progressive Disclosure for Deep Internal Inventory */}
-                  <div className="pt-3 border-t border-zinc-800 space-y-3">
+                  <div className="pt-3 border-t border-[#1F1F23] space-y-3">
                     <div className="flex items-center justify-between">
                       <span className="text-[9px] font-bold text-zinc-400 uppercase tracking-wider">
                         Internal Inventory
@@ -1404,8 +1457,8 @@ export const APISurfaceAnalyzer: React.FC<Props> = ({ repoName }) => {
                             }}
                             className={`p-2.5 rounded-lg border flex items-center justify-between gap-3 cursor-pointer transition-all ${
                               selectedSymbol?.qualified === sym.qualified
-                                ? 'bg-blue-950/40 border-blue-500'
-                                : 'bg-zinc-900/80 border-zinc-800 hover:border-zinc-700'
+                                ? 'bg-[#5E6AD2]/20 border-[#5E6AD2] ring-1 ring-[#5E6AD2]/50'
+                                : 'bg-[#0D0D10] border-[#1F1F23] hover:border-zinc-700'
                             }`}
                           >
                             <div className="min-w-0">
@@ -1414,8 +1467,8 @@ export const APISurfaceAnalyzer: React.FC<Props> = ({ repoName }) => {
                             </div>
 
                             <div className="flex items-center gap-2 shrink-0 text-[10px]">
-                              <span className="text-blue-400 font-bold">{sym.fan_in} callers</span>
-                              <span className="text-[8px] bg-zinc-800 text-zinc-400 px-1.5 py-0.5 rounded uppercase font-bold">
+                              <span className="text-zinc-300 font-bold">{sym.fan_in} caller{sym.fan_in === 1 ? '' : 's'}</span>
+                              <span className="text-[8px] bg-[#08080A] text-zinc-400 border border-[#1F1F23] px-1.5 py-0.5 rounded uppercase font-bold">
                                 {sym.api_kind}
                               </span>
                             </div>
@@ -1432,14 +1485,14 @@ export const APISurfaceAnalyzer: React.FC<Props> = ({ repoName }) => {
                 <div className="space-y-6">
                   {/* Deprecated */}
                   <div className="space-y-2">
-                    <div className="flex items-center justify-between pb-1 border-b border-zinc-800">
+                    <div className="flex items-center justify-between pb-1 border-b border-[#1F1F23]">
                       <span className="text-xs font-bold text-rose-400 uppercase flex items-center gap-1.5">
                         <AlertTriangle className="h-3.5 w-3.5" /> Deprecated Interfaces ({deprecatedSyms.length})
                       </span>
                     </div>
 
                     {deprecatedSyms.length === 0 ? (
-                      <p className="text-xs text-zinc-400 italic p-2 bg-zinc-900/40 rounded">
+                      <p className="text-xs text-zinc-400 italic p-2.5 bg-[#0D0D10] border border-[#1F1F23] rounded">
                         No explicitly deprecated APIs were detected in the indexed repository.
                       </p>
                     ) : (
@@ -1447,18 +1500,18 @@ export const APISurfaceAnalyzer: React.FC<Props> = ({ repoName }) => {
                         {deprecatedSyms.map((sym) => (
                           <div
                             key={`${sym.file_path}::${sym.qualified}`}
-                            className="p-3 bg-zinc-900/80 border border-rose-500/30 rounded-lg space-y-1.5 text-xs"
+                            className="p-3 bg-[#0D0D10] border border-rose-500/40 rounded-lg space-y-1.5 text-xs"
                           >
                             <div className="flex items-center justify-between">
-                              <span className="font-bold text-rose-300">{shortSymbolName(sym.qualified)}()</span>
-                              <span className="text-[8px] bg-rose-950 text-rose-400 border border-rose-800 px-1.5 py-0.5 rounded font-bold uppercase">
+                              <span className="font-bold text-zinc-100">{shortSymbolName(sym.qualified)}()</span>
+                              <span className="text-[8px] bg-rose-950/40 text-rose-300 border border-rose-500/40 px-1.5 py-0.5 rounded font-bold uppercase">
                                 [VERIFIED DEPRECATED]
                               </span>
                             </div>
                             <p className="text-[10px] text-zinc-400 font-sans">
                               Explicitly marked deprecated in source code annotations or docstrings.
                             </p>
-                            <div className="pt-1 flex items-center justify-between border-t border-zinc-800">
+                            <div className="pt-1 flex items-center justify-between border-t border-[#1F1F23]">
                               <span className="text-[9px] text-zinc-500">{sym.file_path}:{sym.line_number}</span>
                               <button
                                 onClick={() => {
@@ -1476,20 +1529,20 @@ export const APISurfaceAnalyzer: React.FC<Props> = ({ repoName }) => {
                     )}
                   </div>
 
-                  {/* No Internal Callers */}
+                  {/* No Internal Callers with Mandatory Caveat */}
                   <div className="space-y-2">
-                    <div className="flex items-center justify-between pb-1 border-b border-zinc-800">
+                    <div className="flex items-center justify-between pb-1 border-b border-[#1F1F23]">
                       <span className="text-xs font-bold text-amber-400 uppercase flex items-center gap-1.5">
                         <Info className="h-3.5 w-3.5" /> Public Symbols With No Internal Callers ({orphanSyms.length})
                       </span>
                     </div>
 
-                    <p className="text-[10px] text-zinc-400 font-sans leading-relaxed">
-                      No repository-internal callers were detected. This does not establish that the contract is unused because external consumers cannot be inferred from static repository analysis.
-                    </p>
+                    <div className="p-2.5 bg-amber-950/20 border border-amber-500/30 rounded text-xs text-amber-200/90 font-sans leading-relaxed">
+                      No repository-internal callers were detected. This does NOT prove that the symbol is unused because external consumers cannot be inferred from static repository analysis.
+                    </div>
 
                     {orphanSyms.length === 0 ? (
-                      <p className="text-xs text-zinc-400 italic p-2 bg-zinc-900/40 rounded">
+                      <p className="text-xs text-zinc-400 italic p-2.5 bg-[#0D0D10] border border-[#1F1F23] rounded">
                         All public APIs have at least one internal caller detected in the indexed call graph.
                       </p>
                     ) : (
@@ -1501,13 +1554,15 @@ export const APISurfaceAnalyzer: React.FC<Props> = ({ repoName }) => {
                               setSelectedSymbol(sym);
                               setSelectedRoute(undefined);
                             }}
-                            className="p-2.5 bg-zinc-900/80 border border-amber-500/30 hover:border-amber-500 rounded-lg flex items-center justify-between cursor-pointer"
+                            className={`p-2.5 bg-[#0D0D10] border border-amber-500/30 hover:border-amber-500 rounded-lg flex items-center justify-between cursor-pointer transition-colors ${
+                              selectedSymbol?.qualified === sym.qualified ? 'ring-1 ring-amber-500/50' : ''
+                            }`}
                           >
                             <div className="min-w-0">
-                              <span className="text-xs font-bold text-zinc-200 truncate block">{shortSymbolName(sym.qualified)}()</span>
+                              <span className="text-xs font-bold text-zinc-100 truncate block">{shortSymbolName(sym.qualified)}()</span>
                               <span className="text-[9px] text-zinc-500 truncate block">{sym.file_path}:{sym.line_number}</span>
                             </div>
-                            <span className="text-[8px] bg-amber-950 text-amber-300 border border-amber-800 px-1.5 py-0.5 rounded font-bold uppercase">
+                            <span className="text-[8px] bg-amber-950/40 text-amber-300 border border-amber-500/40 px-1.5 py-0.5 rounded font-bold uppercase">
                               No Callers
                             </span>
                           </div>
@@ -1519,7 +1574,7 @@ export const APISurfaceAnalyzer: React.FC<Props> = ({ repoName }) => {
               )}
             </div>
 
-            {/* ── API Contract & Impact Inspector ─────────────────────────── */}
+            {/* ── 6. API Contract & Impact Inspector Drawer ────────────────── */}
             {selectedSymbol && (
               <ApiContractInspector
                 symbol={selectedSymbol}

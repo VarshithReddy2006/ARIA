@@ -143,9 +143,9 @@ export function stageAt(p: number): number {
 }
 
 export const STRUCTURE_STAGES = [
-  { label: 'FILES', detail: 'what you can list' },
-  { label: 'MODULES', detail: 'what groups together' },
+  { label: 'FILES', detail: 'what is listed' },
+  { label: 'MODULES', detail: 'how files cluster' },
   { label: 'SYMBOLS', detail: 'what is declared' },
-  { label: 'CALLERS', detail: 'what depends on it' },
-  { label: 'DEPENDENCIES', detail: 'what it reaches' },
+  { label: 'CALLERS', detail: 'what depends on this' },
+  { label: 'DEPENDENCIES', detail: 'what this reaches' },
 ] as const;

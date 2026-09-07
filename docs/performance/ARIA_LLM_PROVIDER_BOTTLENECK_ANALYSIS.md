@@ -114,12 +114,12 @@ Applying the $M/M/c$ queueing model to measured provider response data:
 
 ## 8. Configured Provider Comparison
 
-| Attribute | DeepSeek V4 Flash (NVIDIA NIM) | Gemini 2.5 Flash (Google GenAI) |
+| Attribute | DeepSeek V4 Flash (NVIDIA NIM) | Gemini 3.1 Flash Lite (Google GenAI) |
 | :--- | :--- | :--- |
-| **Model** | `deepseek-ai/deepseek-v4-flash-0731` | `gemini-2.5-flash` |
+| **Model** | `deepseek-ai/deepseek-v4-flash-0731` | `gemini-3.1-flash-lite` |
 | **Typical TTFT (p50)** | `~240.0 ms` | `~220.0 ms` |
 | **Streaming Rate** | `~45 tokens/sec` | `~65 tokens/sec` |
-| **Timeout Policy** | 120.0s | 60.0s |
+| **Timeout Policy** | 60.0s | 60.0s |
 | **Max Context** | 4,096 tokens | 8,192 tokens |
 | **Circuit Breaker**| Failure threshold: 3, Recovery: 60s | Failure threshold: 3, Recovery: 60s |
 
@@ -206,9 +206,9 @@ Currently, `DeepSeekProvider.stream()` instantiates `async with httpx.AsyncClien
 
 ## 17. Regression Validation Results
 
-- **Pytest:** `2,539 passed, 2 skipped, 0 failed` in 102.77s
+- **Pytest:** `2,960 passed, 4 skipped, 0 failed` in ~161.8s
 - **Ruff Check:** `All checks passed!` (0 lint errors)
-- **Ruff Format:** `1,063 files already formatted` (100% clean)
+- **Ruff Format:** `1,241 files already formatted` (100% clean)
 
 ---
 

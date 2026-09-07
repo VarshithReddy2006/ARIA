@@ -16,22 +16,24 @@ The only responsibilities of this file are:
 No prompt building. No embedding calls. No LLM calls. No retry logic.
 """
 
+import asyncio
 import json
 import logging
-import asyncio
+import os
+import re
+import sys
 import uuid
 from typing import Any, Dict, List, Optional
 
 from fastapi import APIRouter, HTTPException
-from fastapi.responses import StreamingResponse, JSONResponse
+from fastapi.responses import JSONResponse, StreamingResponse
 from pydantic import BaseModel, Field, field_validator
-
-import sys
 
 from backend.dependencies import (
     get_retrieval_pipeline,
     get_embedding_service,
     get_chroma_store,
+    normalize_repo_name,
     get_graph_rag_service,
 )
 from models.schemas import IssueMapResponse
@@ -99,10 +101,20 @@ class ChatRequest(BaseModel):
 
 
 class IssueMapRequest(BaseModel):
-    repo: str = Field(..., description="Repository identifier (owner/repo)")
+    repo: Optional[str] = Field(None, description="Repository identifier (owner/repo)")
+    repo_name: Optional[str] = Field(
+        None, description="Alternative repository identifier"
+    )
     issue: Optional[str] = Field(None, description="GitHub issue text/details")
     title: Optional[str] = Field(None, description="GitHub issue title")
+    issue_title: Optional[str] = Field(
+        None, description="Alternative key for GitHub issue title"
+    )
     description: Optional[str] = Field("", description="GitHub issue body/details")
+    issue_description: Optional[str] = Field(
+        "", description="Alternative key for GitHub issue body"
+    )
+    owner: Optional[str] = Field(None, description="Repository owner")
 
 
 # ---------------------------------------------------------------------------
@@ -310,7 +322,7 @@ async def repository_chat(request: ChatRequest):
       7. Memory update
       8. Observability emit
     """
-    repo_name = request.repo
+    repo_name = normalize_repo_name(request.repo)
     question = request.message.strip()
     history = request.history
     session_id = request.session_id
@@ -366,13 +378,66 @@ async def map_issue(request: IssueMapRequest):
     """Analyse a GitHub issue and return the implementation plan and relevant files."""
     from agents.issue_mapper import IssueMapper
 
-    title = request.issue if request.issue else (request.title or "")
-    description = "" if request.issue else (request.description or "")
+    repo = request.repo or request.repo_name or ""
+    if not repo and request.owner:
+        repo = f"{request.owner}/{request.repo or ''}".strip("/")
 
-    if not title.strip():
+    title = request.issue or request.title or request.issue_title or ""
+    description = request.description or request.issue_description or ""
+
+    # If title is a GitHub Issue URL, attempt to parse / fetch details
+    url_match = re.search(r"github\.com/([^/]+)/([^/]+)/issues/(\d+)", title)
+    if url_match:
+        url_owner, url_repo, issue_num = url_match.groups()
+        if not repo:
+            repo = f"{url_owner}/{url_repo}"
+        # If no explicit description was provided, fetch or generate one
+        if not description.strip():
+            try:
+                import requests
+
+                gh_token = os.environ.get("GITHUB_TOKEN", "")
+                headers = {"Accept": "application/vnd.github.v3+json"}
+                if gh_token:
+                    headers["Authorization"] = f"token {gh_token}"
+                resp = requests.get(
+                    f"https://api.github.com/repos/{url_owner}/{url_repo}/issues/{issue_num}",
+                    headers=headers,
+                    timeout=5,
+                )
+                if resp.status_code == 200:
+                    gh_issue = resp.json()
+                    title = gh_issue.get("title") or title
+                    description = (
+                        gh_issue.get("body")
+                        or f"GitHub Issue #{issue_num} from {title}"
+                    )
+                else:
+                    title = f"GitHub Issue #{issue_num}: {url_repo}"
+                    description = f"Investigation for issue {title}"
+            except Exception as e:
+                logger.warning("Could not fetch GitHub issue URL metadata: %s", e)
+                title = f"GitHub Issue #{issue_num}"
+                description = (
+                    f"Investigation for {url_owner}/{url_repo} issue #{issue_num}"
+                )
+
+    # If title was empty but description was given, use first line of description as title
+    if not title.strip() and description.strip():
+        lines = [line.strip() for line in description.splitlines() if line.strip()]
+        if lines:
+            title = lines[0][:120]
+
+    if not title.strip() and not description.strip():
         raise HTTPException(
             status_code=400,
             detail="Issue title or issue text must be provided.",
+        )
+
+    if not repo.strip():
+        raise HTTPException(
+            status_code=400,
+            detail="Target repository identifier must be provided.",
         )
 
     try:
@@ -380,9 +445,7 @@ async def map_issue(request: IssueMapRequest):
             embedding_service=embedding_service,
             chroma_store=chroma_store,
         )
-        plan = await asyncio.to_thread(
-            mapper.map_issue, request.repo, title, description
-        )
+        plan = await asyncio.to_thread(mapper.map_issue, repo, title, description)
         return plan
     except HTTPException:
         raise

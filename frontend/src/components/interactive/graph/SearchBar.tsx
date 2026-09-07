@@ -24,17 +24,8 @@ export const SearchBar: React.FC<SearchBarProps> = ({
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const handleInput = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const raw = e.target.value;
-    onChange(raw);
-    if (debounceRef.current) clearTimeout(debounceRef.current);
-    debounceRef.current = setTimeout(() => {}, 300);
+    onChange(e.target.value);
   };
-
-  useEffect(() => {
-    return () => {
-      if (debounceRef.current) clearTimeout(debounceRef.current);
-    };
-  }, []);
 
   const hasValue = value.trim().length > 0;
 
@@ -49,12 +40,12 @@ export const SearchBar: React.FC<SearchBarProps> = ({
           value={value}
           onChange={handleInput}
           placeholder={placeholder}
-          className="w-full bg-zinc-900/90 border border-zinc-800 rounded-md pl-8 pr-12 py-1 text-xs font-mono focus:outline-none focus:border-indigo-500/80 text-zinc-100 placeholder:text-zinc-500/70 transition-colors"
+          className="w-full bg-zinc-900/90 border border-zinc-800 rounded-md pl-8 pr-12 py-1 text-xs font-mono focus:outline-none focus:border-primary/80 text-zinc-100 placeholder:text-zinc-500/70 transition-colors"
         />
 
         {/* Match count badge */}
         {hasValue && matchCount !== null && (
-          <span className="absolute right-7 top-1/2 -translate-y-1/2 text-[9px] font-mono text-indigo-400 bg-indigo-500/10 border border-indigo-500/30 px-1 rounded">
+          <span className="absolute right-7 top-1/2 -translate-y-1/2 text-[9px] font-mono text-primary bg-primary/10 border border-primary/30 px-1 rounded">
             {matchCount}
           </span>
         )}

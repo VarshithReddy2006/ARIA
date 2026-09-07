@@ -538,3 +538,62 @@ def test_multi_repository_scales_investigation():
         combined = " ".join(followups)
         # Invariant: Every scale generates questions grounded in its own source files/symbols
         assert any(f in combined for f in files) or any(s in combined for s in symbols)
+
+
+# ---------------------------------------------------------------------------
+# 10. Intent Router Full Dispatch Test
+# ---------------------------------------------------------------------------
+
+
+def test_intent_router_dispatches_extended_intelligence():
+    """Verify IntentRouter gathers structured context for dead code, git churn, pr risk, and health."""
+    from services.chat.intent_router import IntentRouter
+    from services.chat.intent_detector import Intent, IntentResult
+
+    mock_dead_code = MagicMock()
+    mock_res = MagicMock()
+    mock_res.dead_files = [MagicMock(file_path="src/unused.py")]
+    mock_res.orphan_modules = []
+    mock_res.dead_dependency_chains = []
+    mock_dead_code.analyze.return_value = mock_res
+
+    mock_git = MagicMock()
+    mock_churn = MagicMock()
+    mock_churn.total_commits = 42
+    mock_churn.hotspots = [MagicMock(file_path="src/hotspot.py", commits=15)]
+    mock_git.load.return_value = mock_churn
+
+    mock_arch = MagicMock()
+    mock_summary = MagicMock()
+    mock_summary.total_files = 100
+    mock_summary.total_dependencies = 250
+    mock_summary.cycles = []
+    mock_summary.high_coupling_modules = ["src/core.py"]
+    mock_arch.get_summary.return_value = mock_summary
+
+    router = IntentRouter(
+        architecture_service=mock_arch,
+        dead_code_service=mock_dead_code,
+        git_history_service=mock_git,
+    )
+
+    # 1. DEAD_CODE intent
+    r_dead = router.route(
+        "owner/repo", "Find dead code", IntentResult(intent=Intent.DEAD_CODE)
+    )
+    assert r_dead.has_data is True
+    assert "src/unused.py" in r_dead.structured_context
+
+    # 2. GIT_HISTORY intent
+    r_git = router.route(
+        "owner/repo", "Show git churn", IntentResult(intent=Intent.GIT_HISTORY)
+    )
+    assert r_git.has_data is True
+    assert "src/hotspot.py" in r_git.structured_context
+
+    # 3. HEALTH intent
+    r_health = router.route(
+        "owner/repo", "What is the health score?", IntentResult(intent=Intent.HEALTH)
+    )
+    assert r_health.has_data is True
+    assert "src/core.py" in r_health.structured_context

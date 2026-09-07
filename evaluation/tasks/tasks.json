@@ -1,0 +1,313 @@
+[
+  {
+    "task_id": "task-01-fastapi-oauth2",
+    "repository": "fastapi/fastapi",
+    "revision": "49033471594ea5d99a80abdf1043231b7791ee49",
+    "change_description": "Modify OAuth2PasswordBearer tokenUrl requirement and validation in fastapi/security/oauth2.py",
+    "ground_truth_files": [
+      "fastapi/security/oauth2.py",
+      "fastapi/security/__init__.py",
+      "docs_src/security/tutorial004_an_py310.py",
+      "docs_src/security/tutorial005_an_py310.py"
+    ],
+    "ground_truth_symbols": [
+      "OAuth2PasswordBearer",
+      "OAuth2PasswordRequestForm"
+    ],
+    "ground_truth_callers": [
+      "login_for_access_token",
+      "read_users_me"
+    ],
+    "ground_truth_dependencies": [
+      "fastapi/security/base.py",
+      "fastapi/openapi/models.py"
+    ],
+    "ground_truth_tests": [
+      "tests/test_security_oauth2_password_bearer_optional.py",
+      "tests/test_security_oauth2_optional_description.py",
+      "tests/test_security_oauth2_authorization_code_bearer.py"
+    ],
+    "ground_truth_api_surfaces": [
+      "/token",
+      "/users/me"
+    ],
+    "ground_truth_risk": "high"
+  },
+  {
+    "task_id": "task-02-fastapi-serialize-response",
+    "repository": "fastapi/fastapi",
+    "revision": "49033471594ea5d99a80abdf1043231b7791ee49",
+    "change_description": "Refactor serialize_response to support custom json encoders in fastapi/routing.py",
+    "ground_truth_files": [
+      "fastapi/routing.py",
+      "fastapi/applications.py",
+      "fastapi/__init__.py"
+    ],
+    "ground_truth_symbols": [
+      "serialize_response",
+      "APIRoute",
+      "run_endpoint_function"
+    ],
+    "ground_truth_callers": [
+      "APIRoute.get_route_handler",
+      "run_endpoint_function"
+    ],
+    "ground_truth_dependencies": [
+      "fastapi/dependencies/models.py",
+      "fastapi/encoders.py"
+    ],
+    "ground_truth_tests": [
+      "tests/test_serialize_response.py",
+      "tests/test_response_model.py"
+    ],
+    "ground_truth_api_surfaces": [
+      "All public HTTP route handlers"
+    ],
+    "ground_truth_risk": "extreme"
+  },
+  {
+    "task_id": "task-03-fastapi-status-codes",
+    "repository": "fastapi/fastapi",
+    "revision": "49033471594ea5d99a80abdf1043231b7791ee49",
+    "change_description": "Deprecate HTTP_404_NOT_FOUND alias in fastapi/status.py in favor of standard starlette status codes",
+    "ground_truth_files": [
+      "fastapi/status.py",
+      "fastapi/__init__.py"
+    ],
+    "ground_truth_symbols": [
+      "HTTP_404_NOT_FOUND"
+    ],
+    "ground_truth_callers": [],
+    "ground_truth_dependencies": [
+      "starlette/status.py"
+    ],
+    "ground_truth_tests": [
+      "tests/test_status_codes.py"
+    ],
+    "ground_truth_api_surfaces": [
+      "fastapi.status"
+    ],
+    "ground_truth_risk": "low"
+  },
+  {
+    "task_id": "task-04-requests-session-send",
+    "repository": "psf/requests",
+    "revision": "5460f467b02e49471c0fd6cfc9ca0adab6351f98",
+    "change_description": "Refactor Session.send method to handle custom retries and stream hooks in src/requests/sessions.py",
+    "ground_truth_files": [
+      "src/requests/sessions.py",
+      "src/requests/api.py",
+      "src/requests/adapters.py"
+    ],
+    "ground_truth_symbols": [
+      "Session.send",
+      "Session.request"
+    ],
+    "ground_truth_callers": [
+      "Session.request",
+      "request",
+      "get",
+      "post"
+    ],
+    "ground_truth_dependencies": [
+      "src/requests/models.py",
+      "src/requests/hooks.py",
+      "src/requests/utils.py"
+    ],
+    "ground_truth_tests": [
+      "tests/test_requests.py",
+      "tests/test_sessions.py"
+    ],
+    "ground_truth_api_surfaces": [
+      "requests.Session.send",
+      "requests.Session.request",
+      "requests.api.request"
+    ],
+    "ground_truth_risk": "high"
+  },
+  {
+    "task_id": "task-05-requests-adapters-ssl",
+    "repository": "psf/requests",
+    "revision": "5460f467b02e49471c0fd6cfc9ca0adab6351f98",
+    "change_description": "Update HTTPAdapter.cert_verify to support system trust stores in src/requests/adapters.py",
+    "ground_truth_files": [
+      "src/requests/adapters.py",
+      "src/requests/sessions.py"
+    ],
+    "ground_truth_symbols": [
+      "HTTPAdapter.cert_verify",
+      "HTTPAdapter.init_poolmanager"
+    ],
+    "ground_truth_callers": [
+      "HTTPAdapter.send",
+      "HTTPAdapter.get_connection"
+    ],
+    "ground_truth_dependencies": [
+      "src/requests/certs.py",
+      "src/requests/compat.py"
+    ],
+    "ground_truth_tests": [
+      "tests/test_adapters.py",
+      "tests/test_requests.py"
+    ],
+    "ground_truth_api_surfaces": [
+      "requests.adapters.HTTPAdapter.cert_verify"
+    ],
+    "ground_truth_risk": "medium"
+  },
+  {
+    "task_id": "task-06-requests-models-response",
+    "repository": "psf/requests",
+    "revision": "5460f467b02e49471c0fd6cfc9ca0adab6351f98",
+    "change_description": "Add custom payload cache and decoding to Response.content in src/requests/models.py",
+    "ground_truth_files": [
+      "src/requests/models.py",
+      "src/requests/sessions.py",
+      "src/requests/adapters.py"
+    ],
+    "ground_truth_symbols": [
+      "Response.content",
+      "Response.text",
+      "Response.json"
+    ],
+    "ground_truth_callers": [
+      "Response.text",
+      "Response.json"
+    ],
+    "ground_truth_dependencies": [
+      "src/requests/structures.py",
+      "src/requests/exceptions.py"
+    ],
+    "ground_truth_tests": [
+      "tests/test_requests.py"
+    ],
+    "ground_truth_api_surfaces": [
+      "requests.models.Response.content",
+      "requests.models.Response.text"
+    ],
+    "ground_truth_risk": "medium"
+  },
+  {
+    "task_id": "task-07-aria-symbol-schema",
+    "repository": "VarshithReddy2006/ARIA",
+    "revision": "bbc81833baa1b2c6c01a63528bf270a653281729",
+    "change_description": "Add visibility enum constraint to Symbol model in models/symbol.py",
+    "ground_truth_files": [
+      "models/symbol.py",
+      "services/symbol_service.py",
+      "backend/routers/symbols.py",
+      "services/api_surface_service.py"
+    ],
+    "ground_truth_symbols": [
+      "Symbol",
+      "SymbolIndex"
+    ],
+    "ground_truth_callers": [
+      "SymbolService.build_full",
+      "SymbolService.get_definition"
+    ],
+    "ground_truth_dependencies": [
+      "models/phase2.py"
+    ],
+    "ground_truth_tests": [
+      "tests/test_symbol_service.py",
+      "tests/test_evidence_impact_analysis.py"
+    ],
+    "ground_truth_api_surfaces": [
+      "/api/v1/symbols/{owner}/{repo}/file"
+    ],
+    "ground_truth_risk": "medium"
+  },
+  {
+    "task_id": "task-08-aria-call-graph-blast-radius",
+    "repository": "VarshithReddy2006/ARIA",
+    "revision": "bbc81833baa1b2c6c01a63528bf270a653281729",
+    "change_description": "Enhance CallGraphService.get_blast_radius to include depth filter and cycle detection in services/call_graph_service.py",
+    "ground_truth_files": [
+      "services/call_graph_service.py",
+      "backend/routers/call_graph.py",
+      "services/impact_analysis_service.py"
+    ],
+    "ground_truth_symbols": [
+      "CallGraphService.get_blast_radius",
+      "CallGraphQueryEngine.get_blast_radius"
+    ],
+    "ground_truth_callers": [
+      "get_blast_radius_endpoint",
+      "ImpactAnalysisService._resolve_callers"
+    ],
+    "ground_truth_dependencies": [
+      "models/call_graph.py",
+      "services/call_graph/query.py"
+    ],
+    "ground_truth_tests": [
+      "tests/test_call_graph.py",
+      "tests/test_evidence_impact_analysis.py"
+    ],
+    "ground_truth_api_surfaces": [
+      "/api/v1/call-graph/{owner}/{repo}/blast-radius/{function_id}"
+    ],
+    "ground_truth_risk": "high"
+  },
+  {
+    "task_id": "task-09-aria-api-surface-status",
+    "repository": "VarshithReddy2006/ARIA",
+    "revision": "bbc81833baa1b2c6c01a63528bf270a653281729",
+    "change_description": "Introduce EXPERIMENTAL lifecycle status to ApiStatus enum in models/api_surface.py",
+    "ground_truth_files": [
+      "models/api_surface.py",
+      "services/api_surface_service.py",
+      "services/breaking_change_analyzer.py",
+      "backend/routers/api_surface.py"
+    ],
+    "ground_truth_symbols": [
+      "ApiStatus",
+      "ClassifiedSymbol"
+    ],
+    "ground_truth_callers": [
+      "APISurfaceService._classify_symbol",
+      "BreakingChangeAnalyzer.analyze"
+    ],
+    "ground_truth_dependencies": [
+      "models/phase2.py"
+    ],
+    "ground_truth_tests": [
+      "tests/test_api_surface.py"
+    ],
+    "ground_truth_api_surfaces": [
+      "/api/v1/api-surface/{owner}/{repo}"
+    ],
+    "ground_truth_risk": "medium"
+  },
+  {
+    "task_id": "task-10-aria-impact-engine-bucketing",
+    "repository": "VarshithReddy2006/ARIA",
+    "revision": "bbc81833baa1b2c6c01a63528bf270a653281729",
+    "change_description": "Modify blast radius category bucketing (XS, S, M, L, XL) and threshold weights in services/impact_analysis_service.py",
+    "ground_truth_files": [
+      "services/impact_analysis_service.py",
+      "backend/routers/architecture.py",
+      "tests/test_evidence_impact_analysis.py"
+    ],
+    "ground_truth_symbols": [
+      "ImpactAnalysisService._classify_blast_radius",
+      "ImpactAnalysisService.analyze_change"
+    ],
+    "ground_truth_callers": [
+      "get_impact_analysis"
+    ],
+    "ground_truth_dependencies": [
+      "models/phase2.py",
+      "services/architecture_service.py"
+    ],
+    "ground_truth_tests": [
+      "tests/test_evidence_impact_analysis.py",
+      "tests/test_impact_analysis.py"
+    ],
+    "ground_truth_api_surfaces": [
+      "/api/impact-analysis",
+      "/api/v1/architecture/{owner}/{repo}/impact"
+    ],
+    "ground_truth_risk": "medium"
+  }
+]

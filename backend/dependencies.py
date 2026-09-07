@@ -902,7 +902,13 @@ def get_impact_analysis_service() -> ImpactAnalysisService:
 
     return _get_or_create(
         "impact_analysis_service",
-        lambda: ImpactAnalysisService(architecture_service=get_architecture_service()),
+        lambda: ImpactAnalysisService(
+            architecture_service=get_architecture_service(),
+            graph_service=get_graph_service(),
+            symbol_service=get_symbol_service(),
+            call_graph_service=get_call_graph_service(),
+            api_surface_service=get_api_surface_service(),
+        ),
     )
 
 
@@ -1206,6 +1212,9 @@ def get_retrieval_pipeline() -> Any:
             impact_analysis_service=get_impact_analysis_service(),
             api_surface_service=get_api_surface_service(),
             call_graph_service=get_call_graph_service(),
+            dead_code_service=get_dead_code_service(),
+            git_history_service=get_git_history_service(),
+            pr_intelligence_service=get_pr_intelligence_service(),
         )
 
         return RetrievalPipeline(

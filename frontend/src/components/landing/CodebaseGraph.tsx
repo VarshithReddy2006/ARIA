@@ -501,7 +501,7 @@ export const CodebaseGraph: React.FC = () => {
                   key={node.id}
                   transform={`translate(${node.x} ${node.y})`}
                   style={{
-                    opacity: inView ? (dim ? 0.14 : 1) : 0,
+                    opacity: inView ? (dim ? 0.55 : 1) : 0,
                     transition: reduced
                       ? undefined
                       : `opacity 900ms cubic-bezier(0.16,1,0.3,1) ${i * 110}ms`,
@@ -580,7 +580,7 @@ export const CodebaseGraph: React.FC = () => {
                   style={{
                     left: `${(node.x / VIEW_W) * 100}%`,
                     top: `${(node.y / viewH) * 100}%`,
-                    opacity: inView ? (dim ? 0.14 : 1) : 0,
+                    opacity: inView ? (dim ? 0.75 : 1) : 0,
                     transition: 'opacity 500ms ease',
                     /* Tokens rather than literals, so the label tiers track the
                      * design system instead of drifting from it. */
@@ -588,7 +588,7 @@ export const CodebaseGraph: React.FC = () => {
                       ? 'var(--text)'
                       : isNeighbour
                         ? 'var(--text-muted)'
-                        : '#5a5d66',
+                        : '#818895',
                     fontWeight: isActive ? 600 : 400,
                   }}
                 >
@@ -612,7 +612,7 @@ export const CodebaseGraph: React.FC = () => {
           down and rebuilding the region a screen reader is listening to.
         */}
         <div
-          className="mt-6 md:mt-0 md:absolute md:right-0 md:bottom-0 md:w-[26rem]"
+          className="mt-6 md:mt-0 md:absolute md:right-0 md:bottom-0 md:w-[27rem]"
           aria-live="polite"
           style={{
             opacity: inView ? 1 : 0,
@@ -624,60 +624,99 @@ export const CodebaseGraph: React.FC = () => {
         >
           <div
             key={`inspector-${selectedId ?? 'initial'}`}
-            className={`spec-panel p-6 sm:p-7 ${
-              inView && !reduced && selectedId ? 'inspector-resolve evidence-stack' : ''
-            }`}
+            className="rounded-xl border border-white/[0.08] bg-gradient-to-b from-[#0D1220]/95 to-[#070A12]/98 backdrop-blur-2xl p-6 sm:p-7 shadow-[0_8px_32px_rgba(0,0,0,0.8)]"
           >
             <div className="flex items-center justify-between mb-4">
-              <span className="mono-label mono-label-accent">SELECTED MODULE</span>
-              <span className="mono-label">{GROUP_LABEL[active.group]}</span>
+              <span className="mono-label text-[#818CF8] font-bold flex items-center gap-1.5">
+                <span className="h-1.5 w-1.5 rounded-full bg-[#818CF8] shadow-[0_0_6px_rgba(129,140,248,0.8)] animate-pulse"></span>
+                SELECTED MODULE
+              </span>
+              <span className="mono-label text-[#CBD5E1] bg-[#0A0D14] px-2.5 py-0.5 rounded-md border border-white/[0.08] font-bold">{GROUP_LABEL[active.group]}</span>
             </div>
 
             {/* Identity, then explanation, then figures — in that order. */}
             <div>
               <p
-                className="font-mono text-[13px] sm:text-sm text-text font-semibold leading-relaxed"
+                className="font-mono text-[13px] sm:text-sm text-[#F8FAFC] font-bold leading-relaxed"
                 style={{ wordBreak: 'break-word', overflowWrap: 'anywhere' }}
               >
                 {active.path.includes('/') ? (
                   <>
-                    <span className="text-text-subtle/70">{active.path.slice(0, active.path.lastIndexOf('/') + 1)}</span>
-                    <span>{active.path.slice(active.path.lastIndexOf('/') + 1)}</span>
+                    <span className="text-[#94A3B8]">{active.path.slice(0, active.path.lastIndexOf('/') + 1)}</span>
+                    <span className="text-[#F8FAFC]">{active.path.slice(active.path.lastIndexOf('/') + 1)}</span>
                   </>
                 ) : (
                   active.path
                 )}
               </p>
 
-              <p className="mt-3 text-[13px] text-text-muted leading-relaxed">{active.summary}</p>
+              <p className="mt-3 text-[13px] text-[#CBD5E1] leading-relaxed font-sans">{active.summary}</p>
             </div>
 
-            <p className="mt-3.5 text-[13px] text-text leading-relaxed">
-              <span className="mono-label mr-2">WHY</span>
+            <p className="mt-3.5 text-[13px] text-[#F8FAFC] leading-relaxed font-sans">
+              <span className="mono-label mr-2 text-[#818CF8] font-bold">WHY</span>
               {active.why}
             </p>
 
-            <div className="mt-6 pt-5 hair-t flex gap-5">
-              <Metric label="CALLERS" value={active.callers} active={inView} />
-              <Metric label="IMPORTS" value={active.imports} active={inView} />
-              <Metric
-                label="PAGERANK"
-                value={Math.round(active.rank * 100)}
-                suffix="%"
-                active={inView}
-                tone="success"
-              />
+            <div className="mt-6 pt-5 border-t border-white/[0.08] flex gap-5">
+              <div className="flex-1 min-w-0">
+                <div className="mono-label mb-1.5 text-[#34D399] font-bold">CALLERS</div>
+                <div className="font-mono text-2xl sm:text-[1.75rem] font-bold tabular-nums leading-none text-[#34D399]">
+                  {active.callers}
+                </div>
+              </div>
+              <div className="flex-1 min-w-0">
+                <div className="mono-label mb-1.5 text-[#818CF8] font-bold">IMPORTS</div>
+                <div className="font-mono text-2xl sm:text-[1.75rem] font-bold tabular-nums leading-none text-[#818CF8]">
+                  {active.imports}
+                </div>
+              </div>
+              <div className="flex-1 min-w-0">
+                <div className="mono-label mb-1.5 text-[#94A3B8] font-bold">PAGERANK</div>
+                <div className="font-mono text-2xl sm:text-[1.75rem] font-bold tabular-nums leading-none text-[#F8FAFC]">
+                  {Math.round(active.rank * 100)}%
+                </div>
+              </div>
             </div>
 
-            {/*
-              An affordance, not a status light — so the dot rests. A breathing
-              dot beside "select any module" implied the graph was doing something
-              while the reader was doing nothing.
-            */}
-            <p className="mt-6 mono-detail flex items-center gap-2" style={{ fontSize: 10 }}>
-              <span className="h-1 w-1 rounded-full bg-primary" aria-hidden="true" />
-              Select any module to re-target
-            </p>
+            {/* Interactive Blast Radius Trigger */}
+            <div className="mt-5 pt-4 border-t border-white/[0.08] flex items-center justify-between gap-3">
+              <div>
+                <div className="text-[10px] font-mono text-emerald-400 font-bold uppercase tracking-wider">
+                  CHANGE PROPAGATION
+                </div>
+                <div className="text-[10px] font-mono text-[#94A3B8]">
+                  {neighbours.size} nodes directly connected
+                </div>
+              </div>
+              <a
+                href={`/impact`}
+                className="px-3 py-1.5 rounded-lg bg-emerald-500/15 border border-emerald-500/40 text-emerald-300 hover:bg-emerald-500/25 text-[10px] font-mono font-bold tracking-wider uppercase transition-all shadow-[0_0_12px_rgba(52,211,153,0.2)]"
+              >
+                TRACE IMPACT →
+              </a>
+            </div>
+
+            {/* Interactive Module Picker / Affordance */}
+            <div className="mt-4 pt-3.5 border-t border-white/[0.08]">
+              <span className="mono-label block mb-2 text-[10px] text-[#94A3B8] font-bold">SELECT ANOTHER MODULE</span>
+              <div className="flex flex-wrap gap-1.5">
+                {nodes.slice(0, 5).map((n) => (
+                  <button
+                    key={n.id}
+                    type="button"
+                    onClick={() => setSelectedId(n.id)}
+                    className={`px-2.5 py-1 rounded-md text-[10.5px] font-mono transition-all ${
+                      n.id === activeId
+                        ? 'bg-[#818CF8]/20 border border-[#818CF8] text-white font-bold shadow-[0_0_12px_rgba(129,140,248,0.3)]'
+                        : 'bg-[#0A0D14] border border-white/[0.08] text-[#94A3B8] hover:text-[#F8FAFC] hover:border-white/[0.2]'
+                    }`}
+                  >
+                    {n.label}
+                  </button>
+                ))}
+              </div>
+            </div>
           </div>
         </div>
       </div>

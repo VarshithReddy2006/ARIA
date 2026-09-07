@@ -148,7 +148,9 @@ class TestContextBuilderGuidelines:
         assert "Evidence" in ctx.prompt
         assert "**File:** `path`" in ctx.prompt
         assert "**Lines:** X–Y" in ctx.prompt
-        assert "Never dump large raw code blocks" in ctx.prompt
+        assert (
+            "Do NOT output code blocks unless reproducing verbatim lines" in ctx.prompt
+        )
 
 
 # ---------------------------------------------------------------------------

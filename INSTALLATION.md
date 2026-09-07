@@ -40,12 +40,18 @@ LLM_PROVIDER=gemini
 
 # Google Gemini API key
 GEMINI_API_KEY=your_google_ai_studio_api_key
-GEMINI_MODEL=gemini-2.5-flash
+GEMINI_MODEL=gemini-3.1-flash-lite
 
 # NVIDIA NIM DeepSeek configuration (failover or primary)
 DEEPSEEK_API_KEY=your_nvidia_nim_api_key
 DEEPSEEK_BASE_URL=https://integrate.api.nvidia.com/v1
-DEEPSEEK_MODEL=deepseek-ai/deepseek-v4-flash
+DEEPSEEK_MODEL=deepseek-ai/deepseek-v4-flash-0731
+DEEPSEEK_FALLBACK_MODELS=meta/llama-3.2-11b-vision-instruct,minimaxai/minimax-m3
+
+# LLM Timeout Boundaries (seconds)
+LLM_CONNECT_TIMEOUT=10.0
+LLM_READ_TIMEOUT=60.0
+LLM_TOTAL_TIMEOUT=60.0
 
 # ── Ingestion & In-Memory Store ──────────────────────────────────────────────
 # Personal Access Token (PAT) recommended to avoid rate limits when cloning

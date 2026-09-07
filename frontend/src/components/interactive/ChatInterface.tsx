@@ -33,6 +33,7 @@ import { tokenizeCode, type Token } from '../../lib/tokenizer';
 import { sanitizeMarkdown } from '../../lib/sanitizer';
 import {
   detectChatIntent,
+  getActionForIntent,
   generateSuggestedPrompts,
   generateFollowUpPrompts,
   redactSecrets,
@@ -328,26 +329,26 @@ const EvidenceBadge: React.FC<{ level: EvidenceLevel }> = ({ level }) => {
   switch (level) {
     case 'VERIFIED':
       return (
-        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[9.5px] font-mono font-bold bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
+        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[9.5px] font-mono font-bold bg-success/10 text-success border border-success/30">
           <Shield className="h-2.5 w-2.5" /> VERIFIED
         </span>
       );
     case 'STRONGLY INFERRED':
       return (
-        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[9.5px] font-mono font-bold bg-primary/10 text-primary border border-primary/20">
+        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[9.5px] font-mono font-bold bg-primary/10 text-primary border border-primary/25">
           <Workflow className="h-2.5 w-2.5" /> STRONGLY INFERRED
         </span>
       );
     case 'INFERRED':
       return (
-        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[9.5px] font-mono font-bold bg-amber-500/10 text-amber-400 border border-amber-500/20">
-          <Info className="h-2.5 w-2.5" /> INFERRED
+        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[9.5px] font-mono font-bold bg-surface-2 text-text-muted border border-white/[0.06]">
+          <Info className="h-2.5 w-2.5 text-text-subtle" /> INFERRED
         </span>
       );
     default:
       return (
-        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[9.5px] font-mono font-bold bg-zinc-500/10 text-zinc-400 border border-zinc-500/20">
-          <AlertTriangle className="h-2.5 w-2.5" /> UNKNOWN
+        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[9.5px] font-mono font-bold bg-warn/10 text-warn border border-warn/25">
+          <AlertTriangle className="h-2.5 w-2.5" /> UNCERTAIN
         </span>
       );
   }
@@ -866,7 +867,9 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({
                 setLastReferencedEntity(finalSources[0]);
               }
               const serverFollowUps = Array.isArray(data.follow_ups) && data.follow_ups.length > 0 ? data.follow_ups : null;
-              const followUps = serverFollowUps || generateFollowUpPrompts(userPrompt, intentInfo.intent, accumulatedText, finalSources);
+              const resolvedIntent = (data.intent || intentInfo.intent) as ChatIntent;
+              const { actionTarget: finalActionTarget, actionLabel: finalActionLabel } = getActionForIntent(resolvedIntent);
+              const followUps = serverFollowUps || generateFollowUpPrompts(userPrompt, resolvedIntent, accumulatedText, finalSources);
 
               setMessages((prev) => {
                 const finalTxt = accumulatedText.trim() || '⚠️ The AI provider returned an empty response. Repository intelligence fallback applied.';
@@ -878,6 +881,9 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({
                     sources: finalSources,
                     confidence: data.confidence ?? 0,
                     fallbackMode: data.fallback_mode ?? false,
+                    intent: resolvedIntent,
+                    actionTarget: finalActionTarget,
+                    actionLabel: finalActionLabel,
                     followUps,
                   };
                 });
@@ -1002,13 +1008,13 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({
   };
 
   return (
-    <div className="flex flex-col min-h-[550px] h-full border border-border bg-card/10 rounded-xl overflow-hidden w-full shadow-float">
+    <div className="flex flex-col min-h-[550px] h-full border border-white/[0.07] bg-surface-0/60 rounded-xl overflow-hidden w-full shadow-2xl backdrop-blur-sm">
       {/* Header */}
-      <div className="flex items-center justify-between px-5 py-3.5 border-b border-border bg-card/45 shrink-0 select-none">
+      <div className="flex items-center justify-between px-5 py-3.5 border-b border-white/[0.06] bg-surface-1/40 shrink-0 select-none">
         <div className="flex items-center gap-2">
           <MessageSquareCode className="h-4 w-4 text-primary" />
-          <span className="font-mono text-xs font-bold text-text uppercase tracking-wider">
-            Repository Engineering Copilot
+          <span className="mono-label text-text font-semibold tracking-[0.16em] text-xs">
+            REPOSITORY ENGINEERING COPILOT
           </span>
         </div>
 
@@ -1017,7 +1023,7 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({
             <button
               type="button"
               onClick={handleClearHistory}
-              className="text-[10px] font-mono text-text-subtle hover:text-text hover:underline flex items-center gap-1 mr-1 transition-colors"
+              className="text-[10.5px] font-mono text-text-subtle hover:text-text hover:underline flex items-center gap-1 mr-1 transition-colors"
               title="Clear conversation history"
             >
               <Trash2 className="h-3 w-3" />
@@ -1025,7 +1031,7 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({
             </button>
           )}
 
-          <span className="text-[10px] font-mono border border-primary/25 text-primary px-2.5 py-0.5 rounded-md bg-primary/5 truncate max-w-[200px]">
+          <span className="text-[10px] font-mono border border-white/[0.08] text-text-muted px-2.5 py-0.5 rounded-md bg-surface-2 truncate max-w-[200px]">
             {activeRepo || 'no repo'}
           </span>
         </div>
@@ -1049,26 +1055,28 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({
       {/* Empty State Welcome Dashboard with Dynamic Prompts */}
       {!noRepoError && messages.length === 0 && (
         <div className="flex-grow flex flex-col items-center justify-center p-6 gap-6 text-center max-w-2xl mx-auto my-auto fade-up">
-          <div className="h-12 w-12 rounded-full bg-primary/10 border border-primary/20 flex items-center justify-center text-primary select-none">
-            <Sparkles className="h-6 w-6" />
+          <div className="h-11 w-11 rounded-xl bg-surface-1 border border-white/[0.08] flex items-center justify-center text-primary select-none shadow-card">
+            <Sparkles className="h-5 w-5" />
           </div>
-          <div className="space-y-2">
-            <h2 className="text-base font-bold text-text font-mono">Chat with {activeRepo}</h2>
+          <div className="space-y-1.5">
+            <h2 className="mono-label text-text font-semibold tracking-[0.16em] text-sm">
+              CHAT WITH {activeRepo}
+            </h2>
             <p className="text-xs text-text-muted leading-relaxed font-sans max-w-md">
-              Ask about execution flows, function callers, change planning, blast radius impact, or architectural bottlenecks.
+              Ask about execution flows, function callers, change planning, blast radius impact, or architectural bottlenecks. Grounded in AST and dependency graphs.
             </p>
           </div>
 
           <div className="w-full text-left mt-2 select-none">
-            <p className="text-[10px] uppercase font-mono tracking-widest text-text-subtle font-semibold mb-3 flex items-center gap-1.5 justify-center">
-              Suggested Engineering Inquiries
+            <p className="mono-label text-[10px] text-text-subtle uppercase tracking-[0.16em] mb-3 text-center">
+              SUGGESTED ENGINEERING INQUIRIES
             </p>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
               {dynamicPrompts.map((q) => (
                 <button
                   key={q}
                   onClick={() => handleSend(q)}
-                  className="card p-3 text-left hover:border-primary/40 hover:bg-primary/5 transition-all text-xs font-sans text-text-muted hover:text-text duration-200 group flex items-start gap-2.5"
+                  className="p-3 text-left rounded-lg border border-white/[0.06] bg-surface-1/50 hover:border-primary/40 hover:bg-surface-1/80 transition-all text-xs font-sans text-text-muted hover:text-text group flex items-start gap-2.5"
                 >
                   <MessageSquareCode className="h-4 w-4 text-primary/70 shrink-0 mt-0.5 group-hover:text-primary transition-colors" />
                   <span className="leading-relaxed">{q}</span>
@@ -1094,18 +1102,18 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({
               >
                 {/* Avatar */}
                 <div
-                  className={`h-8 w-8 rounded-full flex items-center justify-center shrink-0 border select-none ${
+                  className={`h-7 w-7 rounded-lg flex items-center justify-center shrink-0 border select-none ${
                     msg.sender === 'user'
-                      ? 'bg-primary/10 border-primary/30 text-primary'
+                      ? 'bg-primary/15 border-primary/30 text-primary'
                       : msg.isError
-                      ? 'bg-red-500/10 border-red-500/30 text-red-400'
-                      : 'bg-card border-border text-text-muted'
+                      ? 'bg-danger/10 border-danger/30 text-danger'
+                      : 'bg-surface-2 border-white/[0.06] text-text-muted'
                   }`}
                 >
                   {msg.sender === 'user' ? (
-                    <User className="h-4 w-4" />
+                    <User className="h-3.5 w-3.5" />
                   ) : (
-                    <Bot className="h-4 w-4" />
+                    <Bot className="h-3.5 w-3.5" />
                   )}
                 </div>
 
@@ -1113,30 +1121,30 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({
                 <div className="flex flex-col gap-1.5 min-w-0 flex-1">
                   {/* Intent indicator if present */}
                   {msg.sender === 'user' && msg.intent && msg.intent !== 'GENERAL_REPOSITORY' && (
-                    <span className="text-[9px] font-mono uppercase text-text-subtle self-end px-1">
-                      Intent: {msg.intent.replace('_', ' ')}
+                    <span className="text-[9.5px] font-mono uppercase text-text-subtle self-end px-1 tracking-wider">
+                      INTENT: {msg.intent.replace('_', ' ')}
                     </span>
                   )}
 
                   <div
-                    className={`p-3.5 rounded-xl border leading-relaxed break-words shadow-card ${
+                    className={`p-3.5 sm:p-4 rounded-xl border leading-relaxed break-words ${
                       msg.sender === 'user'
-                        ? 'bg-primary/10 border-primary/20 text-text'
+                        ? 'bg-[rgba(14,14,18,0.72)] border-[rgba(124,134,232,0.34)] text-[#F4F4F5] shadow-sm backdrop-blur-md'
                         : msg.isError
-                        ? 'bg-red-500/5 border-red-500/20 text-red-400 font-mono'
+                        ? 'bg-danger/5 border-danger/25 text-danger font-mono'
                         : msg.fallbackMode
-                        ? 'bg-amber-500/5 border-amber-500/20 text-text'
-                        : 'bg-card/40 border-border text-text'
+                        ? 'bg-warn/5 border-warn/25 text-text'
+                        : 'bg-[rgba(14,14,18,0.72)] border-white/[0.07] text-[#F4F4F5] shadow-card backdrop-blur-md'
                     }`}
                   >
                     {msg.sender === 'user' ? (
-                      <p className="whitespace-pre-wrap leading-relaxed break-words text-text/95">
+                      <p className="whitespace-pre-wrap leading-relaxed break-words text-text font-sans text-xs sm:text-[13px]">
                         {msg.text}
                       </p>
                     ) : msg.text === '' ? (
                       <TypingIndicator />
                     ) : (
-                      <div className="markdown-body font-sans text-[12px] overflow-hidden">
+                      <div className="markdown-body font-sans text-xs sm:text-[13px] overflow-hidden max-w-3xl">
                         <Markdown
                           content={msg.text}
                           isStreaming={isStreaming && idx === messages.length - 1}
@@ -1153,7 +1161,7 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({
 
                   {/* Message Timestamp */}
                   {msg.timestamp && (
-                    <span className={`text-[8px] font-mono text-text-muted mt-0.5 px-1 select-none ${
+                    <span className={`text-[8.5px] font-mono text-text-subtle mt-0.5 px-1 select-none ${
                       msg.sender === 'user' ? 'self-end' : 'self-start'
                     }`}>
                       {msg.timestamp}
@@ -1163,20 +1171,32 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({
                   {/* Toolbar & Cross-Surface Action Bar under assistant bubble */}
                   {msg.sender === 'assistant' && msg.text !== '' && (
                     <div className="space-y-2 mt-1 pl-1">
-                      <div className="flex items-center gap-3.5 text-[10px] text-text-muted select-none flex-wrap">
+                      <div className="flex items-center gap-2 text-[10px] text-text-muted select-none flex-wrap">
+                        {/* Primary Cross-Surface Action Button */}
+                        {msg.actionTarget && (
+                          <button
+                            type="button"
+                            onClick={() => handleCrossSurfaceAction(msg.actionTarget, msg.sources?.[0])}
+                            className="px-2.5 py-1 rounded-md text-[10.5px] font-sans font-semibold inline-flex items-center gap-1.5 text-white bg-primary hover:bg-primary-hover transition-colors shadow-sm focus-visible:outline-none"
+                          >
+                            <ArrowRight className="h-3 w-3" />
+                            <span>{msg.actionLabel || 'Inspect in Graph'}</span>
+                          </button>
+                        )}
+
                         <button
                           type="button"
                           onClick={() => handleCopyAnswer(msg.text, msg.id)}
-                          className="flex items-center gap-1 hover:text-text transition-colors"
+                          className="px-2.5 py-1 rounded-md bg-surface-1/70 border border-white/[0.06] hover:bg-surface-2 text-text-muted hover:text-text transition-colors flex items-center gap-1 font-sans"
                         >
                           {copiedAnswerId === msg.id ? (
                             <>
-                              <CheckCircle2 className="h-3.5 w-3.5 text-emerald-500" />
-                              <span className="text-emerald-500 font-semibold">Copied answer</span>
+                              <CheckCircle2 className="h-3 w-3 text-success" />
+                              <span className="text-success font-semibold">Copied answer</span>
                             </>
                           ) : (
                             <>
-                              <Copy className="h-3.5 w-3.5" />
+                              <Copy className="h-3 w-3" />
                               <span>Copy answer</span>
                             </>
                           )}
@@ -1186,22 +1206,10 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({
                           <button
                             type="button"
                             onClick={handleRegenerate}
-                            className="flex items-center gap-1 hover:text-text transition-colors font-semibold"
+                            className="px-2.5 py-1 rounded-md bg-surface-1/70 border border-white/[0.06] hover:bg-surface-2 text-text-muted hover:text-text transition-colors flex items-center gap-1 font-sans font-medium"
                           >
-                            <RefreshCw className="h-3.5 w-3.5" />
+                            <RefreshCw className="h-3 w-3" />
                             <span>Regenerate</span>
-                          </button>
-                        )}
-
-                        {/* Primary Cross-Surface Action Button */}
-                        {msg.actionTarget && (
-                          <button
-                            type="button"
-                            onClick={() => handleCrossSurfaceAction(msg.actionTarget, msg.sources?.[0])}
-                            className="action-chip text-[10px] px-2 py-0.5 inline-flex items-center gap-1 text-primary bg-primary/10 border-primary/25 hover:bg-primary/20 transition-colors focus-visible:outline-none"
-                          >
-                            <ArrowRight className="h-3 w-3" />
-                            <span>{msg.actionLabel || 'Inspect in Graph'}</span>
                           </button>
                         )}
                       </div>
@@ -1265,7 +1273,7 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({
 
       {/* Input bar */}
       {!noRepoError && (
-        <div className="p-3.5 border-t border-border bg-card/25 shrink-0">
+        <div className="p-3 sm:p-4 border-t border-white/[0.06] bg-surface-0/90 backdrop-blur-sm shrink-0">
           <form
             onSubmit={(e) => {
               e.preventDefault();
@@ -1294,17 +1302,17 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({
                   : 'Waiting for repository...'
               }
               aria-label="Chat message"
-              className="flex-grow bg-canvas border border-border rounded-lg px-3.5 py-2.5 text-xs focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary font-sans text-text placeholder:text-text-muted/40 resize-none overflow-hidden leading-relaxed"
+              className="flex-grow bg-canvas/80 border border-white/[0.08] rounded-lg px-3.5 py-2.5 text-xs focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary font-sans text-text placeholder:text-text-subtle resize-none overflow-hidden leading-relaxed transition-colors"
               style={{ minHeight: '40px' }}
             />
             <button
               type="submit"
               disabled={isStreaming || !input.trim() || !activeRepo}
               aria-label="Send message"
-              className="bg-primary hover:bg-primary-hover text-text font-medium px-4 py-2.5 rounded-lg flex items-center gap-1.5 text-xs transition-all disabled:opacity-50 disabled:cursor-not-allowed focus-visible:outline-none focus-visible:shadow-ring shrink-0 hover:scale-[1.02] active:scale-[0.98] duration-150"
+              className="bg-primary hover:bg-primary-hover text-white font-medium px-4 py-2.5 rounded-lg flex items-center gap-1.5 text-xs transition-all disabled:opacity-40 disabled:cursor-not-allowed focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-primary shrink-0 shadow-sm"
             >
               {isStreaming ? (
-                <RefreshCw className="h-4 w-4 animate-spin text-text" aria-hidden="true" />
+                <RefreshCw className="h-4 w-4 animate-spin" aria-hidden="true" />
               ) : (
                 <Send className="h-4 w-4" aria-hidden="true" />
               )}

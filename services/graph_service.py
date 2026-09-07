@@ -217,6 +217,13 @@ class GraphService:
                         "Could not remove legacy pickle file %s: %s", pkl_path, exc
                     )
 
+            if not os.path.exists(json_path) and os.path.exists(self.graphs_dir):
+                target = f"{safe_name}.json".lower()
+                for fname in os.listdir(self.graphs_dir):
+                    if fname.lower() == target:
+                        json_path = os.path.join(self.graphs_dir, fname)
+                        break
+
             if not os.path.exists(json_path):
                 return None
 
@@ -231,10 +238,14 @@ class GraphService:
                 if isinstance(graph_data, dict):
                     if "edges" in graph_data and "links" not in graph_data:
                         graph_data["links"] = graph_data["edges"]
+                    elif "links" in graph_data and "edges" not in graph_data:
+                        graph_data["edges"] = graph_data["links"]
                     if "nodes" not in graph_data:
                         graph_data["nodes"] = []
                     if "links" not in graph_data:
                         graph_data["links"] = []
+                    if "edges" not in graph_data:
+                        graph_data["edges"] = graph_data["links"]
                 graph = nx.node_link_graph(graph_data)
                 logger.info("Graph loaded from %s", json_path)
                 return graph
@@ -246,7 +257,14 @@ class GraphService:
         """Return True if a persisted graph file exists for the given repo."""
         safe_name = repo_name.replace("/", "_")
         json_path = os.path.join(self.graphs_dir, f"{safe_name}.json")
-        return os.path.exists(json_path)
+        if os.path.exists(json_path):
+            return True
+        if os.path.exists(self.graphs_dir):
+            target = f"{safe_name}.json".lower()
+            for fname in os.listdir(self.graphs_dir):
+                if fname.lower() == target:
+                    return True
+        return False
 
     def get_visualization_graph(
         self,

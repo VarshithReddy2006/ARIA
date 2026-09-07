@@ -27,7 +27,7 @@ export const MiniDependencyPreviewTree: React.FC<DependencyTreeProps> = ({
           onClick={() => setOpenDependsOn(!openDependsOn)}
           className="w-full flex items-center justify-between px-3 py-2 bg-canvas/50 hover:bg-canvas/80 text-[10px] font-bold text-text-muted uppercase tracking-wider transition-colors"
         >
-          <span className="flex items-center gap-1.5 text-blue-400">
+          <span className="flex items-center gap-1.5 text-info">
             <ArrowRight className="h-3 w-3" /> Depends On ({dependsOn.length})
           </span>
           {openDependsOn ? <ChevronDown className="h-3.5 w-3.5" /> : <ChevronRight className="h-3.5 w-3.5" />}
@@ -61,7 +61,7 @@ export const MiniDependencyPreviewTree: React.FC<DependencyTreeProps> = ({
           onClick={() => setOpenImportedBy(!openImportedBy)}
           className="w-full flex items-center justify-between px-3 py-2 bg-canvas/50 hover:bg-canvas/80 text-[10px] font-bold text-text-muted uppercase tracking-wider transition-colors"
         >
-          <span className="flex items-center gap-1.5 text-emerald-400">
+          <span className="flex items-center gap-1.5 text-success">
             <ArrowLeft className="h-3 w-3" /> Imported By ({importedBy.length})
           </span>
           {openImportedBy ? <ChevronDown className="h-3.5 w-3.5" /> : <ChevronRight className="h-3.5 w-3.5" />}

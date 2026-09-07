@@ -1,6 +1,5 @@
 ---
 import Navbar from '../components/Navbar.astro';
-import RepoContextBar from '../components/RepoContextBar.astro';
 import '../styles/global.css';
 
 interface Props {
@@ -67,7 +66,6 @@ const canonical = Astro.url.href;
 
     <div id="sticky-header-shell" class="sticky top-0 z-50 w-full">
       <Navbar />
-      <RepoContextBar />
     </div>
 
     <main id="main-content" class="flex-grow flex flex-col w-full">

@@ -40,6 +40,16 @@ class Symbol(BaseModel):
         ge=1,
         description="1-indexed line number of the symbol definition.",
     )
+    start_line: Optional[int] = Field(
+        None,
+        ge=1,
+        description="1-indexed start line of the full symbol definition.",
+    )
+    end_line: Optional[int] = Field(
+        None,
+        ge=1,
+        description="1-indexed end line of the full symbol definition.",
+    )
     language: str = Field(
         ...,
         description="Source language: python | javascript | typescript | tsx",

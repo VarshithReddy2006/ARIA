@@ -1,0 +1,11 @@
+task_id,repository,baseline_latency_ms,baseline_files_precision,baseline_files_recall,baseline_files_f1,baseline_callers_f1,baseline_tests_f1,baseline_fp_files,aria_latency_ms,aria_files_precision,aria_files_recall,aria_files_f1,aria_callers_f1,aria_tests_high_f1,aria_tests_high_prec,aria_tests_high_rec,aria_tests_high_med_f1,aria_tests_high_med_prec,aria_tests_high_med_rec,aria_tests_all_f1,aria_fp_files,aria_blast_radius,aria_evidence_count
+task-01-fastapi-oauth2,fastapi/fastapi,208.62,0.0047,1.0,0.0093,0.0,0.0124,853,865.98,0.0185,0.25,0.0345,0.0,0.4444,0.3333,0.6667,0.1579,0.0857,1.0,0.1463,53,L,56
+task-02-fastapi-serialize-response,fastapi/fastapi,156.62,0.0035,1.0,0.0069,0.0,0.0041,865,696.54,0.0073,0.6667,0.0144,0.3333,0.3333,0.25,0.5,0.0082,0.0041,0.5,0.0082,272,XL,303
+task-03-fastapi-status-codes,fastapi/fastapi,184.75,0.0011,0.5,0.0023,0.0,0.0,875,645.79,0.0667,0.5,0.1176,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,14,M,24
+task-04-requests-session-send,psf/requests,11.33,0.0938,1.0,0.1714,0.1333,0.1429,29,186.67,0.125,0.6667,0.2105,0.0,0.6667,1.0,0.5,0.6667,1.0,0.5,0.5,14,L,13
+task-05-requests-adapters-ssl,psf/requests,11.04,0.0625,1.0,0.1176,0.0,0.2857,30,64.66,0.1538,1.0,0.2667,0.0,0.6667,1.0,0.5,1.0,1.0,1.0,1.0,11,M,10
+task-06-requests-models-response,psf/requests,11.21,0.0938,1.0,0.1714,0.0,0.1538,29,61.95,0.2,1.0,0.3333,0.0,0.0,0.0,0.0,1.0,1.0,1.0,1.0,12,L,10
+task-07-aria-symbol-schema,VarshithReddy2006/ARIA,199.12,0.0053,1.0,0.0106,0.0,0.008,749,3204.02,0.0189,0.5,0.0364,0.0,0.1026,0.0541,1.0,0.0889,0.0465,1.0,0.0851,104,XL,61
+task-08-aria-call-graph-blast-radius,VarshithReddy2006/ARIA,242.0,0.0066,1.0,0.0131,0.0,0.0,451,3259.04,0.022,0.6667,0.0426,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,89,XL,39
+task-09-aria-api-surface-status,VarshithReddy2006/ARIA,382.99,0.0059,1.0,0.0118,0.0,0.0,671,4458.95,0.0395,0.75,0.075,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,73,XL,56
+task-10-aria-impact-engine-bucketing,VarshithReddy2006/ARIA,372.56,0.0062,0.6667,0.0122,0.0,0.0172,323,3935.63,0.025,0.6667,0.0482,0.0,0.0,0.0,0.0,0.1905,0.1053,1.0,0.1667,78,XL,34

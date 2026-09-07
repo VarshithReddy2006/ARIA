@@ -24,9 +24,9 @@ import {
  * Scroll drives the axis through --p; only the coarse row index is stateful.
  * ────────────────────────────────────────────────────────────────────────── */
 
-/** Churn → resting luminance. Deliberately narrow: nothing here reaches neon. */
+/** Churn → resting luminance with vibrant gradient tone */
 function churnTone(churn: number, lit: boolean): string {
-  const alpha = (0.22 + churn * 0.68) * (lit ? 1 : 0.16);
+  const alpha = (0.35 + churn * 0.65) * (lit ? 1 : 0.25);
   return `rgba(129, 140, 248, ${alpha.toFixed(3)})`;
 }
 
@@ -43,23 +43,25 @@ const HistoryRow: React.FC<RowProps> = ({ span, index, lit, active }) => {
 
   return (
     <li
-      className="hair-t last:border-b last:border-white/[0.055]"
+      className={`border-t border-white/[0.06] transition-all duration-300 ${
+        active ? 'bg-indigo-500/[0.04] sm:rounded-lg px-2 -mx-2' : ''
+      }`}
       aria-current={active ? 'true' : undefined}
     >
       <div
         className="grid grid-cols-[1fr] sm:grid-cols-[minmax(0,15rem)_minmax(0,1fr)_4.5rem]
-                   items-center gap-y-2.5 sm:gap-x-6 py-4 sm:py-5"
+                   items-center gap-y-2.5 sm:gap-x-6 py-3.5 sm:py-4"
         style={{
-          opacity: lit ? 1 : 0.3,
+          opacity: lit ? 1 : 0.75,
           transition: 'opacity 700ms cubic-bezier(0.16,1,0.3,1)',
         }}
       >
         {/* Module */}
         <div className="min-w-0">
           <p
-            className="font-mono text-[12px] sm:text-[13px] leading-snug transition-colors duration-500"
+            className="font-mono text-[12px] sm:text-[13px] leading-snug transition-colors duration-300"
             style={{
-              color: active ? '#ffffff' : lit ? 'var(--text)' : 'var(--text-subtle)',
+              color: active ? '#ffffff' : lit ? '#F1F5F9' : '#94A3B8',
               fontWeight: active ? 600 : 400,
               wordBreak: 'break-word',
               overflowWrap: 'anywhere',
@@ -67,38 +69,37 @@ const HistoryRow: React.FC<RowProps> = ({ span, index, lit, active }) => {
           >
             {span.path.includes('/') ? (
               <>
-                <span className="text-text-subtle/70">{span.path.slice(0, span.path.lastIndexOf('/') + 1)}</span>
-                <span>{span.path.slice(span.path.lastIndexOf('/') + 1)}</span>
+                <span className="text-[#64748B]">{span.path.slice(0, span.path.lastIndexOf('/') + 1)}</span>
+                <span className={active ? 'text-indigo-300 font-semibold' : 'text-[#E2E8F0]'}>{span.path.slice(span.path.lastIndexOf('/') + 1)}</span>
               </>
             ) : (
               span.path
             )}
           </p>
-          <span className="mono-label block mt-1.5">{span.role}</span>
+          <span className={`mono-label block mt-1 text-[10px] ${active ? 'text-indigo-400' : 'text-[#64748B]'}`}>{span.role}</span>
         </div>
 
         {/*
           The span across the window. `era-field` draws the same minor divisions
-          as the axis behind the track, so a span is read against measured time
-          rather than floating in the row.
+          as the axis behind the track.
         */}
-        <div className="era-field relative h-5 flex items-center min-w-0">
-          {/* Resting track, so an inactive module still reads as present */}
+        <div className="era-field relative h-6 flex items-center min-w-0">
+          {/* Resting track */}
           <span
-            className="absolute left-0 right-0 h-px bg-white/[0.045]"
+            className="absolute left-0 right-0 h-px bg-white/[0.08]"
             aria-hidden="true"
           />
 
           <span
-            className="absolute h-[2px]"
+            className="absolute h-[3px] rounded-full overflow-hidden"
             style={{ left: `${left}%`, width: `${width}%` }}
             aria-hidden="true"
           >
             <span
-              className="churn-bar block w-full"
+              className="churn-bar block w-full h-full rounded-full shadow-[0_0_8px_rgba(129,140,248,0.3)]"
               style={
                 {
-                  backgroundColor: churnTone(span.churn, lit),
+                  background: lit ? `linear-gradient(90deg, rgba(99,102,241,0.7), rgba(129,140,248,1))` : churnTone(span.churn, lit),
                   transform: `scaleX(${lit ? 1 : 0})`,
                   '--reveal-delay': `${index * 90}ms`,
                 } as React.CSSProperties
@@ -106,19 +107,16 @@ const HistoryRow: React.FC<RowProps> = ({ span, index, lit, active }) => {
             />
           </span>
 
-          {/*
-            Hotspot marker, at the end of the span — where change is still
-            landing. Settles once, then rests; it never pulses.
-          */}
+          {/* Hotspot marker */}
           {span.hotspot && lit && (
             <span
               key={`hot-${span.path}`}
-              className="hotspot absolute h-2 w-2 -translate-x-1/2 rounded-full"
+              className="hotspot absolute h-2.5 w-2.5 -translate-x-1/2 rounded-full ring-2 ring-[#050608]"
               style={
                 {
                   left: `${span.to * 100}%`,
-                  background: 'rgba(143,155,245,0.9)',
-                  boxShadow: '0 0 12px 2px rgba(94,106,210,0.5)',
+                  background: '#818CF8',
+                  boxShadow: '0 0 14px 3px rgba(129,140,248,0.75)',
                   '--reveal-delay': `${index * 90 + 320}ms`,
                 } as React.CSSProperties
               }
@@ -129,10 +127,10 @@ const HistoryRow: React.FC<RowProps> = ({ span, index, lit, active }) => {
 
         {/* Commits */}
         <span
-          className="font-mono text-[13px] tabular-nums sm:text-right transition-colors duration-500"
-          style={{ color: active ? 'var(--primary)' : lit ? 'var(--text)' : 'var(--text-subtle)' }}
+          className="font-mono text-[12px] sm:text-[13px] tabular-nums sm:text-right transition-colors duration-300"
+          style={{ color: active ? '#818CF8' : lit ? '#CBD5E1' : '#64748B', fontWeight: active ? 600 : 400 }}
         >
-          {span.commits}
+          {span.commits} <span className="text-[10px] text-[#64748B] sm:hidden">commits</span>
         </span>
       </div>
     </li>
@@ -154,43 +152,55 @@ export const RepositoryHistory: React.FC = () => {
   const lit = step + 1;
 
   return (
-    <div ref={ref} className="grid grid-cols-1 lg:grid-cols-12 gap-10 lg:gap-14">
+    <div ref={ref} className="grid grid-cols-1 lg:grid-cols-12 gap-8 lg:gap-12">
       {/* ── Rail: what the temporal reading adds ─────────────────────────── */}
       <div className="lg:col-span-4 lg:sticky lg:top-24 lg:self-start">
-        <p className="text-[13px] text-text-muted leading-relaxed max-w-sm">
-          Structure tells you how the repository is arranged. History tells you which parts of it
-          are still moving.
-        </p>
+        <div className="p-6 rounded-2xl bg-gradient-to-b from-[#0D1220]/90 to-[#070A12]/95 border border-white/[0.08] shadow-[0_16px_36px_rgba(0,0,0,0.6)] backdrop-blur-2xl">
+          <div className="flex items-center gap-2 mb-3">
+            <span className="w-2 h-2 rounded-full bg-indigo-400 shadow-[0_0_8px_rgba(129,140,248,0.6)]" />
+            <span className="font-mono text-[10px] tracking-[0.2em] uppercase text-indigo-300 font-bold">TEMPORAL TELEMETRY</span>
+          </div>
 
-        <dl className="mt-9 grid grid-cols-3 gap-4">
-          {[
-            { k: 'COMMITS', v: HISTORY_SUMMARY.commits.toLocaleString() },
-            { k: 'MODULES', v: String(HISTORY_SUMMARY.files) },
-            { k: 'HOTSPOTS', v: String(HISTORY_SUMMARY.hotspots) },
-          ].map((m) => (
-            <div key={m.k}>
-              <dt className="mono-label mb-1.5">{m.k}</dt>
-              <dd className="font-mono text-lg text-text tabular-nums">{m.v}</dd>
+          <p className="text-[13px] text-[#94A3B8] leading-relaxed">
+            Structure tells you how the repository is arranged. History tells you which parts of it
+            are still moving.
+          </p>
+
+          <dl className="mt-6 pt-5 border-t border-white/[0.07] grid grid-cols-3 gap-3">
+            {[
+              { k: 'COMMITS', v: HISTORY_SUMMARY.commits.toLocaleString(), c: 'text-indigo-400' },
+              { k: 'MODULES', v: String(HISTORY_SUMMARY.files), c: 'text-sky-400' },
+              { k: 'HOTSPOTS', v: String(HISTORY_SUMMARY.hotspots), c: 'text-emerald-400' },
+            ].map((m) => (
+              <div key={m.k} className="p-2.5 rounded-lg bg-[#050608]/60 border border-white/[0.04]">
+                <dt className="mono-label mb-1 text-[9px] text-[#64748B]">{m.k}</dt>
+                <dd className={`font-mono text-base font-bold tabular-nums ${m.c}`}>{m.v}</dd>
+              </div>
+            ))}
+          </dl>
+
+          {/* Commentary for the module currently in the reading */}
+          <div className="mt-6 pt-5 border-t border-white/[0.07] min-h-[6.5rem]" aria-live="polite">
+            <div className="flex items-center justify-between mb-2">
+              <span className="mono-label text-indigo-400 font-semibold">{active.role}</span>
+              {active.hotspot && (
+                <span className="px-2 py-0.5 rounded-full bg-indigo-500/20 border border-indigo-500/40 text-[9px] font-mono text-indigo-300 font-semibold">
+                  HOTSPOT
+                </span>
+              )}
             </div>
-          ))}
-        </dl>
+            <p className="text-[13px] text-[#F1F5F9] leading-relaxed">{active.note}</p>
+            <div className="mt-3 flex items-center gap-2 text-[10px] font-mono text-[#94A3B8]">
+              <span className="text-white font-semibold">{active.commits} COMMITS</span>
+              <span className="text-white/20">·</span>
+              <span className="text-indigo-300 font-semibold">{Math.round(active.churn * 100)}% REWRITTEN</span>
+            </div>
+          </div>
 
-        {/*
-          Commentary for the module currently in the reading. Height is reserved
-          so advancing never reflows the rail or the rows beside it.
-        */}
-        <div className="mt-9 min-h-[7rem]" aria-live="polite">
-          <span className="mono-label mono-label-accent block mb-3">{active.role}</span>
-          <p className="text-[13px] text-text leading-relaxed max-w-sm">{active.note}</p>
-          <p className="mono-detail mt-3" style={{ fontSize: 10 }}>
-            {active.commits} COMMITS · {Math.round(active.churn * 100)}% REWRITTEN
-            {active.hotspot ? ' · HOTSPOT' : ''}
+          <p className="mono-label mt-4 text-[9px] text-[#64748B]" style={{ letterSpacing: '0.2em' }}>
+            ILLUSTRATIVE · ARIA&apos;S OWN REPOSITORY
           </p>
         </div>
-
-        <p className="mono-label mt-2" style={{ letterSpacing: '0.2em' }}>
-          ILLUSTRATIVE · ARIA&apos;S OWN REPOSITORY
-        </p>
       </div>
 
       {/* ── The window ───────────────────────────────────────────────────── */}
