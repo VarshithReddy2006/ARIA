@@ -17,19 +17,17 @@ const DEFAULT_DEV_API_BASE_URL = 'http://127.0.0.1:8001';
  * - In production mode (`npm run build` / Docker), defaults to `""` (same-origin relative URLs).
  * - Can be explicitly overridden via `PUBLIC_API_URL` environment variable.
  */
-const env = typeof import.meta !== 'undefined' && import.meta.env ? import.meta.env : ({} as Record<string, any>);
+const env = typeof import.meta !== 'undefined' && import.meta.env ? import.meta.env : undefined;
 
 const envApiUrl =
-  typeof env.PUBLIC_API_URL === 'string' && env.PUBLIC_API_URL.trim() !== ''
+  typeof env?.PUBLIC_API_URL === 'string' && env.PUBLIC_API_URL.trim() !== ''
     ? env.PUBLIC_API_URL.trim()
-    : typeof env.PUBLIC_API_BASE_URL === 'string' && env.PUBLIC_API_BASE_URL.trim() !== ''
-      ? env.PUBLIC_API_BASE_URL.trim()
-      : undefined;
+    : undefined;
 
 export const API_BASE_URL: string = (
   envApiUrl !== undefined
     ? envApiUrl
-    : env.DEV
+    : env?.DEV
       ? DEFAULT_DEV_API_BASE_URL
       : ''
 ).replace(/\/$/, '');

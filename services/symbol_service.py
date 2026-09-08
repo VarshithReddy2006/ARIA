@@ -223,7 +223,17 @@ class SymbolService:
 
     def index_exists(self, repo_name: str) -> bool:
         """Return True if a symbol index exists for *repo_name*."""
-        return self.snapshot_store.exists(repo_name, "symbols")
+        if self.snapshot_store.exists(repo_name, "symbols"):
+            return True
+        try:
+            from core.repository_target import get_canonical_repo_id
+
+            canon = get_canonical_repo_id(repo_name)
+            if canon != repo_name and self.snapshot_store.exists(canon, "symbols"):
+                return True
+        except Exception:
+            pass
+        return False
 
     def load(self, repo_name: str) -> Optional[SymbolIndex]:
         """Load a persisted symbol index.
@@ -237,7 +247,21 @@ class SymbolService:
 
         data = self.snapshot_store.load(repo_name, "symbols")
         if data is None:
-            return None
+            try:
+                from core.repository_target import get_canonical_repo_id
+
+                canon = get_canonical_repo_id(repo_name)
+                if canon != repo_name:
+                    cached_canon = self.analysis_cache.get(
+                        canon, "symbols", _SCHEMA_VERSION
+                    )
+                    if cached_canon is not None:
+                        return cached_canon
+                    data = self.snapshot_store.load(canon, "symbols")
+            except Exception:
+                pass
+            if data is None:
+                return None
 
         stored_version = data.get("_schema_version", 0)
         if stored_version < _SCHEMA_VERSION:
@@ -253,6 +277,8 @@ class SymbolService:
             filtered = {k: v for k, v in data.items() if not k.startswith("_")}
             index = SymbolIndex(**filtered)
             self.analysis_cache.set(repo_name, "symbols", index, _SCHEMA_VERSION)
+            if index.repo and index.repo != repo_name:
+                self.analysis_cache.set(index.repo, "symbols", index, _SCHEMA_VERSION)
             return index
         except Exception as exc:
             logger.error(

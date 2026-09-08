@@ -19,11 +19,26 @@ Validates:
 """
 
 import os
+import pytest
 
 from services.symbol_service import SymbolService
 from services.chat.explicit_entity_resolver import ExplicitEntityResolver
 from services.chat.retrieval import detect_deterministic_retrieval, intelligent_retrieve
 from services.chat.context_builder import ContextBuilder
+
+
+@pytest.fixture(scope="module", autouse=True)
+def ensure_grounding_symbol_index():
+    """Ensure that the symbol index for varshithreddy2006/aria exists deterministically.
+
+    In clean CI environments where data/ is not checked into git or local cache is absent,
+    this parses repository source and builds the index so tests run hermetically.
+    """
+    service = SymbolService()
+    idx = service.load("varshithreddy2006/aria")
+    if idx is None or not any(s.name == "ProviderManager" for s in idx.symbols):
+        repo_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+        service.build("varshithreddy2006/aria", repo_path=repo_root)
 
 
 class MockChromaStore:
@@ -166,7 +181,7 @@ def test_intelligent_retrieve_full_symbol_chunks_and_coverage():
                 "chunk_id": 3,
                 "file_path": "services/chat/provider_manager.py",
                 "start_line": 467,
-                "end_line": 736,
+                "end_line": 800,
             },
         },
     ]
@@ -296,3 +311,25 @@ def test_failover_evidence_in_provider_manager():
     assert "gemini" in src.lower()
     assert "failover" in src.lower() or "fallback" in src.lower()
     assert "CircuitBreaker" in src or "circuit" in src.lower()
+
+
+def test_general_class_symbol_resolution():
+    """Verify general class-symbol resolution works across other explicit class symbols."""
+    service = SymbolService()
+    repo = "varshithreddy2006/aria"
+
+    symbols_to_check = [
+        ("CitationVerifier", "services/chat/citation_verifier.py"),
+        ("ExplicitEntityResolver", "services/chat/explicit_entity_resolver.py"),
+        ("SemanticCallResolver", "services/call_graph/semantic_resolver.py"),
+    ]
+
+    for sym_name, expected_file in symbols_to_check:
+        res = service.get_definition_with_span(repo, sym_name)
+        assert res is not None, f"Expected {sym_name} to resolve in {repo}"
+        sym, start_line, end_line = res
+        assert expected_file in sym.file_path.replace("\\", "/"), (
+            f"Expected {sym_name} to be in {expected_file}, got {sym.file_path}"
+        )
+        assert start_line is not None and start_line > 0
+        assert end_line is not None and end_line >= start_line

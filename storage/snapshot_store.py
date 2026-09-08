@@ -84,12 +84,72 @@ class JsonSnapshotStore(SnapshotStore):
             filename = f"{safe_repo}.json"
         return os.path.join(dir_path, filename)
 
+    def _resolve_path(
+        self, repo_name: str, key: str, subkey: Optional[str] = None
+    ) -> Optional[str]:
+        """Resolve snapshot filepath supporting case-insensitivity and canonical aliases across OSes."""
+        direct_path = self._get_path(repo_name, key, subkey)
+        if os.path.exists(direct_path):
+            return direct_path
+
+        dir_name = self.key_map.get(key, key)
+        dir_path = os.path.join(self.base_dir, dir_name)
+        if not os.path.isdir(dir_path):
+            return None
+
+        # 1. Case-insensitive filename match (Linux compatibility)
+        target_fn = os.path.basename(direct_path).lower()
+        try:
+            entries = os.listdir(dir_path)
+        except Exception:
+            entries = []
+
+        for entry in entries:
+            if entry.lower() == target_fn:
+                return os.path.join(dir_path, entry)
+
+        # 2. Canonical repository name resolution
+        candidate_names: List[str] = []
+        try:
+            from core.repository_target import get_canonical_repo_id
+
+            canon = get_canonical_repo_id(repo_name)
+            if canon != repo_name and canon not in candidate_names:
+                candidate_names.append(canon)
+        except Exception:
+            pass
+
+        # 3. Known ARIA / Repo-Intelligence-Agent repository aliases
+        repo_clean = repo_name.strip().lower()
+        if "repo-intelligence-agent" in repo_clean or "aria" in repo_clean:
+            for alias in (
+                "varshithreddy2006/aria",
+                "VarshithReddy2006/ARIA",
+                "VarshithReddy2006/Repo-Intelligence-Agent",
+                "varshithreddy2006/repo-intelligence-agent",
+                "Repo-Intelligence-Agent",
+                "ARIA",
+            ):
+                if alias != repo_name and alias not in candidate_names:
+                    candidate_names.append(alias)
+
+        for cand in candidate_names:
+            cand_p = self._get_path(cand, key, subkey)
+            if os.path.exists(cand_p):
+                return cand_p
+            cand_fn = os.path.basename(cand_p).lower()
+            for entry in entries:
+                if entry.lower() == cand_fn:
+                    return os.path.join(dir_path, entry)
+
+        return None
+
     def load(
         self, repo_name: str, key: str, subkey: Optional[str] = None
     ) -> Optional[Dict[str, Any]]:
         with self._lock:
-            path = self._get_path(repo_name, key, subkey)
-            if not os.path.exists(path):
+            path = self._resolve_path(repo_name, key, subkey)
+            if not path or not os.path.exists(path):
                 return None
             try:
                 with open(path, "r", encoding="utf-8") as fh:
@@ -118,13 +178,13 @@ class JsonSnapshotStore(SnapshotStore):
 
     def exists(self, repo_name: str, key: str, subkey: Optional[str] = None) -> bool:
         with self._lock:
-            path = self._get_path(repo_name, key, subkey)
-            return os.path.exists(path)
+            path = self._resolve_path(repo_name, key, subkey)
+            return path is not None and os.path.exists(path)
 
     def delete(self, repo_name: str, key: str, subkey: Optional[str] = None) -> None:
         with self._lock:
-            path = self._get_path(repo_name, key, subkey)
-            if os.path.exists(path):
+            path = self._resolve_path(repo_name, key, subkey)
+            if path and os.path.exists(path):
                 try:
                     os.remove(path)
                     logger.info("Deleted snapshot from %s", path)

@@ -517,13 +517,65 @@ def detect_deterministic_retrieval(
             if matching_files:
                 prod_files = [f for f in matching_files if not is_non_preferred_file(f)]
                 target = prod_files[0] if prod_files else matching_files[0]
+
+                s_start = None
+                s_end = None
+                methods: List[str] = []
+                kind = "class"
+
+                if symbol_service and hasattr(symbol_service, "_extract_file_symbols"):
+                    try:
+                        disk_path = target
+                        if not os.path.isabs(disk_path):
+                            for base in (
+                                ".",
+                                getattr(symbol_service, "repo_path", None) or ".",
+                            ):
+                                cand_p = os.path.join(base, target)
+                                if os.path.exists(cand_p) and os.path.isfile(cand_p):
+                                    disk_path = cand_p
+                                    break
+                        if os.path.exists(disk_path) and os.path.isfile(disk_path):
+                            with open(
+                                disk_path, "r", encoding="utf-8", errors="ignore"
+                            ) as fh:
+                                content = fh.read()
+                            file_syms = symbol_service._extract_file_symbols(
+                                target, content
+                            )
+                            for s in file_syms:
+                                if s.name == sym_name:
+                                    kind = s.type
+                                    s_start = (
+                                        s.start_line
+                                        if s.start_line is not None
+                                        else s.line_number
+                                    )
+                                    s_end = (
+                                        s.end_line
+                                        if s.end_line is not None
+                                        else s.line_number
+                                    )
+                                    methods = [
+                                        m.name
+                                        for m in file_syms
+                                        if m.type == "method"
+                                        and m.parent_class
+                                        and m.parent_class.lower() == sym_name.lower()
+                                    ]
+                                    break
+                    except Exception as ex:
+                        logger.debug(
+                            "Failed on-the-fly symbol extraction for %s: %s", target, ex
+                        )
+
                 return {
                     "matched_file": target,
                     "matched_symbol": sym_name,
-                    "symbol_kind": "class",
-                    "symbol_start_line": None,
-                    "symbol_end_line": None,
-                    "symbol_methods": [],
+                    "symbol_kind": kind,
+                    "symbol_start_line": s_start,
+                    "symbol_end_line": s_end,
+                    "symbol_methods": methods,
                     "confidence": 96,
                     "match_type": "symbol",
                     "clarification_needed": False,
