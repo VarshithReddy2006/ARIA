@@ -562,9 +562,12 @@ def test_cors_development_allows_localhost_origins(monkeypatch):
         headers={
             "Origin": "http://localhost:4321",
             "Access-Control-Request-Method": "GET",
+            "Access-Control-Request-Headers": "x-api-key",
         },
     )
+    assert resp.status_code == 200
     assert resp.headers.get("access-control-allow-origin") == "http://localhost:4321"
+    assert "x-api-key" in resp.headers.get("access-control-allow-headers", "").lower()
 
 
 def test_cors_production_rejects_localhost_origins(monkeypatch):
