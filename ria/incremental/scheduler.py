@@ -1,8 +1,16 @@
 """Incremental Scheduler implementing IncrementalSchedulerPort."""
 
+from collections.abc import Sequence
 from typing import Any
 
+from ria.domain.index.value_objects import FilePath
 from ria.domain.index.units import ParseUnit
+from ria.domain.resolution.entities import ResolvedFactSet, SemanticSymbol
+from ria.domain.resolution.value_objects import (
+    RelationKind,
+    SemanticRelation,
+    SymbolMoniker,
+)
 from ria.domain.snapshot.value_objects import IncrementalPlan
 from ria.ports.common.clock import ClockPort
 from ria.ports.common.logger import LoggerPort
@@ -61,6 +69,7 @@ class IncrementalScheduler(IncrementalSchedulerPort):
 
         try:
             # 1. Targeted scan of changed files
+            partial_fact_set = ResolvedFactSet()
             if plan.files_to_reindex:
                 file_units = self._scanner.scan_incremental(
                     ws_dir, plan.files_to_reindex
@@ -94,10 +103,26 @@ class IncrementalScheduler(IncrementalSchedulerPort):
                 )
 
                 # 4. Resolve semantic symbols for changed units
-                fact_set = self._engine.resolve_batch(batch)
+                partial_fact_set = self._engine.resolve_batch(batch)
 
-                # 5. Incremental FactStore update
-                self._fact_store.save_fact_set(plan.repo_id, plan.to_commit, fact_set)
+            # 5. Reconstruct a complete target-commit partition. FactStore's
+            # save_fact_set replaces a whole commit partition, so persist the
+            # retained base facts together with the changed-file facts.
+            existing_symbols = self._fact_store.get_symbols(
+                plan.repo_id, plan.from_commit
+            )
+            existing_relations = self._fact_store.get_relations(
+                plan.repo_id, plan.from_commit
+            )
+            merged_fact_set = _merge_incremental_fact_set(
+                existing_symbols,
+                existing_relations,
+                partial_fact_set,
+                (*plan.files_to_reindex, *plan.files_to_delete),
+            )
+            self._fact_store.save_fact_set(
+                plan.repo_id, plan.to_commit, merged_fact_set
+            )
 
             # 6. Invalidate query cache
             self._invalidator.invalidate(self._cache, plan)
@@ -114,3 +139,53 @@ class IncrementalScheduler(IncrementalSchedulerPort):
                 repo_id=plan.repo_id.repo_id.value,
             )
             return False
+
+
+def _merge_incremental_fact_set(
+    existing_symbols: Sequence[SemanticSymbol],
+    existing_relations: Sequence[SemanticRelation],
+    partial_fact_set: ResolvedFactSet,
+    touched_paths: Sequence[FilePath],
+) -> ResolvedFactSet:
+    """Apply changed-file facts to a complete prior commit fact set.
+
+    Relations sourced by replaced symbols are recomputed. Incoming relations to
+    a replaced symbol are retained only when its moniker still exists in the new
+    facts; this removes dangling edges while preserving reintroduced identities.
+    """
+    touched = {path.relative_path for path in touched_paths}
+    removed_monikers: set[SymbolMoniker] = {
+        symbol.moniker
+        for symbol in existing_symbols
+        if symbol.path.relative_path in touched
+    }
+    new_monikers = {symbol.moniker for symbol in partial_fact_set.symbols}
+    deleted_monikers = removed_monikers - new_monikers
+
+    retained_symbols = tuple(
+        symbol
+        for symbol in existing_symbols
+        if symbol.path.relative_path not in touched
+    )
+    retained_relations = tuple(
+        relation
+        for relation in existing_relations
+        if relation.source not in removed_monikers
+        and relation.target not in deleted_monikers
+    )
+
+    updated_relations = list(partial_fact_set.relations)
+    updated_relations.extend(
+        SemanticRelation(
+            source=call.caller_moniker,
+            target=call.callee_moniker,
+            kind=RelationKind.CALLS,
+            location=call.location,
+        )
+        for call in partial_fact_set.calls
+    )
+
+    return ResolvedFactSet(
+        symbols=retained_symbols + tuple(partial_fact_set.symbols),
+        relations=retained_relations + tuple(updated_relations),
+    )

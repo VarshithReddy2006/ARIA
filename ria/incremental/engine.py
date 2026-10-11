@@ -43,7 +43,10 @@ class IncrementalEngine:
         plan = self._planner.build_plan(snapshot, to_commit, changed_files)
 
         # 4. Execute incremental plan
-        self._scheduler.execute_plan(plan)
+        if not self._scheduler.execute_plan(plan):
+            raise RuntimeError(
+                "Incremental plan execution failed; snapshot was not advanced."
+            )
 
         # 5. Refresh snapshot to new commit
         self._snapshots.create_snapshot(

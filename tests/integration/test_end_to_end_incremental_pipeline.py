@@ -235,4 +235,4 @@ def test_full_incremental_indexing_end_to_end_pipeline(tmp_path: Path) -> None:
         repo_state.identity, repo_state.current_commit
     )
     stored_names = {sym.name for sym in stored_symbols}
-    assert "logout" in stored_names
+    assert {"run", "Authenticator", "login", "logout", "helper"} <= stored_names
