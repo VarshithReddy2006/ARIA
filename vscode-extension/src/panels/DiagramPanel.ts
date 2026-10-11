@@ -17,6 +17,7 @@ export class DiagramPanel {
   public static show(diagramText: string = ''): void {
     if (DiagramPanel.currentPanel) {
       DiagramPanel.currentPanel._panel.reveal(vscode.ViewColumn.Two);
+      DiagramPanel.currentPanel.update(diagramText);
       return;
     }
 
@@ -27,6 +28,10 @@ export class DiagramPanel {
   public dispose(): void {
     DiagramPanel.currentPanel = undefined;
     this._panel.dispose();
+  }
+
+  public update(diagramText: string): void {
+    this._panel.webview.html = this.getHtmlForWebview(diagramText);
   }
 
   private getHtmlForWebview(diagramText: string): string {
