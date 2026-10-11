@@ -1,7 +1,9 @@
 """SQLite Repository Lock Adapter implementing RepositoryLockPort."""
 
 import sqlite3
+import threading
 import time
+import uuid
 from pathlib import Path
 from typing import Optional
 
@@ -17,13 +19,15 @@ class SQLiteRepositoryLockAdapter(RepositoryLockPort):
     CREATE TABLE IF NOT EXISTS repository_lock (
         repo_id TEXT PRIMARY KEY,
         acquired_at REAL NOT NULL,
-        ttl_seconds REAL NOT NULL
+        ttl_seconds REAL NOT NULL,
+        owner_token TEXT
     );
     """
 
     def __init__(self, db_path: Path | str = ":memory:") -> None:
         self._db_path = str(db_path)
         self._persistent_conn: Optional[sqlite3.Connection] = None
+        self._owned_tokens = threading.local()
         if self._db_path == ":memory:":
             self._persistent_conn = sqlite3.connect(":memory:")
             self._persistent_conn.row_factory = sqlite3.Row
@@ -44,7 +48,19 @@ class SQLiteRepositoryLockAdapter(RepositoryLockPort):
     def _init_db(self) -> None:
         with self._get_connection() as conn:
             try:
+                # Serialize schema inspection and migration across starting workers.
+                conn.execute("BEGIN IMMEDIATE")
                 conn.execute(self.CREATE_TABLE_SQL)
+                columns = {
+                    row["name"]
+                    for row in conn.execute("PRAGMA table_info(repository_lock)")
+                }
+                if "owner_token" not in columns:
+                    # Old leases stay active until their TTL expires, but are not
+                    # releasable because their acquiring owner cannot be identified.
+                    conn.execute(
+                        "ALTER TABLE repository_lock ADD COLUMN owner_token TEXT"
+                    )
             except sqlite3.Error as err:
                 raise DatabaseError(
                     f"Failed to initialize SQLite table 'repository_lock': {err}"
@@ -73,7 +89,13 @@ class SQLiteRepositoryLockAdapter(RepositoryLockPort):
     ) -> bool:
         """Attempt to acquire process lock for repository with expiration timeout."""
         now = time.monotonic()
+        owner_token = uuid.uuid4().hex
         repo_str = repo_id.repo_id.value
+        # The release-by-repository API cannot distinguish nested acquisitions.
+        # Require the owning thread to release its previous handle first, even
+        # if that lease has expired in the database.
+        if repo_str in self._tokens():
+            return False
 
         with self._get_connection() as conn:
             try:
@@ -83,10 +105,13 @@ class SQLiteRepositoryLockAdapter(RepositoryLockPort):
                     (repo_str, now),
                 )
                 cursor = conn.execute(
-                    "INSERT OR IGNORE INTO repository_lock (repo_id, acquired_at, ttl_seconds) VALUES (?, ?, ?);",
-                    (repo_str, now, ttl_seconds),
+                    "INSERT OR IGNORE INTO repository_lock (repo_id, acquired_at, ttl_seconds, owner_token) VALUES (?, ?, ?, ?);",
+                    (repo_str, now, ttl_seconds, owner_token),
                 )
-                return cursor.rowcount > 0
+                acquired = cursor.rowcount > 0
+                if acquired:
+                    self._tokens()[repo_str] = owner_token
+                return acquired
             except sqlite3.Error as err:
                 raise DatabaseError(
                     f"Failed to acquire lock for '{repo_str}': {err}"
@@ -95,12 +120,23 @@ class SQLiteRepositoryLockAdapter(RepositoryLockPort):
     def release_lock(self, repo_id: RepositoryIdentity) -> None:
         """Release process lock held for repository."""
         repo_str = repo_id.repo_id.value
+        owner_token = self._tokens().get(repo_str)
+        if owner_token is None:
+            return
         with self._get_connection() as conn:
             try:
                 conn.execute(
-                    "DELETE FROM repository_lock WHERE repo_id = ?;", (repo_str,)
+                    "DELETE FROM repository_lock WHERE repo_id = ? AND owner_token = ?;",
+                    (repo_str, owner_token),
                 )
+                self._tokens().pop(repo_str, None)
             except sqlite3.Error as err:
                 raise DatabaseError(
                     f"Failed to release lock for '{repo_str}': {err}"
                 ) from err
+
+    def _tokens(self) -> dict[str, str]:
+        """Return the current thread's owned lease tokens by repository."""
+        if not hasattr(self._owned_tokens, "by_repo"):
+            self._owned_tokens.by_repo = {}
+        return self._owned_tokens.by_repo
