@@ -7,6 +7,7 @@
  */
 
 import * as assert from 'assert';
+import { EventEmitter } from 'events';
 import * as http from 'http';
 import { AddressInfo } from 'net';
 
@@ -57,12 +58,13 @@ function jsonResponse(res: http.ServerResponse, body: unknown, status = 200): vo
 // ---------------------------------------------------------------------------
 
 describe('RepoIntelligenceClient', () => {
-  let server: http.Server;
+  let server: http.Server | undefined;
   let client: RepoIntelligenceClient;
 
   afterEach(async () => {
     if (server) {
       await stopServer(server);
+      server = undefined;
     }
   });
 
@@ -84,6 +86,54 @@ describe('RepoIntelligenceClient', () => {
     const result = await client.health();
     assert.strictEqual(result.status, 'healthy');
     assert.strictEqual(result.llm_provider, 'deepseek');
+  });
+
+  it('streamSse calls its completion callback once and ignores events after done', () => {
+    let completionCount = 0;
+    let tokenCount = 0;
+    const requestModule = require('http') as typeof http;
+    const originalRequest = requestModule.request;
+    let cancel: (() => void) | undefined;
+    mockConfig.backendUrl = 'http://127.0.0.1:1234';
+    try {
+      requestModule.request = ((_options: http.RequestOptions, callback?: (response: http.IncomingMessage) => void) => {
+        const response = new EventEmitter() as http.IncomingMessage;
+        response.statusCode = 200;
+        response.statusMessage = 'OK';
+        const request = new EventEmitter() as http.ClientRequest;
+        request.write = (() => true) as http.ClientRequest['write'];
+        request.end = (() => {
+          callback?.(response);
+          response.emit('data', Buffer.from('data: {"status":"done","sources":[],"confidence":0.8}\n\ndata: {"text":"late token"}\n\n'));
+          response.emit('end');
+        }) as http.ClientRequest['end'];
+        request.destroy = (() => request) as http.ClientRequest['destroy'];
+        return request;
+      }) as typeof http.request;
+      client = new RepoIntelligenceClient();
+      cancel = client.streamSse('/api/chat', { repo: 'owner/repo', message: 'hello' },
+        (event) => { if (typeof event.text === 'string') tokenCount += 1; },
+        () => { completionCount += 1; }, () => {});
+      assert.strictEqual(completionCount, 1);
+      assert.strictEqual(tokenCount, 0);
+    } finally {
+      cancel?.();
+      requestModule.request = originalRequest;
+    }
+  });
+  it('streamChat reports HTTP failures as errors instead of successful completion', async () => {
+    ({ server, url: mockConfig.backendUrl } = await startMockServer((_req, res) => {
+      jsonResponse(res, { detail: 'backend unavailable' }, 503);
+    }));
+    client = new RepoIntelligenceClient();
+    await new Promise<void>((resolve, reject) => {
+      client.streamChat('owner/repo', 'hello', [], () => {},
+        () => reject(new Error('onDone should not run for HTTP 503')),
+        (err) => {
+          try { assert.match(err.message, /HTTP 503/); resolve(); }
+          catch (assertionError) { reject(assertionError); }
+        });
+    });
   });
 
   // ── getRecentRepos ──────────────────────────────────────────────────────
@@ -242,12 +292,13 @@ describe('extractErrorMessage', () => {
 // ---------------------------------------------------------------------------
 
 describe('Backend response compatibility mapping', () => {
-  let server: http.Server;
+  let server: http.Server | undefined;
   let client: RepoIntelligenceClient;
 
   afterEach(async () => {
     if (server) {
       await stopServer(server);
+      server = undefined;
     }
   });
 

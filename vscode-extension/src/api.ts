@@ -587,6 +587,18 @@ export class RepoIntelligenceClient {
       },
     };
 
+    let terminal = false;
+    const finishSuccessfully = () => {
+      if (terminal) return;
+      terminal = true;
+      onDone();
+    };
+    const finishWithError = (err: Error) => {
+      if (terminal) return;
+      terminal = true;
+      onError(err);
+    };
+
     const req = transport.request(reqOptions, (res) => {
       if (res.statusCode === 401 && this.onUnauthorized) {
         this.onUnauthorized().then((newToken) => {
@@ -594,12 +606,20 @@ export class RepoIntelligenceClient {
             this.setToken(newToken);
           }
         }).catch(() => {});
-        onError(new Error('HTTP 401 Unauthorized'));
+        res.resume();
+        finishWithError(new Error('HTTP 401 Unauthorized'));
+        return;
+      }
+
+      if (res.statusCode !== undefined && (res.statusCode < 200 || res.statusCode >= 300)) {
+        res.resume();
+        finishWithError(new Error(`HTTP ${res.statusCode}${res.statusMessage ? ` ${res.statusMessage}` : ''}`));
         return;
       }
 
       let buffer = '';
       res.on('data', (chunk: Buffer) => {
+        if (terminal) return;
         buffer += chunk.toString();
         const lines = buffer.split('\n');
         buffer = lines.pop() ?? '';
@@ -613,7 +633,8 @@ export class RepoIntelligenceClient {
               const event = JSON.parse(jsonStr) as Record<string, unknown>;
               onEvent(event);
               if (event.status === 'done') {
-                onDone();
+                finishSuccessfully();
+                break;
               }
             } catch {
               // skip malformed SSE lines
@@ -621,15 +642,18 @@ export class RepoIntelligenceClient {
           }
         }
       });
-      res.on('end', () => onDone());
-      res.on('error', onError);
+      res.on('end', finishSuccessfully);
+      res.on('error', finishWithError);
     });
 
-    req.on('error', onError);
+    req.on('error', finishWithError);
     req.write(payload);
     req.end();
 
-    return () => req.destroy();
+    return () => {
+      terminal = true;
+      req.destroy();
+    };
   }
 
   // ── Health ──────────────────────────────────────────────────────────────
