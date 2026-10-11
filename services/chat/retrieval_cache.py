@@ -28,12 +28,14 @@ logger = logging.getLogger(__name__)
 
 
 def normalize_retrieval_query(query: str) -> str:
-    """Normalize user retrieval query by stripping markdown formatting, backticks, excess whitespace, and trailing punctuation."""
+    """Normalize presentation noise without erasing code identifiers or operators."""
     if not query or not isinstance(query, str):
         return ""
     q = query.strip()
-    # Strip enclosing backticks / markdown formatting
-    q = re.sub(r"[`*_~]", "", q)
+    # Backticks delimit quoted code. Underscores, stars and tildes may instead
+    # be part of the code/path being requested, so preserve them in the key.
+    # Otherwise get_user.py and getuser.py reuse the same cached file result.
+    q = q.replace("`", "")
     # Collapse multiple whitespace characters
     q = re.sub(r"\s+", " ", q).strip()
     # Strip trailing punctuation noise while preserving syntax like () or []
