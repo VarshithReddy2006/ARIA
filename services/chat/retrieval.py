@@ -412,14 +412,22 @@ def detect_deterministic_retrieval(
 
     if entity_res.has_explicit_entity:
         if entity_res.target_file:
-            cand_norm = entity_res.target_file.replace("\\", "/").lower()
+            cand_exact = entity_res.target_file.replace("\\", "/")
+            cand_norm = cand_exact.lower()
+
+            def _path_matches(path: str, cand: str, fold: bool) -> bool:
+                p = path.replace("\\", "/")
+                if fold:
+                    p = p.lower()
+                return p == cand or p.endswith("/" + cand) or p.startswith(cand + "/")
+
+            # Prefer case-exact matches so that paths differing only by case
+            # (e.g. src/getUser.py vs src/getuser.py) resolve to distinct files
+            # in case-sensitive repositories. Fall back to case-insensitive
+            # matching only when no case-exact match exists.
             matching_files = [
-                path
-                for path in file_paths
-                if path.replace("\\", "/").lower() == cand_norm
-                or path.replace("\\", "/").lower().endswith("/" + cand_norm)
-                or path.replace("\\", "/").lower().startswith(cand_norm + "/")
-            ]
+                path for path in file_paths if _path_matches(path, cand_exact, False)
+            ] or [path for path in file_paths if _path_matches(path, cand_norm, True)]
             if matching_files:
                 prod_files = [f for f in matching_files if not is_non_preferred_file(f)]
                 matched_p = prod_files[0] if prod_files else matching_files[0]
