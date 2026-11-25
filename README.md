@@ -16,32 +16,36 @@ Architecture · Execution · Contracts · Retrieval · Impact
 
 [![CI](https://img.shields.io/github/actions/workflow/status/VarshithReddy2006/ARIA/ci.yml?branch=main&style=for-the-badge&label=CI)](https://github.com/VarshithReddy2006/ARIA/actions/workflows/ci.yml)
 [![GitHub Stars](https://img.shields.io/github/stars/VarshithReddy2006/ARIA?style=for-the-badge)](https://github.com/VarshithReddy2006/ARIA/stargazers)
-[![GitHub Forks](https://img.shields.io/github/forks/VarshithReddy2006/ARIA?style=for-the-badge)](https://github.com/VarshithReddy2006/ARIA/network/members)
 [![Release](https://img.shields.io/github/v/release/VarshithReddy2006/ARIA?style=for-the-badge)](https://github.com/VarshithReddy2006/ARIA/releases)
 ![License](https://img.shields.io/badge/license-MIT-blue?style=for-the-badge)
-![Version](https://img.shields.io/badge/version-1.5.0-blue?style=for-the-badge)
-![Architecture](https://img.shields.io/badge/Architecture-RIA-purple?style=for-the-badge)
+![MCP](https://img.shields.io/badge/MCP-Enabled-00B4D8?style=for-the-badge)
 
-<br/>
-
-![Python](https://img.shields.io/badge/Python-3.11%20|%203.12-3776AB?style=for-the-badge&logo=python&logoColor=white)
-![Node.js](https://img.shields.io/badge/Node.js-%E2%89%A520-339933?style=for-the-badge&logo=nodedotjs&logoColor=white)
-![FastAPI](https://img.shields.io/badge/FastAPI-0.110+-009688?style=for-the-badge&logo=fastapi&logoColor=white)
-![Astro](https://img.shields.io/badge/Astro%205%20+%20React%2018-FF5D01?style=for-the-badge&logo=astro&logoColor=white)
-![Tree-sitter](https://img.shields.io/badge/Tree--sitter-AST-black?style=for-the-badge)
-![Vector Store](https://img.shields.io/badge/Qdrant-Primary%20Vector%20Store-DC2626?style=for-the-badge&logo=qdrant&logoColor=white)
-![Gemini](https://img.shields.io/badge/Gemini%203.1%20Flash%20Lite-4285F4?style=for-the-badge&logo=google&logoColor=white)
-![DeepSeek](https://img.shields.io/badge/DeepSeek%20V4%20Flash-6C5CE7?style=for-the-badge)
-![MCP](https://img.shields.io/badge/Model%20Context%20Protocol-MCP-00B4D8?style=for-the-badge)
-![JSON-RPC](https://img.shields.io/badge/JSON--RPC%202.0-Transport-FF6B6B?style=for-the-badge)
-
-<br/>
+<p>
+  <a href="https://aria-orpin-five.vercel.app"><strong>🚀 Try Live Demo</strong></a> ·
+  <a href="https://www.youtube.com/watch?v=evpdcO4QxzI"><strong>▶ Watch Walkthrough</strong></a> ·
+  <a href="#quick-start"><strong>⚡ 60s Quick Start</strong></a> ·
+  <a href="#mcp"><strong>🔌 MCP Server</strong></a>
+</p>
 
 [Overview](#why-aria) · [Mental Model](#the-aria-mental-model) · [Capabilities](#what-aria-provides) · [Architecture](#architecture) · [Foundations](#engineering-foundations) · [Quick Start](#quick-start) · [API](#api-reference) · [MCP](#mcp) · [Evaluation](#evaluation--evidence) · [Deployment](#deployment) · [Roadmap](#roadmap) · [FAQ](#faq)
 
 <br/>
 
+<a href="https://www.youtube.com/watch?v=evpdcO4QxzI">
+  <img src="docs/assets/demo.gif" width="100%" alt="ARIA Live Demo">
+</a>
+
+<sub>Click the preview to watch the full walkthrough on YouTube, or launch the <a href="https://aria-orpin-five.vercel.app">live web app</a>.</sub>
+
 </div>
+
+> **60-Second Self-Hosted Quick Start:**
+> ```bash
+> git clone https://github.com/VarshithReddy2006/ARIA.git && cd ARIA
+> cp .env.example .env   # add your Gemini/LLM API key
+> docker compose up -d --build
+> ```
+> Dashboard: `http://localhost:4321` · API & MCP: `http://localhost:8001` (see [Quick Start](#quick-start) and [MCP Setup](#mcp)).
 
 ---
 
@@ -1024,7 +1028,7 @@ Evaluated across 10 change-impact developer tasks in `fastapi/fastapi`, `psf/req
 - **Qdrant Vector Store**: Active support for Qdrant Cloud Free cluster and local Docker Qdrant.
 - **Self-Hosted Docker Compose**: `docker-compose.yml` provisions Qdrant, the API (`Dockerfile.api`), and the dashboard (`Dockerfile.frontend`). See [Self-Hosting](#self-hosting).
 - **Hugging Face Cloud Deployment**: Community Hardware Grant application currently pursued for public hosted demo.
-- **Hosted ARIA Demo**: Hosted cloud demonstration environment coming soon.
+- **Hosted ARIA Demo**: Live at [aria-orpin-five.vercel.app](https://aria-orpin-five.vercel.app).
 
 > [!NOTE]
 > `Dockerfile.worker` targets the retired Azure Container Apps Job path and is
